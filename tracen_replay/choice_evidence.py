@@ -97,3 +97,20 @@ def reconstruct(observations):
             selection_basis='repeated_menu_and_bilateral_selection_marks',complete_effects_verified=False))
         active=None;pending=[]
     return events
+
+
+def collect(readings,extra=()):
+    """Merge choice-only inspections without adding rows to stat accounting."""
+    rows={}
+    for r in readings:
+        time=r['source_timestamp_ms']
+        if r['screen']!='unknown':rows[time]=dict(source_timestamp_ms=time,screen_boundary=True)
+        elif 'choice_observation' in r.get('facts',{}) and not rows.get(time,{}).get('screen_boundary'):
+            rows[time]=dict(r['facts']['choice_observation'],source_timestamp_ms=time,evidence=r['evidence'])
+    for r in extra:
+        time=r['source_timestamp_ms'];old=rows.get(time)
+        if old and old.get('screen_boundary'):continue
+        # A known screen at this timestamp takes precedence over an unknown one.
+        if old and not r.get('screen_boundary'):continue
+        rows[time]=r
+    return [rows[t] for t in sorted(rows)]

@@ -23,7 +23,7 @@ def verify(root,source):
     for frame in capture['frames']:
         records.append((root/'neural'/(frame['id']+'.json'),inside(root,frame['evidence']),frame))
     manifests={};inspection_hashes={}
-    for name in ('training-inspection.json','native-inspection.json','receipt-inspection.json'):
+    for name in ('training-inspection.json','native-inspection.json','receipt-inspection.json','choice-inspection.json'):
         path=root/name
         if not path.exists():continue
         inspection_hashes[name]=hashlib.sha256(path.read_bytes()).hexdigest()
@@ -52,6 +52,7 @@ def verify(root,source):
             proof_hash=hashlib.sha256(evidence.read_bytes()).hexdigest();raw_hash=fingerprint(raw)
             extras=[raw_path.with_suffix('.'+suffix+'.json') for suffix in ('totals','contrast','performance','awards','receipt')]
             extras.append(evidence.with_suffix('.overlay.json'))
+            extras.append(evidence.with_suffix('.choice.json'))
             if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement')]
             for extra_path in extras:
                 if not extra_path.exists():continue

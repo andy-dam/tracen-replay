@@ -1,0 +1,471 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided dense regression for a brief single response, using independent source timestamps. No reward inference or full choice recall claim.",
+  "observations": [
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906750,
+      "evidence": "choice-inspection/906750-907250-60/frame-000001.png",
+      "evidence_sha256": "d2596cfcf02a735b95e5f7035cf5b32e21f306fdca4160691fe4eca7edf05659"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906767,
+      "evidence": "choice-inspection/906750-907250-60/frame-000002.png",
+      "evidence_sha256": "71444c437db0a0326e0628b92b066a854ffe8bdbfa777b40b236cc903f87a1e4"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906783,
+      "evidence": "choice-inspection/906750-907250-60/frame-000003.png",
+      "evidence_sha256": "915c1256fcd0306124da53edb464738311b780fc6fa8ca91b5724ed838951ca7"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906800,
+      "evidence": "choice-inspection/906750-907250-60/frame-000004.png",
+      "evidence_sha256": "54c255cb434f3aa1b61cd1d7f9a50ee72b5b3652edb69070312a7ef1d45c7dcc"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906817,
+      "evidence": "choice-inspection/906750-907250-60/frame-000005.png",
+      "evidence_sha256": "e6d7ec73d4c0a1acff439c3c78d5f0edbb70ec88c15d20d0700caf328f47118f"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906833,
+      "evidence": "choice-inspection/906750-907250-60/frame-000006.png",
+      "evidence_sha256": "9010f4c0cc34b57a3257c105364e64a57f54e0becb029164dcb7ae5f5485fac5"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906850,
+      "evidence": "choice-inspection/906750-907250-60/frame-000007.png",
+      "evidence_sha256": "5b02484dec201351fedc09e3174b65206ad54b534f829a9b51fff8e6a7b9b940"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906867,
+      "evidence": "choice-inspection/906750-907250-60/frame-000008.png",
+      "evidence_sha256": "a79eb83070d8224e90798b7a17ee25047793e8c8624fe88503f32e8d0965d178"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906883,
+      "evidence": "choice-inspection/906750-907250-60/frame-000009.png",
+      "evidence_sha256": "cc5fb6043522b593276315f619c3653cbf9da056b7354d1ff84e67688797d921"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906900,
+      "evidence": "choice-inspection/906750-907250-60/frame-000010.png",
+      "evidence_sha256": "e36554d7a022dc2753c2484e7d3c77e09f719a8f57464e87ce6b97b862aaf78e"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906917,
+      "evidence": "choice-inspection/906750-907250-60/frame-000011.png",
+      "evidence_sha256": "c46e4adf715c2aa3d7230cc330d9daf2b4b357884da7d0ab1c257a52b904f3d3"
+    },
+    {
+      "offered_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            312,
+            735,
+            398,
+            773
+          ],
+          "confidence": 99.966,
+          "card_y": [
+            716,
+            792
+          ]
+        }
+      ],
+      "selection_mark_pairs": [],
+      "menu_text_complete": true,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906933,
+      "evidence": "choice-inspection/906750-907250-60/frame-000012.png",
+      "evidence_sha256": "3569794c8d7f130c0c4ca10ceddfc2e5d716f164e285c40c8b9274afb43bf003"
+    },
+    {
+      "offered_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            312,
+            735,
+            398,
+            773
+          ],
+          "confidence": 99.974,
+          "card_y": [
+            716,
+            792
+          ]
+        }
+      ],
+      "selection_mark_pairs": [],
+      "menu_text_complete": true,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906950,
+      "evidence": "choice-inspection/906750-907250-60/frame-000013.png",
+      "evidence_sha256": "479ce30f98eced1cac8c9d0586e872bdf09b88adea5a64bfcdde9817da87ab39"
+    },
+    {
+      "offered_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            312,
+            735,
+            398,
+            773
+          ],
+          "confidence": 99.975,
+          "card_y": [
+            716,
+            792
+          ]
+        }
+      ],
+      "selection_mark_pairs": [],
+      "menu_text_complete": true,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906967,
+      "evidence": "choice-inspection/906750-907250-60/frame-000014.png",
+      "evidence_sha256": "fb39f86db329d265f413a3f8b8a853d1b8bbbb5e006c1c450696fbc3220d0002"
+    },
+    {
+      "offered_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            312,
+            735,
+            398,
+            773
+          ],
+          "confidence": 99.973,
+          "card_y": [
+            716,
+            792
+          ]
+        }
+      ],
+      "selection_mark_pairs": [],
+      "menu_text_complete": true,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 906983,
+      "evidence": "choice-inspection/906750-907250-60/frame-000015.png",
+      "evidence_sha256": "a2e9ec4e9c3bbdf1f0375561d34b7430cd7316aa8fffd4e80a6a3d7bf1a25c23"
+    },
+    {
+      "offered_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            312,
+            735,
+            398,
+            773
+          ],
+          "confidence": 99.974,
+          "card_y": [
+            716,
+            792
+          ]
+        }
+      ],
+      "selection_mark_pairs": [],
+      "menu_text_complete": true,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907000,
+      "evidence": "choice-inspection/906750-907250-60/frame-000016.png",
+      "evidence_sha256": "fc276477ad24204cd73e4cdc7b6a6c7f3d9346fddc9760b29a2a946cb6938b08"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907017,
+      "evidence": "choice-inspection/906750-907250-60/frame-000017.png",
+      "evidence_sha256": "7d4916b3fee7537a35607d9289193b611bd93eae77b2237e5550d1af46d8ce99"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [
+        {
+          "left": {
+            "box": [
+              258,
+              706,
+              313,
+              737
+            ],
+            "yellow_pixels": 415
+          },
+          "right": {
+            "box": [
+              798,
+              703,
+              853,
+              737
+            ],
+            "yellow_pixels": 482
+          }
+        }
+      ],
+      "menu_text_complete": false,
+      "selected_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            313,
+            735,
+            398,
+            774
+          ],
+          "confidence": 99.991,
+          "card_y": [
+            714,
+            794
+          ]
+        }
+      ],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907033,
+      "evidence": "choice-inspection/906750-907250-60/frame-000018.png",
+      "evidence_sha256": "d4a035532e6c6d0c68fbcecb118ea7a6d980f87033a382162ff8fed5d00bde1a"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [
+        {
+          "left": {
+            "box": [
+              258,
+              697,
+              313,
+              733
+            ],
+            "yellow_pixels": 522
+          },
+          "right": {
+            "box": [
+              798,
+              693,
+              853,
+              732
+            ],
+            "yellow_pixels": 620
+          }
+        }
+      ],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907050,
+      "evidence": "choice-inspection/906750-907250-60/frame-000019.png",
+      "evidence_sha256": "64bf05fe9e025268d2512be58ce0ad2afad1ccc35dfe6d58b975b5610213df94"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [
+        {
+          "left": {
+            "box": [
+              258,
+              691,
+              313,
+              730
+            ],
+            "yellow_pixels": 631
+          },
+          "right": {
+            "box": [
+              798,
+              687,
+              853,
+              729
+            ],
+            "yellow_pixels": 716
+          }
+        }
+      ],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907067,
+      "evidence": "choice-inspection/906750-907250-60/frame-000020.png",
+      "evidence_sha256": "ecd16d75e819dcdf82fcae2889f3619ea643411f8a1159e993b0e6cc65c07448"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [
+        {
+          "left": {
+            "box": [
+              258,
+              691,
+              313,
+              730
+            ],
+            "yellow_pixels": 631
+          },
+          "right": {
+            "box": [
+              798,
+              687,
+              853,
+              729
+            ],
+            "yellow_pixels": 715
+          }
+        }
+      ],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907083,
+      "evidence": "choice-inspection/906750-907250-60/frame-000021.png",
+      "evidence_sha256": "26cfb837f30f0a81b0289f0e61484d2a72a05657ca097edb4f46805d9c820797"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907100,
+      "evidence": "choice-inspection/906750-907250-60/frame-000022.png",
+      "evidence_sha256": "389a12a237ea9bf54f2b2e4293abb8101682b71eb1c2fc3ff4a351e8eb4a8392"
+    },
+    {
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "menu_text_complete": false,
+      "selected_card_candidates": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "source_timestamp_ms": 907117,
+      "evidence": "choice-inspection/906750-907250-60/frame-000023.png",
+      "evidence_sha256": "c684f60bfb62d99a0675e8c313c95e1efcaa4a5542549af888ce57cc74895bba"
+    },
+    {
+      "source_timestamp_ms": 907133,
+      "screen_boundary": true
+    },
+    {
+      "source_timestamp_ms": 907150,
+      "screen_boundary": true
+    },
+    {
+      "source_timestamp_ms": 907167,
+      "screen_boundary": true
+    },
+    {
+      "source_timestamp_ms": 907183,
+      "screen_boundary": true
+    },
+    {
+      "source_timestamp_ms": 907200,
+      "screen_boundary": true
+    },
+    {
+      "source_timestamp_ms": 907217,
+      "screen_boundary": true
+    },
+    {
+      "source_timestamp_ms": 907233,
+      "screen_boundary": true
+    }
+  ],
+  "expected": [
+    {
+      "options": [
+        "Agreed."
+      ],
+      "selected_index": 0,
+      "selected_text": "Agreed.",
+      "selection_observed_ms": 907033
+    }
+  ]
+}

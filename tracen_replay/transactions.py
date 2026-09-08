@@ -538,7 +538,7 @@ def reconcile_visible_training_candidates(before,after,events,readings):
     return resolutions
 
 
-def reconstruct(readings):
+def reconstruct(readings,choice_observations=()):
     states=checkpoints(readings);events=training_events(readings,states)+outcome_events(readings)
     skills=skill_transactions(readings,states);events+=skills
     events.sort(key=lambda e:e['first_seen_ms'])
@@ -563,11 +563,8 @@ def reconstruct(readings):
     actions += [dict(kind='race',source_timestamp_ms=r['first_seen_ms'],evidence=r['evidence'],race_id=r['id'],click_timestamp_ms=None) for r in race_results]
     actions.sort(key=lambda a:a['source_timestamp_ms'])
     from .mechanics_audit import fan_accounting,song_acquisitions,unparsed_receipt_candidates
-    from .choice_evidence import reconstruct as reconstruct_choices
-    choice_rows=[dict(r['facts']['choice_observation'],source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence'])
-                 for r in readings if 'choice_observation' in r.get('facts',{})]
-    choice_rows += [dict(source_timestamp_ms=r['source_timestamp_ms'],screen_boundary=True)
-                    for r in readings if r['screen']!='unknown']
+    from .choice_evidence import reconstruct as reconstruct_choices,collect as collect_choices
+    choice_rows=collect_choices(readings,choice_observations)
     return dict(checkpoints=states,events=events,intervals=intervals,
                 dialogue_choices=reconstruct_choices(choice_rows),
                 fan_accounting=fan_accounting(race_results,events),song_acquisitions=song_acquisitions(events,lessons),
