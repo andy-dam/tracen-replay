@@ -15,7 +15,8 @@ def candidates(lines,screen,*,stat=False):
         if not field or label['confidence']<97 or not (150<=a<c<=900 and 240<=b<d<=(750 if stat else 650) and 30<=d-b<=70):continue
         captions=[l for l in lines if l['confidence']>=95 and 770<=l['box'][1]<1000
                   and re.match(r'^'+re.escape(label['text'])+r' went up by\b',l['text'])]
-        if not captions:continue
+        if not captions and not stat:continue
+        if not captions and any(re.match(r'^'+re.escape(label['text'])+r' (?:cap|Bonus)\b',l['text']) for l in lines):continue
         gains=[]
         for line in lines:
             x,y,z,w=line['box'];match=re.fullmatch(r'\+(\d{1,3})',line['text'])
@@ -25,7 +26,7 @@ def candidates(lines,screen,*,stat=False):
         gain=gains[0]
         found.append(dict(kind='stat_change' if stat else 'performance_change',field=field,amount=int(gain['text'][1:]),
             raw_text=gain['text']+' '+label['text'],confidence=min(gain['confidence'],label['confidence']),
-            gain_box=gain['box'],label_box=label['box'],receipt_text=captions[0]['text']))
+            gain_box=gain['box'],label_box=label['box'],receipt_text=captions[0]['text'] if captions else None))
     return found
 
 
@@ -41,6 +42,7 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
     for field,observations in groups.items():
         values={c['amount'] for _,c in observations};times={r['source_timestamp_ms'] for r,_ in observations}
         if len(values)!=1 or len(times)<3 or max(times)-min(times)<50:continue
+        if not any(c.get('receipt_text') for _,c in observations):continue
         key=kind+'|'+field+'|';candidate=observations[0][1]
         prior=event['effects'].get(key)
         conflicts=[c for c in event['conflicting_readings'] if c['field']==key]
@@ -49,9 +51,13 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
         prefix_resolution=(stat and bool(observed) and all(type(n) is int and str(candidate['amount']).startswith(str(n)) for n in amounts)
                            and any(n!=candidate['amount'] for n in amounts)
                            and all(c.get('reason')=='changing_effect_value' for c in conflicts))
-        if prefix_resolution and (conflicts or prior and prior['amount']!=candidate['amount']):
+        matching={t for t,_,e in observed if e.get('amount')==candidate['amount']}
+        others={t for t,_,e in observed if e.get('amount')!=candidate['amount']}
+        display_agreement=(stat and len(matching)>=3 and max(matching)-min(matching)>=50 and len(others)==1
+                           and all(c.get('reason')=='changing_effect_value' for c in conflicts))
+        if (prefix_resolution or display_agreement) and (conflicts or prior and prior['amount']!=candidate['amount']):
             event.setdefault('resolved_reading_conflicts',[]).append(dict(field=key,observed_amounts=sorted(amounts),
-                accepted_amount=candidate['amount'],basis='repeated_labeled_animation_resolves_receipt_prefixes',
+                accepted_amount=candidate['amount'],basis='repeated_labeled_animation_resolves_receipt_prefixes' if prefix_resolution else 'repeated_receipt_and_animation_resolve_single_outlier',
                 receipt_evidence=[evidence for _,evidence,_ in observed]))
             event['conflicting_readings']=[c for c in event['conflicting_readings'] if c['field']!=key]
             event['effects'].pop(key,None);prior=None

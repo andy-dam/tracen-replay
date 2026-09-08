@@ -6,6 +6,28 @@ from tests.test_neural_transactions import line,row
 
 
 class AnimatedStatTests(unittest.TestCase):
+    def test_caption_can_be_visible_in_one_frame_of_repeated_animation(self):
+        bare=candidates(self.lines()[:2],'event_outcome',stat=True)
+        anchored=candidates(self.lines(),'event_outcome',stat=True)
+        rows=[row(t,'event_outcome',{'animated_stat_candidates':bare}) for t in (0,25,50)]
+        event=dict(first_seen_ms=0,last_seen_ms=100,effects={},field_evidence={},conflicting_readings=[])
+        reconcile(event,rows,stat=True);self.assertEqual(event['effects'],{})
+        rows[0]['facts']['animated_stat_candidates']=anchored
+        reconcile(event,rows,stat=True)
+        self.assertEqual(event['effects']['stat_change|skill_points|']['amount'],57)
+
+    def test_two_repeated_displays_resolve_only_one_receipt_outlier(self):
+        got=candidates(self.lines(),'event_outcome',stat=True)
+        rows=[row(t,'event_outcome',{'animated_stat_candidates':got}) for t in (0,25,50)]
+        key='stat_change|skill_points|'
+        for extra,accepted in (([],True),([(75,'e.png',{'amount':51})],False)):
+            event=dict(first_seen_ms=0,last_seen_ms=100,effects={key:{'amount':51}},field_evidence={},
+                       conflicting_readings=[{'field':key,'reason':'changing_effect_value'}])
+            receipts={key:[(t,str(t)+'.png',{'amount':57}) for t in (0,25,50)]+[(10,'outlier.png',{'amount':51})]+extra}
+            reconcile(event,rows,stat=True,receipt_observations=receipts)
+            self.assertEqual(event['effects'][key]['amount'],57 if accepted else 51)
+            if accepted:self.assertEqual(event['resolved_reading_conflicts'][0]['basis'],'repeated_receipt_and_animation_resolve_single_outlier')
+
     def test_source_animation_observations(self):
         ref=json.loads((Path(__file__).parent/'fixtures/animated-stat-regression-v1.json').read_text(encoding='utf-8'))
         for frame in ref['frames']:
