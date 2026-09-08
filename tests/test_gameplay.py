@@ -49,6 +49,10 @@ class GameplayTests(unittest.TestCase):
     def test_modal_overrides_background(self):
         self.assertEqual(classify('Learn the above skills? Skills Learned','Learn'),'skill_confirmation')
         self.assertEqual(classify('Spend performance points to learn this technique?','Lessons'),'lesson_confirmation')
+    def test_singular_skill_confirmation_and_word_boundaries(self):
+        self.assertEqual(classify('Confirmation Learn the above skill? Cancel Lsarn','Learn'),'skill_confirmation')
+        self.assertEqual(classify('Learn the above\nskills?','Learn'),'skill_confirmation')
+        self.assertNotEqual(classify('Learn the above skillset','Learn'),'skill_confirmation')
     def test_training_preview_not_completion(self):
         self.assertEqual(classify('Training Speed Lvl 1','Training',False,True),'training_preview')
         self.assertEqual(classify('Training Speed Lvl 1','Training',True,False),'training_result')

@@ -5,8 +5,32 @@ from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, screen_summary
 
 
+def skill_point_states(readings,states):
+    """A visible completion-hub SP counter need not expose all five attributes."""
+    result=list(states);group=[]
+    def finish():
+        if len({r['source_timestamp_ms'] for r in group})<3:return
+        result.append(dict(id=f'skill-points-{group[0]["source_timestamp_ms"]}',
+                           first_seen_ms=group[0]['source_timestamp_ms'],
+                           last_seen_ms=group[-1]['source_timestamp_ms'],
+                           values={'skill_points':group[0]['facts']['current_skill_points']},
+                           evidence=group[-1]['evidence'],
+                           supporting_frames=[r['evidence'] for r in group],
+                           basis='repeated_completion_hub_skill_points'))
+    for row in readings:
+        value=row['facts'].get('current_skill_points')
+        eligible=row['screen']=='career_completion_hub' and type(value) is int and value>=0
+        if group and (not eligible or value!=group[-1]['facts']['current_skill_points']
+                      or not 0<row['source_timestamp_ms']-group[-1]['source_timestamp_ms']<=500):
+            finish();group=[]
+        if eligible:group.append(row)
+    finish()
+    return sorted(result,key=lambda s:(s['last_seen_ms'],s['first_seen_ms']))
+
+
 def skill_transactions(readings,states):
     """Only receipt-backed batches; menu counters are never independently charged."""
+    states=skill_point_states(readings,states)
     spans=screen_summary(readings);transactions=[]
     for span in spans:
         if span['screen']!='skill_receipt' or span.get('completed_action')!='skill_purchase_batch':continue
@@ -154,6 +178,11 @@ def skill_transactions(readings,states):
             bundle_charge_assignment_complete=spent is not None and bundle_total==spent and not unassigned,
             unassigned_cart_changes=unassigned,
             cart_changes=cart_changes,pricing_limitation='Displayed prerequisite and upgrade prices are not additive; card candidates are not individually verified charges.',
+            balance_evidence=[dict(role=role,skill_points=state['values']['skill_points'],
+                                   first_seen_ms=state['first_seen_ms'],last_seen_ms=state['last_seen_ms'],
+                                   basis=state.get('basis','repeated_six_field_state'),
+                                   evidence=state.get('supporting_frames',[state['evidence']]))
+                              for role,state in (('before',before),('after',after)) if state],
             evidence=[s['evidence'] for s in (before,confirmation,span,after) if s]+counter_proofs,
             cost_basis=basis))
     return transactions

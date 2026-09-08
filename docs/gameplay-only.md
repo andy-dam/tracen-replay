@@ -51,6 +51,8 @@ Immediate effects, future training modifiers and bonuses queued until a concert 
 - [ ] Measure full action/effect recall against dense references not selected only from predictions.
 - [ ] Validate complete skill inventory and active concert bonuses; adjudicate fields the source does not expose.
 - [ ] Validate non-stat mechanics and uncertain names, including choice evidence and race item identities.
-- [ ] Evaluate a separate recording without mixing its frames into development references.
+- [x] Evaluate a separate recording before source-driven changes and preserve initial scores separately from later regression results.
+
+The separate-recording evaluation exposed failures; completing that evaluation does not close the remaining reliability gates. Its reviewed intervals and limitations are reported in [measured results](results-gameplay-only.md).
 
 All clips from one video belong to one recording-level evaluation split. Additional sampling does not create an independent test set. Unknown fields are valid outputs; complete mechanic coverage requires its own reference evidence.

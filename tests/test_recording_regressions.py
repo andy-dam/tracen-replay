@@ -14,6 +14,45 @@ from tracen_replay.refine_contrast import apply_contrast_refinement,fingerprint
 
 
 class RecordingRegressions(unittest.TestCase):
+    def test_completion_hub_sp_can_verify_charge_without_attribute_grid(self):
+        before=[row(t,'career_completion_hub',{'current_skill_points':1242}) for t in (0,250,500)]
+        purchase=[row(1000,'skill_confirmation'),row(1500,'skill_receipt')]
+        after=[row(t,'career_completion_hub',{'current_skill_points':8}) for t in (2000,2250,2500)]
+        batch=skill_transactions(before+purchase+after,[])[0]
+        self.assertEqual(batch['spent_skill_points'],1234)
+        self.assertEqual(batch['deltas'],{'skill_points':-1234})
+        self.assertEqual([e['skill_points'] for e in batch['balance_evidence']],[1242,8])
+        self.assertTrue(all(len(e['evidence'])==3 and e['basis']=='repeated_completion_hub_skill_points'
+                            for e in batch['balance_evidence']))
+        self.assertFalse(batch['purchased_list_complete'])
+        # Projected menu counters are not interchangeable with actual hub SP.
+        projected=[dict(r,screen='skill_selection') for r in before+after]
+        self.assertIsNone(skill_transactions(projected[:3]+purchase+projected[3:],[])[0]['spent_skill_points'])
+        # A single observation, inconsistent counters, and another intervening
+        # SP award cannot certify a debit.
+        self.assertIsNone(skill_transactions(before[:1]+purchase+after,[])[0]['spent_skill_points'])
+        conflicting=[row(0,'career_completion_hub',{'current_skill_points':1242}),
+                     row(250,'career_completion_hub',{'current_skill_points':1243}),before[-1]]
+        self.assertIsNone(skill_transactions(conflicting+purchase+after,[])[0]['spent_skill_points'])
+        award=row(750,effects=[{'kind':'stat_change','field':'skill_points','amount':10}])
+        self.assertIsNone(skill_transactions(before+[award]+purchase+after,[])[0]['spent_skill_points'])
+
+    def test_singular_confirmation_requires_a_receipt_before_creating_batch(self):
+        # The separate recording's final modal uses singular "skill" even
+        # though several skills are selected. A button OCR error is unrelated.
+        parsed=parse(raw([line('Confirmation',(480,38,626,68)),
+                          line('Learn the above skill?',(427,903,678,936)),
+                          line('Cancel',(377,979,463,1014)),
+                          line('Lsarn',(653,982,722,1014),74)]))
+        confirmation=row(1000,parsed['screen'],parsed['facts'])
+        self.assertEqual(skill_transactions([confirmation],[]),[])
+        receipt=row(2000,'skill_receipt')
+        self.assertEqual(skill_transactions([receipt],[]),[])
+        batches=skill_transactions([confirmation,receipt],[])
+        self.assertEqual(len(batches),1)
+        self.assertIsNone(batches[0]['spent_skill_points'])
+        self.assertFalse(batches[0]['complete_transaction_verified'])
+
     def test_state_constraints_only_resolve_an_already_visible_candidate(self):
         before=dict(id='before',last_seen_ms=0,values={f:100 for f in ('speed','stamina','power','guts','wit','skill_points')},evidence='before.png')
         after=dict(id='after',first_seen_ms=1000,values=dict(before['values'],speed=112),evidence='after.png')

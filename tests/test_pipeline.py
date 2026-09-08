@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from tracen_replay.pipeline import PipelineError, analyze
+from tracen_replay.pipeline import PipelineError, analyze, decode_frames
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
@@ -92,10 +92,14 @@ class PipelineIntegrationTests(unittest.TestCase):
             if len(attempts)==1:
                 raise PermissionError('temporary scanner lock')
             return rename(path,target)
-        with patch.object(Path,'rename',temporarily_locked), patch('tracen_replay.pipeline.time.sleep'):
+        with patch.object(Path,'rename',temporarily_locked), patch('tracen_replay.pipeline.time.sleep'), \
+                patch('tracen_replay.pipeline.decode_frames',wraps=decode_frames) as decode:
             analyze(self.source,output,0.2,1.4,8)
-        self.assertEqual(len(attempts),2)
-        self.assertEqual(attempts[0],attempts[1])
+        # The real filesystem can add a scanner lock after our injected one.
+        # Every retry must publish the same decoded bundle, never decode again.
+        self.assertGreaterEqual(len(attempts),2)
+        self.assertEqual(len(set(attempts)),1)
+        self.assertEqual(decode.call_count,1)
         self.assertTrue((output/'report.json').exists())
 
     def test_persistent_file_lock_leaves_no_published_report(self):

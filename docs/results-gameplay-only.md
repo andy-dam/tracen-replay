@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-127 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties.
+130 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate.
 
 All 58 reviewed unparsed receipt candidates now have matching accepted evidence in their nearby receipt. Four actual gaps required denser inspection: energy deductions of 18 and 14, unchanged friendship with Sirius Symboli, and maximum friendship with Light Hello. The source-linked fixture preserves the manual statements and screenshot hashes. This candidate-selected check does not measure effects that never became candidates. Recreation unlocks and inheritance inspiration/spark triggers are typed separately without inventing their rewards.
 
@@ -63,6 +63,24 @@ python -m tracen_replay.transaction_evaluate tests/fixtures/lesson-concert-seque
 python -m tracen_replay.verify_evidence "C:/path/to/recording.mp4" --output .local/full-recording/run-01
 ```
 
+## Separate-recording evaluation
+
+A separate 29:36.717 recording was evaluated with revision `40fd1387d83edce0e42d2dde68989999783a51d2` before source-driven code changes. The base and fully refined initial reports, source/model hashes, source archive, environment and manual references are preserved locally under `independent-01/initial-base` and `independent-01/initial-refined`. The initial labels were reviewed directly from video before reading predictions.
+
+The frozen pipeline processed 7,107 base frames, 60 dense training windows, and native-rate gap inspections. Its evidence audit verified 11,274 observations and 9,634 refinements with zero provenance errors. This checks evidence integrity, not interpretation accuracy.
+
+| Frozen refined check | Result | Scope |
+|---|---|---|
+| Dialogue effects | 74/75 matched, one extra | Four dense intervals totaling 115 seconds; the mismatch is a missing musical-note symbol in a song name |
+| Action identities | 4/4 matched | Three trainings and one race, including selected training options |
+| Declared action details | Passed | Reviewed training gains, performance gains and race identity/course/fans |
+| Lesson transactions | 7/7 found; one cost unresolved | Seven paid lessons in 19:55–20:30 |
+| Concert transaction and aftermath | Passed | One concert and 19 aftermath effects in 21:45–22:05 |
+| Final attributes | Five matched | Numeric result summary |
+| Final skill purchase | Failed | The frozen classifier missed the singular confirmation wording and did not reconstruct the batch |
+
+The effect reference covers approximately 6.47% of this recording, not whole-recording recall. Choice labels are present but choice reconstruction remains unimplemented. Final inventory, active bonuses and race item identities are outside these passing checks. The initial failures remain preserved; changes guided by this recording and later scores on it are regression work, not a fresh independent evaluation.
+
 ## Remaining boundary
 
-`fully_verified` and `go_ready` remain false. Full non-stat effect recall, choices, complete skill inventory, uncertain song symbols, race item identities and all active concert bonus values are not yet validated. Some fields need additional visible UI evidence rather than more arithmetic. No independent recording has been supplied. See [active gates](gameplay-only.md) and [reproduction guide](full-recording-analysis.md).
+`fully_verified` and `go_ready` remain false. Full non-stat effect recall, choices, complete skill inventory, uncertain song symbols, race item identities and all active concert bonus values are not yet validated. Some fields need additional visible UI evidence rather than more arithmetic. The separate recording also exposes unresolved skill, lesson and event accounting. See [active gates](gameplay-only.md) and [reproduction guide](full-recording-analysis.md).
