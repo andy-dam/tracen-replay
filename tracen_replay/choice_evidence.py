@@ -48,6 +48,8 @@ def reconstruct(observations):
     """Associate selection marks with repeated recent menus; never use rewards."""
     active=None;pending=[];events=[];used=set()
     for row in sorted(observations,key=lambda r:r['source_timestamp_ms']):
+        if row.get('screen_boundary'):
+            active=None;pending=[];continue
         time=row['source_timestamp_ms'];cards=row['offered_card_candidates']
         if active and time-active[-1]['source_timestamp_ms']>1500:active=None
         if cards:

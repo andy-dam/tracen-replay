@@ -1,6 +1,6 @@
 # Dialogue choice reconstruction
 
-`tracen_replay.choice_evidence` is a development component, not yet part of the full-recording report pipeline.
+`tracen_replay.choice_evidence` supplies development-stage choice reconstruction in `gameplay_tracking.dialogue_choices`. Run `python -m tracen_replay.refine_choices RUN_DIRECTORY`, then rebuild with `full_recording --reparse-only`. Choice observations are stored separately in `choice-refinement/`; the loader and evidence verifier check their raw OCR and gameplay screenshot hashes. The additional pass currently covers base observations classified as unknown, not every native inspection frame.
 
 `observe(pane, lines)` accepts only the isolated 810×1080 gameplay crop. It records OCR text supported by a broad white option-card interior and paired yellow selection marks at the two card edges. A colored badge on one card edge is insufficient. These observations alone do not identify a selected option.
 
@@ -10,8 +10,8 @@ The initial source-guided check reconstructs two multi-option decisions in the s
 
 Next work:
 
-- Integrate immutable pixel observations with source/proof hashes into the full-recording workflow and provenance verifier.
+- Extend provenance-backed observations to dense choice-inspection frames when base sampling misses brief responses.
 - Sample the brief single-response transition more densely; do not weaken repeated-menu evidence to force recognition.
-- Add an evaluator for the existing choice reference, including missed/extra choices, response type and selection evidence.
+- Run `python -m tracen_replay.choice_evaluate REFERENCE REPORT --evidence-root RUN_DIRECTORY --output SCORE_FILE`. The evaluator checks missed/extra choices in the reference evidence window, response type, options and selection evidence. Keep that bounded scope separate from full choice recall.
 - Validate unrelated events, menus, canceled/changed selections, moving cards and false yellow-mark matches before exposing verified choices in the report.
 - Establish full source-selected choice coverage separately from these selected development examples.

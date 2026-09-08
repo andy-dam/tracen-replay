@@ -150,7 +150,12 @@ def cached_readings(report,root,allow_partial=False):
             if extra['raw_sha256']!=fingerprint(original) or extra['evidence_sha256']!=hashlib.sha256((root/raw['evidence']).read_bytes()).hexdigest():raise PipelineError('Skill variant evidence changed.')
             raw=dict(raw,skill_variants=extra['observations'])
         from .receipt_occlusion import annotate_path
-        row=parse(annotate_path(raw,root/raw['evidence'],original));row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
+        row=parse(annotate_path(raw,root/raw['evidence'],original))
+        choice=root/'choice-refinement'/path.name
+        if choice.exists():
+            from .refine_choices import apply as apply_choice
+            row=apply_choice(row,original,json.loads(choice.read_text(encoding='utf-8')),root/raw['evidence'])
+        row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
     return readings
 
 

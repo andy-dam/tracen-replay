@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-187 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
+202 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
 
 Consecutive skill receipts can be reconciled jointly between observed balances when repeated final-cart counters explain the full debit and no other SP transaction intervenes. Intermediate counters retain their projected status. Account fan totals after career completion are separate from race results. Repeated completed-training identity remains an action even when its reward digits are unreadable; reward completeness stays false.
 
@@ -81,7 +81,7 @@ The frozen pipeline processed 7,107 base frames, 60 dense training windows, and 
 | Final attributes | Five matched | Numeric result summary |
 | Final skill purchase | Failed | The frozen classifier missed the singular confirmation wording and did not reconstruct the batch |
 
-The effect reference covers approximately 6.47% of this recording, not whole-recording recall. Choice labels are present but choice reconstruction remains unimplemented. Final inventory, active bonuses and race item identities are outside these passing checks. The initial failures remain preserved; changes guided by this recording and later scores on it are regression work, not a fresh independent evaluation.
+The effect reference covers approximately 6.47% of this recording, not whole-recording recall. Choice reconstruction now has a separate development evaluation; it does not change the frozen results above. Final inventory, active bonuses and race item identities are outside these passing checks. The initial failures remain preserved; changes guided by this recording and later scores on it are regression work, not a fresh independent evaluation.
 
 Subsequent regression fixes bring the final-state/skill reference from 6/20 to 20/20 checks: final attributes, the two checked remaining-SP observations, the 1,234-SP charge, and twelve skill targets with costs and declared circle variants. This does not establish complete owned-skill inventory. All 62 reconstructed lesson costs are now observed, and all three skill charges (1,455, 60 and 1,234 SP) are assigned to cart bundles. The first two charges use joint receipt accounting, without claiming an independently observed intermediate balance.
 
@@ -97,4 +97,8 @@ Repeated labeled stat animations now corroborate event receipts. The Mile Champi
 
 ## Remaining boundary
 
-`fully_verified` and `go_ready` remain false. Full non-stat effect recall, choices, complete skill inventory, uncertain song symbols, race item identities and all active concert bonus values are not yet validated. Some fields need additional visible UI evidence rather than more arithmetic. The separate recording also exposes unresolved skill, lesson and event accounting. See [active gates](gameplay-only.md) and [reproduction guide](full-recording-analysis.md).
+`fully_verified` and `go_ready` remain false. Full non-stat effect recall, complete choice coverage, complete skill inventory, uncertain song symbols, race item identities and all active concert bonus values are not yet validated. Some fields need additional visible UI evidence rather than more arithmetic. The separate recording also exposes unresolved skill, lesson and event accounting. See [active gates](gameplay-only.md) and [reproduction guide](full-recording-analysis.md).
+
+## Dialogue choice development
+
+The optional choice-refinement pass stores gameplay-only card and selection-mark observations with raw OCR and screenshot hashes. The current separate-run report contains eight dialogue-choice candidates; six are not yet manually validated. The preserved doctor-event reference scores 2/3 with no extra predictions in its evidence window: both multi-option choices match, while the brief single response is missing. All 3,859 stored choice observations pass their raw/proof hash checks. This is bounded regression development, not full choice recall. See [choice reconstruction](choice-reconstruction.md).
