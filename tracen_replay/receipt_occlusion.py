@@ -8,6 +8,26 @@ import json
 import re
 
 
+def numeric_line(line):
+    return 770<=line['box'][1]<1000 and bool(re.search(r'went|recover|Gained|Friendship',line['text']) and re.search(r'\d',line['text']))
+
+
+def recovered_leading_digit(line,alignments):
+    """Padded OCR views can expose a digit missed by the tight alignment crop."""
+    from .refine_receipts import consensus
+    views=line.get('receipt_crop_views',[])
+    accepted=consensus(views)
+    if not accepted:return False
+    complete=re.fullmatch(r'(.+?by)\s*(\d+)[.!]?',accepted['text'])
+    if not complete or accepted['text']!=line['text']:return False
+    for item in alignments:
+        if item['line_box']!=line['box'] or item.get('confidence',0)<95:continue
+        partial=re.fullmatch(r'(.+?by)\s*(\d+)[.!]?',item.get('recognized_text',''))
+        if (partial and re.sub(r'\s','',partial[1])==re.sub(r'\s','',complete[1])
+            and len(complete[2])>len(partial[2]) and complete[2].endswith(partial[2])):return True
+    return False
+
+
 def numeric_bounds(box,words,columns,line_length):
     """Include the gap after 'by': an obscured leading digit has no OCR column."""
     if line_length<=0 or len(words)!=len(columns) or any(not c for c in columns):return None
@@ -52,14 +72,13 @@ def overlay_boxes(pane):
 
 
 def annotate(raw,pane):
-    candidates=[i for i,line in enumerate(raw['lines']) if 770<=line['box'][1]<1000
-                and re.search(r'went|recover|Gained|Friendship',line['text'])]
+    candidates=[i for i,line in enumerate(raw['lines']) if numeric_line(line)]
     if not candidates:return raw
     if raw.get('gameplay_sha256')!=hashlib.sha256(pane.convert('RGB').tobytes()).hexdigest():
         raise ValueError('Receipt overlay proof differs from original OCR pixels.')
     boxes=overlay_boxes(pane)
     if not boxes:return raw
-    lines=[dict(line) for line in raw['lines']];blocked=[]
+    lines=[dict(line) for line in raw['lines']];blocked=[];resolved=[]
     for index in candidates:
         line=lines[index];a,b,c,d=line['box']
         localized=[]
@@ -74,13 +93,17 @@ def annotate(raw,pane):
         middle=(b+d)/2
         overlaps=[box for box in boxes if min(c,box[2])-max(a,box[0])>=3 and box[1]<=middle<=box[3]]
         if overlaps:
+            if recovered_leading_digit(line,raw.get('overlay_alignment',[])):
+                resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
+                                     basis='padded_views_recover_leading_digit',independent_frame_count=1))
+                continue
             blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps))
             line.update(confidence=0,overlay_occluded=True,pre_occlusion_confidence=line['confidence'])
-    return dict(raw,lines=lines,occluded_receipt_lines=blocked) if blocked else raw
+    return dict(raw,lines=lines,occluded_receipt_lines=blocked,resolved_receipt_occlusions=resolved) if blocked or resolved else raw
 
 
 def annotate_path(raw,path,original=None):
-    if not any(770<=l['box'][1]<1000 and re.search(r'went|recover|Gained|Friendship',l['text']) for l in raw['lines']):return raw
+    if not any(numeric_line(l) for l in raw['lines']):return raw
     from PIL import Image
     from .refine_contrast import fingerprint
     extra_path=path.with_suffix('.overlay.json')

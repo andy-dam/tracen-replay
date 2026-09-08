@@ -90,6 +90,25 @@ class ReceiptOcclusionTests(unittest.TestCase):
         reading=parse(annotate(source,pane))
         self.assertTrue(any(e.get('field')=='skill_points' and e['amount']==7 for e in reading['effects']))
 
+    def test_numeric_rule_does_not_suppress_nonnumeric_friendship_status(self):
+        source,pane=self.sample()
+        source['lines'][0]['text']="Friendship with Agnes Digital didn't go up."
+        self.assertTrue(any(e['kind']=='friendship_status' for e in parse(annotate(source,pane))['effects']))
+
+    def test_padded_views_can_recover_a_covered_leading_digit(self):
+        source,pane=self.sample();l=source['lines'][0];l['text']='Energy went down by18.'
+        l['receipt_crop_views']=[dict(text=l['text'],confidence=99) for _ in range(3)]
+        source['overlay_alignment']=[dict(line_box=l['box'],numeric_box=[500,852,560,879],
+                                          recognized_text='Energy went down by8.',confidence=99)]
+        reading=parse(annotate(source,pane))
+        self.assertTrue(any(e['kind']=='energy_change' and e['amount']==-18 for e in reading['effects']))
+        self.assertEqual(reading['facts']['resolved_receipt_occlusions'][0]['independent_frame_count'],1)
+        source['overlay_alignment'][0]['recognized_text']='Energy went down by18.'
+        self.assertFalse(any(e['kind']=='energy_change' for e in parse(annotate(source,pane))['effects']))
+        source['overlay_alignment'][0]['recognized_text']='Energy went down by8.'
+        l['receipt_crop_views'][0]['text']='Energy went down by8.'
+        self.assertFalse(any(e['kind']=='energy_change' for e in parse(annotate(source,pane))['effects']))
+
     def test_only_uncovered_frames_supply_numeric_evidence(self):
         source,pane=self.sample();covered=parse(annotate(source,pane))
         clear=parse(raw([line('Skill Pts went up by 57.')]))

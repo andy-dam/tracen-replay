@@ -212,6 +212,8 @@ def parse(raw):
     facts={}
     if raw.get('occluded_receipt_lines'):
         facts['occluded_receipt_lines']=raw['occluded_receipt_lines']
+    if raw.get('resolved_receipt_occlusions'):
+        facts['resolved_receipt_occlusions']=raw['resolved_receipt_occlusions']
     if screen=='concert_bonus_update':facts['bonus_update_receipt']=True
     if screen=='concert_info':
         current={};planned={}
