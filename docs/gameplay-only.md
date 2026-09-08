@@ -1,64 +1,56 @@
 # Gameplay-only reconstruction
 
-Status: implemented experimental baseline; the reliability milestone is **not yet complete**. The Go service and Azure deployment remain behind the validation gates below.
+Status: full-recording development analysis implemented; reliability validation remains open. Go and Azure remain behind the gates below. See [measured results](results-gameplay-only.md) and [full-recording setup](full-recording-analysis.md).
 
-See [development results](results-gameplay-only.md) for measured coverage, reviewed examples and unresolved cases.
+## Recognition boundary
 
-## Run
-
-Install the analysis extra (`python -m pip install -e ".[analysis]"`), FFmpeg, and English Tesseract. Then:
-
-```powershell
-python -m tracen_replay "C:\path\to\recording.mp4" --start 25 --duration 57 --fps 4 --gameplay-only --output .local/runs/gameplay-01
-```
-
-`--gameplay-only` and the legacy `--track-stats` mode are mutually exclusive. The legacy mode uses auxiliary log text and is retained for comparison, not as a fallback.
-
-The supported layout is English 1920×1080, with the gameplay rectangle at `(148, 0, 958, 1080)`. Recognition receives only that 810×1080 crop. The stat reader receives a blank canvas populated with those pixels; the original side panel never reaches OCR. Gameplay evidence is exported separately as PNG files. Full source screenshots remain in the gallery for inspection, but are not recognition input.
+The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080)`. Neural recognition receives only that 810x1080 crop. Full source screenshots are retained as evidence but the side log is not recognition input. The older Tesseract `--gameplay-only` clip runner remains available; legacy `--track-stats` uses the auxiliary log and is not a fallback.
 
 ## Report contract
 
-`gameplay_tracking` contains:
+`gameplay_tracking` includes:
 
-- `readings`: sampled screen observations, raw regional OCR, current-stat readings, typed effects, and mechanics fields.
-- `screens`: adjacent observations of the same screen. These are visibility spans, not reliable action counts.
-- `training_previews`: browsed options, with no completed-action claim.
-- `checkpoints`: repeated six-field state readings, including skill points. These are not automatically career turns.
-- `intervals`: observed changes, supported changes, and unexplained residuals. Even arithmetic agreement does not verify event identity or prove that no offsetting changes were missed.
-- `lesson_purchases`: a named confirmation whose projected resource balance matches a subsequently observed debit. Evidence includes the before balance, dialog, and after balance. Projected stat bonuses are not promoted into awarded stats.
-- `skill_receipts`: visible acquisition receipts. The complete purchased skill list and transaction cost remain unknown.
-- `investigation`: initial discrepancies and bounded source resampling. At a base rate below 8 FPS, up to two three-second windows are decoded again at 8 FPS. Additional frames retain original PTS and are merged by timestamp. An unsuccessful investigation leaves the residual unresolved.
+- `readings` and `screens`: source-timestamped observations and visibility spans, not action counts.
+- `training_previews`: browsed options, never completed-action claims.
+- `turn_action_receipts`: training result options, rest/outing recovery chains and race results. Receipt time and unknown click time are separate.
+- `checkpoints`, `events`, `intervals`: repeated six-field states, supported effects and unexplained residuals. Candidate resolutions retain evidence and whether they depend on surrounding states.
+- `lesson_purchases`: matching named receipt and confirmation, five-resource costs, observed debits, actual awards and separate projected effects.
+- `skill_purchases`: receipt-backed batch SP debit, cart additions/removals, committed bundles, prerequisite candidates and circle variants. Complete ownership is a separate claim.
+- `races`: identity, course, placing, fans and unknown item identities.
+- `concerts`: confirmation, result, aftermath, queued effects, update receipts and later observed current-bonus snapshots. The update caption does not prove every value.
+- `song_acquisitions`: one acquisition per receipt with alternative observed names and supported paid-lesson or story-event associations.
+- `performance_accounting` and `fan_accounting`: separate resource ledgers with unknown observations preserved.
 
-The first investigation targets a visible result/outcome near each selected discrepancy. This budget is intentionally finite. It does not search the entire recording or guarantee recovery of short animations.
+`verification` checks source endpoints, sampling continuity, PTS, processed frames per minute, discrepancies, calendar/action coverage and final-state agreement. Separate `evidence-audit.json` validates source hashes and crop pixels. Neither automatically certifies semantic correctness.
 
-## Mechanics and counting rules
+## Counting rules
 
-| Mechanic | What is recorded now | What must not be counted as an award | Remaining work |
-|---|---|---|---|
-| Training | Preview option separately from the option on a result grid; partial result totals and caps; repeated compatible result values can support a partial state change | Browsing, last highlighted option, preview gains, or stat caps | Robust animated digits, failure results, complete gain recovery and action identity |
-| Ordinary events | Explicit attribute/SP changes, energy recovery/loss, mood direction, named friendship changes and skill hints | Dialogue, offered effects, inferred missing rewards | Choice text, actual selection evidence, event titles and duplicate/fragmented receipt identity |
-| Races | Result screen, fan total/gain, readable course description | Race entry, strategy choice, fan gain as skill points, item icons as named rewards | Placing, race identity, entry/finish association, item recognition and subsequent stat rewards |
-| Skills | Selection, confirmation and acquisition receipt are distinct | Available skills, hint discounts, previously obtained skills, selected-but-uncommitted costs, or final owned-skill lists | Complete purchased names, upgrades, and verified batch SP debit |
-| Lessons | Five performance currencies; confirmation name, projected balance and immediate/future/queued effect semantics; matching observed resource debit | Offered cards, preview stat gains, or unchanged menu balances immediately after a dialog | Complete purchase recall, complete current stats, observed stat awards and song inventory |
-| Songs | Explicit song-learned receipt with name; acquisition source/cost unknown unless separately established | Automatically learned story songs as paid lessons | Distinguish all acquisition routes and persist activated bonuses |
-| Concerts | Start confirmation, context-supported result banner, explicit aftermath stat changes and hype observations | Start dialog, playback settings, future bonus descriptions, or stat-cap increases as current stats | Concert identity, queued-to-active bonus transition, complete reward/skill-point attribution |
-| Scenario resources | Explicit Dance/Passion/Vocal/Visual/Composure changes, supporter names and hype direction | Performance points as character stats or hype changes as an assumed numeric amount | Complete resource ledger across training, lessons and concerts |
-| Career completion | Summary and finish confirmation separated from skill acquisition | Existing owned skills as new purchases; missing skill points as zero | Final-state cross-check and complete inventory reconciliation |
+| Mechanic | Count from | Keep separate or unknown |
+|---|---|---|
+| Training | Result option and supported displayed gains | Browsing, projections, caps, click time |
+| Ordinary events | Explicit receipts with title/geometry/time boundaries | Dialogue, actual selected choice, unreadable effects |
+| Rest and outings | Request then recovery without intervening action | Canceled dialogs and unrelated recovery |
+| Races | Result identity, placing and fan receipt | Entry menus, unread item identities |
+| Skills | Acquisition receipt plus SP balance evidence | Pending/removed selections, bundled prerequisites, next offered rank |
+| Lessons | Named receipt, confirmation and balances | Offered cards, delayed unchanged counters, canceled dialogs |
+| Songs | Learned receipt and supported acquisition route | OCR alternatives as multiple songs, story songs as paid lessons |
+| Concerts | Result/aftermath and explicit bonus update | Planned values as active; missing values as zero |
+| Completion | Observed final attributes and remaining SP | Existing skills as fresh purchases; missing inventory as complete |
 
-For Our Grand Concert, lesson effects can apply immediately, modify future training, or wait for a concert. Multiple lessons can occur within one career turn. These distinctions follow the [GameTora scenario guide](https://gametora.com/umamusume/our-grand-concert); the parser uses visible English UI terms. It does not calculate unobserved rewards from guide formulas.
+Immediate effects, future training modifiers and bonuses queued until a concert are distinct. Performance currencies, caps, fans, energy, mood, friendship and hints are distinct resources. `Speed went up by 6 to new heights.` means **6**; the displayed reduction has already happened. No unseen rewards are computed from scenario formulas.
 
-`Speed went up by 6 to new heights.` records **6**. The displayed reduction has already happened; the analyzer does not halve it again. `Training Power Gain +1` is a future modifier, not an immediate Power award. A skill hint is not skill ownership. The skill-selection point counter can show a projected remaining balance, so changing it does not establish an SP transaction.
+## Gates before the application
 
-## Validation gates before the application
+- [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
+- [x] Process the complete supplied recording and verify frame/crop/refinement provenance.
+- [x] Separate previews, confirmations, receipts, immediate awards and future effects.
+- [x] Account for six stat fields and five performance currencies across observed checkpoints.
+- [x] Account for race fans, actions on dated turns, and final attributes/SP.
+- [x] Recover observed lesson debits, committed skill charges and concert reward/update receipts.
+- [x] Review every detected action receipt and evaluate two contiguous development sequences.
+- [ ] Measure full action/effect recall against dense references not selected only from predictions.
+- [ ] Validate complete skill inventory and active concert bonuses; adjudicate fields the source does not expose.
+- [ ] Validate non-stat mechanics and uncertain names, including choice evidence and race item identities.
+- [ ] Evaluate a separate recording without mixing its frames into development references.
 
-- [x] Make the gameplay crop a structural boundary and test that changing auxiliary pixels leaves the recognizer input and report unchanged.
-- [x] Separate confirmations, previews, receipts, resource types and future effects.
-- [x] Evaluate reviewed examples from training, events, lessons, races, skills and concerts.
-- [x] Decode additional source frames when selected stat discrepancies remain unresolved.
-- [ ] Explain training gains consistently from independent result evidence, with no auxiliary log.
-- [ ] Recover event identity without double-counting fragmented or repeatedly visible outcomes.
-- [ ] Validate complete skill/lesson purchase transactions and concert rewards, rather than only screen recognition.
-- [ ] Review a densely labeled contiguous sequence for action/effect precision and missed-event recall.
-- [ ] Repeat on an independent recording with recording-level evaluation separation.
-
-The currently available recording supports development checks. It cannot establish generalization to another recording, trainee, scenario, layout or language. A finite-state mechanics model and resource accounting are useful safeguards; neither replaces missing visual evidence.
+All clips from one video belong to one recording-level evaluation split. Additional sampling does not create an independent test set. Unknown fields are valid outputs; complete mechanic coverage requires its own reference evidence.

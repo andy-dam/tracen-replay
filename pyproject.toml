@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 analysis = ["Pillow>=10,<14"]
+vision = ["Pillow>=10,<14", "rapidocr==3.9.2", "onnxruntime==1.29.0"]
 
 [project.scripts]
 tracen-replay = "tracen_replay.cli:main"

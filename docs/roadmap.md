@@ -31,7 +31,9 @@ Analysis will distinguish visible facts from inferred events. A stat change with
 - [x] Preserve visibility gaps and expose provisional log deduplication decisions.
 - [x] Track ordered log context and separate main-outcome visibility from action time.
 - [ ] Evaluate checkpoint accuracy, log identity, and missed-event recovery on independent recordings.
-- [ ] Implement a template-matching baseline and assemble recognized screen segments.
+- [x] Add local pretrained neural OCR, full-recording sampling and source-linked screen segments.
+- [x] Inspect training animations densely and check state, currency, fan and calendar ledgers.
+- [x] Reconstruct lesson debits, committed skill charges and concert update receipts.
 - [ ] Validate short-event recall and evidence quality against reviewed labels.
 
 ## 3. Application foundation

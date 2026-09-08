@@ -29,7 +29,7 @@ class GameplayTests(unittest.TestCase):
     def test_actual_high_stat_gain_not_halved_again(self):
         self.assertEqual(effects_from_lines([line('Speed went up by 6 to new heights.')])[0]['amount'],6)
     def test_previews_modifiers_and_caps_are_not_stat_awards(self):
-        for text in ['Speed +12','Training Power Gain +1','Friendship Training Effectiveness +5%', 'Skill Pts 160','Speed cap went up by 20.','Speed went up by 5 maybe.']:
+        for text in ['Speed +12','Training Power Gain +1','Friendship Training Effectiveness +5%', 'Skill Pts 160','Speed went up by 5 maybe.']:
             self.assertEqual(effects_from_lines([line(text)]),[])
     def test_energy_song_and_hype_are_separate_resources(self):
         effects=effects_from_lines([line('Energy recovered by 50.'),line('Learned the song "Make Debut!".'),line('Hype Level went up.')])

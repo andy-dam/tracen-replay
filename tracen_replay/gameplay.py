@@ -42,25 +42,61 @@ def effects_from_lines(lines):
         if m := CHANGE.fullmatch(text):
             field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
             effect = dict(kind='stat_change', field=field, amount=int(m[3]) * (1 if m[2].lower() == 'up' else -1))
+        elif m := re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit|Dance|Passion|Vocals?|Visuals?|Composure) cap went up by (\d+)[.!]?',text,re.I):
+            field={'vocals':'vocal','visuals':'visual'}.get(m[1].lower(),m[1].lower())
+            effect=dict(kind='stat_cap_change' if field in FIELDS else 'performance_cap_change',field=field,amount=int(m[2]))
+        elif m := re.fullmatch(r'Gained ([\d,]+) fans[.!]?',text,re.I):
+            effect=dict(kind='fan_change',amount=int(m[1].replace(',','')))
+        elif m := re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit|Skill Pts) Bonus went up by (\d+)[.!]?',text,re.I):
+            field='skill_points' if m[1].lower().startswith('skill') else m[1].lower()
+            effect=dict(kind='training_modifier_change',field=field,amount=int(m[2]))
         elif m := re.fullmatch(r'Energy recovered by (\d+)[.!]?', text, re.I):
             effect = dict(kind='energy_change', amount=int(m[1]))
+        elif m := re.fullmatch(r'Max Energy increased by (\d+)[.!]?',text,re.I):
+            effect=dict(kind='max_energy_change',amount=int(m[1]))
+        elif m := re.fullmatch(r'(Turf|Dirt|Sprint|Mile|Medium|Long|Front Runner|Pace Chaser|Late Surger|End Closer) Aptitude went up[.!]?',text,re.I):
+            effect=dict(kind='aptitude_change',name=m[1],direction='up',amount=None,rank=None)
+        elif m := re.fullmatch(r'Acquired (.+?)\s*[.!]',text,re.I):
+            effect=dict(kind='condition_acquired',name=m[1].strip(),mechanical_effect=None)
+        elif m := re.fullmatch(r'Unlocked recreation with (.+?)[.!]',text,re.I):
+            effect=dict(kind='recreation_unlocked',name=m[1],amount=None)
+        elif m := re.fullmatch(r'Inspired by (.+?)[!]',text,re.I):
+            effect=dict(kind='inheritance_inspiration',name=m[1],amount=None)
+        elif m := re.fullmatch(r'(.+?) spark activated[!]',text,re.I):
+            effect=dict(kind='inheritance_spark',name=m[1],amount=None,awarded_effects_unknown=True)
         elif m := re.fullmatch(r'Energy went (up|down) by (\d+)[.!]?', text, re.I):
             effect = dict(kind='energy_change', amount=int(m[2])*(1 if m[1].lower()=='up' else -1))
+        elif re.fullmatch(r'Energy is full[.!]?',text,re.I):
+            effect=dict(kind='energy_status',value='full',amount=None)
         elif m := re.fullmatch(r'Mood went (up|down)[.!]?', text, re.I):
             effect = dict(kind='mood_change', direction=m[1].lower(), amount=None)
+        elif m := re.fullmatch(r'Mood remains (Great|Good|Normal|Bad|Awful)[.!]?',text,re.I):
+            effect=dict(kind='mood_status',value=m[1].lower(),amount=None)
+        elif m := re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit) training leveled up[.!]?',text,re.I):
+            effect=dict(kind='training_level_change',field=m[1].lower(),direction='up',amount=None)
+        elif m := re.fullmatch(r'(.+?) leveled up[.!]',text,re.I):
+            effect=dict(kind='skill_level_change',name=m[1],direction='up',amount=None,levels_observed=False)
+        elif m := re.fullmatch(r'Friendship with (.+?) is maxed out[.!]?',text,re.I):
+            effect=dict(kind='friendship_status',name=m[1],value='maximum',amount=None)
+        elif m := re.fullmatch(r"Friendship with (.+?) didn't go up[.!]?",text,re.I):
+            effect=dict(kind='friendship_status',name=m[1],value='unchanged',amount=0)
         elif m := re.fullmatch(r'Friendship with (.+?) went up by (\d+)[.!]?', text, re.I):
             effect = dict(kind='friendship_change', name=m[1], amount=int(m[2]))
         elif m := re.fullmatch(r'Gained (\d+) hint level\(s\) for (.+?)[.!]?', text, re.I):
-            effect = dict(kind='skill_hint_change', name=m[2].rstrip('.!'), amount=int(m[1]))
+            effect = dict(kind='skill_hint_change', name=m[2].rstrip('.!').strip(), amount=int(m[1]))
         elif m := re.fullmatch(r'(Dance|Passion|Vocals?|Visuals?|Composure) went (up|down) by (\d+)[.!]?', text, re.I):
             field = {'vocals':'vocal','visuals':'visual'}.get(m[1].lower(),m[1].lower())
             effect = dict(kind='performance_change', field=field, amount=int(m[3])*(1 if m[2].lower()=='up' else -1))
         elif m := re.fullmatch(r'Learned the song ["“](.+?)["”][.!]?', text, re.I):
-            effect = dict(kind='song_learned', name=m[1], acquisition='unknown', cost=None)
+            effect = dict(kind='song_learned', name=m[1].strip(), acquisition='unknown', cost=None)
+        elif m := re.fullmatch(r'Learned (.+?)[.!]', text, re.I):
+            effect = dict(kind='named_acquisition', name=m[1], acquisition='unknown', cost=None)
         elif m := re.fullmatch(r'(.+?) joined your cause[.!]?', text, re.I):
             effect = dict(kind='supporter_joined', name=m[1])
         elif re.fullmatch(r'Hype Level went up[.!]?', text, re.I):
             effect = dict(kind='hype_increased', amount=None)
+        elif re.fullmatch(r'Hype Level is maxed out[.!]?', text, re.I):
+            effect = dict(kind='hype_status', value='maximum', amount=None)
         elif m := re.fullmatch(r'(.+?) hint (?:level|Lv\.?) (?:went up by|increased by) (\d+)[.!]?', text, re.I):
             effect = dict(kind='skill_hint_change', name=m[1], amount=int(m[2]))
         if effect:
@@ -79,7 +115,7 @@ def preview_effects(lines):
         kind = None
         if re.search(r'\bTraining (Speed|Stamina|Power|Guts|Wit) Gain\b',text,re.I):
             kind = 'future_training_modifier'
-        elif re.search(r'Friendship Training Effectiveness|Support Chain Event Frequency',text,re.I):
+        elif re.search(r'Friendship Training Effectiveness|Support Chain Event Frequency|Specialty Priority',text,re.I):
             kind = 'queued_concert_bonus'
         elif re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit|Skill Pts)\s*\+\s*\d+',text,re.I):
             kind = 'immediate_on_purchase'
@@ -91,6 +127,8 @@ def preview_effects(lines):
 def classify(text, header, result_grid=False, preview=False):
     """Priority prevents underlying dimmed screens overriding modal semantics."""
     lower = text.lower()
+    if 'take the day off to let your trainee recover energy?' in lower and 'entire turn' in lower:
+        return 'rest_confirmation'
     if 'learn the above skills' in lower:
         return 'skill_confirmation'
     if 'skills learned' in lower or 'trainee learned new skills' in lower:

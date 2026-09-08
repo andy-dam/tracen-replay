@@ -69,7 +69,10 @@ def probe(source):
 def decode_frames(source, directory, start, duration, fps, origin):
     # Keep source PTS through showinfo, then reset output time for -t to bound work.
     # select preserves original frames; the fps filter would invent a new time grid.
-    interval = 1 / fps
+    # showinfo timestamps originate from rational PTS. Decimal conversion can
+    # put an exact 1/60-second step just below the rounded comparison threshold,
+    # unintentionally selecting only every other frame at native frame rate.
+    interval = max(0,1 / fps - 1e-7)
     filters = f"select='isnan(prev_selected_t)+gte(t-prev_selected_t,{interval:.12f})',showinfo,setpts=PTS-STARTPTS"
     command = ["ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "info", "-copyts",
                "-ss", str(start), "-i", str(source), "-map", "0:v:0", "-an", "-sn", "-dn",

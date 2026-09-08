@@ -1,0 +1,591 @@
+"""Evidence-linked transactions and state transitions; no balancing by invented deltas."""
+from collections import Counter
+import re
+from .reconcile import FIELDS,stable_checkpoints,account
+from .gameplay import lesson_transitions, CURRENCIES, screen_summary
+
+
+def skill_transactions(readings,states):
+    """Only receipt-backed batches; menu counters are never independently charged."""
+    spans=screen_summary(readings);transactions=[]
+    for span in spans:
+        if span['screen']!='skill_receipt' or span.get('completed_action')!='skill_purchase_batch':continue
+        if transactions and span['first_seen_ms']-transactions[-1]['last_seen_ms']<=500:
+            transactions[-1]['last_seen_ms']=span['last_seen_ms'];continue
+        preceding=[s for s in spans if s['screen']=='skill_confirmation' and 0<span['first_seen_ms']-s['last_seen_ms']<=15000]
+        if not preceding:continue
+        confirmation=preceding[-1]
+        before=[s for s in states if s['last_seen_ms']<confirmation['first_seen_ms']]
+        after=[s for s in states if s['first_seen_ms']>span['last_seen_ms'] and s['first_seen_ms']-span['last_seen_ms']<=15000]
+        before=before[-1] if before else None;after=after[0] if after else None
+        between=[r for r in readings if before and after and before['last_seen_ms']<r['source_timestamp_ms']<after['first_seen_ms']]
+        other_receipts=[s for s in spans if before and after and s['screen']=='skill_receipt' and before['last_seen_ms']<s['first_seen_ms']<after['first_seen_ms'] and s['id']!=span['id']]
+        other_sp_effects=any(any(e['kind']=='stat_change' and e['field']=='skill_points' for e in r['effects']) or r['screen']=='training_result' for r in between)
+        spent=before['values']['skill_points']-after['values']['skill_points'] if before and after and not other_receipts and not other_sp_effects else None
+        if spent is not None and spent<=0:spent=None
+        counter_proofs=[];basis='observed_states_without_other_sp_transactions' if spent is not None else 'unresolved'
+        if spent is None and before:
+            selections=[r for r in readings if r['screen']=='skill_selection' and before['last_seen_ms']<r['source_timestamp_ms']<confirmation['first_seen_ms']]
+            cart=[r for r in selections if confirmation['first_seen_ms']-r['source_timestamp_ms']<=2000 and type(r['facts'].get('displayed_skill_points')) is int]
+            if cart:
+                tail=[]
+                for row in reversed(cart):
+                    if tail and (row['facts']['displayed_skill_points']!=tail[-1]['facts']['displayed_skill_points'] or tail[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500):break
+                    tail.append(row)
+                cart=list(reversed(tail))
+            post=[r for r in readings if r['screen']=='skill_selection' and 0<r['source_timestamp_ms']-span['last_seen_ms']<=1500 and type(r['facts'].get('displayed_skill_points')) is int]
+            numbers={r['facts']['displayed_skill_points'] for r in cart+post}
+            intervening=[r for r in readings if before['last_seen_ms']<r['source_timestamp_ms']<span['first_seen_ms']]
+            unsafe=any(r['screen'] in ('training_result','skill_receipt') or any(e['kind']=='stat_change' and e['field']=='skill_points' for e in r['effects']) for r in intervening)
+            if selections and selections[0]['source_timestamp_ms']-before['last_seen_ms']<=5000 and len(cart)>=2 and len(post)>=2 and len(numbers)==1 and not unsafe:
+                value=numbers.pop();difference=before['values']['skill_points']-value
+                if difference>0:
+                    spent=difference;counter_proofs=[cart[-1]['evidence'],post[0]['evidence'],post[-1]['evidence']]
+                    basis='receipt_with_matching_cart_and_post_receipt_balance'
+            if spent is None:
+                completed=[r for r in readings if r['screen']=='career_completion_hub' and 0<r['source_timestamp_ms']-span['last_seen_ms']<=10000 and type(r['facts'].get('current_skill_points')) is int]
+                values={r['facts']['current_skill_points'] for r in completed}
+                if len(completed)>=3 and len(values)==1:
+                    difference=before['values']['skill_points']-values.pop()
+                    intervening=[r for r in readings if before['last_seen_ms']<r['source_timestamp_ms']<span['first_seen_ms']]
+                    unsafe=any(r['screen'] in ('training_result','skill_receipt') or any(e['kind']=='stat_change' and e['field']=='skill_points' for e in r['effects']) for r in intervening)
+                    if difference>0 and not unsafe:
+                        spent=difference;counter_proofs=[r['evidence'] for r in completed[:3]];basis='receipt_and_career_completion_balances'
+        names=[]
+        for row in readings:
+            if confirmation['first_seen_ms']<=row['source_timestamp_ms']<=confirmation['last_seen_ms']:
+                for name in row['facts'].get('visible_skill_names',[]):
+                    if name not in names:names.append(name)
+        histories={}
+        for row in readings:
+            if not before or not before['last_seen_ms']<row['source_timestamp_ms']<confirmation['first_seen_ms']:continue
+            for card in row['facts'].get('skill_cards',[]):histories.setdefault(card['name'],[]).append((row,card))
+        selected=[]
+        for name,history in histories.items():
+            costs={card['displayed_cost'] for _,card in history if card['menu_status']=='available'}
+            if len(costs)!=1:continue
+            initial=next((i for i,(_,card) in enumerate(history) if card['menu_status']=='available'),None)
+            obtained=[r for r,card in history[initial+1:] if card['menu_status']=='obtained_or_selected']
+            if name not in names and (len(obtained)<2 or history[-1][1]['menu_status']!='obtained_or_selected'):continue
+            selected.append(dict(name=name,cost=costs.pop(),evidence=[history[initial][0]['evidence'],confirmation['evidence'] if name in names else obtained[-1]['evidence']],variant_verified=False,
+                                 basis='visible_confirmation_and_price' if name in names else 'menu_state_change_candidate'))
+        # Track removals as well as additions; an intermediate selection is not the final cart.
+        counter_groups=[];active=[]
+        for row in readings:
+            if not before or not before['last_seen_ms']<row['source_timestamp_ms']<confirmation['first_seen_ms']:continue
+            value=row['facts'].get('displayed_skill_points')
+            if type(value) is not int:continue
+            if active and (value!=active[-1]['facts']['displayed_skill_points'] or row['source_timestamp_ms']-active[-1]['source_timestamp_ms']>500):
+                counter_groups.append(active)
+                active=[]
+            active.append(row)
+        if active:counter_groups.append(active)
+        counters=[];counter_basis={}
+        for index,group in enumerate(counter_groups):
+            if len(group)>=2:counters.append(group);continue
+            row=group[0];time=row['source_timestamp_ms'];value=row['facts']['displayed_skill_points']
+            previous=[g for g in counter_groups[:index] if len(g)>=2 and time-g[-1]['source_timestamp_ms']<=1500]
+            following=[g for g in counter_groups[index+1:] if len(g)>=2 and g[0]['source_timestamp_ms']-time<=1500]
+            if not previous or not following:continue
+            upper=previous[-1][-1]['facts']['displayed_skill_points'];lower=following[0][0]['facts']['displayed_skill_points']
+            prices={card['displayed_cost'] for name,history in histories.items() if name in names for r,card in history
+                    if 0<=time-r['source_timestamp_ms']<=2000 and card['menu_status']=='available'}
+            if lower<value<upper and upper-value in prices and value-lower in prices:
+                counters.append(group);counter_basis[time]='single_frame_between_stable_balances_with_confirmation_and_price_support'
+        toggles={}
+        cart_changes=[]
+        for previous,current in zip(counters,counters[1:]):
+            delta=previous[-1]['facts']['displayed_skill_points']-current[0]['facts']['displayed_skill_points']
+            if not delta:continue
+            possible={name for name,history in histories.items() if any(0<=current[0]['source_timestamp_ms']-r['source_timestamp_ms']<=2000 and card['displayed_cost']==abs(delta) for r,card in history)}
+            changed=[]
+            start=current[0]['source_timestamp_ms'];prior_time=previous[-1]['source_timestamp_ms']
+            for name,history in histories.items():
+                prior=[(r,c) for r,c in history if start-2000<=r['source_timestamp_ms']<=prior_time]
+                later=[(r,c) for r,c in history if start<=r['source_timestamp_ms']<=current[-1]['source_timestamp_ms']]
+                from_status,to_status=('available','obtained_or_selected') if delta>0 else ('obtained_or_selected','available')
+                if prior and prior[-1][1]['menu_status']==from_status and any(c['menu_status']==to_status for _,c in later):changed.append(name)
+            directly_supported=possible.intersection(changed)
+            if directly_supported:possible=directly_supported
+            if len(possible)>1 and len(possible.intersection(names))==1:possible=possible.intersection(names)
+            variant=None;variant_proofs=[]
+            if len(possible)==1 and delta>0:
+                history=histories[next(iter(possible))]
+                visible=[(r,c) for r,c in history if 0<=prior_time-r['source_timestamp_ms']<=2000 and c['menu_status']=='available' and c['displayed_cost']==delta and c.get('variant')]
+                suffix=[]
+                for observation in reversed(visible):
+                    if suffix and observation[1]['variant']!=suffix[-1][1]['variant']:break
+                    suffix.append(observation)
+                if len(suffix)>=2:variant=suffix[0][1]['variant'];variant_proofs=[r['evidence'] for r,_ in suffix]
+            cart_changes.append(dict(first_seen_ms=current[0]['source_timestamp_ms'],projected_charge_delta=delta,
+                candidate_names=sorted(possible),co_changed_names=sorted(changed),
+                selected_variant=variant,variant_evidence=variant_proofs,
+                counter_basis=counter_basis.get(start,'repeated_counter'),
+                evidence=[previous[-1]['evidence'],current[0]['evidence']],committed=False))
+            if len(possible)!=1:continue
+            name=possible.pop();toggles.setdefault(name,[]).append(dict(amount=delta,evidence=[previous[-1]['evidence'],current[0]['evidence']]))
+        for name,steps in toggles.items():
+            if name in {s['name'] for s in selected}:continue
+            net=sum(s['amount'] for s in steps)
+            if net>0:selected.append(dict(name=name,cost=net,evidence=[p for s in steps for p in s['evidence']],variant_verified=False,basis='cart_counter_and_unique_visible_price_candidate'))
+        item_sum=sum(item['cost'] for item in selected)
+        bundles={};unassigned=[]
+        for change in cart_changes:
+            if len(change['candidate_names'])!=1:unassigned.append(change);continue
+            name=change['candidate_names'][0]
+            bundle=bundles.setdefault(name,dict(target_name=name,net_cost=0,co_selected_name_candidates=[],evidence=[]))
+            bundle['net_cost']+=change['projected_charge_delta'];bundle['evidence']+=change['evidence']
+            if change['projected_charge_delta']>0:
+                bundle['co_selected_name_candidates']=sorted(set(bundle['co_selected_name_candidates']+change['co_changed_names']))
+                bundle['selected_variant']=change['selected_variant'];bundle['variant_evidence']=change['variant_evidence']
+        bundles=[b for b in bundles.values() if b['net_cost']>0]
+        targets={b['target_name'] for b in bundles}
+        for bundle in bundles:
+            bundle['prerequisite_candidates']=[name for name in bundle['co_selected_name_candidates'] if name not in targets]
+            bundle['co_selected_name_candidates']=[name for name in bundle['co_selected_name_candidates'] if name==bundle['target_name'] or name not in targets]
+        cart_total=sum(c['projected_charge_delta'] for c in cart_changes)
+        bundle_total=sum(b['net_cost'] for b in bundles)
+        transactions.append(dict(id=f'skills-{len(transactions)+1:03d}',kind='skill_purchase_batch',first_seen_ms=span['first_seen_ms'],last_seen_ms=span['last_seen_ms'],
+            spent_skill_points=spent,deltas={'skill_points':-spent} if spent is not None else {},
+            visible_confirmation_names=names,purchased_list_complete=False,complete_transaction_verified=False,
+            selected_item_candidates=selected,item_cost_sum=item_sum,item_cost_sum_matches_charge=spent is not None and item_sum==spent,
+            committed_cart_bundles=bundles,cart_net_cost=cart_total,bundle_net_cost=bundle_total,
+            cart_charge_matches_receipt=spent is not None and cart_total==spent,
+            bundle_charge_assignment_complete=spent is not None and bundle_total==spent and not unassigned,
+            unassigned_cart_changes=unassigned,
+            cart_changes=cart_changes,pricing_limitation='Displayed prerequisite and upgrade prices are not additive; card candidates are not individually verified charges.',
+            evidence=[s['evidence'] for s in (before,confirmation,span,after) if s]+counter_proofs,
+            cost_basis=basis))
+    return transactions
+
+
+def lesson_receipts(readings, outcomes):
+    """Join named acquisition evidence to a matching request, retaining cost gaps."""
+    purchases=[];used=set()
+    for event in outcomes:
+        acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
+        for effect in acquired:
+            confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
+                and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
+                and r['facts'].get('name_candidates')==[effect['name']]]
+            if not confirmations:continue
+            last=confirmations[-1]
+            # Only the final continuous request belongs to this receipt.
+            group=[last]
+            for row in reversed([r for r in readings if r['source_timestamp_ms']<last['source_timestamp_ms']]):
+                if row['screen']!='lesson_confirmation' or group[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
+                if row['facts'].get('name_candidates') not in ([],[effect['name']]):break
+                group.append(row)
+            first=group[-1];key=first['source_timestamp_ms']
+            if key in used:continue
+            used.add(key)
+            prior_receipts=[e['last_seen_ms'] for e in outcomes if e['last_seen_ms']<first['source_timestamp_ms']
+                            and any(effect['kind'] in ('named_acquisition','song_learned') for effect in e['effects'])]
+            baseline_start=max(prior_receipts,default=-1)
+            before_rows=[r for r in readings if r['screen']=='lesson_selection'
+                and r['source_timestamp_ms']>baseline_start
+                and 0<first['source_timestamp_ms']-r['source_timestamp_ms']<=10000
+                ]
+            # Keep only the last continuous menu visit. Even a missed named
+            # receipt must not let a balance cross an intervening dialog.
+            if before_rows:
+                tail=before_rows[-1]['source_timestamp_ms'];recent=[]
+                for row in reversed(before_rows):
+                    if tail-row['source_timestamp_ms']>500:break
+                    recent.append(row);tail=row['source_timestamp_ms']
+                before_rows=list(reversed(recent))
+            before=before_rows[-1] if before_rows else None
+            def balance(rows,key):
+                result={}
+                for field in CURRENCIES:
+                    values=[r['facts'].get(key,{}).get(field) for r in rows if type(r['facts'].get(key,{}).get(field)) is int]
+                    suffix=[]
+                    for value in reversed(values):
+                        if suffix and value!=suffix[-1]:break
+                        suffix.append(value)
+                    result[field]=suffix[0] if suffix and (len(suffix)>=2 or len(set(values))==1) else None
+                return result
+            initial=balance(before_rows,'performance_points')
+            projected={}
+            for field in CURRENCIES:
+                seen={r['facts'].get('projected_performance_points',{}).get(field) for r in group}
+                seen.discard(None)
+                projected[field]=seen.pop() if len(seen)==1 else None
+            complete=all(type(projected.get(k)) is int for k in CURRENCIES)
+            cost={k:initial[k]-projected[k] for k in CURRENCIES} if before and complete and all(type(v) is int for v in initial.values()) else None
+            if cost and any(v<0 for v in cost.values()):cost=None
+            after=[]
+            for row in readings:
+                if row['source_timestamp_ms']<=event['last_seen_ms']:continue
+                if row['source_timestamp_ms']-event['last_seen_ms']>5000 or row['screen']=='lesson_confirmation':break
+                if row['screen']=='lesson_selection' and all(type(row['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES):after.append(row)
+            matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
+            projected_effects=[];effect_keys=set()
+            for row in reversed(group):
+                for projected_effect in row['facts'].get('projected_effects',[]):
+                    effect_key=(projected_effect['kind'],projected_effect.get('field'),projected_effect.get('amount')) if projected_effect.get('field') else (projected_effect['kind'],projected_effect['raw_text'])
+                    if effect_key not in effect_keys:projected_effects.append(projected_effect);effect_keys.add(effect_key)
+            purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
+                source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
+                performance_cost=cost,cost_basis='observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
+                after_balance_observed=matched is not None,awarded_stats=event['deltas'],
+                projected_effects=projected_effects,
+                evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],
+                complete_transaction_verified=False))
+    return purchases
+
+
+def training_events(readings,states=()):
+    groups=[];current=None
+    for row in readings:
+        if row['screen']!='training_result':
+            if current and row['source_timestamp_ms']-current['last_seen_ms']>500:current=None
+            continue
+        option=row.get('training_option');time=row['source_timestamp_ms']
+        if current is None or time-current['last_seen_ms']>500 or (option and current['option'] and option!=current['option']):
+            current=dict(kind='training',option=option,first_seen_ms=time,last_seen_ms=time,rows=[]);groups.append(current)
+        current['last_seen_ms']=time
+        if option:current['option']=option
+        current['rows'].append(row)
+    events=[]
+    for group in groups:
+        deltas={};proofs={};conflicts={}
+        for field in FIELDS:
+            observations=[(r,r['facts']['training_gains'][field]) for r in group['rows'] if field in r['facts'].get('training_gains',{})]
+            values={value for _,value in observations}
+            if len(values)==1 and len(observations)>=2:
+                deltas[field]=next(iter(values));proofs[field]=[r['evidence'] for r,_ in observations]
+            elif len(values)>1:
+                counts=Counter(value for _,value in observations)
+                complete=[value for value,count in counts.items() if count>=3 and all(str(value).startswith(str(other)) for other in values)]
+                if len(complete)==1:
+                    deltas[field]=complete[0];proofs[field]=[r['evidence'] for r,value in observations if value==complete[0]]
+                else:conflicts[field]=sorted(values)
+        evidence=next(iter(proofs.values()),[group['rows'][0]['evidence']])[0]
+        events.append(dict(id=f'training-{len(events)+1:04d}',kind='training',training_option=group['option'],
+            first_seen_ms=group['first_seen_ms'],last_seen_ms=group['last_seen_ms'],deltas=deltas,
+            evidence=evidence,field_evidence=proofs,conflicting_readings=conflicts,
+            repeated_fields=[field for field,paths in proofs.items() if len(paths)>=2],
+            effect_coverage_verified=False,action_time_ms=None))
+        performance={};performance_proofs={}
+        for field in CURRENCIES:
+            observations=[(r,r['facts']['awarded_performance_gains'][field]) for r in group['rows'] if field in r['facts'].get('awarded_performance_gains',{})]
+            values={value for _,value in observations}
+            if len(values)==1:
+                performance[field]=values.pop();performance_proofs[field]=[r['evidence'] for r,_ in observations]
+        events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs)
+        before=[s for s in states if 0<group['first_seen_ms']-s['last_seen_ms']<=5000]
+        before=before[-1] if before else None
+        earlier_awards=before and any(before['last_seen_ms']<r['source_timestamp_ms']<group['first_seen_ms'] and any(e['kind']=='stat_change' for e in r.get('effects',[])) for r in readings)
+        if before and not earlier_awards:
+            for field in FIELDS:
+                gain_observations=[(row,value) for row in group['rows'] for value in row['facts'].get('training_gain_candidates',{}).get(field,[])]
+                if gain_observations:
+                    last_gain=max(row['source_timestamp_ms'] for row,_ in gain_observations)
+                    qualified=[]
+                    for gain in {value for _,value in gain_observations}:
+                        gain_rows=[row for row,value in gain_observations if value==gain]
+                        after_rows=[row for row in group['rows'] if row['source_timestamp_ms']>last_gain and row['facts'].get('result_value_candidates',{}).get(field)==before['values'][field]+gain]
+                        times={row['source_timestamp_ms'] for row in gain_rows+after_rows}
+                        strict_gain=any(row['facts'].get('training_gains',{}).get(field)==gain for row in gain_rows)
+                        strict_total=any(row['facts'].get('result_values',{}).get(field)==before['values'][field]+gain for row in after_rows)
+                        # A short result can expose the gain in just one frame.
+                        # A stable before state plus an explicit high-confidence
+                        # gain and a later high-confidence total are three
+                        # separately displayed observations of that transition.
+                        corroborated=len(times)>=3 or (len(times)>=2 and strict_gain and strict_total)
+                        if after_rows and corroborated and max(times)-min(times)>=50:qualified.append((gain,gain_rows,after_rows))
+                    if len(qualified)==1:
+                        gain,gain_rows,after_rows=qualified[0]
+                        if field in conflicts or (field in deltas and deltas[field]!=gain):
+                            events[-1].setdefault('gain_reading_disagreements',{})[field]=dict(animated_candidates=sorted({v for _,v in gain_observations}),cross_checked_change=gain)
+                        deltas[field]=gain;proofs[field]=[before['evidence']]+[r['evidence'] for r in gain_rows+after_rows]
+                        events[-1].setdefault('cross_checked_gain_fields',[]).append(field)
+                        if field not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(field)
+                suffix=[]
+                for row in reversed(group['rows']):
+                    value=row['facts'].get('result_values',{}).get(field)
+                    if type(value) is not int:
+                        if suffix:break
+                        continue
+                    if suffix and value!=suffix[-1][1]:break
+                    suffix.append((row,value))
+                if len(suffix)>=3 and suffix[0][0]['source_timestamp_ms']-suffix[-1][0]['source_timestamp_ms']>=60:
+                    delta=suffix[0][1]-before['values'][field]
+                    if delta>0:
+                        if field in deltas and deltas[field]!=delta:
+                            events[-1].setdefault('gain_reading_disagreements',{})[field]=dict(animated_gain=deltas[field],stable_result_change=delta)
+                            # A truncated gain prefix can lose a trailing digit. Other
+                            # disagreements cannot be resolved by preferring arithmetic.
+                            if not str(delta).startswith(str(deltas[field])):continue
+                        deltas[field]=delta;proofs[field]=[before['evidence']]+[r['evidence'] for r,_ in suffix]
+                        events[-1].setdefault('result_state_derived_fields',[]).append(field)
+                        if field not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(field)
+    return events
+
+
+def outcome_events(readings):
+    events=[];current=None
+    for row in readings:
+        time=row['source_timestamp_ms'];effects=row.get('effects',[]);pending=row.get('facts',{}).get('effect_candidates',[])
+        if not effects and not pending:
+            # Recognized dialogue or a different screen is evidence of a boundary.
+            lines=row.get('ocr',{}).get('neural',[])
+            narrative=any(l['confidence']>=95 and 790<(l['box'][1]+l['box'][3])/2<950 and len(l['text'])>25 for l in lines)
+            if current and (narrative or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
+            continue
+        title=row.get('context_title')
+        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and title!=current['context_title']):
+            current=dict(id=f'outcome-{len(events)+1:04d}',kind='outcome',first_seen_ms=time,last_seen_ms=time,evidence=row['evidence'],
+                         context_title=title,effects={},field_evidence={},conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
+            events.append(current)
+        current['last_seen_ms']=time
+        if title:current['context_title']=title
+        for effect in pending:
+            key='|'.join(str(v or '') for v in (effect['kind'],effect.get('field'),effect.get('name')))
+            current['pending_effects'].setdefault(key,[]).append((row['source_timestamp_ms'],row['evidence'],effect))
+        keys=[(e['kind'],e.get('field'),e.get('name')) for e in effects]
+        duplicate=any(count>1 for count in Counter(keys).values())
+        if duplicate:
+            for key,count in Counter(keys).items():
+                if count>1:current['conflicting_readings'].append(dict(reason='multiple_same_field_lines',field='|'.join(str(part or '') for part in key),evidence=row['evidence']))
+        for effect,key in zip(effects,keys):
+            key='|'.join(str(part or '') for part in key)
+            current['effect_observations'].setdefault(key,[]).append((time,row['evidence'],effect))
+            prior=current['effects'].get(key)
+            if prior and (prior.get('amount'),prior.get('direction'),prior.get('value'))!=(effect.get('amount'),effect.get('direction'),effect.get('value')):
+                current['conflicting_readings'].append(dict(reason='changing_effect_value',field=key,evidence=row['evidence']))
+            else:
+                current['effects'][key]=effect
+                current['field_evidence'].setdefault(key,[]).append(row['evidence'])
+    for event in events:
+        for key,observations in event.pop('effect_observations').items():
+            conflicts=[c for c in event['conflicting_readings'] if c['field']==key]
+            if not conflicts or any(c['reason']!='changing_effect_value' for c in conflicts):continue
+            amounts=Counter(e.get('amount') for _,_,e in observations)
+            winners=[v for v,n in amounts.items() if type(v) is int and n>=2 and all(other==v or (type(other) is int and count==1 and (str(v).startswith(str(other)) or str(v).endswith(str(other)))) for other,count in amounts.items())]
+            if len(winners)!=1:continue
+            matches=[o for o in observations if o[2].get('amount')==winners[0]]
+            event['effects'][key]=matches[-1][2];event['field_evidence'][key]=[o[1] for o in matches]
+            event.setdefault('resolved_reading_conflicts',[]).append(dict(field=key,observed_amounts=list(amounts),accepted_amount=winners[0],basis='repeated_complete_digits_with_single_truncated_outlier'))
+            event['conflicting_readings']=[c for c in event['conflicting_readings'] if c['field']!=key]
+        for key,observations in event.pop('pending_effects').items():
+            if key in event['effects']:continue
+            partial=observations[0][2]
+            if partial.get('name') and any(e['kind']==partial['kind'] and e.get('name','').startswith(partial['name']+' ') for e in event['effects'].values()):continue
+            values={e.get('amount') for _,_,e in observations}
+            eligible=[]
+            for value in values:
+                matches=[r for r in observations if r[2].get('amount')==value]
+                if len(matches)>=3 and matches[-1][0]-matches[0][0]>=500:eligible.append(matches)
+            if len(eligible)==1:
+                matches=eligible[0];effect=dict(matches[0][2],confirmation='repeated_unterminated_text')
+                event['effects'][key]=effect;event['field_evidence'][key]=[r[1] for r in matches]
+        event['effects']=list(event['effects'].values())
+        # Missing circle glyphs must not turn one visible hint into two awards.
+        # Only collapse a suffix alternative when the exact base was also read
+        # in this receipt with the same amount; retain the identity uncertainty.
+        hints={e['name']:e for e in event['effects'] if e['kind']=='skill_hint_change'}
+        removed=[]
+        for name,effect in hints.items():
+            base=re.sub(r'\s*[O○◯◎]$','',name).strip()
+            if base==name or base not in hints or hints[base]['amount']!=effect['amount']:continue
+            target=hints[base]
+            target.setdefault('observed_name_candidates',[base]).append(name)
+            target['circle_variant_verified']=False
+            base_key='skill_hint_change||'+base;variant_key='skill_hint_change||'+name
+            event['field_evidence'].setdefault(base_key,[]).extend(event['field_evidence'].get(variant_key,[]))
+            removed.append(effect)
+        event['effects']=[e for e in event['effects'] if e not in removed]
+        ambiguous={c['field'] for c in event['conflicting_readings']}
+        event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
+    return events
+
+
+def checkpoints(readings):
+    rows=[]
+    for row in readings:
+        stats=dict(row['stats'])
+        if row['screen']=='lesson_confirmation':
+            stats['values']=row['facts'].get('current_stats')
+        rows.append(dict(stats,source_timestamp_ms=row['source_timestamp_ms'],evidence=row['evidence']))
+    return stable_checkpoints(rows)
+
+
+def reconcile_visible_training_candidates(before,after,events,readings):
+    """Disambiguate visible digit prefixes; never manufacture a residual event.
+
+    This is constraint-supported recognition, not independent confirmation of
+    effect recall. Its provenance remains separate in the report.
+    """
+    scoped=[e for e in events if before['last_seen_ms']<e['first_seen_ms']<=after['first_seen_ms']]
+    trainings=[e for e in scoped if e['kind']=='training' and e.get('training_option')]
+    if len(trainings)!=1:return []
+    event=trainings[0];rows=[r for r in readings if event['first_seen_ms']<=r['source_timestamp_ms']<=event['last_seen_ms'] and r['screen']=='training_result']
+    ledger=account(before,after,[e for e in scoped if e['deltas']]);resolutions=[]
+    for field,residual in ledger['unexplained_change'].items():
+        if not residual:continue
+        # Ambiguous dialogue receipts can hide an additional award; do not use
+        # their unexplained amount to choose between training observations.
+        if any(e.get('conflicting_readings') for e in scoped if e['kind']!='training'):continue
+        observations=[(r,r['facts']['training_gains'][field]) for r in rows if field in r['facts'].get('training_gains',{})]
+        values={value for _,value in observations}
+        target=event['deltas'].get(field,0)+residual
+        if target not in values or target<=0 or not all(str(target).startswith(str(v)) for v in values):continue
+        proofs=[r['evidence'] for r,value in observations if value==target]
+        event['deltas'][field]=target;event['field_evidence'][field]=proofs
+        resolution=dict(field=field,amount=target,visual_candidates=sorted(values),
+                        gain_evidence=proofs,before_evidence=before['evidence'],after_evidence=after['evidence'],
+                        basis='visible_complete_gain_and_surrounding_state_constraints',independent_effect_verification=False)
+        event.setdefault('state_supported_candidate_resolutions',[]).append(resolution);resolutions.append(resolution)
+    return resolutions
+
+
+def reconstruct(readings):
+    states=checkpoints(readings);events=training_events(readings,states)+outcome_events(readings)
+    skills=skill_transactions(readings,states);events+=skills
+    events.sort(key=lambda e:e['first_seen_ms'])
+    intervals=[]
+    for before,after in zip(states,states[1:]):
+        resolutions=reconcile_visible_training_candidates(before,after,events,readings)
+        candidates=[e for e in events if before['last_seen_ms']<e['first_seen_ms']<=after['first_seen_ms'] and e['deltas']]
+        item=account(before,after,candidates)
+        item['ambiguous_events']=[e['id'] for e in events if before['last_seen_ms']<e['first_seen_ms']<=after['first_seen_ms'] and e.get('conflicting_readings')]
+        item['verified']=False
+        item['state_supported_candidate_resolutions']=resolutions
+        intervals.append(item)
+    lessons=lesson_receipts(readings,[e for e in events if e['kind']=='outcome'])
+    actions=[dict(kind='training',training_option=e['training_option'],source_timestamp_ms=e['first_seen_ms'],evidence=e['evidence'],event_id=e['id'],click_timestamp_ms=None)
+             for e in events if e['kind']=='training' and e['training_option'] and e['deltas']]
+    for event in events:
+        if event['kind']!='outcome' or event.get('context_title')!='All Refreshed':continue
+        confirmations=[r for r in readings if r['screen']=='rest_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=10000]
+        if confirmations and any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):
+            actions.append(dict(kind='rest',source_timestamp_ms=event['first_seen_ms'],evidence=[confirmations[-1]['evidence'],event['evidence']],event_id=event['id'],click_timestamp_ms=None))
+    actions+=outing_actions(readings,events)
+    race_results=races(readings)
+    actions += [dict(kind='race',source_timestamp_ms=r['first_seen_ms'],evidence=r['evidence'],race_id=r['id'],click_timestamp_ms=None) for r in race_results]
+    actions.sort(key=lambda a:a['source_timestamp_ms'])
+    from .mechanics_audit import fan_accounting,song_acquisitions,unparsed_receipt_candidates
+    return dict(checkpoints=states,events=events,intervals=intervals,
+                fan_accounting=fan_accounting(race_results,events),song_acquisitions=song_acquisitions(events,lessons),
+                unparsed_receipt_candidates=unparsed_receipt_candidates(readings),
+                lesson_purchases=lessons,skill_purchases=skills,concerts=concerts(readings,events,lessons),races=race_results,turn_action_receipts=actions,
+                performance_accounting=performance_accounting(readings,events,lessons),
+                lesson_debit_observations=lesson_transitions(readings))
+
+
+def outing_actions(readings,events):
+    actions=[];used=set()
+    for event in events:
+        if event['kind']!='outcome' or not any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):continue
+        requests=[r for r in readings if r['screen']=='outing_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
+        if not requests:continue
+        request=requests[-1];time=request['source_timestamp_ms']
+        intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
+        if any(r['screen'] in ('training_result','race_result','rest_confirmation') for r in intervening):continue
+        if time in used:continue
+        companions={e['name'] for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')}
+        used.add(time)
+        actions.append(dict(kind='outing',source_timestamp_ms=event['first_seen_ms'],event_id=event['id'],
+                            companion=companions.pop() if len(companions)==1 else None,
+                            evidence=[request['evidence'],event['evidence']],click_timestamp_ms=None,
+                            basis='outing_request_followed_by_recovery_receipt_without_another_turn_action'))
+    return actions
+
+
+def performance_accounting(readings,events,lessons):
+    states=[];group=[]
+    def finish():
+        if len(group)>=3 and group[-1]['source_timestamp_ms']-group[0]['source_timestamp_ms']>=500:
+            states.append(dict(first_seen_ms=group[0]['source_timestamp_ms'],last_seen_ms=group[-1]['source_timestamp_ms'],
+                values=group[0]['facts']['performance_points'],evidence=group[0]['evidence'],verified=False))
+    for row in readings:
+        values=row['facts'].get('performance_points',{})
+        valid=row['screen'] in ('lesson_selection','training_preview') and all(type(values.get(f)) is int for f in CURRENCIES)
+        if not valid:
+            finish();group=[];continue
+        if group and (values!=group[-1]['facts']['performance_points'] or row['source_timestamp_ms']-group[-1]['source_timestamp_ms']>500):
+            finish();group=[]
+        group.append(row)
+    finish();transactions=[]
+    for event in events:
+        if event['kind'] not in ('training','outcome'):continue
+        deltas=event.get('performance_deltas',{}) if event['kind']=='training' else {e['field']:e['amount'] for e in event['effects'] if e['kind']=='performance_change'}
+        if deltas:transactions.append(dict(source_timestamp_ms=event['first_seen_ms'],deltas=deltas,evidence=event['evidence']))
+    for lesson in lessons:
+        if lesson['performance_cost'] is not None:
+            transactions.append(dict(source_timestamp_ms=lesson['source_timestamp_ms'],deltas={k:-v for k,v in lesson['performance_cost'].items()},evidence=lesson['evidence']))
+    intervals=[]
+    for before,after in zip(states,states[1:]):
+        candidates=[t for t in transactions if before['last_seen_ms']<t['source_timestamp_ms']<=after['first_seen_ms']]
+        observed={f:after['values'][f]-before['values'][f] for f in CURRENCIES}
+        supported={f:sum(t['deltas'].get(f,0) for t in candidates) for f in CURRENCIES}
+        residual={f:observed[f]-supported[f] for f in CURRENCIES}
+        intervals.append(dict(start_ms=before['last_seen_ms'],end_ms=after['first_seen_ms'],observed_change=observed,
+            supported_change=supported,unexplained_change=residual,status='unresolved' if any(residual.values()) else 'balanced',verified=False,transactions=candidates))
+    return dict(checkpoints=states,intervals=intervals)
+
+
+def races(readings):
+    groups=[]
+    for row in readings:
+        if row['screen']!='race_result':continue
+        facts=row['facts'];key=(facts.get('fans'),facts.get('fans_gained'))
+        if not groups or row['source_timestamp_ms']-groups[-1]['last_seen_ms']>1000 or key!=groups[-1]['_key']:
+            groups.append(dict(id=f'race-{len(groups)+1:03d}',first_seen_ms=row['source_timestamp_ms'],last_seen_ms=row['source_timestamp_ms'],_key=key,rows=[]))
+        groups[-1]['last_seen_ms']=row['source_timestamp_ms'];groups[-1]['rows'].append(row)
+    for group in groups:
+        rows=group.pop('rows');group.pop('_key');fields={};conflicts={}
+        for field in ('race_name','placing','fans','fans_gained','course'):
+            observations=[r['facts'].get(field) for r in rows if r['facts'].get(field) is not None]
+            unique=[]
+            for value in observations:
+                if value not in unique:unique.append(value)
+            fields[field]=unique[0] if len(unique)==1 else None
+            if len(unique)>1:conflicts[field]=unique
+        group.update(fields,evidence=[r['evidence'] for r in rows],conflicting_readings=conflicts,completed_action='race',item_rewards_complete=False,verified=False)
+    return groups
+
+
+def concerts(readings,events,lessons):
+    result=[]
+    for span in screen_summary(readings):
+        if span['screen']!='concert_result':continue
+        if result and span['first_seen_ms']-result[-1]['last_seen_ms']<=1000:
+            result[-1]['last_seen_ms']=span['last_seen_ms'];continue
+        rewards=[e for e in events if e['kind']=='outcome' and 0<e['first_seen_ms']-span['last_seen_ms']<=15000
+            and re.fullmatch(r'The (?:First|Second|Third|Fourth|Grand) Concert Ends!',e.get('context_title') or '',re.I)]
+        association='named_concert_aftermath'
+        if not rewards:
+            adjacent=[e for e in events if e['kind']=='outcome' and 0<e['first_seen_ms']-span['last_seen_ms']<=5000
+                      and not e.get('context_title') and set(e['deltas'])==set(FIELDS)
+                      and any(f['kind']=='fan_change' for f in e['effects'])]
+            if len(adjacent)==1:rewards=adjacent;association='adjacent_untitled_stat_and_fan_receipt'
+        title=rewards[0]['context_title'] if len(rewards)==1 else None
+        previous=result[-1]['last_seen_ms'] if result else 0
+        queued=[dict(lesson_id=l['id'],song=l['name'],effect=e['raw_text'],field=e.get('field'),amount=e.get('amount'),activation_evidence_verified=False)
+                for l in lessons if previous<l['source_timestamp_ms']<span['first_seen_ms']
+                for e in l['projected_effects'] if e['kind']=='queued_concert_bonus']
+        result.append(dict(id=f'concert-{len(result)+1:02d}',first_seen_ms=span['first_seen_ms'],last_seen_ms=span['last_seen_ms'],
+            result='great_success',title=title,reward_event_ids=[e['id'] for e in rewards],
+            reward_association=association if rewards else None,
+            observed_rewards=[e['effects'] for e in rewards],queued_bonus_candidates=queued,
+            evidence=[span['confirmation_evidence'],span['evidence']]+[e['evidence'] for e in rewards],
+            complete_rewards_verified=False,bonus_activation_verified=False))
+    for index,concert in enumerate(result):
+        end=result[index+1]['first_seen_ms'] if index+1<len(result) else float('inf')
+        updates=[r for r in readings if r['screen']=='concert_bonus_update' and concert['last_seen_ms']<r['source_timestamp_ms']<min(end,concert['last_seen_ms']+90000)]
+        if updates:
+            concert['bonus_activation_verified']=True
+            concert['bonus_update_receipt']=dict(first_seen_ms=updates[0]['source_timestamp_ms'],last_seen_ms=updates[-1]['source_timestamp_ms'],evidence=[r['evidence'] for r in updates])
+            concert['activation_scope']='The update receipt confirms the activation step; it does not enumerate every bonus value.'
+        snapshots=[r for r in readings if r['screen']=='concert_info' and updates and updates[-1]['source_timestamp_ms']<r['source_timestamp_ms']<end]
+        values={};proofs={}
+        for field in ('friendship_training_effectiveness','specialty_priority','support_chain_event_frequency'):
+            observed=[r for r in snapshots if field in r['facts'].get('current_concert_bonuses',{})]
+            numbers={r['facts']['current_concert_bonuses'][field] for r in observed}
+            if len(numbers)==1 and len(observed)>=2:values[field]=numbers.pop();proofs[field]=[r['evidence'] for r in observed]
+        concert['later_active_bonus_snapshot']=dict(values=values,evidence=proofs,complete=len(values)==3)
+        concert['all_bonus_totals_verified']=False
+    return result

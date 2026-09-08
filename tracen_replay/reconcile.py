@@ -15,6 +15,7 @@ def stable_checkpoints(readings, minimum_samples=3, maximum_gap_ms=500):
                           values=first['values'], evidence=first['evidence'],
                           supporting_frames=[r['evidence'] for r in group],
                           status='ocr_consensus', human_verified=False,
+                          calendar_text=first.get('calendar_text'),
                           turns_remaining_to_goal=first.get('turns_remaining_to_goal'))
         # Matching values across an unreadable interval do not prove continuity:
         # a turn or offsetting changes may have occurred while totals were hidden.
@@ -28,6 +29,7 @@ def stable_checkpoints(readings, minimum_samples=3, maximum_gap_ms=500):
             continue
         if group and (reading['values'] != group[-1]['values'] or
                       reading.get('turns_remaining_to_goal') != group[-1].get('turns_remaining_to_goal') or
+                      reading.get('calendar_text') != group[-1].get('calendar_text') or
                       reading['source_timestamp_ms']-group[-1]['source_timestamp_ms'] > maximum_gap_ms):
             finish()
             group = []

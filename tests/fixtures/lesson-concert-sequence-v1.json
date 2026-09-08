@@ -1,0 +1,22 @@
+{
+  "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+  "start_ms": 341000,
+  "end_ms": 414000,
+  "kinds": ["lesson", "concert"],
+  "scope": "All paid lesson receipts and the first concert result in 05:41-06:54; score five-currency costs, actual six-field stat awards and concert fans. Decorative name symbols, hype, supporters, skill hints, choices and bonus activation are not scored.",
+  "review_method": "Assistant visual review of source gameplay screenshots; same-source development reference, not an independent recording.",
+  "cancellation": {"timestamp_ms": 401500, "note": "The final Makeup Basics dialog is canceled. It must not create another purchase."},
+  "transactions": [
+    {"kind":"lesson","label":"Dance Step Basics","start_ms":346000,"end_ms":346750,"performance_cost":{"dance":10},"stats":{"speed":5}},
+    {"kind":"lesson","label":"Full Speed Ahead! Umadol Power","start_ms":352500,"end_ms":353250,"performance_cost":{"dance":32,"visual":12},"stats":{"speed":22}},
+    {"kind":"lesson","label":"Audience Involvement Basics","start_ms":359750,"end_ms":360500,"performance_cost":{"passion":10},"stats":{"stamina":5}},
+    {"kind":"lesson","label":"Composure Training Basics","start_ms":363500,"end_ms":364250,"performance_cost":{"composure":10},"stats":{"wit":5}},
+    {"kind":"lesson","label":"Believe in Miracles!","start_ms":369000,"end_ms":369750,"performance_cost":{"passion":21,"composure":21},"stats":{}},
+    {"kind":"lesson","label":"Dance Step Basics","start_ms":375500,"end_ms":376250,"performance_cost":{"dance":10},"stats":{"speed":5}},
+    {"kind":"lesson","label":"Vocal Training Basics","start_ms":380000,"end_ms":380750,"performance_cost":{"vocal":10},"stats":{"power":5}},
+    {"kind":"lesson","label":"Makeup Basics","start_ms":386000,"end_ms":386750,"performance_cost":{"visual":10},"stats":{"guts":5}},
+    {"kind":"lesson","label":"Here Comes Our Time","start_ms":392000,"end_ms":392750,"performance_cost":{"vocal":32,"composure":12},"stats":{"power":22}},
+    {"kind":"lesson","label":"Makeup Basics","start_ms":398000,"end_ms":398750,"performance_cost":{"visual":10},"stats":{"guts":5}},
+    {"kind":"concert","start_ms":407750,"end_ms":408500,"stats":{"speed":10,"stamina":10,"power":10,"guts":10,"wit":10,"skill_points":110},"fans":1000}
+  ]
+}

@@ -4,7 +4,7 @@ Replay analysis for Umamusume: Pretty Derby.
 
 Tracen Replay is being developed to turn gameplay recordings into editable timelines. Screen recognition and field extraction will connect each observation to a source frame, helping players review training runs and compare their progress.
 
-**Status:** early development. A local Python CLI generates an offline report with experimental gameplay-only screen observations, six-field stat accounting, and mechanics-aware distinctions between previews, confirmations and receipts. It targets one English 1080p layout. Complete event reconstruction is not yet reliable; the Go application and cloud deployment remain planned.
+**Status:** a local Python pipeline analyzes full recordings into source-linked actions, six-field stat accounting, lesson/skill transactions, races and concerts. It targets one English 1080p layout. Full-run accounting has been checked on one development recording; complete effect recall and independent-recording validation remain open. The Go application and Azure deployment remain planned.
 
 ## Run locally
 
@@ -26,7 +26,7 @@ Install the `analysis` extra and Tesseract, then add `--gameplay-only` to analyz
 - Side-by-side run comparison and report export.
 - Background video processing on Azure.
 
-The first release targets short clips from one supported recording layout. Longer recordings and additional layouts will follow validation of the initial pipeline.
+The full-recording neural runner processes video locally and investigates short training animations at higher frame rates. See [setup and commands](docs/full-recording-analysis.md) and [measured results and limitations](docs/results-gameplay-only.md).
 
 ## Design
 
@@ -38,6 +38,8 @@ See the [architecture](docs/architecture.md) for the data flow and recovery mode
 
 - [Roadmap](docs/roadmap.md)
 - [Gameplay-only mechanics and validation](docs/gameplay-only.md)
+- [Full-recording analysis](docs/full-recording-analysis.md)
+- [Development results](docs/results-gameplay-only.md)
 - [Local pipeline](docs/local-pipeline.md)
 - [Local ledger milestone](docs/milestone-local-ledger.md)
 - [Log identity and outcome visibility](docs/milestone-log-identity.md)
