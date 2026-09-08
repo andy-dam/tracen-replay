@@ -29,6 +29,7 @@ Analysis will distinguish visible facts from inferred events. A stat change with
 - [x] Keep training previews separate from explicit logged training outcomes.
 - [x] Add a source-bound, timestamp-exact evaluator with separate accuracy and abstention metrics.
 - [x] Preserve visibility gaps and expose provisional log deduplication decisions.
+- [x] Track ordered log context and separate main-outcome visibility from action time.
 - [ ] Evaluate checkpoint accuracy, log identity, and missed-event recovery on independent recordings.
 - [ ] Implement a template-matching baseline and assemble recognized screen segments.
 - [ ] Validate short-event recall and evidence quality against reviewed labels.

@@ -1,6 +1,9 @@
 # Local ledger development results
 
 The local ledger milestone passed its scoped development checks on 2026-09-08.
+These are the original baseline results. The subsequent
+[log-identity milestone](milestone-log-identity.md) resolves the historical-entry
+failure and adds sampled outcome visibility.
 The pipeline processes source video without reference annotations, exports
 timestamped evidence, reads current stats, and shows unresolved accounting.
 
@@ -57,8 +60,10 @@ The 02:33.250–03:09.750 interval remains unresolved with a Stamina residual of
 −5. The starting total is 256 and the ending total is 264, an observed +8. OCR
 recognized a +8 training result and an additional +5 log entry, producing +13.
 The screenshot at 02:35.500 visibly contains both entries. The +5 belongs to
-earlier history already reflected in the starting total; delayed visibility of
-the log caused it to be considered again. This illustrates why observation time
+earlier history already reflected in the starting total. Follow-up inspection
+found that it was visible at the checkpoint, but a trailing OCR `|` caused the
+parser to reject it. A later clean reading was consequently treated as new.
+This illustrates why observation time
 cannot be used as event time. The automatic result remains unresolved; the
 manual diagnosis is not silently inserted into predictions.
 

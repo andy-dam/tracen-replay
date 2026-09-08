@@ -127,37 +127,45 @@ class Reader:
             heading_words = next((words[i:] for i,w in enumerate(words) if w['text'].lower() == 'training'), [])
             training = re.search(r'\bTraining\s+(Speed|Stamina|Power|Guts|Wit)\s+Lv[l1]', text, re.I)
             option = training[1].lower() if training and len(heading_words)>=2 and min(float(w['conf']) for w in heading_words[:2]) >= 80 else None
-            output.append({'text': text, 'confidence': min(float(w['conf']) for w in words), 'training_heading': option})
+            output.append({'text': text, 'confidence': min(float(w['conf']) for w in words), 'training_heading': option,
+                           'top': min(int(w['top']) for w in words),
+                           'bottom': max(int(w['top'])+int(w['height']) for w in words)})
         return output
 
 
 def parse_log(lines):
-    """Group adjacent explicit changes; repeated visible blocks count once.
-
-    This conservative pilot does not reconstruct scrolling log identity. Identical
-    change blocks within one interval are counted once and disclosed as ambiguous.
-    """
+    """Parse explicit changes with raw text and line positions for identity."""
     blocks, current, text = [], {}, []
+    line_indices = []
     training_option = None
 
     def flush():
         if current:
             blocks.append({'deltas': dict(current), 'text': '\n'.join(text),
                            'training_option': training_option,
+                           'line_indices': list(line_indices),
                            'event_type': 'logged_training_result' if training_option else 'logged_change'})
         current.clear()
         text.clear()
+        line_indices.clear()
 
-    for line in lines:
+    for index, line in enumerate(lines):
         if line.get('training_heading'):
             flush()
             training_option = line['training_heading']
             continue
-        match = DELTA.fullmatch(line['text'].strip()) if line['confidence'] >= 60 else None
+        # A standalone trailing pipe is a common OCR artifact from card edges.
+        # Keep the raw text, and do not strip prefixes or arbitrary suffix words.
+        normalized = re.sub(r'\s+\|\s*$', '', line['text'].strip())
+        match = DELTA.fullmatch(normalized) if line['confidence'] >= 60 else None
         if not match:
             flush()
             training_option = None
             continue
+        if line_indices and 'top' in line and 'bottom' in lines[line_indices[-1]] and line['top']-lines[line_indices[-1]]['bottom']>30:
+            # Separate cards even when OCR misses the heading between them.
+            flush()
+            training_option = None
         field = match[1].lower()
         if field.startswith('skill'):
             field = 'skill_points'
@@ -165,6 +173,7 @@ def parse_log(lines):
             flush()
         current[field] = int(match[3]) * (1 if match[2].lower() == 'up' else -1)
         text.append(line['text'])
+        line_indices.append(index)
     flush()
     return blocks
 
@@ -196,8 +205,8 @@ def track(report, directory, tesseract=None):
         baseline = {signature(b) for b in baseline_blocks}
         seen, events = set(baseline), []
         raw_observations = []
-        # First inspect 1 fps; if accounting fails, revisit remaining extracted
-        # frames at the configured sampling rate. No inference from residuals.
+        # Keep a provisional 1 fps arithmetic baseline for comparison, then use
+        # ordered sampled context for final identity. Never infer from residuals.
         coarse, dense = [], []
         previous = -100000
         for frame in candidates[1:]:
@@ -225,7 +234,9 @@ def track(report, directory, tesseract=None):
 
         inspect(coarse)
         initial = account(before, after, distinct_changes(events, baseline_blocks))
-        searched_densely = initial['status'] != 'balanced'
+        # Ordered context and visible outcome spans need continuous samples even
+        # when a provisional sum happens to balance on the coarse pass.
+        searched_densely = True
         if searched_densely:
             inspect(dense)
             for frame in candidates[1:]:
@@ -247,10 +258,14 @@ def track(report, directory, tesseract=None):
                         deduplication_decisions=reconciliation['decisions'],
                         investigation=dict(coarse_frames=len(coarse), dense_frames=len(dense) if searched_densely else 0,
                                            main_outcome_frames=len(candidates)-1 if searched_densely else 0,
+                                           reason='context_identity_and_outcome_observation',
                                            additional_source_frames_decoded=0),
                         log_identity_warning='Identical delta blocks count once per interval; scroll identity and historical entries are not fully resolved.')
         intervals.append(interval)
-    return {'enabled': True, 'method': 'tesseract_stat_consensus_and_log_accounting', 'ocr_version': reader.version,
+    from .identity import refine_intervals
+    intervals, ledger, episodes = refine_intervals(checkpoints,list(log_cache.values()),outcome_readings,intervals,parse_log)
+    return {'enabled': True, 'method': 'tesseract_context_occurrence_accounting_v2', 'ocr_version': reader.version,
+            'log_identity': ledger, 'outcome_episodes': episodes,
             'layout': 'english-landscape-1920x1080-v1', 'fields': list(FIELDS), 'readings': readings,
             'checkpoints': checkpoints, 'intervals': intervals, 'previews': preview_segments(readings),
             'coverage': dict(sampled_frames=len(readings), complete_readings=sum(all(type((r.get('values') or {}).get(f)) is int for f in FIELDS) for r in readings),
@@ -258,5 +273,6 @@ def track(report, directory, tesseract=None):
             'log_readings': list(log_cache.values()), 'outcome_readings': outcome_readings,
             'limitations': ['OCR consensus is not human verification.', 'Checkpoints are stable visible totals, not guaranteed turn boundaries.',
                             'Only explicit English log/main-outcome gains/losses are parsed; purchases, caps and scenario mechanics are not modeled.',
-                            'Balanced totals do not prove complete event coverage. Identical events may be undercounted; scrolling partial blocks may be overcounted.',
+                            'Ordered context gives provisional log identity; identical histories after a gap can still be ambiguous.',
+                            'Outcome observation spans are sampled visibility, not action or click timestamps. Cross-pane matches remain unverified.',
                             'Dense retry inspects existing sampled frames; it cannot recover screens absent from those samples.']}

@@ -26,6 +26,20 @@ def render_accounting(report):
     result += '<h2>Training options inspected</h2><p>These spans show browsing. The final preview is not evidence of which option was chosen.</p>'
     for preview in data.get('previews', []):
         result += f'<p><a href="{escape(preview["evidence"])}">{clock(preview["first_seen_ms"])}–{clock(preview["last_seen_ms"])}</a> · {escape((preview["option"] or "Unknown option").title())} preview</p>'
+    ledger = data.get('log_identity')
+    if ledger:
+        result += '<h2 id="log-identity">Log occurrence history</h2><p>Occurrences are linked by ordered text and surrounding context. Equal gains alone do not establish identity. Reappearance after a gap remains provisional.</p><details><summary>Inspect occurrence identities and matching evidence</summary>'
+        for occurrence in ledger['occurrences']:
+            result += f'<details id="{escape(occurrence["id"])}"><summary>{escape(occurrence["id"])} · observed {clock(occurrence["first_seen_ms"])}–{clock(occurrence["last_seen_ms"])} · {escape(occurrence["identity_status"])}</summary>'
+            for decision in ledger['decisions']:
+                if decision['occurrence_id'] != occurrence['id']:
+                    continue
+                result += f'<p>{escape(decision["decision"])} · <a href="{escape(decision["evidence"])}">{clock(decision["observed_at_ms"])}</a>'
+                if decision.get('previous_evidence'):
+                    result += f' · <a href="{escape(decision["previous_evidence"])}">previous context</a> · sample gap {decision["observation_gap_ms"]} ms'
+                result += '</p>'
+            result += '</details>'
+        result += '</details>'
     result += '<h2>Between-checkpoint accounting</h2><p>These are intervals between visible states, not guaranteed individual turns. A balanced interval only means the recognized changes add up for these six fields. Event assignment and action timing remain unverified.</p>'
     for interval in data['intervals']:
         status = 'Balanced — review evidence' if interval['status']=='balanced' else 'Unresolved discrepancy'
@@ -35,18 +49,32 @@ def render_accounting(report):
         result += '</tbody></table></div><p>'+('A denser pass checked the intervening samples and main outcome text.' if interval['dense_pass_performed'] else 'The initial log pass balanced the totals.')+'</p>'
         for event in interval['events']:
             action = f'Log entry: {event["training_option"]} training; timing unverified' if event['training_option'] else 'Outcome text; action type unknown'
-            result += f'<details><summary>{escape(action)} · evidence at {clock(event["observed_at_ms"])}</summary><p>{escape(event["origin"])}</p><pre>{escape(event["text"])}</pre><a href="{escape(event["evidence"])}">Open supporting screenshot</a></details>'
+            result += f'<details><summary>{escape(action)} · evidence at {clock(event["observed_at_ms"])}</summary><p>{escape(event["origin"])}</p><pre>{escape(event["text"])}</pre><a href="{escape(event["evidence"])}">Open supporting screenshot</a>'
+            if event.get('id'):
+                result += f'<p>Occurrence: {escape(event["id"])} · {escape(event["identity_status"])}</p>'
+            for outcome in event.get('outcome_observations', []):
+                result += f'<p>Outcome text visible in samples at {clock(outcome["first_seen_ms"])}–{clock(outcome["last_seen_ms"])}. <a href="{escape(outcome["evidence"])}">Evidence at {clock(outcome["evidence_timestamp_ms"])}</a>. {escape(outcome["status"])}. Action/click time unknown.</p>'
+            result += '</details>'
+        for excluded in interval.get('excluded_historical_occurrences', []):
+            if excluded.get('context_evidence'):
+                result += f'<p>Excluded delayed log occurrence {escape(excluded["occurrence_id"])}: matches an earlier <a href="{escape(excluded["evidence"])}">main outcome at {clock(excluded["observed_at_ms"])}</a> and its <a href="{escape(excluded["context_evidence"])}">narrative context</a>. <a href="{escape(excluded["log_evidence"])}">Later log evidence</a>. Association remains unverified.</p>'
+            else:
+                result += f'<p>Excluded historical occurrence {escape(excluded["occurrence_id"])}: already observed <a href="{escape(excluded["evidence"])}">at {clock(excluded["observed_at_ms"])}</a>, at or before this interval started.</p>'
+        for association in interval.get('outcome_associations', []):
+            if association['status']=='ambiguous_multiple_log_matches':
+                result += f'<p>Unassigned outcome at {clock(association["first_seen_ms"])}: multiple log entries have matching gains. <a href="{escape(association["evidence"])}">Review outcome evidence</a>.</p>'
         investigation = interval.get('investigation')
         if investigation:
             result += f'<p>Inspected {investigation["coarse_frames"]} coarse log frames, {investigation["dense_frames"]} additional sampled log frames, and {investigation["main_outcome_frames"]} main-outcome frames. No additional source frames were decoded.</p>'
         raw = interval.get('raw_observations', [])
         decisions = interval.get('deduplication_decisions', [])
-        result += f'<details><summary>Audit: {len(raw)} raw block observations, {len(decisions)} partial/baseline merge decisions</summary><p>Repeated equal vectors are consolidated provisionally. Matching deltas do not establish event identity.</p>'
+        policy = 'Final accounting uses ordered log context and separate main-outcome episodes. Cross-pane delta matches remain unverified.' if ledger else 'Repeated equal vectors are consolidated provisionally. Matching deltas do not establish event identity.'
+        result += f'<details><summary>Audit: {len(raw)} raw block observations</summary><p>{policy}</p>'
         for decision in decisions:
             candidate = interval['raw_change_candidates'][decision['candidate_index']]
             result += f'<p>{escape(decision["decision"])} · <a href="{escape(candidate["evidence"])}">{clock(candidate["observed_at_ms"])}</a></p><pre>{escape(candidate["text"])}</pre>'
         result += '<details><summary>All raw observations before consolidation</summary>'
         for observation in raw:
             result += f'<p><a href="{escape(observation["evidence"])}">{clock(observation["observed_at_ms"])}</a> · {escape(observation["origin"])}</p><pre>{escape(observation["text"])}</pre>'
-        result += '</details></details><p class="meta">Identical and partial delta blocks are merged conservatively; repeated events and historical log entries still need review. No event was invented to balance the totals.</p></article>'
+        result += '</details></details><p class="meta">Repeated events and historical log entries still need review. No event was invented to balance the totals.</p></article>'
     return result

@@ -39,6 +39,7 @@ See the [architecture](docs/architecture.md) for the data flow and recovery mode
 - [Roadmap](docs/roadmap.md)
 - [Local pipeline](docs/local-pipeline.md)
 - [Local ledger milestone](docs/milestone-local-ledger.md)
+- [Log identity and outcome visibility](docs/milestone-log-identity.md)
 - [Architecture](docs/architecture.md)
 - [Deployment design](docs/deployment.md)
 - [Model evaluation](docs/evaluation.md)

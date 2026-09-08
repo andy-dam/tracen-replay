@@ -106,12 +106,12 @@ The `stat_tracking` report section contains:
 - Stable checkpoints requiring at least three consecutive complete matching readings spanning at least 500 ms. One-frame errors are not accepted as checkpoints. Agreement can still repeat a systematic OCR error, so checkpoints remain marked `human_verified: false`.
 - Independent tracking of training-preview frames. Switching among options never contributes a gain or creates a completed action. An action type is only assigned from explicit, sufficiently readable `Training <option> Lvl ...` outcome-log headings. Otherwise it remains unknown; the last preview is never assumed to be the chosen action.
 - Between-checkpoint observed differences, sums of independently OCR-read changes, and residual unexplained differences for all six fields. These checkpoints do not guarantee one interval per turn. The visible goal countdown is attempted separately and may remain unknown; it is not a global turn index.
-- A first pass through the log at approximately 1 fps. A discrepancy triggers inspection of the remaining sampled frames and the main outcome-text bubble. This second pass does not decode additional video beyond the configured sampling rate. Missing events or unreadable text remain unresolved.
+- A provisional first log pass at approximately 1 fps, followed by all remaining intervening samples and main-outcome text. The full pass runs even when the initial arithmetic balances, because context identity and outcome visibility require ordered observations. It does not decode additional video beyond the configured rate.
 - Raw log/outcome readings and candidate changes, supporting screenshot paths, initial residuals, and final residuals. Annotation inputs do not participate in this process.
 
 The accounting is `observed difference - recognized awarded changes = unexplained difference`. Negative changes are supported, but skill purchase receipts and the game's cap/rounding rules are not modeled yet. Previews such as `Speed +13` and possible-choice effects are not parsed as awarded changes.
 
-Log identity remains experimental: the reader excludes changes already visible at the starting checkpoint, merges exact duplicates, and conservatively merges partial delta blocks. Distinct events with identical changes can therefore be undercounted, and historical or scrolled entries can remain ambiguous. Raw candidates are retained for review. A balanced interval only establishes arithmetic agreement for these six fields; it does not prove a complete event history or identify all causes.
+Final accounting tracks occurrences through unique ordered text and surrounding context. Equal stat changes alone do not establish log identity. An occurrence observed at or before the starting checkpoint is excluded from that interval. Reappearance after a gap remains provisional. A balanced interval only establishes arithmetic agreement for these six fields; it does not prove a complete event history or identify all causes.
 
 The report now shows contiguous preview spans with recognized options or an
 explicit unknown. These remain separate from outcome-log entries. Logged training
@@ -119,6 +119,14 @@ headings describe visible log content; assigning that entry to the current
 interval is not verified. Every interval retains baseline blocks, all raw block
 observations, partial/baseline merge decisions, and counts of inspected frames.
 The audit details can be expanded in the offline viewer.
+
+The `log_identity` section retains occurrence IDs, first/last observations, raw
+delta readings, and paired evidence for context matches. `outcome_episodes` holds
+separate main-pane visibility spans. Interval `outcome_associations` records
+unique but unverified cross-pane matches or ambiguous multiple candidates.
+`event_time_ms` and `action_time_ms` remain null: sampled outcome visibility is
+not a click timestamp. See [the identity milestone](milestone-log-identity.md)
+for matching thresholds and limitations.
 
 Matching stat totals separated by unreadable samples remain separate checkpoints.
 This prevents a period with hidden totals from being represented as continuous
