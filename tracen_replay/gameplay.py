@@ -149,6 +149,8 @@ def classify(text, header, result_grid=False, preview=False):
         return 'career_summary'
     if 'finish this career playthrough' in lower:
         return 'career_finish_confirmation'
+    if 'total fans' in lower and ('bond level' in lower or 'fans earned this month' in lower):
+        return 'career_account_totals'
     if re.search(r'Fans\s+[\d,]+\s*\(\+[\d,]+\)', text, re.I):
         return 'race_result'
     if header.lower().startswith('lessons') and 'performance' in lower:

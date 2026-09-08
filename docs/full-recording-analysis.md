@@ -53,6 +53,8 @@ Inspection does not resolve every kind of discrepancy. A result that never becom
 
 Currency refinements widen the five resource-counter crops to avoid clipped leading digits. Contrast views are correlated re-readings, not independent frames. `inspect_gaps` captures unresolved training windows at native 60 FPS; `refine_awards` checks enlarged gain animations there. Skill circle suffixes use local image geometry and abstain on disagreement. Original OCR observations remain immutable. Parser changes use `--reparse-only`; do not rerun all neural OCR just to rebuild a report.
 
+The currency command also rechecks unresolved menu balances with two crops that exclude neighboring badges and separators. These observations are stored separately in `currency-padding-refinement/`. Agreement can recover a complete counter; conflicting values remain unknown.
+
 ## Artifacts and provenance
 
 - `capture.json`: source SHA-256, duration, layout, decoded PTS, and the complete base sampling manifest.
@@ -82,6 +84,8 @@ If the new run reveals a bug, retain the original evaluation before fixing it. O
 Lesson receipts are matched to named confirmations. Their displayed costs are checked against before/after performance balances when available. Actual stat receipts remain separate from offered bonuses. A canceled confirmation does not create a purchase. Song names that wrap onto another line are joined only when the closing quotation and line geometry agree.
 
 Skill charges require an acquisition receipt plus independent balance evidence. The menu counter can be a projected balance, so selecting, removing, and reselecting an item does not create multiple purchases. Visible confirmation names and menu-price transitions provide item candidates; an item-price sum matching the charge is reported separately from a complete, verified inventory. Symbol variants and off-screen items remain explicit gaps.
+
+For consecutive purchases between shared actual checkpoints, the parser can verify charges jointly: each purchase needs a confirmation, receipt and repeated final projected counter, and the last counter must match the observed settled balance. Uncovered receipts, other observed SP changes, inconsistent charges or missing counter evidence prevent this assignment. Cart changes are scoped to their own receipt. The report explicitly labels intermediate balances as projected, not independently observed settled states.
 
 Race results preserve placing, course, fans, and uncertain item rewards separately from character stats. Concert results reference their aftermath receipts and previously queued bonus candidates. A queued bonus is not automatically marked as visually verified activation. Stat caps, performance caps, fans, hints, energy, and friendship are distinct effect types.
 

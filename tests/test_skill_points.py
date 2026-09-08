@@ -14,6 +14,27 @@ from tracen_replay.vision import parse
 
 
 class SkillPointRefinementTests(unittest.TestCase):
+    def test_currency_padding_recovers_full_number_without_legacy_clipping(self):
+        sample=raw([line('Performance Points',(400,40,700,70)),line('0153',(635,88,701,121),95)],
+                   currency_padding={'visual':[line('153'),line('153')]})
+        sample['header']='Lessons'
+        sample['regions']={'performance.visual':line('53'),
+                           'wide_performance.visual':line('153',confidence=96.7)}
+        self.assertEqual(parse(sample)['facts']['performance_points']['visual'],153)
+        sample['regions']['wide_performance.visual']=line('154')
+        self.assertIsNone(parse(sample)['facts']['performance_points']['visual'])
+
+    def test_currency_padding_disagreement_and_out_of_range_abstain(self):
+        for views in ([line('153'),line('154')],[line('1000'),line('1000')],[line('153')]):
+            sample=raw([line('Performance Points',(400,40,700,70))],currency_padding={'visual':views})
+            sample['header']='Lessons'
+            self.assertIsNone(parse(sample)['facts']['performance_points']['visual'])
+
+    def test_menu_padding_cannot_override_a_modal_balance(self):
+        sample=raw([line('Spend performance points to learn this technique?')],
+                   currency_padding={'visual':[line('153'),line('153')]})
+        self.assertIsNone(parse(sample)['facts']['projected_performance_points']['visual'])
+
     def test_finish_confirmation_reports_balances_not_spending(self):
         lines=[line('Finish this Career playthrough?',(406,511,706,543)),
                line('Remaining Skill Points',(417,563,581,587)),line('8 pt(s)',(595,560,669,593)),
@@ -68,11 +89,15 @@ class SkillPointRefinementTests(unittest.TestCase):
             original=json.loads((root/'neural/one.json').read_text(encoding='utf-8'))
             extra=dict(raw_sha256=fingerprint(original),evidence_sha256=hashlib.sha256((root/'gameplay/one.png').read_bytes()).hexdigest(),
                        views=[line('8'),line('8')])
-            dest=root/'skill-points-refinement';dest.mkdir()
-            (dest/'one.json').write_text(json.dumps(extra),encoding='utf-8')
-            self.assertEqual(len(cached_readings(report,root)),1)
-            for key in ('raw_sha256','evidence_sha256'):
-                with self.subTest(key=key):
-                    (dest/'one.json').write_text(json.dumps(dict(extra,**{key:'changed'})),encoding='utf-8')
-                    with self.assertRaisesRegex(PipelineError,'Skill-point refinement evidence changed'):
-                        cached_readings(report,root)
+            for folder,message,views in (
+                    ('skill-points-refinement','Skill-point refinement evidence changed',[line('8'),line('8')]),
+                    ('currency-padding-refinement','Currency padding evidence changed',{'visual':[line('153'),line('153')]})):
+                dest=root/folder;dest.mkdir();extra['views']=views
+                (dest/'one.json').write_text(json.dumps(extra),encoding='utf-8')
+                self.assertEqual(len(cached_readings(report,root)),1)
+                for key in ('raw_sha256','evidence_sha256'):
+                    with self.subTest(folder=folder,key=key):
+                        (dest/'one.json').write_text(json.dumps(dict(extra,**{key:'changed'})),encoding='utf-8')
+                        with self.assertRaisesRegex(PipelineError,message):
+                            cached_readings(report,root)
+                (dest/'one.json').write_text(json.dumps(extra),encoding='utf-8')

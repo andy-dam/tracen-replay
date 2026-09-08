@@ -128,6 +128,13 @@ def cached_readings(report,root,allow_partial=False):
             if extra['raw_sha256']!=fingerprint(original) or extra['evidence_sha256']!=hashlib.sha256((root/raw['evidence']).read_bytes()).hexdigest():
                 raise PipelineError('Currency refinement evidence changed.')
             raw=dict(raw,regions=dict(raw['regions'],**extra['regions']))
+        padding=root/'currency-padding-refinement'/path.name
+        if padding.exists():
+            from .refine_contrast import fingerprint
+            extra=json.loads(padding.read_text(encoding='utf-8'))
+            if extra['raw_sha256']!=fingerprint(original) or extra['evidence_sha256']!=hashlib.sha256((root/raw['evidence']).read_bytes()).hexdigest():
+                raise PipelineError('Currency padding evidence changed.')
+            raw=dict(raw,currency_padding=extra['views'])
         skill_points=root/'skill-points-refinement'/path.name
         if skill_points.exists():
             from .refine_contrast import fingerprint

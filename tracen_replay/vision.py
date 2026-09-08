@@ -130,6 +130,11 @@ def parse(raw):
                 # Wider crops are purpose-built to include the full counter;
                 # tight legacy numeric regions are deliberately not consulted.
                 result[field]=value
+            padding=raw.get('currency_padding',{}).get(field) if not modal else None
+            if padding is not None:
+                from .refine_skill_points import counter_reading
+                value,conflicts=counter_reading(padding,result[field])
+                result[field]=value if not conflicts and type(value) is int and 0<=value<=999 else None
         return result
     preview=raw['current_grid'] and any('failure' in l['text'].lower() and within(l,(250,760,470,835)) for l in lines)
     result_grid=raw['result_grid']
@@ -256,6 +261,26 @@ def parse(raw):
                         and number(l) is not None}
                 remaining[field]=values.pop() if len(values)==1 else None
             facts['remaining_performance_points']=remaining
+    if screen=='career_account_totals':
+        # Post-career account awards are not another race or career stat gain.
+        facts['counts_as_career_action']=False
+        for name,box in (('account_fans',(275,400,850,465)),('monthly_fans',(275,535,850,590))):
+            matches=[re.fullmatch(r'([\d,]+)\s*\(\s*\+([\d,]+)\s*\)',l['text'])
+                     for l in lines if l['confidence']>=97 and within(l,box)]
+            values={(int(m[1].replace(',','')),int(m[2].replace(',',''))) for m in matches if m}
+            if len(values)==1:
+                total,increase=values.pop();facts[name]=dict(total=total,increase=increase)
+        if 'monthly_fans' in facts:
+            facts['monthly_fans']['scope']='club' if any(l['text']=='Club' and l['confidence']>=97
+                                                       and within(l,(300,500,400,540)) for l in lines) else 'unknown'
+        levels={number(l) for l in lines if within(l,(480,205,550,255)) and number(l) is not None}
+        if len(levels)==1:facts['bond_level']=levels.pop()
+        matches=[re.fullmatch(r'([\d,]+)/([\d,]+)\(\+([\d,]+)\)',l['text'])
+                 for l in lines if l['confidence']>=97 and within(l,(550,225,850,280))]
+        values={tuple(int(part.replace(',','')) for part in m.groups()) for m in matches if m}
+        if len(values)==1:
+            current,required,increase=values.pop()
+            if 0<=current<=required and required>0:facts['bond_progress']=dict(current=current,required=required,increase=increase)
     if screen=='training_result':
         gains={}; totals={};caps={};gain_candidates={};result_candidates={};digit_crosschecks=[]
         for field in FIELDS:

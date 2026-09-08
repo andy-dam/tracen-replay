@@ -3,6 +3,7 @@ from collections import Counter
 import re
 from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, screen_summary
+from .skill_chains import cart_bundles,reconcile_skill_chains
 
 
 def skill_point_states(readings,states):
@@ -153,23 +154,11 @@ def skill_transactions(readings,states):
             net=sum(s['amount'] for s in steps)
             if net>0:selected.append(dict(name=name,cost=net,evidence=[p for s in steps for p in s['evidence']],variant_verified=False,basis='cart_counter_and_unique_visible_price_candidate'))
         item_sum=sum(item['cost'] for item in selected)
-        bundles={};unassigned=[]
-        for change in cart_changes:
-            if len(change['candidate_names'])!=1:unassigned.append(change);continue
-            name=change['candidate_names'][0]
-            bundle=bundles.setdefault(name,dict(target_name=name,net_cost=0,co_selected_name_candidates=[],evidence=[]))
-            bundle['net_cost']+=change['projected_charge_delta'];bundle['evidence']+=change['evidence']
-            if change['projected_charge_delta']>0:
-                bundle['co_selected_name_candidates']=sorted(set(bundle['co_selected_name_candidates']+change['co_changed_names']))
-                bundle['selected_variant']=change['selected_variant'];bundle['variant_evidence']=change['variant_evidence']
-        bundles=[b for b in bundles.values() if b['net_cost']>0]
-        targets={b['target_name'] for b in bundles}
-        for bundle in bundles:
-            bundle['prerequisite_candidates']=[name for name in bundle['co_selected_name_candidates'] if name not in targets]
-            bundle['co_selected_name_candidates']=[name for name in bundle['co_selected_name_candidates'] if name==bundle['target_name'] or name not in targets]
+        bundles,unassigned=cart_bundles(cart_changes)
         cart_total=sum(c['projected_charge_delta'] for c in cart_changes)
         bundle_total=sum(b['net_cost'] for b in bundles)
         transactions.append(dict(id=f'skills-{len(transactions)+1:03d}',kind='skill_purchase_batch',first_seen_ms=span['first_seen_ms'],last_seen_ms=span['last_seen_ms'],
+            confirmation_first_seen_ms=confirmation['first_seen_ms'],confirmation_last_seen_ms=confirmation['last_seen_ms'],
             spent_skill_points=spent,deltas={'skill_points':-spent} if spent is not None else {},
             visible_confirmation_names=names,purchased_list_complete=False,complete_transaction_verified=False,
             selected_item_candidates=selected,item_cost_sum=item_sum,item_cost_sum_matches_charge=spent is not None and item_sum==spent,
@@ -185,7 +174,7 @@ def skill_transactions(readings,states):
                               for role,state in (('before',before),('after',after)) if state],
             evidence=[s['evidence'] for s in (before,confirmation,span,after) if s]+counter_proofs,
             cost_basis=basis))
-    return transactions
+    return reconcile_skill_chains(transactions,readings,spans)
 
 
 def lesson_receipts(readings, outcomes):
@@ -302,7 +291,11 @@ def training_events(readings,states=()):
             values={value for _,value in observations}
             if len(values)==1:
                 performance[field]=values.pop();performance_proofs[field]=[r['evidence'] for r,_ in observations]
-        events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs)
+        events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs,
+                         action_identity_evidence=[r['evidence'] for r in group['rows']
+                             if r.get('training_option')==group['option']],
+                         action_identity_observations=len({r['source_timestamp_ms'] for r in group['rows']
+                             if r.get('training_option')==group['option']}))
         before=[s for s in states if 0<group['first_seen_ms']-s['last_seen_ms']<=5000]
         before=before[-1] if before else None
         earlier_awards=before and any(before['last_seen_ms']<r['source_timestamp_ms']<group['first_seen_ms'] and any(e['kind']=='stat_change' for e in r.get('effects',[])) for r in readings)
@@ -486,8 +479,7 @@ def reconstruct(readings):
         item['state_supported_candidate_resolutions']=resolutions
         intervals.append(item)
     lessons=lesson_receipts(readings,[e for e in events if e['kind']=='outcome'])
-    actions=[dict(kind='training',training_option=e['training_option'],source_timestamp_ms=e['first_seen_ms'],evidence=e['evidence'],event_id=e['id'],click_timestamp_ms=None)
-             for e in events if e['kind']=='training' and e['training_option'] and e['deltas']]
+    actions=training_actions(events)
     for event in events:
         if event['kind']!='outcome' or event.get('context_title')!='All Refreshed':continue
         confirmations=[r for r in readings if r['screen']=='rest_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=10000]
@@ -504,6 +496,16 @@ def reconstruct(readings):
                 lesson_purchases=lessons,skill_purchases=skills,concerts=concerts(readings,events,lessons),races=race_results,turn_action_receipts=actions,
                 performance_accounting=performance_accounting(readings,events,lessons),
                 lesson_debit_observations=lesson_transitions(readings))
+
+
+def training_actions(events):
+    """Completed training identity does not depend on readable reward digits."""
+    return [dict(kind='training',training_option=e['training_option'],source_timestamp_ms=e['first_seen_ms'],
+                 evidence=e['evidence'],event_id=e['id'],click_timestamp_ms=None,
+                 action_identity_evidence=e.get('action_identity_evidence',[]),
+                 effect_coverage_verified=e['effect_coverage_verified'])
+            for e in events if e['kind']=='training' and e['training_option']
+            and (e['deltas'] or e.get('action_identity_observations',0)>=2)]
 
 
 def outing_actions(readings,events):

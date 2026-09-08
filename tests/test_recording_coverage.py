@@ -6,7 +6,7 @@ from tests.test_gameplay import workspace_temp
 from tests.test_neural_transactions import row
 from tracen_replay.calendar_coverage import audit
 from tracen_replay.mechanics_audit import fan_accounting, song_acquisitions
-from tracen_replay.transactions import outing_actions,outcome_events
+from tracen_replay.transactions import outing_actions,outcome_events,training_actions,training_events
 from tracen_replay.transaction_evaluate import evaluate
 from tracen_replay.verify_evidence import verify, inside
 from tracen_replay.vision import parse
@@ -16,6 +16,20 @@ from tracen_replay.mechanics_audit import unparsed_receipt_candidates
 
 
 class RecordingCoverageTests(unittest.TestCase):
+    def test_completed_training_survives_unreadable_rewards(self):
+        rows=[row(t,'training_result',training_option='wit') for t in (100,350)]
+        events=training_events(rows)
+        actions=training_actions(events)
+        self.assertEqual(len(actions),1)
+        self.assertEqual(actions[0]['training_option'],'wit')
+        self.assertFalse(actions[0]['effect_coverage_verified'])
+        self.assertEqual(events[0]['deltas'],{})
+        self.assertEqual(actions[0]['action_identity_evidence'],['100.png','350.png'])
+        self.assertEqual(training_actions(training_events(rows[:1])),[])
+        self.assertEqual(training_actions(training_events([rows[0],rows[0]])),[])
+        for r in rows:r['screen']='training_preview'
+        self.assertEqual(training_actions(training_events(rows)),[])
+
     def test_receipt_review_does_not_claim_recall_and_rejects_changed_option(self):
         ref=dict(source_sha256='s',scope='selected receipts',actions=[dict(source_timestamp_ms=100,expected=dict(kind='training',training_option='wit'))])
         action=dict(source_timestamp_ms=100,kind='training',training_option='wit')

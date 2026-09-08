@@ -28,6 +28,8 @@ def refine(root):
         count+=1
         if count%100==0:print(json.dumps(dict(stage='currency_refinement',frames=count)),flush=True)
     print(json.dumps(dict(stage='currency_refinement_complete',new_frames=count)),flush=True)
+    from .refine_currency_padding import refine as refine_padding
+    refine_padding(root)
 
 
 if __name__=='__main__':
