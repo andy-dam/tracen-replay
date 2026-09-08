@@ -27,9 +27,9 @@ The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080
 
 | Mechanic | Count from | Keep separate or unknown |
 |---|---|---|
-| Training | Result option and supported displayed gains | Browsing, projections, caps, click time |
+| Training | Repeated completed result option; gains tracked separately | Browsing, projections, caps, unreadable rewards, click time |
 | Ordinary events | Explicit receipts with title/geometry/time boundaries | Dialogue, actual selected choice, unreadable effects |
-| Rest and outings | Request then recovery without intervening action | Canceled dialogs and unrelated recovery |
+| Rest and outings | Request then recovery; support outings without energy also require matching narrative and the observed next date | Canceled dialogs, returns to the hub and unrelated recovery |
 | Races | Result identity, placing and fan receipt | Entry menus, unread item identities |
 | Skills | Acquisition receipt plus SP balance evidence | Pending/removed selections, bundled prerequisites, next offered rank |
 | Lessons | Named receipt, confirmation and balances | Offered cards, delayed unchanged counters, canceled dialogs |

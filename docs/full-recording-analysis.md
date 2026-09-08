@@ -1,5 +1,7 @@
 # Full-recording analysis
 
+Support outings can complete without an energy award. For these, the analyzer requires repeated outing confirmation, the matching support-event narrative shortly afterward, a mood/friendship receipt, and repeated observations of the next calendar date. Intervening training/race/rest actions or a repeated return to the stat hub reject the association. This establishes the outing without inventing energy or a click timestamp.
+
 The full-recording runner samples the source from beginning to end, then inspects short training animations more densely. It exports observed states, transaction evidence, and unresolved changes. Processing every sample does not by itself verify every action.
 
 ## Local setup

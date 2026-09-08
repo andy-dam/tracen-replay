@@ -103,6 +103,31 @@ class RecordingCoverageTests(unittest.TestCase):
         self.assertEqual(outing_actions([request], [dict(events[0], effects=[])]), [])
         self.assertEqual(len(outing_actions([request], events + [dict(events[0], id='second', first_seen_ms=6000)])), 1)
 
+    def test_support_outing_without_energy_requires_narrative_and_next_date(self):
+        rows=[row(t,screen,context_title=title) for t,screen,title in
+              ((750,'outing_confirmation',None),(1000,'outing_confirmation',None),
+               (2000,'unknown','Support story'),(2250,'unknown','Support story'),
+               (6250,'unknown',None),(6500,'unknown',None))]
+        for r in rows:r['stats']['calendar_text']='Senior Year Late Jan' if r['source_timestamp_ms']<6000 else 'Senior Year Early Feb'
+        event=dict(id='e',kind='outcome',first_seen_ms=5000,last_seen_ms=5500,evidence='receipt.png',
+                   context_title='Support story',effects=[dict(kind='mood_change',direction='up'),
+                   dict(kind='friendship_status',name='Companion',value='maximum')])
+        actions=outing_actions(rows,[event])
+        self.assertEqual(len(actions),1)
+        self.assertEqual(actions[0]['companion'],'Companion')
+        self.assertIn('6500.png',actions[0]['evidence'])
+        self.assertEqual(outing_actions(rows[:-1],[event]),[])
+        self.assertEqual(outing_actions(rows[1:],[event]),[])
+        self.assertEqual(outing_actions(rows,[dict(event,context_title='Unrelated')]),[])
+        for screen in ('training_preview','training_result','race_result'):
+            self.assertEqual(outing_actions(rows[:4]+[row(3000,screen)]+rows[4:],[event]),[])
+            self.assertEqual(outing_actions(rows[:4]+[row(6000,screen)]+rows[4:],[event]),[])
+        hub=row(3000);hub['stats']['values']={'speed':100}
+        second=dict(hub,source_timestamp_ms=3250,evidence='3250.png')
+        self.assertEqual(outing_actions(rows[:4]+[hub,second]+rows[4:],[event]),[])
+        rows[-1]['stats']['calendar_text']='Senior Year Late Feb'
+        self.assertEqual(outing_actions(rows,[event]),[])
+
     def test_fans_include_concert_receipts_and_unknown_is_not_zero(self):
         races = [dict(id='r1', first_seen_ms=0, last_seen_ms=100, fans=100, fans_gained=99, evidence=['a.png']),
                  dict(id='r2', first_seen_ms=1000, last_seen_ms=1100, fans=160, fans_gained=50, evidence=['b.png'])]

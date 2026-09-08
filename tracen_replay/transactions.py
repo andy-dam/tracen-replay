@@ -511,20 +511,56 @@ def training_actions(events):
 def outing_actions(readings,events):
     actions=[];used=set()
     for event in events:
-        if event['kind']!='outcome' or not any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):continue
+        if event['kind']!='outcome':continue
+        recovery=any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects'])
+        companions={e['name'] for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')}
+        mood=any(e['kind']=='mood_change' and e.get('direction')=='up' for e in event['effects'])
+        if not recovery and not (mood and len(companions)==1):continue
         requests=[r for r in readings if r['screen']=='outing_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
         if not requests:continue
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
-        if any(r['screen'] in ('training_result','race_result','rest_confirmation') for r in intervening):continue
+        if any(r['screen'] in ('training_result','training_preview','race_result','rest_confirmation') for r in intervening):continue
+        hubs=[r for r in intervening if r['screen']=='unknown' and r.get('stats',{}).get('values')]
+        if any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
+               for a,b in zip(hubs,hubs[1:])):continue
         if time in used:continue
-        companions={e['name'] for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')}
+        extra=[]
+        if not recovery:
+            extra=outing_turn_evidence(readings,event,request)
+            if not extra:continue
         used.add(time)
         actions.append(dict(kind='outing',source_timestamp_ms=event['first_seen_ms'],event_id=event['id'],
                             companion=companions.pop() if len(companions)==1 else None,
-                            evidence=[request['evidence'],event['evidence']],click_timestamp_ms=None,
-                            basis='outing_request_followed_by_recovery_receipt_without_another_turn_action'))
+                            evidence=list(dict.fromkeys([request['evidence'],event['evidence']]+extra)),click_timestamp_ms=None,
+                            basis='outing_request_followed_by_recovery_receipt_without_another_turn_action' if recovery else
+                                  'outing_request_support_event_and_observed_next_date'))
     return actions
+
+
+def outing_turn_evidence(readings,event,request):
+    """Support outings need not award energy; require an observed turn transition."""
+    from .calendar_coverage import date_key
+    time=request['source_timestamp_ms'];title=event.get('context_title')
+    if not title:return []
+    confirmations=[r for r in readings if r['screen']=='outing_confirmation' and 0<=time-r['source_timestamp_ms']<=1000]
+    if len({r['source_timestamp_ms'] for r in confirmations})<2:return []
+    narrative=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms'] and r.get('context_title')==title]
+    if len({r['source_timestamp_ms'] for r in narrative})<2 or narrative[0]['source_timestamp_ms']-time>3000:return []
+    current={date_key(r.get('stats',{}).get('calendar_text')) for r in narrative}
+    if len(current)!=1 or None in current:return []
+    current=current.pop()
+    after=[r for r in readings if event['last_seen_ms']<r['source_timestamp_ms']<=event['last_seen_ms']+5000]
+    next_rows=[]
+    for row in after:
+        date=date_key(row.get('stats',{}).get('calendar_text'))
+        if row['screen'] in ('training_result','race_result','rest_confirmation','outing_confirmation','training_preview'):return []
+        if date is not None and date not in (current,current+1):return []
+        if date==current+1:next_rows.append(row)
+        elif row.get('stats',{}).get('values'):return []
+        if len({r['source_timestamp_ms'] for r in next_rows})>=2:
+            return [r['evidence'] for r in confirmations+narrative[:2]+next_rows]
+    return []
 
 
 def performance_accounting(readings,events,lessons):
