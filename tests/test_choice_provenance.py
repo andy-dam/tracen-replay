@@ -10,8 +10,10 @@ class ChoiceProvenanceTests(unittest.TestCase):
     def test_tampered_raw_or_proof_rejected(self):
         from unittest.mock import Mock
         p=Mock();p.read_bytes.return_value=b'proof'
-        raw={'original':'ocr'};extra=dict(version=1,raw_sha256=fingerprint(raw),evidence_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),observation={'offered_card_candidates':[]})
+        raw={'original':'ocr'};extra=dict(version=2,raw_sha256=fingerprint(raw),evidence_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),observation={'offered_card_candidates':[]})
         self.assertIn('choice_observation',apply({'screen':'unknown'},raw,extra,p)['facts'])
+        with self.assertRaisesRegex(ValueError,'Regenerate'):
+            apply({'screen':'unknown'},raw,dict(extra,version=1),p)
         self.assertNotIn('facts',apply({'screen':'training_preview'},raw,extra,p))
         with self.assertRaises(ValueError):apply({'screen':'unknown'},{'changed':True},extra,p)
         p.read_bytes.return_value=b'changed'

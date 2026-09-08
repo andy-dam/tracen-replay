@@ -6,6 +6,32 @@ consumer must associate marks with a previously observed option set.
 import numpy as np
 
 
+def _card_bands(mask):
+    """Join text-sized holes inside cards, but not the gaps between cards."""
+    rows=np.where(mask[250:800,175:610].mean(axis=1)>=.85)[0]+250
+    runs=[]
+    for y in rows:
+        if not runs or y-runs[-1][-1]>22:runs.append([])
+        runs[-1].append(int(y))
+    return [(r[0],r[-1]+1) for r in runs if 55<=r[-1]+1-r[0]<=100]
+
+
+def _card_text(lines,bands):
+    cards=[];complete=True
+    for top,bottom in bands:
+        inside=[l for l in lines if 300<=l['box'][0]<=350
+                and top<=l['box'][1]<l['box'][3]<=bottom+3
+                and 15<=l['box'][3]-l['box'][1]<=45]
+        inside.sort(key=lambda l:l['box'][1])
+        if not inside or any(l['confidence']<97 for l in inside):
+            complete=False;continue
+        cards.append(dict(text=' '.join(l['text'] for l in inside),
+            text_box=[min(l['box'][0] for l in inside),inside[0]['box'][1],
+                      max(l['box'][2] for l in inside),inside[-1]['box'][3]],
+            confidence=min(l['confidence'] for l in inside),card_y=[top,bottom]))
+    return cards,complete and bool(bands)
+
+
 def observe(pane,lines=()):
     if pane.size!=(810,1080):raise ValueError('Expected isolated 810x1080 gameplay pixels.')
     pixels=np.asarray(pane.convert('RGB')).astype('int16')
@@ -28,19 +54,12 @@ def observe(pane,lines=()):
     for left in sides[0]:
         matches=[right for right in sides[1] if abs(left['box'][1]-right['box'][1])<=8 and abs(left['box'][3]-right['box'][3])<=8]
         if len(matches)==1:pairs.append(dict(left=left,right=matches[0]))
-    cards=[]
-    for line in lines:
-        a,b,c,d=line['box']
-        if line['confidence']<97 or not (300<=a<=350 and 270<=b<d<=790 and 15<=d-b<=45):continue
-        # Broad white card interior, excluding the text baseline and right motif.
-        top=max(250,b-18);bottom=b-3
-        area=pixels[top:bottom,175:610]
-        if not area.size:continue
-        white=(area.min(axis=2)>=240)&(area.max(axis=2)-area.min(axis=2)<=15)
-        if float(white.mean())<.85:continue
-        cards.append(dict(text=line['text'],text_box=line['box'],confidence=line['confidence']))
-    cards.sort(key=lambda c:c['text_box'][1])
+    white=(pixels.min(axis=2)>=240)&(pixels.max(axis=2)-pixels.min(axis=2)<=15)
+    green=(pixels[:,:,0]>150)&(pixels[:,:,1]>220)&(pixels[:,:,2]<190)&(pixels[:,:,1]-pixels[:,:,0]>20)
+    cards,complete=_card_text(lines,_card_bands(white))
+    selected,_=_card_text(lines,_card_bands(green))
     return dict(offered_card_candidates=cards,selection_mark_pairs=pairs,
+                menu_text_complete=complete,selected_card_candidates=selected,
                 selected_option=None,selection_verified=False)
 
 
@@ -52,7 +71,12 @@ def reconstruct(observations):
             active=None;pending=[];continue
         time=row['source_timestamp_ms'];cards=row['offered_card_candidates']
         if active and time-active[-1]['source_timestamp_ms']>1500:active=None
-        if cards:
+        # A readable different response at the same height is a new menu,
+        # not evidence that an option from the previous menu was selected.
+        visible=cards+row.get('selected_card_candidates',[])
+        if active and any(c['text'] not in {o['text'] for o in active[-1]['offered_card_candidates']} for c in visible):
+            active=None;pending=[]
+        if cards and row.get('menu_text_complete',True):
             signature=tuple(c['text'] for c in cards)
             if pending and (tuple(c['text'] for c in pending[-1]['offered_card_candidates'])!=signature
                             or time-pending[-1]['source_timestamp_ms']>500):pending=[]

@@ -1,0 +1,1917 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "cases": [
+    {
+      "selection_observed_ms": 43250,
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.975,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.373,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 39500,
+          "evidence": "gameplay/part-000-frame-000159.png",
+          "evidence_sha256": "3d7a9937037ca00c51b150fa822228fd516c42e63e4efeaff47acb85af3e8b4b"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.976,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.392,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 39750,
+          "evidence": "gameplay/part-000-frame-000160.png",
+          "evidence_sha256": "e3e3515f90e64a26bd598973149905d6a2275d3a582d20d694b12a011f858c26"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.976,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 98.546,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 40000,
+          "evidence": "gameplay/part-000-frame-000161.png",
+          "evidence_sha256": "a70735d295606f929e4e967438f74065895f0fc627c303fc6b45310f57cf0548"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.976,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                727,
+                728,
+                778
+              ],
+              "confidence": 98.882,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 40250,
+          "evidence": "gameplay/part-000-frame-000162.png",
+          "evidence_sha256": "9506bf0e7d6aa7fdee2069972dd7475083f5838df53c75c4b38ff292f84165c7"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.976,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.393,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 40500,
+          "evidence": "gameplay/part-000-frame-000163.png",
+          "evidence_sha256": "340f5bb580288f74c0e42aaaddb7c14013842a40e1a7097b2a64a1dc37227176"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                727,
+                728,
+                778
+              ],
+              "confidence": 98.745,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 40750,
+          "evidence": "gameplay/part-000-frame-000164.png",
+          "evidence_sha256": "3e61e3f3dcd319f2a17d4d44106a4e0bea87029031ad76caf6270ea87fca0f34"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.33,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 41000,
+          "evidence": "gameplay/part-000-frame-000165.png",
+          "evidence_sha256": "9c0c7f0d4a1c4fe9f70ff08e7d9bec13a60f24ecd93c5b70f8ec1c685087b2aa"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.317,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 41250,
+          "evidence": "gameplay/part-000-frame-000166.png",
+          "evidence_sha256": "07b39285827593f4f00ae1d39c434418649f3ea53e42fa912c0b54587924c769"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.324,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 41500,
+          "evidence": "gameplay/part-000-frame-000167.png",
+          "evidence_sha256": "4515e47dd4773ee8920f824abaac1bb9d68373fb164ffc280e0f6a301b6806e6"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.321,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 41750,
+          "evidence": "gameplay/part-000-frame-000168.png",
+          "evidence_sha256": "7c217bf1fc29a6bb227eaf2966bf7be5eaa8685aa1d3efe501870f176b082586"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                726,
+                728,
+                778
+              ],
+              "confidence": 99.321,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 42000,
+          "evidence": "gameplay/part-000-frame-000169.png",
+          "evidence_sha256": "e191bcf47eab4fed52a8ade3e16ff43562e8a5f3ee3175b5aaa768768f478f87"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                727,
+                728,
+                778
+              ],
+              "confidence": 98.739,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 42250,
+          "evidence": "gameplay/part-000-frame-000170.png",
+          "evidence_sha256": "6dcb21ac33f1e3eb9843d24fba9881475de09e23923631e690a72c9802cc230c"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                727,
+                728,
+                778
+              ],
+              "confidence": 98.736,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 42500,
+          "evidence": "gameplay/part-000-frame-000171.png",
+          "evidence_sha256": "cb636183ebbe06056e7ab0bdc0bc166e04a4ce49136ad2a70ac2598a658775be"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                727,
+                728,
+                778
+              ],
+              "confidence": 98.735,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 42750,
+          "evidence": "gameplay/part-000-frame-000172.png",
+          "evidence_sha256": "0d087868c929615f59198885c7b7c79a02cbcf40eca4da767ed609388cfd76b9"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'm going to make her dreams come true!",
+              "text_box": [
+                315,
+                627,
+                685,
+                658
+              ],
+              "confidence": 99.977,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I don't have a lot of experience, but I'll do my best.",
+              "text_box": [
+                315,
+                727,
+                728,
+                778
+              ],
+              "confidence": 98.735,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 43000,
+          "evidence": "gameplay/part-000-frame-000173.png",
+          "evidence_sha256": "c935946579cc30326fe1f6f937f1ed0abcc64c3f3e6ee10beb77b7831845c6ab"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  582,
+                  313,
+                  620
+                ],
+                "yellow_pixels": 581
+              },
+              "right": {
+                "box": [
+                  798,
+                  578,
+                  853,
+                  619
+                ],
+                "yellow_pixels": 703
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 43250,
+          "evidence": "gameplay/part-000-frame-000174.png",
+          "evidence_sha256": "2417258005ef2c7cbceedb40e47099727799f5991f1d1b6faba71715f0c272d7"
+        }
+      ],
+      "review_note": "Source shows two options; second option wraps across two text lines. Upper option selected.",
+      "expected": [
+        {
+          "options": [
+            "I'm going to make her dreams come true!",
+            "I don't have a lot of experience, but I'll do my best."
+          ],
+          "selected_index": 0,
+          "selected_text": "I'm going to make her dreams come true!"
+        }
+      ]
+    },
+    {
+      "selection_observed_ms": 195750,
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "You're getting faster!",
+              "text_box": [
+                318,
+                742,
+                512,
+                768
+              ],
+              "confidence": 99.968,
+              "card_y": [
+                716,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 194750,
+          "evidence": "gameplay/part-001-frame-000300.png",
+          "evidence_sha256": "7b57386c2b5d0d2c60d13ca2ebf87442669915c01a8b4c5e0aca51eb7ca84ff6"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "You're getting faster!",
+              "text_box": [
+                318,
+                742,
+                512,
+                768
+              ],
+              "confidence": 99.968,
+              "card_y": [
+                716,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 195000,
+          "evidence": "gameplay/part-001-frame-000301.png",
+          "evidence_sha256": "7789ce1aa645a2ec5dac0676d995061bb7b57c9ac653115e33cb7224a31cfebc"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 195250,
+          "evidence": "gameplay/part-001-frame-000302.png",
+          "evidence_sha256": "ec0f1419d88e5c1d209277c0a167f194d793c6dd4feba4c7b26ad0d004fb109e"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 195500,
+          "evidence": "gameplay/part-001-frame-000303.png",
+          "evidence_sha256": "2c4f5808bf826f56e680804a5f2822b2dadffff9761be5a396c0d6c62f7df4a9"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  687,
+                  313,
+                  728
+                ],
+                "yellow_pixels": 652
+              },
+              "right": {
+                "box": [
+                  798,
+                  685,
+                  853,
+                  728
+                ],
+                "yellow_pixels": 747
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [
+            {
+              "text": "You're getting faster!",
+              "text_box": [
+                307,
+                741,
+                511,
+                770
+              ],
+              "confidence": 97.809,
+              "card_y": [
+                712,
+                796
+              ]
+            }
+          ],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 195750,
+          "evidence": "gameplay/part-001-frame-000304.png",
+          "evidence_sha256": "e6dd2edef39b26c423bbbf6a334c3c4c9480510abd53f637096d3606e3362088"
+        }
+      ],
+      "review_note": "Single response is visibly selected on the green card with bilateral marks.",
+      "expected": [
+        {
+          "options": [
+            "You're getting faster!"
+          ],
+          "selected_index": 0,
+          "selected_text": "You're getting faster!"
+        }
+      ]
+    },
+    {
+      "selection_observed_ms": 831500,
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "That's the spirit!",
+              "text_box": [
+                316,
+                628,
+                467,
+                658
+              ],
+              "confidence": 98.207,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Everyone moves at their own pace.",
+              "text_box": [
+                317,
+                742,
+                629,
+                768
+              ],
+              "confidence": 97.841,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 829750,
+          "evidence": "gameplay/part-006-frame-000440.png",
+          "evidence_sha256": "a335aba81b4a0599dbee42caa6c48db0374674dc24e0edebe7a700943cfd2e1a"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "That's the spirit!",
+              "text_box": [
+                316,
+                628,
+                467,
+                658
+              ],
+              "confidence": 97.701,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Everyone moves at their own pace.",
+              "text_box": [
+                316,
+                741,
+                628,
+                767
+              ],
+              "confidence": 98.169,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 830000,
+          "evidence": "gameplay/part-006-frame-000441.png",
+          "evidence_sha256": "e0ead3aab331884d66a4b0ce705c757950201e89e02348e07c7fbc6d53199da1"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "That's the spirit!",
+              "text_box": [
+                316,
+                628,
+                467,
+                658
+              ],
+              "confidence": 98.216,
+              "card_y": [
+                605,
+                681
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 830250,
+          "evidence": "gameplay/part-006-frame-000442.png",
+          "evidence_sha256": "840f4c878b2f4a2a3de65b1613e11f733e1e74e1f8bc78f399d24ef67b22889f"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "Everyone moves at their own pace.",
+              "text_box": [
+                317,
+                742,
+                629,
+                768
+              ],
+              "confidence": 97.768,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 830500,
+          "evidence": "gameplay/part-006-frame-000443.png",
+          "evidence_sha256": "a0e9264c32d9cafe9adf50ad19b8ccb5328d2667e91628626df865053bba947c"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 830750,
+          "evidence": "gameplay/part-006-frame-000444.png",
+          "evidence_sha256": "84c4e1c61f35d3b4deac5d82755a5448945bbca66f7e67b84508753fb8ab51bd"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 831000,
+          "evidence": "gameplay/part-006-frame-000445.png",
+          "evidence_sha256": "f9eae59706eb5dfa17a82da9d15ddda2c800ca88aa3cd144f086706bc56e0a79"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 831250,
+          "evidence": "gameplay/part-006-frame-000446.png",
+          "evidence_sha256": "7c595bdd3b3c979775d972a58a7bcd069eb8ed4dc8b90f820849e91a6e40b7fc"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  698,
+                  313,
+                  733
+                ],
+                "yellow_pixels": 515
+              },
+              "right": {
+                "box": [
+                  798,
+                  694,
+                  853,
+                  733
+                ],
+                "yellow_pixels": 616
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 831500,
+          "evidence": "gameplay/part-006-frame-000447.png",
+          "evidence_sha256": "d9da0f6f173195249bb8f3da77c4e28497c77d1d2635ed183d0d3ea1eae86c40"
+        }
+      ],
+      "review_note": "Lower option selected; collapsed card marks align with second option.",
+      "expected": [
+        {
+          "options": [
+            "That's the spirit!",
+            "Everyone moves at their own pace."
+          ],
+          "selected_index": 1,
+          "selected_text": "Everyone moves at their own pace."
+        }
+      ]
+    },
+    {
+      "selection_observed_ms": 1017000,
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "There's nothing to be embarrassed about.",
+              "text_box": [
+                317,
+                628,
+                691,
+                657
+              ],
+              "confidence": 99.982,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "You have my word!",
+              "text_box": [
+                318,
+                741,
+                492,
+                767
+              ],
+              "confidence": 99.944,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1015000,
+          "evidence": "gameplay/part-008-frame-000221.png",
+          "evidence_sha256": "0fdd0f05245ec604b8658707ea72851805ad0968286b828049abfa11ec749295"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "There's nothing to be embarrassed about.",
+              "text_box": [
+                317,
+                628,
+                691,
+                657
+              ],
+              "confidence": 99.982,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "You have my word!",
+              "text_box": [
+                318,
+                741,
+                492,
+                767
+              ],
+              "confidence": 98.675,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1015250,
+          "evidence": "gameplay/part-008-frame-000222.png",
+          "evidence_sha256": "9a25e5e144f15782c8a422b847550eed3d4f3cada94bf8cb4f64c7956e40ad42"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "There's nothing to be embarrassed about.",
+              "text_box": [
+                317,
+                628,
+                691,
+                657
+              ],
+              "confidence": 99.982,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "You have my word!",
+              "text_box": [
+                318,
+                741,
+                492,
+                767
+              ],
+              "confidence": 98.675,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1015500,
+          "evidence": "gameplay/part-008-frame-000223.png",
+          "evidence_sha256": "b10d8cb4b31b78c74f6c17cfd94133fdd379a93c065f6e525e299e0a80633ac2"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "There's nothing to be embarrassed about.",
+              "text_box": [
+                317,
+                628,
+                691,
+                657
+              ],
+              "confidence": 99.982,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "You have my word!",
+              "text_box": [
+                318,
+                741,
+                492,
+                767
+              ],
+              "confidence": 98.675,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1015750,
+          "evidence": "gameplay/part-008-frame-000224.png",
+          "evidence_sha256": "f80b276e48cd1eeedf7da9f21fafb5f2c920d1ada372debe119f0d42ce0154bf"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1016000,
+          "evidence": "gameplay/part-008-frame-000225.png",
+          "evidence_sha256": "105da121282c2fa6c66fa8bfee43c5f6b19cf3bf9f890d23ee4e10c92e5758fd"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1016250,
+          "evidence": "gameplay/part-008-frame-000226.png",
+          "evidence_sha256": "29e2ec3b4c85ddd7889deab9e0198ec988b3df5dbb1e5f6c81ab30cc41f6c2db"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1016500,
+          "evidence": "gameplay/part-008-frame-000227.png",
+          "evidence_sha256": "8b43dcda0ca0fb55f26254b6eae19c55aebfde005d2f52386509c07327120abd"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "How about the roller coaster?",
+              "text_box": [
+                316,
+                740,
+                586,
+                765
+              ],
+              "confidence": 98.897,
+              "card_y": [
+                716,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1016750,
+          "evidence": "gameplay/part-008-frame-000228.png",
+          "evidence_sha256": "cdd76bfbbaed76262996ec4029b9789a4d57352a8ef8f1f2404ab2bfb2fa3a80"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  712,
+                  313,
+                  740
+                ],
+                "yellow_pixels": 348
+              },
+              "right": {
+                "box": [
+                  798,
+                  709,
+                  853,
+                  739
+                ],
+                "yellow_pixels": 374
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [
+            {
+              "text": "On second thought, I doubt I could handle it!",
+              "text_box": [
+                305,
+                740,
+                735,
+                767
+              ],
+              "confidence": 98.027,
+              "card_y": [
+                711,
+                796
+              ]
+            }
+          ],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1017000,
+          "evidence": "gameplay/part-008-frame-000229.png",
+          "evidence_sha256": "3bc9f8c5bd010dbb8d36405fc0ebb022f83f1f1a3a0f74ba3d5494e5aea742fa"
+        }
+      ],
+      "review_note": "Selected card instead reads: On second thought, I doubt I could handle it! Reject stale prior menu association.",
+      "expected": []
+    },
+    {
+      "selection_observed_ms": 1036000,
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "Let's pull the weeds.",
+              "text_box": [
+                315,
+                626,
+                506,
+                658
+              ],
+              "confidence": 98.946,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Let's till the soil.",
+              "text_box": [
+                318,
+                742,
+                469,
+                765
+              ],
+              "confidence": 97.187,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1034500,
+          "evidence": "gameplay/part-008-frame-000299.png",
+          "evidence_sha256": "4ac2e7e1952e4426479456e44e27a34e23ac81398dbd91840da85a6a120cdcf5"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "Let's pull the weeds.",
+              "text_box": [
+                315,
+                626,
+                506,
+                658
+              ],
+              "confidence": 98.946,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Let's till the soil.",
+              "text_box": [
+                318,
+                742,
+                469,
+                765
+              ],
+              "confidence": 97.099,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1034750,
+          "evidence": "gameplay/part-008-frame-000300.png",
+          "evidence_sha256": "31aa896a5d9f65472ff8c5e7179a4c52a8c8f61d9ef69e38e31234ef28472002"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "Let's pull the weeds.",
+              "text_box": [
+                315,
+                626,
+                506,
+                658
+              ],
+              "confidence": 97.9,
+              "card_y": [
+                605,
+                681
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1035000,
+          "evidence": "gameplay/part-008-frame-000301.png",
+          "evidence_sha256": "b49f8b8a3f7edb60ee19459b6bafdc0f268688ed4022987c9ee593b31f9a4c85"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1035250,
+          "evidence": "gameplay/part-008-frame-000302.png",
+          "evidence_sha256": "8c702397afc6832e7143f5a760818af52224ea203cd5436f1421dd8ae2b29832"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1035500,
+          "evidence": "gameplay/part-008-frame-000303.png",
+          "evidence_sha256": "909286804dfae09cd5a3a439efe6680465f9162b529043221775de34abb195fa"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1035750,
+          "evidence": "gameplay/part-008-frame-000304.png",
+          "evidence_sha256": "6714c4ddfb434e272ae4d9ca25ca6356310405a6284c92b1ca5594b7588efdad"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  707,
+                  313,
+                  737
+                ],
+                "yellow_pixels": 415
+              },
+              "right": {
+                "box": [
+                  798,
+                  704,
+                  853,
+                  737
+                ],
+                "yellow_pixels": 477
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [
+            {
+              "text": "I think you got the message across.",
+              "text_box": [
+                310,
+                742,
+                635,
+                768
+              ],
+              "confidence": 99.755,
+              "card_y": [
+                712,
+                795
+              ]
+            }
+          ],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1036000,
+          "evidence": "gameplay/part-008-frame-000305.png",
+          "evidence_sha256": "148a2b9a990d28f50b5dbf87c9aafd28fff925a617b731dfad9faddbbd288322"
+        }
+      ],
+      "review_note": "Selected card instead reads: I think you got the message across. Reject stale prior menu association.",
+      "expected": []
+    },
+    {
+      "selection_observed_ms": 1167250,
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                316,
+                628,
+                650,
+                656
+              ],
+              "confidence": 97.523,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                740,
+                700,
+                768
+              ],
+              "confidence": 97.919,
+              "card_y": [
+                717,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1164750,
+          "evidence": "gameplay/part-009-frame-000340.png",
+          "evidence_sha256": "9ba2a77cb32d990836ef01e75b481b0655e7450845234dbcf41f6d57775ad01c"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                651,
+                658
+              ],
+              "confidence": 99.385,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.088,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1165000,
+          "evidence": "gameplay/part-009-frame-000341.png",
+          "evidence_sha256": "190a246fb50c34a0f17d2339ba0f9e6ebf20748a9ba517c4f1baef8b2f675c59"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                650,
+                656
+              ],
+              "confidence": 99.875,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.087,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1165250,
+          "evidence": "gameplay/part-009-frame-000342.png",
+          "evidence_sha256": "d84e3b2f5bd361174fc460e2e423d4aebd7d1fe14bb9dc3c9fee3b7d455caf79"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                651,
+                658
+              ],
+              "confidence": 99.317,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.061,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1165500,
+          "evidence": "gameplay/part-009-frame-000343.png",
+          "evidence_sha256": "43eeb3dee06649d6c7131d2d125835fb3e64eb8b077934e51ada7d129f0bae51"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                650,
+                656
+              ],
+              "confidence": 99.912,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.025,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1165750,
+          "evidence": "gameplay/part-009-frame-000344.png",
+          "evidence_sha256": "25f8827f3eeb81a2d27ed6f60150dc869195e383f2d87cf89e4208a589fa4ff6"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                650,
+                658
+              ],
+              "confidence": 99.523,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.079,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1166000,
+          "evidence": "gameplay/part-009-frame-000345.png",
+          "evidence_sha256": "d5dbdafbf675ae0b8bf6671c70e866b331dfa0f3ff02ab6d608c7792303dff6f"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                316,
+                628,
+                649,
+                656
+              ],
+              "confidence": 98.224,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.079,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1166250,
+          "evidence": "gameplay/part-009-frame-000346.png",
+          "evidence_sha256": "ce45e3985e6f7a1464ec3dca7dc5eab58dbbabfd1f2a2ab935785224b0654489"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                650,
+                658
+              ],
+              "confidence": 99.523,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.088,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1166500,
+          "evidence": "gameplay/part-009-frame-000347.png",
+          "evidence_sha256": "d64af2b6ec695291f930e9445aae9c78154609ab7517c5382a186fc43b4ad414"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                650,
+                658
+              ],
+              "confidence": 99.524,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.088,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1166750,
+          "evidence": "gameplay/part-009-frame-000348.png",
+          "evidence_sha256": "193f5b1a43a7a63b73ff9b081ad27f7fdd9acc4b635031f1ef7b7dbefbf0013b"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's probably somewhere it feels safe.",
+              "text_box": [
+                315,
+                627,
+                651,
+                658
+              ],
+              "confidence": 99.385,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Maybe it's looking for a fun place to hang?",
+              "text_box": [
+                317,
+                741,
+                703,
+                769
+              ],
+              "confidence": 98.094,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1167000,
+          "evidence": "gameplay/part-009-frame-000349.png",
+          "evidence_sha256": "9e4d06406fb477e10b0ad29bca5cfcd9447f00930b90d6c3788789d2ee044ca2"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  694,
+                  313,
+                  732
+                ],
+                "yellow_pixels": 570
+              },
+              "right": {
+                "box": [
+                  798,
+                  691,
+                  853,
+                  731
+                ],
+                "yellow_pixels": 673
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 1167250,
+          "evidence": "gameplay/part-009-frame-000350.png",
+          "evidence_sha256": "ed208218cec68a5df1748b4f398fca74b0a022d7d73d0aec22f0dc4ec96e3367"
+        }
+      ],
+      "review_note": "Lower option selected; collapsed card marks align with second option.",
+      "expected": [
+        {
+          "options": [
+            "It's probably somewhere it feels safe.",
+            "Maybe it's looking for a fun place to hang?"
+          ],
+          "selected_index": 1,
+          "selected_text": "Maybe it's looking for a fun place to hang?"
+        }
+      ]
+    }
+  ],
+  "scope": "Source-guided regression of six previously predicted candidates, including two false stale-menu associations. Not independent evaluation or full choice recall."
+}
