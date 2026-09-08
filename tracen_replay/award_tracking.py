@@ -1,6 +1,6 @@
 """Associate visible stat awards between two confident, stationary label reads."""
 import re
-from .animated_performance import STAT_LABELS
+from .animated_performance import STAT_LABELS,candidates
 
 
 def _field(text,*,anchor=False):
@@ -70,4 +70,32 @@ def tracked_stats(readings,start,end):
                     gain_box=gain['box'],label_box=item['label']['box'],receipt_text=item['caption'],
                     label_anchors=proofs,label_identity_basis='two_confident_labels_bracket_stationary_award')
                 result.append((row,candidate))
+    return result
+
+
+def coexisting_cap_stats(readings,start,end,receipts):
+    """Require distinct complete stat/cap labels and repeated nearby stat receipts."""
+    result=[]
+    for row in readings:
+        time=row['source_timestamp_ms']
+        if not start<=time<=end or row['screen']!='event_outcome':continue
+        lines=row.get('ocr',{}).get('neural',[])
+        for candidate in candidates(lines,row['screen'],stat=True,allow_cap_coexistence=True):
+            field=candidate['field'];name=next(k for k,v in STAT_LABELS.items() if v==field)
+            cap_labels=[l for l in lines if l['text']==name+' cap' and l['confidence']>=97
+                        and 150<=l['box'][0]<l['box'][2]<=900 and 240<=l['box'][1]<l['box'][3]<=750
+                        and 30<=l['box'][3]-l['box'][1]<=70]
+            if len(cap_labels)!=1:continue
+            a,b,c,d=candidate['label_box'];x,y,z,w=cap_labels[0]['box']
+            # Two OCR fragments of the same label do not establish two badges.
+            if not (y-d>=30 or b-w>=30 or x-c>=30 or a-z>=30):continue
+            matches=[(t,proof,e) for t,proof,e in receipts.get('stat_change|'+field+'|',[])
+                     if e.get('amount')==candidate['amount'] and e.get('confidence',0)>=95
+                     and start<=t<=end and 0<=t-time<=1000]
+            times={t for t,_,_ in matches}
+            if len(times)<3 or max(times)-min(times)<50:continue
+            candidate=dict(candidate,cap_disambiguation=dict(raw_text=cap_labels[0]['text'],
+                label_box=cap_labels[0]['box'],confidence=cap_labels[0]['confidence']),
+                receipt_anchors=[dict(source_timestamp_ms=t,evidence=proof,raw_text=e['raw_text'],confidence=e['confidence']) for t,proof,e in matches])
+            result.append((row,candidate))
     return result

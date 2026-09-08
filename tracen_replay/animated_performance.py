@@ -6,7 +6,7 @@ LABELS={'Dance':'dance','Passion':'passion','Vocals':'vocal','Visuals':'visual',
 STAT_LABELS={'Speed':'speed','Stamina':'stamina','Power':'power','Guts':'guts','Wit':'wit','Skill Pts':'skill_points'}
 
 
-def candidates(lines,screen,*,stat=False):
+def candidates(lines,screen,*,stat=False,allow_cap_coexistence=False):
     if screen!='event_outcome':return []
     found=[]
     for label in lines:
@@ -16,7 +16,7 @@ def candidates(lines,screen,*,stat=False):
         captions=[l for l in lines if l['confidence']>=95 and 770<=l['box'][1]<1000
                   and re.match(r'^'+re.escape(label['text'])+r' went up by\b',l['text'])]
         if not captions and not stat:continue
-        if not captions and any(re.match(r'^'+re.escape(label['text'])+r' (?:cap|Bonus)\b',l['text']) for l in lines):continue
+        if not captions and not allow_cap_coexistence and any(re.match(r'^'+re.escape(label['text'])+r' (?:cap|Bonus)\b',l['text']) for l in lines):continue
         gains=[]
         for line in lines:
             x,y,z,w=line['box'];match=re.fullmatch(r'\+(\d{1,3})',line['text'])
@@ -40,15 +40,17 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
         for candidate in row.get('facts',{}).get(fact,[]):
             groups.setdefault(candidate['field'],[]).append((row,candidate))
     if stat:
-        from .award_tracking import tracked_stats
-        for row,candidate in tracked_stats(readings,event['first_seen_ms'],event['last_seen_ms']):
+        from .award_tracking import tracked_stats,coexisting_cap_stats
+        supplemental=tracked_stats(readings,event['first_seen_ms'],event['last_seen_ms'])
+        supplemental+=coexisting_cap_stats(readings,event['first_seen_ms'],event['last_seen_ms'],receipt_observations or {})
+        for row,candidate in supplemental:
             existing=groups.setdefault(candidate['field'],[])
             if not any(r['source_timestamp_ms']==row['source_timestamp_ms'] and c['amount']==candidate['amount'] for r,c in existing):
                 existing.append((row,candidate))
     for field,observations in groups.items():
         values={c['amount'] for _,c in observations};times={r['source_timestamp_ms'] for r,_ in observations}
         if len(values)!=1 or len(times)<3 or max(times)-min(times)<50:continue
-        if not any(c.get('receipt_text') for _,c in observations):continue
+        if not any(c.get('receipt_text') or c.get('receipt_anchors') for _,c in observations):continue
         key=kind+'|'+field+'|';candidate=observations[0][1]
         prior=event['effects'].get(key)
         conflicts=[c for c in event['conflicting_readings'] if c['field']==key]
@@ -75,7 +77,7 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
             continue
         proofs=[dict(source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence'],
                      gain_box=c['gain_box'],label_box=c['label_box'],receipt_text=c['receipt_text'],
-                     **(dict(label_anchors=c['label_anchors'],label_identity_basis=c['label_identity_basis']) if 'label_anchors' in c else {})) for r,c in observations]
+                     **{k:c[k] for k in ('label_anchors','label_identity_basis','receipt_anchors','cap_disambiguation') if k in c}) for r,c in observations]
         event.setdefault(proof_key,{})[field]=proofs
         if not prior:
             event['effects'][key]=dict(candidate,confirmation='repeated_labeled_award_animation')

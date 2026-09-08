@@ -2,10 +2,57 @@ import copy
 import json
 import unittest
 from pathlib import Path
-from tracen_replay.award_tracking import tracked_stats
+from tracen_replay.award_tracking import tracked_stats,coexisting_cap_stats
 
 
 class AwardTrackingTests(unittest.TestCase):
+    def cap_rows(self):
+        rows=[]
+        for t in (0,25,50):
+            rows.append(dict(source_timestamp_ms=t,evidence=f'{t}.png',screen='event_outcome',ocr=dict(neural=[
+                dict(text='+54',confidence=99,box=[296,443,445,523]),
+                dict(text='Stamina',confidence=99,box=[324,519,474,564]),
+                dict(text='Stamina cap',confidence=99,box=[464,638,651,688]),
+                dict(text='Stamina cap went up by 7.',confidence=99,box=[315,832,600,860])])))
+        receipts={'stat_change|stamina|':[(t,f'{t}.png',dict(amount=54,raw_text='Stamina went up by 54.',confidence=99)) for t in (600,650,700)]}
+        return rows,receipts
+
+    def test_distinct_stat_and_cap_badges_require_repeated_stat_receipts(self):
+        rows,receipts=self.cap_rows();got=coexisting_cap_stats(rows,0,1000,receipts)
+        self.assertEqual([c['amount'] for _,c in got],[54,54,54])
+        self.assertIsNone(got[0][1]['receipt_text'])
+        self.assertEqual(len(got[0][1]['receipt_anchors']),3)
+        self.assertEqual(got[0][1]['cap_disambiguation']['raw_text'],'Stamina cap')
+        self.assertEqual(coexisting_cap_stats(rows,0,1000,{}),[])
+        self.assertEqual(coexisting_cap_stats(rows,0,100,receipts),[])
+        duplicate_times={'stat_change|stamina|':[(600,p,e) for _,p,e in receipts['stat_change|stamina|']]}
+        self.assertEqual(coexisting_cap_stats(rows,0,1000,duplicate_times),[])
+        for _,_,e in receipts['stat_change|stamina|']:e['amount']=7
+        self.assertEqual(coexisting_cap_stats(rows,0,1000,receipts),[])
+
+    def test_missing_or_overlapping_cap_badge_is_not_disambiguated(self):
+        for mode in ('missing','overlap','low_confidence'):
+            rows,receipts=self.cap_rows()
+            for r in rows:
+                lines=r['ocr']['neural']
+                if mode=='missing':lines.pop(2)
+                elif mode=='overlap':lines[2]['box']=lines[1]['box']
+                else:lines[2]['confidence']=96
+            self.assertEqual(coexisting_cap_stats(rows,0,1000,receipts),[])
+
+    def test_cap_only_display_and_distant_receipts_are_not_stat_awards(self):
+        rows,receipts=self.cap_rows()
+        for r in rows:r['ocr']['neural'].pop(1)
+        self.assertEqual(coexisting_cap_stats(rows,0,1000,receipts),[])
+        rows,receipts=self.cap_rows();receipts['stat_change|stamina|']=[(t+2000,p,e) for t,p,e in receipts['stat_change|stamina|']]
+        self.assertEqual(coexisting_cap_stats(rows,0,3000,receipts),[])
+
+    def test_source_mixed_stat_and_cap_awards(self):
+        fixture=json.loads((Path(__file__).parent/'fixtures/stat-cap-coexistence-v1.json').read_text(encoding='utf-8'))
+        got=coexisting_cap_stats(fixture['readings'],522250,523500,fixture['receipts'])
+        self.assertEqual([(r['source_timestamp_ms'],c['field'],c['amount']) for r,c in got],
+                         [tuple(x) for x in fixture['expected']])
+
     def rows(self):
         return [dict(source_timestamp_ms=t,evidence=f'{t}.png',screen='event_outcome',ocr=dict(neural=[
             dict(text='+57',confidence=99 if t<75 else 90,box=[468,562,618,643]),

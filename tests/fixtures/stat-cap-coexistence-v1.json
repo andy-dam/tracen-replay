@@ -1,0 +1,1175 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided regression; separate normal stat and cap badges plus later complete normal-stat receipts. No checkpoint totals supplied.",
+  "readings": [
+    {
+      "source_timestamp_ms": 522267,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000002.png",
+      "evidence_sha256": "36fa45fb276279c7a149767c5ee32067fff4dca26efe3f6fac6eee7f6b85fe32",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "K0+7",
+            "confidence": 63.975,
+            "box": [
+              617,
+              410,
+              775,
+              496
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.772,
+            "box": [
+              279,
+              395,
+              459,
+              517
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 99.884,
+            "box": [
+              323,
+              525,
+              472,
+              573
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.45,
+            "box": [
+              489,
+              522,
+              609,
+              568
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 98.009,
+            "box": [
+              464,
+              640,
+              651,
+              689
+            ]
+          },
+          {
+            "text": "Sympathy spark activate!",
+            "confidence": 96.848,
+            "box": [
+              315,
+              815,
+              574,
+              848
+            ]
+          },
+          {
+            "text": "Stamina cap went",
+            "confidence": 99.851,
+            "box": [
+              315,
+              842,
+              523,
+              871
+            ]
+          },
+          {
+            "text": "Stamina wentup",
+            "confidence": 98.151,
+            "box": [
+              316,
+              865,
+              481,
+              894
+            ]
+          },
+          {
+            "text": "Power cap went up by 7.",
+            "confidence": 95.112,
+            "box": [
+              317,
+              890,
+              553,
+              917
+            ],
+            "original_text": "Power cap went up by 7.",
+            "original_confidence": 97.017,
+            "receipt_crop_views": [
+              {
+                "text": "Power cap went up by 7.",
+                "confidence": 98.944
+              },
+              {
+                "text": "Power cap went up by 7.",
+                "confidence": 95.961
+              },
+              {
+                "text": "Power cap went up by 7.",
+                "confidence": 95.112
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 97.956,
+            "box": [
+              315,
+              913,
+              527,
+              939
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 522350,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000007.png",
+      "evidence_sha256": "f7970cc36126ef5f618f2a03e8551deec27cbf3455ab46e2d946035882b0e296",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "AMAX",
+            "confidence": 87.948,
+            "box": [
+              513,
+              334,
+              786,
+              447
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.883,
+            "box": [
+              291,
+              436,
+              450,
+              533
+            ]
+          },
+          {
+            "text": "*7",
+            "confidence": 84.338,
+            "box": [
+              641,
+              403,
+              798,
+              535
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 99.99,
+            "box": [
+              321,
+              519,
+              470,
+              564
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.636,
+            "box": [
+              490,
+              529,
+              599,
+              582
+            ]
+          },
+          {
+            "text": "Power cap",
+            "confidence": 99.331,
+            "box": [
+              655,
+              524,
+              819,
+              572
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 98.846,
+            "box": [
+              486,
+              565,
+              596,
+              643
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 99.819,
+            "box": [
+              464,
+              638,
+              651,
+              688
+            ]
+          },
+          {
+            "text": "Sympathy spark activated!",
+            "confidence": 97.48,
+            "box": [
+              315,
+              803,
+              574,
+              838
+            ]
+          },
+          {
+            "text": "Stamina cap went",
+            "confidence": 96.952,
+            "box": [
+              316,
+              832,
+              492,
+              858
+            ]
+          },
+          {
+            "text": "Stamina went u b",
+            "confidence": 96.182,
+            "box": [
+              315,
+              854,
+              498,
+              882
+            ]
+          },
+          {
+            "text": "Power cap went up by",
+            "confidence": 99.562,
+            "box": [
+              315,
+              878,
+              539,
+              907
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 99.744,
+            "box": [
+              316,
+              903,
+              528,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 522367,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000008.png",
+      "evidence_sha256": "4bdf2b898d70d27b51bcd091aee1b163508b2c8df05ca8677eecad5ff546c988",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Power",
+            "confidence": 99.921,
+            "box": [
+              325,
+              358,
+              457,
+              402
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.764,
+            "box": [
+              671,
+              384,
+              771,
+              432
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.888,
+            "box": [
+              293,
+              439,
+              448,
+              527
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 99.708,
+            "box": [
+              658,
+              431,
+              785,
+              525
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 98.915,
+            "box": [
+              323,
+              519,
+              470,
+              564
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.466,
+            "box": [
+              491,
+              530,
+              599,
+              581
+            ]
+          },
+          {
+            "text": "Power cap",
+            "confidence": 99.521,
+            "box": [
+              655,
+              521,
+              817,
+              568
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 97.716,
+            "box": [
+              486,
+              564,
+              596,
+              643
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 99.748,
+            "box": [
+              464,
+              638,
+              651,
+              688
+            ]
+          },
+          {
+            "text": "Sympathy spark activated!",
+            "confidence": 98.64,
+            "box": [
+              316,
+              804,
+              573,
+              836
+            ]
+          },
+          {
+            "text": "Stamina cap wen? up by 7.",
+            "confidence": 91.352,
+            "box": [
+              316,
+              832,
+              572,
+              859
+            ]
+          },
+          {
+            "text": "Stamina went up ",
+            "confidence": 96.452,
+            "box": [
+              315,
+              854,
+              541,
+              883
+            ]
+          },
+          {
+            "text": "Power cap went upy7.",
+            "confidence": 94.746,
+            "box": [
+              314,
+              877,
+              553,
+              909
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 99.686,
+            "box": [
+              316,
+              903,
+              528,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 522383,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000009.png",
+      "evidence_sha256": "57c3f44610f770abf6f11b6b91393714764d45164bbf434f7a0b6a0e15edc6b9",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Power",
+            "confidence": 99.927,
+            "box": [
+              294,
+              349,
+              458,
+              396
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 98.666,
+            "box": [
+              628,
+              391,
+              772,
+              439
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.844,
+            "box": [
+              296,
+              447,
+              445,
+              524
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 99.986,
+            "box": [
+              322,
+              518,
+              469,
+              563
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.573,
+            "box": [
+              493,
+              529,
+              599,
+              579
+            ]
+          },
+          {
+            "text": "Power cap",
+            "confidence": 99.698,
+            "box": [
+              655,
+              522,
+              817,
+              567
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 79.587,
+            "box": [
+              487,
+              564,
+              597,
+              643
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 99.734,
+            "box": [
+              464,
+              638,
+              651,
+              688
+            ]
+          },
+          {
+            "text": "Sympathy spark activated!",
+            "confidence": 98.522,
+            "box": [
+              316,
+              804,
+              573,
+              836
+            ]
+          },
+          {
+            "text": "Stamina cap wen' upy",
+            "confidence": 89.259,
+            "box": [
+              314,
+              828,
+              548,
+              861
+            ]
+          },
+          {
+            "text": "Stamina went up y",
+            "confidence": 90.904,
+            "box": [
+              316,
+              855,
+              541,
+              881
+            ]
+          },
+          {
+            "text": "Power cap went upy 7.",
+            "confidence": 97.974,
+            "box": [
+              316,
+              879,
+              552,
+              906
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 99.151,
+            "box": [
+              315,
+              901,
+              529,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 522450,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000013.png",
+      "evidence_sha256": "f128acadcaae07634e41cc32c685c30623dd36e547201980b9cc7a083500a920",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Power",
+            "confidence": 99.973,
+            "box": [
+              338,
+              343,
+              455,
+              385
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.265,
+            "box": [
+              669,
+              415,
+              772,
+              465
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.812,
+            "box": [
+              295,
+              443,
+              445,
+              523
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 99.596,
+            "box": [
+              666,
+              452,
+              770,
+              522
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 97.234,
+            "box": [
+              323,
+              519,
+              470,
+              564
+            ]
+          },
+          {
+            "text": "Power cap",
+            "confidence": 98.898,
+            "box": [
+              655,
+              518,
+              820,
+              569
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.778,
+            "box": [
+              494,
+              529,
+              598,
+              580
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 98.24,
+            "box": [
+              487,
+              564,
+              596,
+              643
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 99.645,
+            "box": [
+              464,
+              638,
+              651,
+              688
+            ]
+          },
+          {
+            "text": "Sympathy spark ac te d!",
+            "confidence": 94.222,
+            "box": [
+              315,
+              803,
+              575,
+              838
+            ]
+          },
+          {
+            "text": "Stamina cap wen. ",
+            "confidence": 97.523,
+            "box": [
+              315,
+              830,
+              551,
+              860
+            ]
+          },
+          {
+            "text": "Stamina went up b",
+            "confidence": 96.895,
+            "box": [
+              316,
+              854,
+              542,
+              883
+            ]
+          },
+          {
+            "text": "Power cap went up 5y/,",
+            "confidence": 89.997,
+            "box": [
+              314,
+              877,
+              553,
+              908
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 99.118,
+            "box": [
+              315,
+              901,
+              529,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 522467,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000014.png",
+      "evidence_sha256": "63fc325d8c9962e7d8e92312f7c76e2a644c87dc62b1513d3db6a5a7dfb5c91d",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Power",
+            "confidence": 99.974,
+            "box": [
+              338,
+              340,
+              456,
+              386
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 98.893,
+            "box": [
+              670,
+              413,
+              773,
+              463
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.902,
+            "box": [
+              296,
+              443,
+              445,
+              523
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 99.752,
+            "box": [
+              666,
+              452,
+              771,
+              522
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 99.974,
+            "box": [
+              324,
+              519,
+              470,
+              564
+            ]
+          },
+          {
+            "text": "Power cap",
+            "confidence": 99.704,
+            "box": [
+              654,
+              519,
+              818,
+              567
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.591,
+            "box": [
+              493,
+              529,
+              598,
+              579
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 98.276,
+            "box": [
+              487,
+              564,
+              596,
+              643
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 99.849,
+            "box": [
+              464,
+              639,
+              651,
+              689
+            ]
+          },
+          {
+            "text": "Sympathy spark act ted!",
+            "confidence": 94.122,
+            "box": [
+              315,
+              803,
+              575,
+              838
+            ]
+          },
+          {
+            "text": "Stamina cap wen.",
+            "confidence": 99.257,
+            "box": [
+              315,
+              830,
+              543,
+              860
+            ]
+          },
+          {
+            "text": "Stamina went ujb",
+            "confidence": 94.888,
+            "box": [
+              316,
+              854,
+              500,
+              883
+            ]
+          },
+          {
+            "text": "Power cap went up by",
+            "confidence": 98.541,
+            "box": [
+              315,
+              877,
+              533,
+              908
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 97.652,
+            "box": [
+              316,
+              903,
+              528,
+              930
+            ],
+            "original_text": "Power went up by 45.",
+            "original_confidence": 99.675,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 45.",
+                "confidence": 99.19
+              },
+              {
+                "text": "Power went up by 45.",
+                "confidence": 97.652
+              },
+              {
+                "text": "Power went up by 45.",
+                "confidence": 86.737
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 522483,
+      "evidence": "receipt-inspection/522250-523500-60/frame-000015.png",
+      "evidence_sha256": "de3d0b989d07e41420ec42f8944d68784e6b39de3cedbcdaf7cc1467c424f164",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+45",
+            "confidence": 99.896,
+            "box": [
+              289,
+              256,
+              452,
+              355
+            ]
+          },
+          {
+            "text": "Power",
+            "confidence": 99.892,
+            "box": [
+              292,
+              333,
+              457,
+              387
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.661,
+            "box": [
+              668,
+              411,
+              772,
+              461
+            ]
+          },
+          {
+            "text": "+54",
+            "confidence": 99.907,
+            "box": [
+              296,
+              443,
+              445,
+              523
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 99.713,
+            "box": [
+              664,
+              449,
+              772,
+              522
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 99.973,
+            "box": [
+              324,
+              519,
+              470,
+              564
+            ]
+          },
+          {
+            "text": "Power cap",
+            "confidence": 98.516,
+            "box": [
+              654,
+              518,
+              820,
+              568
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.754,
+            "box": [
+              494,
+              529,
+              598,
+              580
+            ]
+          },
+          {
+            "text": "+7",
+            "confidence": 98.032,
+            "box": [
+              487,
+              564,
+              596,
+              644
+            ]
+          },
+          {
+            "text": "Stamina cap",
+            "confidence": 98.734,
+            "box": [
+              464,
+              639,
+              651,
+              688
+            ]
+          },
+          {
+            "text": "Sympathy spark ac te!!",
+            "confidence": 93.98,
+            "box": [
+              315,
+              802,
+              575,
+              838
+            ]
+          },
+          {
+            "text": "Stamina cap wen. p",
+            "confidence": 93.126,
+            "box": [
+              315,
+              831,
+              524,
+              860
+            ]
+          },
+          {
+            "text": "Stamina went u b",
+            "confidence": 96.681,
+            "box": [
+              315,
+              854,
+              497,
+              883
+            ]
+          },
+          {
+            "text": "Power cap went up by",
+            "confidence": 97.738,
+            "box": [
+              314,
+              876,
+              530,
+              908
+            ]
+          },
+          {
+            "text": "Power went up by 45.",
+            "confidence": 97.303,
+            "box": [
+              315,
+              901,
+              529,
+              931
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "receipts": {
+    "stat_change|stamina|": [
+      [
+        523050,
+        "receipt-inspection/522250-523500-60/frame-000049.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 96.769,
+          "evidence_sha256": "79f36261d27fdff8b1abf83a4d93f12ebe0d544058728b756574f4405f81b1bd"
+        }
+      ],
+      [
+        523067,
+        "receipt-inspection/522250-523500-60/frame-000050.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 97.21,
+          "evidence_sha256": "d856366646f0302f65ece320aca76995b23599971ca502fb1311f1c49f416f3f"
+        }
+      ],
+      [
+        523150,
+        "receipt-inspection/522250-523500-60/frame-000055.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 95.904,
+          "evidence_sha256": "dc0da89cf0c2deddc004a510fb903f282b64aba2dae0cfc8ef0741e4826fca3c"
+        }
+      ],
+      [
+        523167,
+        "receipt-inspection/522250-523500-60/frame-000056.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 96.81,
+          "evidence_sha256": "65376c9e554c48f901c5e4f924f7fe8438370deab48f2424bdd3a088e29477e9"
+        }
+      ],
+      [
+        523183,
+        "receipt-inspection/522250-523500-60/frame-000057.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 96.959,
+          "evidence_sha256": "761e2b362f800cb37370a8eba32d712ee7dcf0aa321b24e3dcf57ea89db78ebe"
+        }
+      ],
+      [
+        523200,
+        "receipt-inspection/522250-523500-60/frame-000058.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 97.64,
+          "evidence_sha256": "6d1cd22669c5e9575bdafe461678dde98f43fb0842c8fd0d506a4012b1344cf5"
+        }
+      ],
+      [
+        523217,
+        "receipt-inspection/522250-523500-60/frame-000059.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 97.626,
+          "evidence_sha256": "63a0f2d13c83e80fbbab0f765fb9d2e35ecd4958ca70d70cc807f25e9a4a4a99"
+        }
+      ],
+      [
+        523233,
+        "receipt-inspection/522250-523500-60/frame-000060.png",
+        {
+          "kind": "stat_change",
+          "field": "stamina",
+          "amount": 54,
+          "raw_text": "Stamina went up by 54.",
+          "confidence": 97.739,
+          "evidence_sha256": "c6772a233f0790ba41fbdb5850416257da2d264c35e845025d218200f58a3630"
+        }
+      ]
+    ]
+  },
+  "expected": [
+    [
+      522267,
+      "stamina",
+      54
+    ],
+    [
+      522350,
+      "stamina",
+      54
+    ],
+    [
+      522367,
+      "stamina",
+      54
+    ],
+    [
+      522383,
+      "stamina",
+      54
+    ],
+    [
+      522450,
+      "stamina",
+      54
+    ],
+    [
+      522467,
+      "stamina",
+      54
+    ],
+    [
+      522483,
+      "stamina",
+      54
+    ]
+  ]
+}

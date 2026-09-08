@@ -14,3 +14,11 @@ Weak intermediate label reads constrain spatial continuity; they are not counted
 The resulting observations enter the existing receipt/animation reconciliation. They do not automatically override a receipt conflict. Resolving one contradictory receipt still requires repeated complete agreeing receipts and a repeated visible award; the contradictory observation remains recorded.
 
 The source-guided Arima regression contains two confident skill-point label anchors and seven `+57` readings within the anchor interval. This supports the recorded award without deriving it from the remaining SP difference. The method applies only to event outcomes; training previews and training result gains use their existing separate evidence rules.
+
+## Simultaneous stat and cap awards
+
+Inheritance can display a normal stat award and a cap increase together. A separate check accepts their coexistence only when the frame has confident, complete labels for both the stat and that stat's cap, separated by at least 30 pixels along one axis. Overlapping OCR fragments cannot establish two badges. The normal award retains the existing number, label and alignment thresholds.
+
+The same event must also contain at least three distinct matching normal-stat receipt observations, spanning at least 50 ms and appearing within one second after the animation frame. Their text and evidence timestamps are recorded separately as `receipt_anchors`; a later receipt is never presented as text visible on an earlier animation frame. A cap-only display or cap receipt cannot satisfy this requirement.
+
+These candidates still pass the existing repeated-animation and receipt-conflict checks. In the inheritance regression, seven `+54 Stamina` observations are distinct from the `Stamina cap` label and corroborated by later stamina receipts. The single `4` OCR alternative remains recorded; neither checkpoint differences nor the cap's `+7` value supplies the normal stamina award.
