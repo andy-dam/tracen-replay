@@ -44,7 +44,8 @@ class Reader:
             args += ['-c', 'tessedit_char_whitelist=0123456789']
         args += ['tsv']
         result = subprocess.run(args, input=payload, capture_output=True, timeout=20, check=True)
-        words = list(csv.DictReader(io.StringIO(result.stdout.decode('utf-8')), delimiter='\t'))
+        # TSV text is literal: a quote in dialogue must not swallow later rows.
+        words = list(csv.DictReader(io.StringIO(result.stdout.decode('utf-8')), delimiter='\t', quoting=csv.QUOTE_NONE))
         words = [w for w in words if w.get('text', '').strip() and float(w['conf']) >= 0]
         self.cache[key] = words
         return words
@@ -52,6 +53,9 @@ class Reader:
     def stats(self, path):
         with self.Image.open(path) as source:
             im = source.convert('RGB')
+        return self.stats_image(im)
+
+    def stats_image(self, im):
         if im.size != (1920,1080):
             return {'values': None, 'rejection': 'unsupported_dimensions'}
         # Require the undimmed current-stat header, not result animation panels,

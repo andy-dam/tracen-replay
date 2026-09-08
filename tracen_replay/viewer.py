@@ -2,6 +2,7 @@
 
 from html import escape
 from .accounting_view import render_accounting
+from .gameplay_view import render_gameplay
 
 
 def timestamp(ms):
@@ -10,9 +11,11 @@ def timestamp(ms):
 
 
 def render(report):
-    accounting = render_accounting(report)
+    accounting = render_accounting(report) + render_gameplay(report)
     notice = ('<strong>Experimental stat tracking is enabled.</strong> Checkpoints use repeated OCR readings; explanations come from independently read outcome text. General screen recognition is not implemented.' if report.get('stat_tracking') else '<strong>Screen recognition is not enabled.</strong> Captured frames remain unclassified. Imported annotations are reference observations, not model predictions. Sampling can miss brief screens.')
     observations = []
+    if report.get('gameplay_tracking'):
+        notice = '<strong>Gameplay-only analysis.</strong> Screen observations, receipts, and unresolved stat changes are shown below. Auxiliary panels are excluded from recognition.'
     for item in report["observations"]:
         evidence = (f'<a href="{escape(item["evidence"], quote=True)}"><img loading="lazy" src="{escape(item["evidence"], quote=True)}" alt="Evidence at {timestamp(item["evidence_timestamp_ms"])}"></a>'
                     if item["evidence"] else '<p class="missing">No exact sample matches this annotation. Inspect the source before assigning its label to a nearby frame.</p>')

@@ -152,9 +152,11 @@ def attach_annotations(path, digest, frames, start, duration, fps):
     return observations, hashlib.sha256(payload).hexdigest()
 
 
-def analyze(source, output, start=0, duration=57, fps=4, annotations=None, track_stats=False, tesseract=None):
+def analyze(source, output, start=0, duration=57, fps=4, annotations=None, track_stats=False, tesseract=None, gameplay_only=False):
     source, output = Path(source).resolve(), Path(output).resolve()
     start, duration, fps = (finite_number(v, n) for v, n in ((start, "start"), (duration, "duration"), (fps, "fps")))
+    if gameplay_only and track_stats:
+        raise PipelineError('Choose --gameplay-only or legacy --track-stats, not both.')
     if start < 0 or not 0 < duration <= MAX_SECONDS or not 1 <= fps <= MAX_FPS:
         raise PipelineError("Use start >= 0, duration > 0 and <= 120, and fps between 1 and 8.")
     if not source.is_file():
@@ -162,7 +164,7 @@ def analyze(source, output, start=0, duration=57, fps=4, annotations=None, track
     if output.exists():
         raise PipelineError("Output already exists. Choose a new directory to preserve previous results.")
     info, video, source_duration, origin = probe(source)
-    if track_stats and (video['width'], video['height']) != (1920, 1080):
+    if (track_stats or gameplay_only) and (video['width'], video['height']) != (1920, 1080):
         raise PipelineError('Stat tracking currently requires the English landscape 1920x1080 layout.')
     if start + duration > source_duration + 0.000001:
         raise PipelineError(f"Requested interval exceeds source duration ({source_duration:.3f}s).")
@@ -192,6 +194,14 @@ def analyze(source, output, start=0, duration=57, fps=4, annotations=None, track
                                   "Fixed-rate sampling can miss brief choices and results.",
                                   "Annotations are point observations, not event boundaries or completed-action claims.",
                                   "Imported labels remain separate from automatically captured frames."]}
+        if gameplay_only:
+            try:
+                from .gameplay import track as track_gameplay
+                report['gameplay_tracking'] = track_gameplay(report, temporary, tesseract, source, origin)
+            except (ImportError, ValueError, subprocess.SubprocessError) as exc:
+                raise PipelineError(f'Gameplay OCR failed: {exc}') from exc
+            report['recognition'] = {'enabled': True, 'model': 'tesseract_gameplay_only_v1'}
+            report['limitations'][0] = 'Experimental gameplay-only observations; unknown screens and unexplained changes remain explicit.'
         if track_stats:
             try:
                 from .stats import track

@@ -1,6 +1,6 @@
 # Roadmap
 
-Tracen Replay has a local evidence pipeline with experimental stat OCR and checkpoint accounting. General screen recognition, the web application, and hosted processing remain pending. The [local ledger milestone](milestone-local-ledger.md) defines the current development validation scope.
+Tracen Replay has a local evidence pipeline with experimental gameplay-only recognition and checkpoint accounting. The active priority is [gameplay-only reconstruction](gameplay-only.md), including training, events, races, skill purchases, lessons and concerts. Its reliability gates must pass before the Go application and hosted processing become the next milestone.
 
 ## Initial scope
 
@@ -35,6 +35,8 @@ Analysis will distinguish visible facts from inferred events. A stat change with
 - [ ] Validate short-event recall and evidence quality against reviewed labels.
 
 ## 3. Application foundation
+
+Start after the gameplay-only validation gates, including independent-recording evaluation. The existing log-assisted results do not satisfy this prerequisite.
 
 - [ ] Build a Go service and a report viewer using reports from the local pipeline.
 - [ ] Add bounded local uploads and connect video processing to the viewer.

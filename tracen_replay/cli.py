@@ -17,10 +17,11 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True, help="New output directory; existing directories are never overwritten")
     parser.add_argument("--annotations", type=Path, help="Optional source-hash-bound manual annotation JSON")
     parser.add_argument("--track-stats", action="store_true", help="Experimental stat OCR and checkpoint accounting for the English 1080p layout")
+    parser.add_argument("--gameplay-only", action="store_true", help="Analyze only the gameplay pane; no auxiliary log input")
     parser.add_argument("--tesseract", help="Optional path to the Tesseract executable")
     args = parser.parse_args(argv)
     try:
-        result = analyze(args.source, args.output, args.start, args.duration, args.fps, args.annotations, args.track_stats, args.tesseract)
+        result = analyze(args.source, args.output, args.start, args.duration, args.fps, args.annotations, args.track_stats, args.tesseract, args.gameplay_only)
     except (PipelineError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

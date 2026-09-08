@@ -1,6 +1,6 @@
 # Local video evidence pipeline
 
-The local pipeline extracts timestamped screenshots and exports a JSON report with an offline HTML gallery. Optional experimental OCR reads current stats, identifies stable checkpoints, and reconciles their differences with explicit outcome text. General screen recognition is not yet implemented. Reference annotations remain separate and are never used as OCR inputs.
+The local pipeline extracts timestamped screenshots and exports a JSON report with an offline HTML gallery. `--gameplay-only` adds experimental screen observations, mechanics fields and stat accounting without the auxiliary log; see the [gameplay-only guide](gameplay-only.md). Legacy `--track-stats` retains log-assisted accounting. Reference annotations remain separate and are never used as OCR inputs.
 
 ## Requirements
 
