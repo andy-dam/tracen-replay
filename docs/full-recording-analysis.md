@@ -29,6 +29,7 @@ python -m tracen_replay.inspect_gaps "C:\path\to\recording.mp4" --output .local/
 python -m tracen_replay.refine_results .local/full-recording/run-01
 python -m tracen_replay.refine_awards .local/full-recording/run-01
 python -m tracen_replay.skill_variants .local/full-recording/run-01
+python -m tracen_replay.refine_skill_points .local/full-recording/run-01
 python -m tracen_replay.full_recording "C:\path\to\recording.mp4" --output .local/full-recording/run-01 --reparse-only
 python -m tracen_replay.verify_evidence "C:\path\to\recording.mp4" --output .local/full-recording/run-01
 ```
@@ -61,6 +62,7 @@ Currency refinements widen the five resource-counter crops to avoid clipped lead
 - `outcome-refinement/`: original-observation hash and the accepted or rejected line rechecks.
 - `report.json` and `index.html`: reconstructed observations, transactions, accounting, and verification status.
 - `currency-refinement/` and `skill-variants/`: source-bound counter and suffix observations.
+- `skill-points-refinement/`: recognition of the menu counter from two gameplay crops when text detection misses a small number. Both views are one frame's evidence; disagreement remains unresolved.
 - `native-inspection.json`: active native-rate windows and their source references.
 - `receipt-inspection.json` and `receipt-inspection/`: bounded ordinary-receipt observations and crop variants, preserving original text and disagreements.
 - `evidence-audit.json`: whole-source identity, decoded frame hashes, exact crop pixels and refinement hashes. Re-run this audit after changing evidence artifacts; it is an integrity snapshot, not a semantic accuracy score.

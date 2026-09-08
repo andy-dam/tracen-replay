@@ -238,6 +238,24 @@ def parse(raw):
         stats['values']=final
         facts['current_skill_points']=final['skill_points']
         facts['final_attributes']=final
+    if screen=='career_finish_confirmation':
+        # These are remaining balances inside the modal, not spent points or
+        # proof that the user finished the career rather than canceling.
+        labels=[l for l in lines if l['confidence']>=97 and l['text']=='Remaining Skill Points'
+                and within(l,(400,550,590,600))]
+        if len(labels)==1:
+            matches=[re.fullmatch(r'(\d{1,4})\s*pt\(s\)',l['text']) for l in lines
+                     if l['confidence']>=97 and within(l,(585,550,710,600))]
+            values={int(m[1]) for m in matches if m}
+            facts['current_skill_points']=values.pop() if len(values)==1 else None
+        if any(l['confidence']>=97 and l['text']=='Remaining Performance Points'
+               and within(l,(400,595,710,635)) for l in lines):
+            boundaries=(335,425,535,625,720,815);remaining={}
+            for i,field in enumerate(CURRENCIES):
+                values={number(l) for l in lines if within(l,(boundaries[i],632,boundaries[i+1],678))
+                        and number(l) is not None}
+                remaining[field]=values.pop() if len(values)==1 else None
+            facts['remaining_performance_points']=remaining
     if screen=='training_result':
         gains={}; totals={};caps={};gain_candidates={};result_candidates={};digit_crosschecks=[]
         for field in FIELDS:
@@ -319,6 +337,15 @@ def parse(raw):
         if len(labels)==1:
             label=labels[0];candidates=[l for l in lines if within(l,(label['box'][2],label['box'][1]-10,850,label['box'][3]+10)) and number(l) is not None]
             if len(candidates)==1:facts['displayed_skill_points']=number(candidates[0])
+        if screen=='skill_selection' and 'skill_point_refinement' in raw:
+            from .refine_skill_points import counter_reading
+            value,conflicts=counter_reading(raw['skill_point_refinement'],facts.get('displayed_skill_points'))
+            if conflicts:
+                facts.pop('displayed_skill_points',None)
+                facts['skill_point_conflict']=conflicts
+            elif value is not None:
+                facts['displayed_skill_points']=value
+                facts['skill_point_refinement_basis']='same_frame_counter_crops'
         if screen=='skill_confirmation':
             # Fixed card headings only; a scrollbar means this cannot establish list completeness.
             facts['visible_skill_names']=[l['text'].strip() for l in lines if l['confidence']>=97 and 365<=l['box'][0]<=390 and any(within(l,(365,y-15,740,y+15)) for y in (129,283,437,590,743))]

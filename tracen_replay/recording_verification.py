@@ -73,4 +73,4 @@ def audit(report):
                          'Keep surrounding-state candidate resolutions distinct from independently recognized gains; their separate visual reference does not establish generalization.',
                          'Verify skill inventory completeness, uncertain song names, race item identities and all active concert bonus values; mark unobservable fields explicitly.',
                          'Extend contiguous reference scoring beyond the opening actions and first concert transactions to full effect recall.',
-                         'Validate on a separate recording; no independent recording is available yet.'])
+                         'Preserve a separate recording initial evaluation and distinguish subsequent source-driven fixes from independent results.'])

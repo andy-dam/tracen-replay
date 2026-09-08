@@ -1,12 +1,12 @@
 # Gameplay-only development results
 
-The complete English Our Grand Concert recording was processed from 00:00 through 31:06.333. All measurements use this one development source, SHA-256 `a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174`. They do not establish accuracy on another recording. Media, weights and generated reports remain local.
+The original English Our Grand Concert recording was processed from 00:00 through 31:06.333. The source coverage and accounting below use development source SHA-256 `a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174`. A separate-recording evaluation appears below. Media, weights and generated reports remain local.
 
 ## Source coverage
 
 - 7,466 base frames at 4 FPS, no sampling gap above 250 ms, final sample 83 ms before the end.
 - Detected training windows inspected at 30 FPS; six difficult animations additionally inspected at native 60 FPS. A decoder interval rounding bug that previously skipped alternate native frames was fixed and tested against a generated 60 FPS video.
-- All 11,569 base and supplemental observations passed the source-frame, crop-pixel and original-OCR hash audit. All 7,936 present refinements matched their original observations and proof images.
+- All 11,569 base and supplemental observations passed the source-frame, crop-pixel and original-OCR hash audit. All 8,397 present refinements matched their original observations and proof images.
 - Recognition uses only gameplay rectangle `(148, 0, 958, 1080)`. The auxiliary log is excluded.
 
 These checks establish provenance and sampled coverage. They do not prove that a brief effect between samples was recognized.
@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-130 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate.
+136 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
 
 All 58 reviewed unparsed receipt candidates now have matching accepted evidence in their nearby receipt. Four actual gaps required denser inspection: energy deductions of 18 and 14, unchanged friendship with Sirius Symboli, and maximum friendship with Light Hello. The source-linked fixture preserves the manual statements and screenshot hashes. This candidate-selected check does not measure effects that never became candidates. Recreation unlocks and inheritance inspiration/spark triggers are typed separately without inventing their rewards.
 
@@ -80,6 +80,8 @@ The frozen pipeline processed 7,107 base frames, 60 dense training windows, and 
 | Final skill purchase | Failed | The frozen classifier missed the singular confirmation wording and did not reconstruct the batch |
 
 The effect reference covers approximately 6.47% of this recording, not whole-recording recall. Choice labels are present but choice reconstruction remains unimplemented. Final inventory, active bonuses and race item identities are outside these passing checks. The initial failures remain preserved; changes guided by this recording and later scores on it are regression work, not a fresh independent evaluation.
+
+Subsequent regression fixes bring the final-state/skill reference from 6/20 to 20/20 checks: final attributes, the two checked remaining-SP observations, the 1,234-SP charge, and twelve skill targets with costs and declared circle variants. This does not establish complete owned-skill inventory. Nine stat intervals and eight performance intervals remain unresolved in the separate recording, including two earlier skill purchases between shared checkpoints and one missing lesson cost. The original recording retains its balanced ledgers and both complete cart-charge assignments.
 
 ## Remaining boundary
 
