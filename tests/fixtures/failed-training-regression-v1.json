@@ -1,0 +1,13 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Regression review of a calendar-detected training; not independent whole-run recall",
+  "evidence": "gameplay/part-011-frame-000198.png",
+  "evidence_sha256": "b95dc75f7e82a946f9951c4a72a2b5d0a52f184f403ced312a3a6025d10b5591",
+  "timestamp_ms": 1369250,
+  "observed": "Wit Shogi training FAILURE banner. Left panel still shows159+17Dance and52+17Passion; these are lingering projections. Bottom result totals1159,628,847,494,964,1992. Later receipt energy recovered5 is separate.",
+  "expected": {
+    "training_outcome": "failure",
+    "performance_deltas": {},
+    "counts_as_action": true
+  }
+}

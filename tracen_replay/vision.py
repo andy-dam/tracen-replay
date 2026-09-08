@@ -210,6 +210,8 @@ def parse(raw):
               and re.fullmatch(r'(?:Junior|Classic|Senior) Year (?:Pre-Debut|(?:Early|Late) [A-Z][a-z]{2})|Finale Underway',l['text'])]
     stats['calendar_text']=' '.join(calendar) or None
     facts={}
+    if raw.get('occluded_receipt_lines'):
+        facts['occluded_receipt_lines']=raw['occluded_receipt_lines']
     if screen=='concert_bonus_update':facts['bonus_update_receipt']=True
     if screen=='concert_info':
         current={};planned={}
@@ -282,6 +284,9 @@ def parse(raw):
             current,required,increase=values.pop()
             if 0<=current<=required and required>0:facts['bond_progress']=dict(current=current,required=required,increase=increase)
     if screen=='training_result':
+        failures=[l for l in lines if l['text']=='FAILURE' and l['confidence']>=97
+                  and within(l,(300,600,800,790)) and l['box'][3]-l['box'][1]>=40]
+        if failures:facts.update(training_outcome='failure',failure_banner=failures)
         gains={}; totals={};caps={};gain_candidates={};result_candidates={};digit_crosschecks=[]
         for field in FIELDS:
             r=regions.get('gain.'+field,{})
@@ -356,6 +361,8 @@ def parse(raw):
         facts['performance_points']=points
         if screen=='training_preview':facts['projected_performance_gains']=projected
         else:facts['awarded_performance_gains']=projected
+    if facts.get('training_outcome')=='failure':
+        facts['unawarded_performance_projection']=facts.pop('awarded_performance_gains',{})
     if screen in ('skill_selection','skill_confirmation','skill_receipt'):
         facts.update(points_semantics='possibly_projected_remaining_points',spent_skill_points=None,item_list_complete=False)
         labels=[l for l in lines if l['text']=='Skill Points' and l['confidence']>=97]

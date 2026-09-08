@@ -51,6 +51,7 @@ def verify(root,source):
             if pixels!=raw['gameplay_sha256']:raise ValueError('OCR pixels differ from source gameplay crop.')
             proof_hash=hashlib.sha256(evidence.read_bytes()).hexdigest();raw_hash=fingerprint(raw)
             extras=[raw_path.with_suffix('.'+suffix+'.json') for suffix in ('totals','contrast','performance','awards','receipt')]
+            extras.append(evidence.with_suffix('.overlay.json'))
             if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement')]
             for extra_path in extras:
                 if not extra_path.exists():continue

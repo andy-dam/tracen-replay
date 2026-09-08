@@ -6,7 +6,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 - 7,466 base frames at 4 FPS, no sampling gap above 250 ms, final sample 83 ms before the end.
 - Detected training windows inspected at 30 FPS; six difficult animations additionally inspected at native 60 FPS. A decoder interval rounding bug that previously skipped alternate native frames was fixed and tested against a generated 60 FPS video.
-- All 11,569 base and supplemental observations passed the source-frame, crop-pixel and original-OCR hash audit. All 8,401 present refinements matched their original observations and proof images.
+- All 11,569 base and supplemental observations passed the source-frame, crop-pixel and original-OCR hash audit. All 8,526 present refinements matched their original observations and proof images.
 - Recognition uses only gameplay rectangle `(148, 0, 958, 1080)`. The auxiliary log is excluded.
 
 These checks establish provenance and sampled coverage. They do not prove that a brief effect between samples was recognized.
@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-149 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
+161 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
 
 Consecutive skill receipts can be reconciled jointly between observed balances when repeated final-cart counters explain the full debit and no other SP transaction intervenes. Intermediate counters retain their projected status. Account fan totals after career completion are separate from race results. Repeated completed-training identity remains an action even when its reward digits are unreadable; reward completeness stays false.
 
@@ -85,7 +85,9 @@ The effect reference covers approximately 6.47% of this recording, not whole-rec
 
 Subsequent regression fixes bring the final-state/skill reference from 6/20 to 20/20 checks: final attributes, the two checked remaining-SP observations, the 1,234-SP charge, and twelve skill targets with costs and declared circle variants. This does not establish complete owned-skill inventory. All 59 lesson costs are now observed, and all three skill charges (1,455, 60 and 1,234 SP) are assigned to cart bundles. The first two charges use joint receipt accounting, without claiming an independently observed intermediate balance.
 
-The separate recording has 116 balanced stat intervals and eight unresolved, 106 balanced performance intervals and seven unresolved, and all 11 fan intervals balanced. Its current evidence audit verifies 11,274 observations and 9,870 refinements with zero provenance errors. These improvements are regression results. The original recording retains its balanced ledgers and both complete cart-charge assignments.
+The separate recording has 118 balanced stat intervals and six unresolved, 108 balanced performance intervals and five unresolved, and all 11 fan intervals balanced. Its current evidence audit verifies 11,331 observations and 10,094 refinements with zero provenance errors. Two subsequently extended fan-alignment records also passed their raw/proof hash checks. These improvements are regression results. The original recording retains its balanced ledgers and both complete cart-charge assignments.
+
+All 60 dated turns now have one action. The recording contains 60 training attempts, 12 races, five outings and one rest across dated, pre-debut and finale phases. One Wit attempt has a directly reviewed `FAILURE` banner: the action remains counted, while the lingering +17 Dance/+17 Passion display is retained as a projection rather than awarded resources. A support outing without energy recovery is supported by its confirmation, matching narrative, mood/friendship receipt and observed next date. Neither case is inferred solely from arithmetic.
 
 ## Remaining boundary
 

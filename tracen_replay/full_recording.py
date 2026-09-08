@@ -85,7 +85,8 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr'):
                 save_json(root/'progress.json',progress);print(json.dumps(progress),flush=True)
     readings=[]
     for frame in report['frames']:
-        raw=raws[frame['id']];row=parse(raw);row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
+        from .receipt_occlusion import annotate_path
+        raw=raws[frame['id']];row=parse(annotate_path(raw,root/raw['evidence']));row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
     return readings
 
 
@@ -148,7 +149,8 @@ def cached_readings(report,root,allow_partial=False):
             extra=json.loads(variants.read_text(encoding='utf-8'))
             if extra['raw_sha256']!=fingerprint(original) or extra['evidence_sha256']!=hashlib.sha256((root/raw['evidence']).read_bytes()).hexdigest():raise PipelineError('Skill variant evidence changed.')
             raw=dict(raw,skill_variants=extra['observations'])
-        row=parse(raw);row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
+        from .receipt_occlusion import annotate_path
+        row=parse(annotate_path(raw,root/raw['evidence'],original));row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
     return readings
 
 

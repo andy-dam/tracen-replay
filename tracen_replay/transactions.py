@@ -296,6 +296,11 @@ def training_events(readings,states=()):
                              if r.get('training_option')==group['option']],
                          action_identity_observations=len({r['source_timestamp_ms'] for r in group['rows']
                              if r.get('training_option')==group['option']}))
+        failures=[r for r in group['rows'] if r['facts'].get('training_outcome')=='failure']
+        if failures:
+            events[-1].update(training_outcome='failure',failure_evidence=[r['evidence'] for r in failures],
+                             unawarded_performance_projection=dict(performance),performance_deltas={},performance_evidence={})
+            for row in failures:events[-1]['unawarded_performance_projection'].update(row['facts'].get('unawarded_performance_projection',{}))
         before=[s for s in states if 0<group['first_seen_ms']-s['last_seen_ms']<=5000]
         before=before[-1] if before else None
         earlier_awards=before and any(before['last_seen_ms']<r['source_timestamp_ms']<group['first_seen_ms'] and any(e['kind']=='stat_change' for e in r.get('effects',[])) for r in readings)
@@ -503,6 +508,7 @@ def training_actions(events):
     return [dict(kind='training',training_option=e['training_option'],source_timestamp_ms=e['first_seen_ms'],
                  evidence=e['evidence'],event_id=e['id'],click_timestamp_ms=None,
                  action_identity_evidence=e.get('action_identity_evidence',[]),
+                 training_outcome=e.get('training_outcome','unknown'),failure_evidence=e.get('failure_evidence',[]),
                  effect_coverage_verified=e['effect_coverage_verified'])
             for e in events if e['kind']=='training' and e['training_option']
             and (e['deltas'] or e.get('action_identity_observations',0)>=2)]
