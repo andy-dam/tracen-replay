@@ -167,7 +167,9 @@ def parse(raw):
                 line=dict(line,text=line['text']+' '+following['text'],confidence=min(line['confidence'],following['confidence']));index+=1
         elif line['text'].startswith('Learned ') and not re.search(r'[.!]$',line['text']) and index+1<len(outcome_lines):
             following=outcome_lines[index+1]
-            if 0<following['box'][1]-line['box'][1]<40 and re.fullmatch(r'Class[.!]',following['text']):
+            if (0<following['box'][1]-line['box'][1]<40 and abs(following['box'][0]-line['box'][0])<=15
+                and len(following['text'].split())<=4 and re.fullmatch(r'[A-Z][^.!?]{0,60}[.!]',following['text'])
+                and not effects_from_lines([following])):
                 line=dict(line,text=line['text']+' '+following['text'],confidence=min(line['confidence'],following['confidence']));index+=1
         elif re.match(r'Gained \d+ hint level\(s\) for ',line['text']) and not re.search(r'[.!]$',line['text']) and index+1<len(outcome_lines):
             following=outcome_lines[index+1]
@@ -411,6 +413,7 @@ def parse(raw):
             course=dict(venue=course[1],surface=course[2].lower(),distance_m=int(course[3]),distance_category=course[4].lower(),direction=course[5].lower(),variant=course[6].lower() if course[6] else None) if course else None,
             item_rewards_complete=False)
     titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=95 and l['box'][3]<=250 and l['text']!='MAX']
+    candidate_titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=90 and l['box'][3]<=250 and l['text']!='MAX']
     return dict(screen=screen,stats=stats,training_option=option if screen=='training_result' else None,
                 effects=effects,facts=facts,completed_action='training' if screen=='training_result' else None,
-                context_title=' '.join(titles) or None,ocr={'neural':lines})
+                context_title=' '.join(titles) or None,context_title_candidate=' '.join(candidate_titles) or None,ocr={'neural':lines})

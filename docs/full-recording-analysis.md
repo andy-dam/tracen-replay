@@ -8,6 +8,8 @@ The numeric rule does not suppress nonnumeric friendship statuses. If matching p
 
 An explicit large `FAILURE` banner on a training result is distinct from the preview's failure probability. It preserves the completed training action, records failure evidence, and rejects lingering performance projections from that result window. Any separately displayed aftermath, such as recovered energy, remains a separate receipt. The reviewed source example is recorded in `tests/fixtures/failed-training-regression-v1.json`.
 
+Wrapped text does not create another transaction. A lower-confidence full event caption may link a truncated title only within the same short receipt window and with overlapping observed effects; its candidate status and continuation evidence are retained. Aligned technique-name fragments are joined before matching a lesson confirmation. A separate stat receipt is never absorbed into the name.
+
 The full-recording runner samples the source from beginning to end, then inspects short training animations more densely. It exports observed states, transaction evidence, and unresolved changes. Processing every sample does not by itself verify every action.
 
 ## Local setup

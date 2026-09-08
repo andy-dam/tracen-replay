@@ -351,6 +351,19 @@ def training_events(readings,states=()):
     return events
 
 
+def continued_title(current,row):
+    """A weaker full caption can link a truncated title, never invent an award."""
+    if not current or row['source_timestamp_ms']-current['last_seen_ms']>500:return None
+    title=row.get('context_title');previous=current.get('context_title')
+    if not title or not previous or title==previous:return None
+    if row.get('context_title_candidate')==previous:full=previous
+    elif current.get('context_title_candidate')==title:full=title
+    else:return None
+    def signature(e):return tuple(e.get(k) for k in ('kind','field','name','amount','direction','value'))
+    overlap={signature(e) for e in current['effects'].values()} & {signature(e) for e in row.get('effects',[])}
+    return full if overlap else None
+
+
 def outcome_events(readings):
     events=[];current=None
     for row in readings:
@@ -362,12 +375,19 @@ def outcome_events(readings):
             if current and (narrative or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
             continue
         title=row.get('context_title')
-        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and title!=current['context_title']):
+        continuation=continued_title(current,row)
+        if continuation:title=continuation
+        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and title!=current['context_title'] and not continuation):
             current=dict(id=f'outcome-{len(events)+1:04d}',kind='outcome',first_seen_ms=time,last_seen_ms=time,evidence=row['evidence'],
                          context_title=title,effects={},field_evidence={},conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
             events.append(current)
         current['last_seen_ms']=time
         if title:current['context_title']=title
+        current['context_title_candidate']=row.get('context_title_candidate')
+        if continuation:
+            current.setdefault('title_continuation_evidence',[]).append(dict(evidence=row['evidence'],
+                observed_title=row.get('context_title'),full_candidate=row.get('context_title_candidate'),
+                retained_title=title,basis='matching_full_caption_and_overlapping_receipt'))
         for effect in pending:
             key='|'.join(str(v or '') for v in (effect['kind'],effect.get('field'),effect.get('name')))
             current['pending_effects'].setdefault(key,[]).append((row['source_timestamp_ms'],row['evidence'],effect))
