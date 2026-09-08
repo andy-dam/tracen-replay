@@ -1,6 +1,6 @@
 # Roadmap
 
-Tracen Replay is in the design stage. All milestones below are pending.
+Tracen Replay has a local evidence pipeline with experimental stat OCR and checkpoint accounting. General screen recognition, the web application, and hosted processing remain pending. The [local ledger milestone](milestone-local-ledger.md) defines the current development validation scope.
 
 ## Initial scope
 
@@ -12,28 +12,38 @@ Analysis will distinguish visible facts from inferred events. A stat change with
 
 ## 1. Recording fixtures and data dictionary
 
-- [ ] Collect representative clips and document format, resolution, language, and visible fields.
+- [x] Audit an initial recording locally and document format, layout, visible fields, and selected timestamped examples.
+- [ ] Collect additional independent sessions and review the provisional annotations.
 - [ ] Label screen categories and ambiguous transitions.
 - [ ] Define report fields and unknown-value behavior.
 - [ ] Add small publishable fixtures; keep source recordings outside Git.
 
-## 2. Application foundation
+## 2. Local video processing
 
-- [ ] Build a Go service and a report viewer using a clearly labeled sample report.
+- [x] Add a CLI for bounded intervals of local recordings.
+- [x] Extract evidence frames with original presentation timestamps.
+- [x] Export an offline gallery and JSON report with optional reference annotations.
+- [x] Test variable-frame-rate timestamps, malformed media, output preservation, and failed-run cleanup.
+- [x] Add experimental six-field OCR, repeated-reading checkpoints, and discrepancy accounting for the initial English 1080p layout.
+- [x] Retry discrepancies against denser existing samples and explicit main-pane outcomes; preserve unresolved differences.
+- [x] Keep training previews separate from explicit logged training outcomes.
+- [x] Add a source-bound, timestamp-exact evaluator with separate accuracy and abstention metrics.
+- [x] Preserve visibility gaps and expose provisional log deduplication decisions.
+- [ ] Evaluate checkpoint accuracy, log identity, and missed-event recovery on independent recordings.
+- [ ] Implement a template-matching baseline and assemble recognized screen segments.
+- [ ] Validate short-event recall and evidence quality against reviewed labels.
+
+## 3. Application foundation
+
+- [ ] Build a Go service and a report viewer using reports from the local pipeline.
+- [ ] Add bounded local uploads and connect video processing to the viewer.
 - [ ] Add health/readiness endpoints and source revision diagnostics.
-- [ ] Deploy the container to Azure Container Apps.
-- [ ] Verify a release and rollback.
-
-## 3. Video processing
-
-- [ ] Add bounded uploads, durable jobs, and a Python worker.
-- [ ] Implement timestamped sampling and a template-matching baseline.
-- [ ] Produce a timeline with representative frames.
-- [ ] Export and reload a report without recomputation.
-- [ ] Test malformed inputs, cancellation, and interrupted processing.
+- [ ] Verify that a short clip produces a useful local timeline before deployment.
+- [ ] Add cancellation and recovery for background processing.
 
 ## 4. Hosted pipeline
 
+- [ ] Deploy the working application to Azure Container Apps and verify release/rollback.
 - [ ] Add authentication, ownership checks, and private Blob Storage.
 - [ ] Persist runs and jobs in Azure SQL.
 - [ ] Dispatch work through Queue Storage to Container Apps Jobs.

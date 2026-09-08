@@ -1,0 +1,281 @@
+{
+  "schema_version": "tracen-replay/stat-reference-v1",
+  "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+  "split": "development",
+  "annotation_method": "assistant_visual_transcription",
+  "independently_reviewed": false,
+  "notes": "Sparse fixed timestamp references from one recording. Negative examples have no readable current-stat strip; lesson projections and race result panels are not current career totals. Not an event-recall or unseen-recording benchmark.",
+  "examples": [
+    {
+      "source_timestamp_ms": 25000,
+      "values": {
+        "speed": 137,
+        "stamina": 190,
+        "power": 187,
+        "guts": 112,
+        "wit": 150,
+        "skill_points": 120
+      },
+      "turns_remaining_to_goal": 11,
+      "training_preview": false
+    },
+    {
+      "source_timestamp_ms": 27000,
+      "values": {
+        "speed": 137,
+        "stamina": 190,
+        "power": 187,
+        "guts": 112,
+        "wit": 150,
+        "skill_points": 120
+      },
+      "turns_remaining_to_goal": 11,
+      "training_preview": true,
+      "preview_option": "speed"
+    },
+    {
+      "source_timestamp_ms": 36000,
+      "values": {
+        "speed": 152,
+        "stamina": 190,
+        "power": 195,
+        "guts": 112,
+        "wit": 152,
+        "skill_points": 125
+      },
+      "turns_remaining_to_goal": 10,
+      "training_preview": true,
+      "preview_option": "speed"
+    },
+    {
+      "source_timestamp_ms": 38000,
+      "values": {
+        "speed": 152,
+        "stamina": 190,
+        "power": 195,
+        "guts": 112,
+        "wit": 152,
+        "skill_points": 125
+      },
+      "turns_remaining_to_goal": 10,
+      "training_preview": true,
+      "preview_option": "speed"
+    },
+    {
+      "source_timestamp_ms": 44250,
+      "values": {
+        "speed": 170,
+        "stamina": 190,
+        "power": 202,
+        "guts": 112,
+        "wit": 162,
+        "skill_points": 143
+      },
+      "turns_remaining_to_goal": 9
+    },
+    {
+      "source_timestamp_ms": 58000,
+      "values": {
+        "speed": 185,
+        "stamina": 190,
+        "power": 207,
+        "guts": 112,
+        "wit": 168,
+        "skill_points": 155
+      },
+      "turns_remaining_to_goal": 8
+    },
+    {
+      "source_timestamp_ms": 74500,
+      "values": {
+        "speed": 185,
+        "stamina": 190,
+        "power": 207,
+        "guts": 122,
+        "wit": 168,
+        "skill_points": 165
+      },
+      "turns_remaining_to_goal": 7
+    },
+    {
+      "source_timestamp_ms": 82000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 87000,
+      "values": {
+        "speed": 198,
+        "stamina": 202,
+        "power": 207,
+        "guts": 142,
+        "wit": 168,
+        "skill_points": 200
+      },
+      "turns_remaining_to_goal": 6
+    },
+    {
+      "source_timestamp_ms": 92000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 97000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 102000,
+      "values": {
+        "speed": 198,
+        "stamina": 219,
+        "power": 217,
+        "guts": 153,
+        "wit": 168,
+        "skill_points": 217
+      },
+      "turns_remaining_to_goal": 5
+    },
+    {
+      "source_timestamp_ms": 107000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 112000,
+      "values": {
+        "speed": 198,
+        "stamina": 227,
+        "power": 233,
+        "guts": 153,
+        "wit": 168,
+        "skill_points": 224
+      },
+      "turns_remaining_to_goal": 4
+    },
+    {
+      "source_timestamp_ms": 117000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 122000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 127000,
+      "values": {
+        "speed": 203,
+        "stamina": 227,
+        "power": 233,
+        "guts": 156,
+        "wit": 182,
+        "skill_points": 256
+      },
+      "turns_remaining_to_goal": 3
+    },
+    {
+      "source_timestamp_ms": 132000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 137000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 142000,
+      "values": {
+        "speed": 208,
+        "stamina": 251,
+        "power": 233,
+        "guts": 170,
+        "wit": 187,
+        "skill_points": 265
+      },
+      "turns_remaining_to_goal": 2
+    },
+    {
+      "source_timestamp_ms": 147000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 152000,
+      "values": {
+        "speed": 223,
+        "stamina": 256,
+        "power": 241,
+        "guts": 170,
+        "wit": 187,
+        "skill_points": 271
+      },
+      "turns_remaining_to_goal": 1
+    },
+    {
+      "source_timestamp_ms": 157000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 162000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 167000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 172000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 177000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 182000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 187000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 192000,
+      "values": {
+        "speed": 235,
+        "stamina": 264,
+        "power": 264,
+        "guts": 182,
+        "wit": 190,
+        "skill_points": 320
+      },
+      "turns_remaining_to_goal": 12
+    },
+    {
+      "source_timestamp_ms": 197000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 380000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 385000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 390000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 400000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 408000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 410000,
+      "values": null
+    },
+    {
+      "source_timestamp_ms": 414000,
+      "values": null
+    }
+  ]
+}

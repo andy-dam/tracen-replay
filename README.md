@@ -4,7 +4,19 @@ Replay analysis for Umamusume: Pretty Derby.
 
 Tracen Replay is being developed to turn gameplay recordings into editable timelines. Screen recognition and field extraction will connect each observation to a source frame, helping players review training runs and compare their progress.
 
-**Status:** early development. This repository currently contains the project design and roadmap; there is no runnable application or hosted demo yet.
+**Status:** early development. A local Python CLI extracts timestamped screenshots and generates an offline report. Optional experimental OCR reads six stat totals, forms stable checkpoints, and checks whether recognized changes explain the differences. It currently targets one English 1080p layout. General screen recognition, the Go application, and cloud deployment remain planned.
+
+## Run locally
+
+With Python 3.11+ and FFmpeg/ffprobe on `PATH`, run from the repository root:
+
+```powershell
+python -m tracen_replay "C:\path\to\recording.mp4" --start 25 --duration 57 --output .local/runs/pilot-01
+```
+
+Open the generated `index.html` to inspect the frames. The CLI leaves screen labels unknown and can import source-linked reference annotations. See the [local pipeline guide](docs/local-pipeline.md) for requirements, output format, annotation support, and tests.
+
+Install the `analysis` extra and Tesseract, then add `--track-stats` to enable checkpoint accounting. This reads the five attributes and skill points independently of any reference annotations. Training previews do not count as completed actions, and unresolved differences remain visible.
 
 ## Planned features
 
@@ -25,8 +37,10 @@ See the [architecture](docs/architecture.md) for the data flow and recovery mode
 ## Documentation
 
 - [Roadmap](docs/roadmap.md)
+- [Local pipeline](docs/local-pipeline.md)
+- [Local ledger milestone](docs/milestone-local-ledger.md)
 - [Architecture](docs/architecture.md)
 - [Deployment design](docs/deployment.md)
 - [Model evaluation](docs/evaluation.md)
 
-Setup instructions, example reports, and measured results will be added as the implementation becomes available.
+Recognition results and a hosted demo will be added as those capabilities become available.

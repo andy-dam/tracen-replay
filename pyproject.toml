@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tracen-replay"
+version = "0.1.0"
+description = "Local timestamped video evidence for Tracen Replay"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+analysis = ["Pillow>=10,<14"]
+
+[project.scripts]
+tracen-replay = "tracen_replay.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tracen_replay*"]

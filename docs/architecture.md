@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the proposed system. Services, APIs, and schemas have not yet been implemented.
+This document describes the proposed hosted system. A standalone [local evidence pipeline](local-pipeline.md) now extracts timestamped frames and exports reports. The services, APIs, recognition model, and hosted data model below are not yet implemented.
 
 ## Components
 
@@ -67,7 +67,7 @@ Starting defaults are a two-minute lease, 20-second heartbeats, three attempts, 
 
 The pipeline will probe the media, sample timestamped frames, classify screens, group stable segments, read selected fields, and assemble candidate events.
 
-Initial sampling will be approximately 1–2 fps, with denser sampling around detected transitions. Sampling and smoothing will be versioned and evaluated for missed short events.
+The local pilot samples at 4 fps by default and accepts up to 8 fps. Recording inspection found choices and results that disappear within a second, so fixed-rate sampling does not guarantee event coverage. Denser sampling around detected transitions remains planned. Sampling and smoothing will be versioned and evaluated for missed short events.
 
 A visible training menu will establish only that the menu appeared. An inferred action will require supporting transition or result evidence. Original predictions, supporting frames, and user corrections will remain distinguishable.
 
