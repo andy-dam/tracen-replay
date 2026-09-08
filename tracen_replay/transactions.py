@@ -322,6 +322,19 @@ def training_events(readings,states=()):
             values={value for _,value in observations}
             if len(values)==1:
                 performance[field]=values.pop();performance_proofs[field]=[r['evidence'] for r,_ in observations]
+            elif len(values)>1:
+                by_value={v:{r['source_timestamp_ms'] for r,n in observations if n==v} for v in values}
+                complete=[v for v,times in by_value.items() if len(times)>=3 and max(times)-min(times)>=50
+                          and sum(len(other_times) for n,other_times in by_value.items() if n!=v)==1
+                          and all(str(v).startswith(str(n)) for n in values)]
+                if len(complete)==1:
+                    value=complete[0];performance[field]=value
+                    performance_proofs[field]=[r['evidence'] for r,n in observations if n==value]
+                    events[-1].setdefault('performance_reading_resolutions',{})[field]=dict(
+                        observed_amounts=sorted(values),accepted_amount=value,
+                        basis='repeated_complete_digits_with_single_truncated_outlier',
+                        outlier_evidence=[r['evidence'] for r,n in observations if n!=value])
+                else:events[-1].setdefault('performance_reading_conflicts',{})[field]=sorted(values)
         events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs,
                          action_identity_evidence=[r['evidence'] for r in group['rows']
                              if r.get('training_option')==group['option']],
@@ -459,6 +472,8 @@ def outcome_events(readings):
             if len(eligible)==1:
                 matches=eligible[0];effect=dict(matches[0][2],confirmation='repeated_unterminated_text')
                 event['effects'][key]=effect;event['field_evidence'][key]=[r[1] for r in matches]
+        from .animated_performance import reconcile as reconcile_animated_performance
+        reconcile_animated_performance(event,readings)
         event['effects']=list(event['effects'].values())
         # Missing circle glyphs must not turn one visible hint into two awards.
         # Only collapse a suffix alternative when the exact base was also read

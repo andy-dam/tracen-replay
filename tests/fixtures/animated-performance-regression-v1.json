@@ -1,0 +1,139 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided regression examples of labeled event currency animations; not independent validation or effect recall.",
+  "frames": [
+    {
+      "source_timestamp_ms": 420817,
+      "evidence": "receipt-inspection/420500-421750-60/frame-000020.png",
+      "evidence_sha256": "485a10c53db8b088853d0032c216a4eea5559b72976b63de6604a402a56a859f",
+      "lines": [
+        {
+          "text": "+10",
+          "confidence": 99.898,
+          "box": [
+            294,
+            274,
+            443,
+            357
+          ]
+        },
+        {
+          "text": "+10",
+          "confidence": 98.986,
+          "box": [
+            646,
+            285,
+            796,
+            357
+          ]
+        },
+        {
+          "text": "Composure",
+          "confidence": 99.863,
+          "box": [
+            648,
+            361,
+            831,
+            408
+          ]
+        },
+        {
+          "text": "Composure went up by",
+          "confidence": 97.174,
+          "box": [
+            316,
+            918,
+            547,
+            950
+          ]
+        }
+      ]
+    },
+    {
+      "source_timestamp_ms": 420850,
+      "evidence": "receipt-inspection/420500-421750-60/frame-000022.png",
+      "evidence_sha256": "5e674dfd33ee4dda8912ec7ca55c32e4099a4949c4c6ac47f4a96f8f6d494954",
+      "lines": [
+        {
+          "text": "+10",
+          "confidence": 99.858,
+          "box": [
+            295,
+            272,
+            442,
+            354
+          ]
+        },
+        {
+          "text": "+10",
+          "confidence": 99.874,
+          "box": [
+            646,
+            279,
+            797,
+            360
+          ]
+        },
+        {
+          "text": "Composure",
+          "confidence": 99.855,
+          "box": [
+            647,
+            362,
+            831,
+            409
+          ]
+        },
+        {
+          "text": "Composure went up by",
+          "confidence": 98.952,
+          "box": [
+            316,
+            918,
+            539,
+            950
+          ]
+        }
+      ]
+    },
+    {
+      "source_timestamp_ms": 420900,
+      "evidence": "receipt-inspection/420500-421750-60/frame-000025.png",
+      "evidence_sha256": "9a7da2527e9b512e997812aeb2321d7a0c8549721bd466dbd20cb6ffaa37429b",
+      "lines": [
+        {
+          "text": "+10",
+          "confidence": 99.904,
+          "box": [
+            647,
+            277,
+            796,
+            360
+          ]
+        },
+        {
+          "text": "Composure",
+          "confidence": 99.793,
+          "box": [
+            647,
+            360,
+            831,
+            407
+          ]
+        },
+        {
+          "text": "Composure went up by",
+          "confidence": 96.521,
+          "box": [
+            316,
+            918,
+            545,
+            950
+          ]
+        }
+      ]
+    }
+  ],
+  "expected_field": "composure",
+  "expected_amount": 10
+}

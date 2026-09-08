@@ -38,6 +38,7 @@ python -m tracen_replay.full_recording "C:\path\to\recording.mp4" --output .loca
 python -m tracen_replay.inspect_gaps "C:\path\to\recording.mp4" --output .local/full-recording/run-01
 python -m tracen_replay.refine_results .local/full-recording/run-01
 python -m tracen_replay.refine_awards .local/full-recording/run-01
+python -m tracen_replay.refine_performance .local/full-recording/run-01
 python -m tracen_replay.skill_variants .local/full-recording/run-01
 python -m tracen_replay.refine_skill_points .local/full-recording/run-01
 python -m tracen_replay.full_recording "C:\path\to\recording.mp4" --output .local/full-recording/run-01 --reparse-only
@@ -45,6 +46,10 @@ python -m tracen_replay.verify_evidence "C:\path\to\recording.mp4" --output .loc
 ```
 
 Run these commands sequentially for a complete report. The first command captures 120-second chunks at 4 FPS and caches per-frame OCR. The second examines detected training results and candidate result layouts at 30 FPS. The refinement commands check result totals with space for four-digit attributes and recheck uncertain receipt text with padded crops. Original observations remain available. `--reparse-only` checks cached observations and rebuilds the report with the current parser; `verify_evidence` separately checks the source, crop pixels and refinement provenance.
+
+Repeat `refine_performance` after adding native training frames or changing result classification. It skips existing refinements and reads eligible frames that have not received currency recognition. Sampling a frame alone does not run every optional refinement.
+
+Large event currency animations can corroborate receipts: an exact currency label, nearby large signed amount, corresponding receipt caption and at least three distinct frames spanning 50 ms are required. Conflicting amounts remain unresolved. Training projections and lesson offers are excluded.
 
 For an unresolved ordinary receipt, inspect a bounded window of at most five seconds. Times select source pixels; expected text and amounts are never OCR inputs:
 

@@ -230,6 +230,9 @@ def parse(raw):
         facts.update(current_concert_bonuses=current,planned_concert_bonuses=planned,
                      bonus_snapshot_is_not_activation=True)
     if pending_effects:facts['effect_candidates']=pending_effects
+    from .animated_performance import candidates
+    animation=candidates(lines,screen)
+    if animation:facts['animated_performance_candidates']=animation
     if screen=='career_summary':
         final={}
         for i,field in enumerate(FIELDS[:5]):
