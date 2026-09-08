@@ -1,0 +1,72 @@
+# Local credentials and configuration
+/.local/
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.pfx
+*.p12
+.azure/
+*.parameters.local.json
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Frontend and build output
+node_modules/
+dist/
+build/
+bin/
+coverage/
+*.test
+
+# Recordings, datasets, generated artifacts, and model weights
+/data/
+/recordings/
+/artifacts/
+/runs/
+/models/
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.avi
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+
+# Local databases, emulator state, and infrastructure state
+*.db
+*.sqlite
+*.sqlite3
+*.mdf
+*.ldf
+.azurite/
+__azurite_db*__.json
+__blobstorage__/
+__queuestorage__/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Temporary files and OS metadata
+*.log
+tmp/
+temp/
+.DS_Store
+Thumbs.db
+Desktop.ini
