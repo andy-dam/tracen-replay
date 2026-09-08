@@ -49,7 +49,7 @@ Run these commands sequentially for a complete report. The first command capture
 
 Repeat `refine_performance` after adding native training frames or changing result classification. It skips existing refinements and reads eligible frames that have not received currency recognition. Sampling a frame alone does not run every optional refinement.
 
-Large event currency animations can corroborate receipts: an exact currency label, nearby large signed amount, corresponding receipt caption and at least three distinct frames spanning 50 ms are required. Conflicting amounts remain unresolved. Training projections and lesson offers are excluded.
+Large event stat and currency animations can corroborate receipts: an exact field label, nearby large signed amount, corresponding receipt caption and at least three distinct frames spanning 50 ms are required. A repeated stat animation can resolve shorter-prefix receipt readings, retaining their amounts and evidence. Other numeric disagreements remain unresolved. Training projections and lesson offers are excluded.
 
 For an unresolved ordinary receipt, inspect a bounded window of at most five seconds. Times select source pixels; expected text and amounts are never OCR inputs:
 

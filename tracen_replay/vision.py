@@ -233,6 +233,8 @@ def parse(raw):
     from .animated_performance import candidates
     animation=candidates(lines,screen)
     if animation:facts['animated_performance_candidates']=animation
+    stat_animation=candidates(lines,screen,stat=True)
+    if stat_animation:facts['animated_stat_candidates']=stat_animation
     if screen=='career_summary':
         final={}
         for i,field in enumerate(FIELDS[:5]):

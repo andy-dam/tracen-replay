@@ -450,7 +450,8 @@ def outcome_events(readings):
                 current['effects'][key]=effect
                 current['field_evidence'].setdefault(key,[]).append(row['evidence'])
     for event in events:
-        for key,observations in event.pop('effect_observations').items():
+        receipt_observations=event.pop('effect_observations')
+        for key,observations in receipt_observations.items():
             conflicts=[c for c in event['conflicting_readings'] if c['field']==key]
             if not conflicts or any(c['reason']!='changing_effect_value' for c in conflicts):continue
             amounts=Counter(e.get('amount') for _,_,e in observations)
@@ -474,6 +475,7 @@ def outcome_events(readings):
                 event['effects'][key]=effect;event['field_evidence'][key]=[r[1] for r in matches]
         from .animated_performance import reconcile as reconcile_animated_performance
         reconcile_animated_performance(event,readings)
+        reconcile_animated_performance(event,readings,stat=True,receipt_observations=receipt_observations)
         event['effects']=list(event['effects'].values())
         # Missing circle glyphs must not turn one visible hint into two awards.
         # Only collapse a suffix alternative when the exact base was also read

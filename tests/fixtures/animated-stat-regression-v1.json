@@ -1,0 +1,117 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided regression observations, not independent evaluation.",
+  "frames": [
+    {
+      "source_timestamp_ms": 894100,
+      "evidence": "receipt-inspection/893750-895250-60/frame-000022.png",
+      "evidence_sha256": "ca97c202d574c559e81b5de3a0a75857e64a6b51e50ea27a9d7293b8b885654b",
+      "lines": [
+        {
+          "text": "+57",
+          "confidence": 99.819,
+          "box": [
+            472,
+            564,
+            620,
+            641
+          ]
+        },
+        {
+          "text": "Skill Pts",
+          "confidence": 99.438,
+          "box": [
+            495,
+            635,
+            648,
+            685
+          ]
+        },
+        {
+          "text": "Skill Pts went up by ",
+          "confidence": 96.096,
+          "box": [
+            314,
+            900,
+            541,
+            933
+          ]
+        }
+      ]
+    },
+    {
+      "source_timestamp_ms": 894150,
+      "evidence": "receipt-inspection/893750-895250-60/frame-000025.png",
+      "evidence_sha256": "31a266aae3a3fccf197edc34f837e073df9861581255cb90a530e83136da7cbb",
+      "lines": [
+        {
+          "text": "+57",
+          "confidence": 99.885,
+          "box": [
+            471,
+            560,
+            622,
+            644
+          ]
+        },
+        {
+          "text": "Skill Pts",
+          "confidence": 99.502,
+          "box": [
+            495,
+            635,
+            648,
+            685
+          ]
+        },
+        {
+          "text": "Skill Pts went up by ",
+          "confidence": 96.712,
+          "box": [
+            314,
+            900,
+            543,
+            932
+          ]
+        }
+      ]
+    },
+    {
+      "source_timestamp_ms": 894200,
+      "evidence": "receipt-inspection/893750-895250-60/frame-000028.png",
+      "evidence_sha256": "348ceca011e3336e6fff79267e6bebbe670a2439822d1d7ca2a8430db221821a",
+      "lines": [
+        {
+          "text": "+57",
+          "confidence": 99.856,
+          "box": [
+            471,
+            559,
+            622,
+            644
+          ]
+        },
+        {
+          "text": "Skill Pts",
+          "confidence": 98.223,
+          "box": [
+            496,
+            636,
+            647,
+            684
+          ]
+        },
+        {
+          "text": "Skill Pts went up by",
+          "confidence": 97.432,
+          "box": [
+            314,
+            900,
+            543,
+            932
+          ]
+        }
+      ]
+    }
+  ]
+}
