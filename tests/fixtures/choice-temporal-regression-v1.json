@@ -1,0 +1,631 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided detector outputs for temporal-choice regression; not independent evaluation of visual detection. Original gameplay proof hashes retained.",
+  "observations": [
+    {
+      "source_timestamp_ms": 903000,
+      "evidence": "gameplay/part-007-frame-000253.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "933501b251c3820eafcf8a04652353154ae4142fa43e5171324a907d7b468b45"
+    },
+    {
+      "source_timestamp_ms": 903250,
+      "evidence": "gameplay/part-007-frame-000254.png",
+      "offered_card_candidates": [
+        {
+          "text": "Activate the strength chakra.",
+          "text_box": [
+            318,
+            296,
+            579,
+            323
+          ],
+          "confidence": 99.85
+        },
+        {
+          "text": "Activate the winning chakra.",
+          "text_box": [
+            317,
+            406,
+            574,
+            435
+          ],
+          "confidence": 99.801
+        },
+        {
+          "text": "Activate the health chakra.",
+          "text_box": [
+            318,
+            518,
+            562,
+            544
+          ],
+          "confidence": 98.558
+        },
+        {
+          "text": "Activate the charm chakra.",
+          "text_box": [
+            318,
+            629,
+            560,
+            655
+          ],
+          "confidence": 99.978
+        },
+        {
+          "text": "This is too sketchy. Let's quit while we still can.",
+          "text_box": [
+            321,
+            740,
+            737,
+            768
+          ],
+          "confidence": 99.325
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "7d96d1259ab003d2714dd5f1c856d345bb7581c19becc86345ea4fe3e1a504ea"
+    },
+    {
+      "source_timestamp_ms": 903500,
+      "evidence": "gameplay/part-007-frame-000255.png",
+      "offered_card_candidates": [
+        {
+          "text": "Activate the strength chakra.",
+          "text_box": [
+            318,
+            296,
+            579,
+            323
+          ],
+          "confidence": 99.959
+        },
+        {
+          "text": "Activate the winning chakra.",
+          "text_box": [
+            317,
+            406,
+            574,
+            435
+          ],
+          "confidence": 98.673
+        },
+        {
+          "text": "Activate the health chakra.",
+          "text_box": [
+            317,
+            518,
+            562,
+            544
+          ],
+          "confidence": 99.817
+        },
+        {
+          "text": "Activate the charm chakra.",
+          "text_box": [
+            318,
+            629,
+            560,
+            655
+          ],
+          "confidence": 99.905
+        },
+        {
+          "text": "This is too sketchy. Let's quit while we still can.",
+          "text_box": [
+            317,
+            740,
+            740,
+            768
+          ],
+          "confidence": 97.816
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "1f184308de9c6b9e9701de814d9d20dd46a9d67d9710e1c5c5c2f7dd17bff55c"
+    },
+    {
+      "source_timestamp_ms": 903750,
+      "evidence": "gameplay/part-007-frame-000256.png",
+      "offered_card_candidates": [
+        {
+          "text": "Activate the strength chakra.",
+          "text_box": [
+            318,
+            296,
+            579,
+            323
+          ],
+          "confidence": 99.655
+        },
+        {
+          "text": "Activate the winning chakra.",
+          "text_box": [
+            317,
+            406,
+            574,
+            435
+          ],
+          "confidence": 99.754
+        },
+        {
+          "text": "Activate the health chakra.",
+          "text_box": [
+            317,
+            518,
+            562,
+            544
+          ],
+          "confidence": 99.841
+        },
+        {
+          "text": "Activate the charm chakra.",
+          "text_box": [
+            318,
+            629,
+            560,
+            655
+          ],
+          "confidence": 99.906
+        },
+        {
+          "text": "This is too sketchy. Let's quit while we still can.",
+          "text_box": [
+            317,
+            740,
+            740,
+            768
+          ],
+          "confidence": 97.801
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "e4b88cc21cbf63b4768fa5949c58310598960efb7baabc1e5bc1859ac0f96e27"
+    },
+    {
+      "source_timestamp_ms": 904000,
+      "evidence": "gameplay/part-007-frame-000257.png",
+      "offered_card_candidates": [
+        {
+          "text": "Activate the strength chakra.",
+          "text_box": [
+            318,
+            296,
+            579,
+            323
+          ],
+          "confidence": 99.655
+        },
+        {
+          "text": "Activate the winning chakra.",
+          "text_box": [
+            317,
+            406,
+            574,
+            435
+          ],
+          "confidence": 99.754
+        },
+        {
+          "text": "Activate the health chakra.",
+          "text_box": [
+            317,
+            518,
+            562,
+            544
+          ],
+          "confidence": 99.841
+        },
+        {
+          "text": "Activate the charm chakra.",
+          "text_box": [
+            318,
+            629,
+            560,
+            655
+          ],
+          "confidence": 99.906
+        },
+        {
+          "text": "This is too sketchy. Let's quit while we still can.",
+          "text_box": [
+            316,
+            739,
+            739,
+            767
+          ],
+          "confidence": 99.072
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "bb5b3ceb2cf59595e369b678b2f26e0d71bd39be48727c9052ae2225ce7902af"
+    },
+    {
+      "source_timestamp_ms": 904250,
+      "evidence": "gameplay/part-007-frame-000258.png",
+      "offered_card_candidates": [
+        {
+          "text": "Activate the strength chakra.",
+          "text_box": [
+            318,
+            296,
+            579,
+            323
+          ],
+          "confidence": 99.91
+        },
+        {
+          "text": "Activate the winning chakra.",
+          "text_box": [
+            317,
+            406,
+            574,
+            435
+          ],
+          "confidence": 99.392
+        },
+        {
+          "text": "Activate the health chakra.",
+          "text_box": [
+            317,
+            518,
+            562,
+            544
+          ],
+          "confidence": 99.919
+        },
+        {
+          "text": "Activate the charm chakra.",
+          "text_box": [
+            318,
+            629,
+            560,
+            655
+          ],
+          "confidence": 99.905
+        },
+        {
+          "text": "This is too sketchy. Let's quit while we still can.",
+          "text_box": [
+            317,
+            740,
+            739,
+            768
+          ],
+          "confidence": 97.228
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "701bb4df669b991d403efdc0aa58ca6bd18eb24a91cf753ad9213bbc20c60db1"
+    },
+    {
+      "source_timestamp_ms": 904500,
+      "evidence": "gameplay/part-007-frame-000259.png",
+      "offered_card_candidates": [
+        {
+          "text": "Activate the strength chakra.",
+          "text_box": [
+            318,
+            296,
+            579,
+            323
+          ],
+          "confidence": 99.91
+        },
+        {
+          "text": "Activate the winning chakra.",
+          "text_box": [
+            317,
+            406,
+            574,
+            435
+          ],
+          "confidence": 99.392
+        },
+        {
+          "text": "Activate the health chakra.",
+          "text_box": [
+            317,
+            518,
+            562,
+            544
+          ],
+          "confidence": 99.919
+        },
+        {
+          "text": "Activate the charm chakra.",
+          "text_box": [
+            318,
+            629,
+            560,
+            655
+          ],
+          "confidence": 99.905
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "19ee9a53c2c9fdb861a9aece7caa27ad5822cb50deaeb6328723026a564dec7b"
+    },
+    {
+      "source_timestamp_ms": 904750,
+      "evidence": "gameplay/part-007-frame-000260.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [
+        {
+          "left": {
+            "box": [
+              258,
+              703,
+              313,
+              736
+            ],
+            "yellow_pixels": 441
+          },
+          "right": {
+            "box": [
+              798,
+              700,
+              853,
+              736
+            ],
+            "yellow_pixels": 536
+          }
+        }
+      ],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "ccddcf6d430d090ff805a07f124e55e8fab4b0e6d1f5fe023f098bffb3cdbcc2"
+    },
+    {
+      "source_timestamp_ms": 905000,
+      "evidence": "gameplay/part-007-frame-000261.png",
+      "offered_card_candidates": [
+        {
+          "text": "Decline.",
+          "text_box": [
+            316,
+            628,
+            398,
+            656
+          ],
+          "confidence": 99.989
+        },
+        {
+          "text": "Reconsider.",
+          "text_box": [
+            316,
+            741,
+            427,
+            767
+          ],
+          "confidence": 99.987
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "89a1b2b5ae8f0c5c3aa332cc66469ca4a81b6ff546201ae2ecba10abfee47363"
+    },
+    {
+      "source_timestamp_ms": 905250,
+      "evidence": "gameplay/part-007-frame-000262.png",
+      "offered_card_candidates": [
+        {
+          "text": "Decline.",
+          "text_box": [
+            316,
+            628,
+            398,
+            656
+          ],
+          "confidence": 99.989
+        },
+        {
+          "text": "Reconsider.",
+          "text_box": [
+            316,
+            741,
+            427,
+            767
+          ],
+          "confidence": 99.99
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "4135c52800b3f105db00e5e4e24bdfb79857c18225ec73f2310bd1563be4e9e8"
+    },
+    {
+      "source_timestamp_ms": 905500,
+      "evidence": "gameplay/part-007-frame-000263.png",
+      "offered_card_candidates": [
+        {
+          "text": "Decline.",
+          "text_box": [
+            316,
+            628,
+            398,
+            656
+          ],
+          "confidence": 99.989
+        },
+        {
+          "text": "Reconsider.",
+          "text_box": [
+            316,
+            741,
+            425,
+            764
+          ],
+          "confidence": 99.977
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "8dbd4c6a4bc5b5460e01fb675b57da54cfa640989906e0fc1d52b8f0b9190bf0"
+    },
+    {
+      "source_timestamp_ms": 905750,
+      "evidence": "gameplay/part-007-frame-000264.png",
+      "offered_card_candidates": [
+        {
+          "text": "Decline.",
+          "text_box": [
+            316,
+            628,
+            398,
+            656
+          ],
+          "confidence": 99.989
+        },
+        {
+          "text": "Reconsider.",
+          "text_box": [
+            316,
+            741,
+            427,
+            767
+          ],
+          "confidence": 99.99
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "f04935c3de2c954d89d77a80e3e050e3265be3f8208d50225a9943ebadf49038"
+    },
+    {
+      "source_timestamp_ms": 906000,
+      "evidence": "gameplay/part-007-frame-000265.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [
+        {
+          "left": {
+            "box": [
+              258,
+              587,
+              313,
+              622
+            ],
+            "yellow_pixels": 499
+          },
+          "right": {
+            "box": [
+              798,
+              584,
+              853,
+              622
+            ],
+            "yellow_pixels": 608
+          }
+        }
+      ],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "040e13b84152e4a6e10d719b8e8e0237d40168a10a7af0f46e170b33c1f2619a"
+    },
+    {
+      "source_timestamp_ms": 906250,
+      "evidence": "gameplay/part-007-frame-000266.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "d74eb2db94428fff8439993f822a91c5e727c7452b4609627294a6ce82972152"
+    },
+    {
+      "source_timestamp_ms": 906500,
+      "evidence": "gameplay/part-007-frame-000267.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "97c15cd9eba945f108915d5b70a40e5ca8ae94ae901ab26ca9a6c1a441fd6df7"
+    },
+    {
+      "source_timestamp_ms": 906750,
+      "evidence": "gameplay/part-007-frame-000268.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "d2596cfcf02a735b95e5f7035cf5b32e21f306fdca4160691fe4eca7edf05659"
+    },
+    {
+      "source_timestamp_ms": 907000,
+      "evidence": "gameplay/part-007-frame-000269.png",
+      "offered_card_candidates": [
+        {
+          "text": "Agreed.",
+          "text_box": [
+            312,
+            735,
+            398,
+            773
+          ],
+          "confidence": 99.974
+        }
+      ],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "fc276477ad24204cd73e4cdc7b6a6c7f3d9346fddc9760b29a2a946cb6938b08"
+    },
+    {
+      "source_timestamp_ms": 907250,
+      "evidence": "gameplay/part-007-frame-000270.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "88b47a478cf450d356a3650c04741c11cd186adcd2d5990bfbd585c4492f548f"
+    },
+    {
+      "source_timestamp_ms": 907500,
+      "evidence": "gameplay/part-007-frame-000271.png",
+      "offered_card_candidates": [],
+      "selection_mark_pairs": [],
+      "selected_option": null,
+      "selection_verified": false,
+      "evidence_sha256": "58812127af63904f5b4fcde1fb0232ff5bf54a8503cbc8b8a2b0d2c7ae9be9d1"
+    }
+  ],
+  "expected": [
+    {
+      "options": [
+        "Activate the strength chakra.",
+        "Activate the winning chakra.",
+        "Activate the health chakra.",
+        "Activate the charm chakra.",
+        "This is too sketchy. Let's quit while we still can."
+      ],
+      "selected_index": 4,
+      "selected_text": "This is too sketchy. Let's quit while we still can."
+    },
+    {
+      "options": [
+        "Decline.",
+        "Reconsider."
+      ],
+      "selected_index": 0,
+      "selected_text": "Decline."
+    }
+  ]
+}
