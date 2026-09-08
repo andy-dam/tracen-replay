@@ -1,0 +1,3913 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided regression of labeled Arima award animation; no balance delta supplied as input.",
+  "readings": [
+    {
+      "source_timestamp_ms": 1480750,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000001.png",
+      "evidence_sha256": "395a48d427a1bcb662e7e6eae41f38d272bcb723845f488abe2ab416898ec8db",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.339,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 98.417,
+            "box": [
+              317,
+              832,
+              533,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.343,
+            "box": [
+              317,
+              856,
+              515,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 94.024,
+            "box": [
+              316,
+              876,
+              501,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 95.804,
+            "box": [
+              316,
+              902,
+              492,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480767,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000002.png",
+      "evidence_sha256": "1efa37fff4e9f9007185e73b48bcbd2b0dad7ca10d0274cc59d21baed36dbb98",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.318,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 98.43,
+            "box": [
+              317,
+              832,
+              532,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.325,
+            "box": [
+              317,
+              856,
+              515,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 95.264,
+            "box": [
+              316,
+              876,
+              497,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 97.402,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480783,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000003.png",
+      "evidence_sha256": "ba3e9df14f910387980178293dd33a6b457f5cd73cae98aae54a09a7c404ada1",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.427,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 99.14,
+            "box": [
+              317,
+              832,
+              533,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.099,
+            "box": [
+              317,
+              856,
+              515,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 92.121,
+            "box": [
+              316,
+              876,
+              497,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 97.367,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480800,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000004.png",
+      "evidence_sha256": "914e6ed1b284506f3cc75620953bd1eecc2f3aa461fa758a9fc084d7ed92dedb",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.424,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 99.174,
+            "box": [
+              317,
+              832,
+              533,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 96.763,
+            "box": [
+              317,
+              856,
+              516,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 96.638,
+            "box": [
+              317,
+              878,
+              497,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 95.781,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480817,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000005.png",
+      "evidence_sha256": "0a59f242f65e9c6d17b95d03131f11efbe86eea3f95d278f352edf03393b0a28",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.318,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 98.5,
+            "box": [
+              317,
+              832,
+              533,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.135,
+            "box": [
+              317,
+              856,
+              516,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 96.566,
+            "box": [
+              317,
+              878,
+              497,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 97.469,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480833,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000006.png",
+      "evidence_sha256": "5639c6f48d112e8292e9354187f11cc604cbdc61b0a25f74728d3370405fa827",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.33,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 99.384,
+            "box": [
+              316,
+              832,
+              532,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.15,
+            "box": [
+              317,
+              856,
+              516,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 95.296,
+            "box": [
+              316,
+              876,
+              497,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 97.489,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480850,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000007.png",
+      "evidence_sha256": "7395bc30bc5c85fc8f913a9baaad066dc8c29af141f1b5f315c1afc784164544",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.423,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 98.645,
+            "box": [
+              317,
+              832,
+              533,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.361,
+            "box": [
+              317,
+              856,
+              516,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 95.296,
+            "box": [
+              316,
+              876,
+              497,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 97.489,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480867,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000008.png",
+      "evidence_sha256": "9d1c414812b8d5d8a6cc888ad8b9513a1956cc878282a033fb37efb383cfb6f9",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by 1 to new heights.",
+            "confidence": 98.32,
+            "box": [
+              316,
+              804,
+              655,
+              836
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 98.5,
+            "box": [
+              317,
+              832,
+              533,
+              859
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.135,
+            "box": [
+              317,
+              856,
+              516,
+              882
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 96.655,
+            "box": [
+              316,
+              876,
+              496,
+              908
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 97.369,
+            "box": [
+              316,
+              902,
+              491,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480883,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000009.png",
+      "evidence_sha256": "1ad0c7b95ca5549c7ba6795a0178f2e065a625ac57b0d1262252f124f84725cf",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Speed went up by I to new heights.",
+            "confidence": 96.29,
+            "box": [
+              317,
+              805,
+              655,
+              831
+            ],
+            "original_text": ">peed went up by I to new heights.",
+            "original_confidence": 94.877,
+            "receipt_crop_views": [
+              {
+                "text": "Speed went up by I to new heights.",
+                "confidence": 96.29
+              },
+              {
+                "text": "Speed went up by I to new heights.",
+                "confidence": 97.11
+              },
+              {
+                "text": "Speed went up by I to new heights.",
+                "confidence": 97.254
+              }
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 99.334,
+            "box": [
+              316,
+              826,
+              532,
+              855
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.257,
+            "box": [
+              317,
+              852,
+              515,
+              878
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.137,
+            "box": [
+              316,
+              871,
+              498,
+              906
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.921,
+            "box": [
+              317,
+              897,
+              495,
+              927
+            ]
+          },
+          {
+            "text": "CL.:lI DA-...NA",
+            "confidence": 62.995,
+            "box": [
+              319,
+              922,
+              449,
+              939
+            ]
+          },
+          {
+            "text": ".-L...57",
+            "confidence": 82.222,
+            "box": [
+              444,
+              925,
+              535,
+              939
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480900,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000010.png",
+      "evidence_sha256": "c8059f22334307d981cc98f6663fbcbd53da22d011a7ff15d72123bba6be501b",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 99.383,
+            "box": [
+              316,
+              817,
+              532,
+              844
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.967,
+            "box": [
+              315,
+              840,
+              514,
+              870
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 96.9,
+            "box": [
+              315,
+              862,
+              502,
+              894
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.489,
+            "box": [
+              316,
+              886,
+              512,
+              918
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.795,
+            "box": [
+              317,
+              912,
+              543,
+              938
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480917,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000011.png",
+      "evidence_sha256": "f54b6532bbd6e4624bce805b73d3b9ebded7cd4c0b3e83c9c138e587b25ae634",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 98.184,
+            "box": [
+              314,
+              806,
+              532,
+              841
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 99.634,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.487
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.758
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.184
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 97.064,
+            "box": [
+              315,
+              834,
+              516,
+              866
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 96.979,
+            "box": [
+              317,
+              859,
+              502,
+              888
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 96.317,
+            "box": [
+              316,
+              881,
+              493,
+              913
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.888,
+            "box": [
+              315,
+              905,
+              544,
+              938
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480933,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000012.png",
+      "evidence_sha256": "aff034f2ee459e7ad3ce0a74d74b7da80b1f69393a90b9401a09b7f79ce5f6a8",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 97.335,
+            "box": [
+              315,
+              806,
+              532,
+              838
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 97.273,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 97.335
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 99.701
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 93.663
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.181,
+            "box": [
+              315,
+              832,
+              515,
+              861
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.804,
+            "box": [
+              316,
+              855,
+              504,
+              887
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.539,
+            "box": [
+              317,
+              879,
+              490,
+              909
+            ]
+          },
+          {
+            "text": "Skill Pts went up by57.",
+            "confidence": 99.234,
+            "box": [
+              316,
+              903,
+              543,
+              933
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480950,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000013.png",
+      "evidence_sha256": "e94b9867eff7ab1d0f9988f2090a6d14cc401647019c51ce3ad494f258dbc16e",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.132,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.561,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.218
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.132
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 97.816
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.877,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.921,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.162,
+            "box": [
+              317,
+              878,
+              491,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by57.",
+            "confidence": 97.493,
+            "box": [
+              316,
+              902,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480967,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000014.png",
+      "evidence_sha256": "0801c295160164e21dd74bc16da9bc684549b455b553160e68c55be65615758f",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.323,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.947,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.294
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.323
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 97.922
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.615,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.398,
+            "box": [
+              316,
+              853,
+              505,
+              885
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.327,
+            "box": [
+              317,
+              878,
+              491,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by57.",
+            "confidence": 98.699,
+            "box": [
+              315,
+              900,
+              543,
+              933
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1480983,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000015.png",
+      "evidence_sha256": "60eb223e797580f7c755b4f386c4fca3799995e7d80d24cb25989a5806550a4c",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.51,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.83,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.625
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.51
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.185
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.338,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.126,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.044,
+            "box": [
+              317,
+              878,
+              491,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by57.",
+            "confidence": 96.823,
+            "box": [
+              315,
+              900,
+              543,
+              933
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481000,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000016.png",
+      "evidence_sha256": "f87f4f76bce4dcc665be75dad667c30ec6dc8a9fe2f6ca5746ce301e781359c9",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 95.501,
+            "box": [
+              471,
+              531,
+              617,
+              614
+            ]
+          },
+          {
+            "text": "Skill Pts",
+            "confidence": 94.987,
+            "box": [
+              498,
+              654,
+              648,
+              704
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.519,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.829,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.637
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.519
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.173
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.341,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.654,
+            "box": [
+              316,
+              853,
+              505,
+              885
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.392,
+            "box": [
+              317,
+              878,
+              491,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by37.",
+            "confidence": 96.767,
+            "box": [
+              315,
+              900,
+              543,
+              933
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481017,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000017.png",
+      "evidence_sha256": "fe8ee3fd9c596089467982d54d584debdd39fdfbf4d035ecb5eeda991bac88ae",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "57",
+            "confidence": 98.963,
+            "box": [
+              505,
+              531,
+              616,
+              612
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 88.41,
+            "box": [
+              497,
+              646,
+              649,
+              698
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.536,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 97.51,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.619
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.536
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.033
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.625,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.724,
+            "box": [
+              316,
+              853,
+              504,
+              885
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 96.056,
+            "box": [
+              316,
+              875,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by7.",
+            "confidence": 0,
+            "box": [
+              314,
+              899,
+              542,
+              932
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 97.228
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481033,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000018.png",
+      "evidence_sha256": "1bc041bfabdbcf82f56ea1d1de0c902ea7a560ea2e007469ea3ffb9c7838db28",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "*57",
+            "confidence": 80.347,
+            "box": [
+              451,
+              512,
+              633,
+              647
+            ]
+          },
+          {
+            "text": "Skill Pts",
+            "confidence": 81.372,
+            "box": [
+              497,
+              642,
+              648,
+              692
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.529,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 97.489,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.811
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.529
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.08
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.631,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.732,
+            "box": [
+              316,
+              853,
+              504,
+              885
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 96.048,
+            "box": [
+              316,
+              875,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by.",
+            "confidence": 97.561,
+            "box": [
+              315,
+              899,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481050,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000019.png",
+      "evidence_sha256": "c23690eadc70d7ba0d3fe1ee3da454a49f1dc496d3df888a1f1817524f94a276",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 95.123,
+            "box": [
+              450,
+              522,
+              634,
+              654
+            ]
+          },
+          {
+            "text": "Skill.Pts",
+            "confidence": 92.926,
+            "box": [
+              497,
+              640,
+              648,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.65,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.836,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.807
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.65
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.105
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.252,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.071,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 95.076,
+            "box": [
+              316,
+              875,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by",
+            "confidence": 97.468,
+            "box": [
+              315,
+              898,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481067,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000020.png",
+      "evidence_sha256": "861c819ab698d718e210fa48de95b00594ac93b568d86592d7561144978c537a",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 97.789,
+            "box": [
+              453,
+              527,
+              629,
+              652
+            ]
+          },
+          {
+            "text": "Skill Pts",
+            "confidence": 93.557,
+            "box": [
+              497,
+              639,
+              649,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.501,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.774,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.744
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.501
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.023
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.288,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.049,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 95.109,
+            "box": [
+              316,
+              875,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 5",
+            "confidence": 97.703,
+            "box": [
+              315,
+              898,
+              544,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481083,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000021.png",
+      "evidence_sha256": "89cd0f9c7aa11b05fa4073345797a7823af33ec7b777b4749c911e1a3227544b",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Skill Pts",
+            "confidence": 96.844,
+            "box": [
+              497,
+              640,
+              649,
+              688
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.501,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.884,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.753
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.501
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.053
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.294,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.926,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 93.264,
+            "box": [
+              316,
+              875,
+              493,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 5",
+            "confidence": 0,
+            "box": [
+              313,
+              895,
+              549,
+              936
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 96.604
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481100,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000022.png",
+      "evidence_sha256": "4ba4949b0d7594e51798a082e3f5cd5654f62053477ade07f00f421fb449076a",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Skill Pts",
+            "confidence": 92.666,
+            "box": [
+              496,
+              637,
+              649,
+              688
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.501,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.884,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.753
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.501
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.026
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.294,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.927,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.403,
+            "box": [
+              317,
+              878,
+              493,
+              907
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57",
+            "confidence": 0,
+            "box": [
+              312,
+              893,
+              557,
+              938
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 95.592
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481117,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000023.png",
+      "evidence_sha256": "5792f97fceabd1187cbdd271f8583ac1dc5ee66f6964b188743a72e6ada2b670",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 98.409,
+            "box": [
+              467,
+              559,
+              620,
+              647
+            ]
+          },
+          {
+            "text": "Skill Pts",
+            "confidence": 92.083,
+            "box": [
+              495,
+              633,
+              650,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.502,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.767,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.702
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.502
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.011
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.294,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.073,
+            "box": [
+              318,
+              856,
+              503,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 95.84,
+            "box": [
+              318,
+              879,
+              492,
+              906
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57",
+            "confidence": 0,
+            "box": [
+              313,
+              895,
+              562,
+              936
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 96.958
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481133,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000024.png",
+      "evidence_sha256": "97d4d7188621630ddf6658c9ec7213123b593d42d6b432571fc598fcf2d604c0",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 97.733,
+            "box": [
+              467,
+              560,
+              620,
+              644
+            ]
+          },
+          {
+            "text": "SkillPts",
+            "confidence": 98.796,
+            "box": [
+              495,
+              633,
+              650,
+              689
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.533,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.871,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.741
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.533
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.054
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.297,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.291,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 96.158,
+            "box": [
+              318,
+              879,
+              492,
+              906
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 96.843,
+            "box": [
+              315,
+              899,
+              551,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481150,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000025.png",
+      "evidence_sha256": "f2b22cfca806bd85876be70c4982d76063681082a734261c197cd10754f13548",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 99.143,
+            "box": [
+              468,
+              564,
+              619,
+              645
+            ]
+          },
+          {
+            "text": "Skill Pts",
+            "confidence": 92.0,
+            "box": [
+              494,
+              633,
+              650,
+              689
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.533,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.871,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.741
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.533
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.054
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.293,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.202,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 96.154,
+            "box": [
+              318,
+              879,
+              492,
+              906
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.777,
+            "box": [
+              314,
+              897,
+              576,
+              933
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481167,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000026.png",
+      "evidence_sha256": "0576bd7a587e85c6c620cdb6281813e27208d49e875e01602f71e4cbde893c89",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 96.132,
+            "box": [
+              465,
+              565,
+              619,
+              641
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 91.09,
+            "box": [
+              495,
+              632,
+              650,
+              689
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.512,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.751,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.71
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.512
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.02
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.292,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.178,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.401,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.584,
+            "box": [
+              315,
+              900,
+              544,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481183,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000027.png",
+      "evidence_sha256": "f4df5a68c0cdb0e22eaafabc25ebcf60d47863b42c6f535873e56d46d72d0c86",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 98.46,
+            "box": [
+              467,
+              561,
+              619,
+              644
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 91.533,
+            "box": [
+              494,
+              630,
+              651,
+              692
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.402,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.822,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.806
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.402
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.046
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.301,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.205,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.386,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.661,
+            "box": [
+              315,
+              900,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481200,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000028.png",
+      "evidence_sha256": "378cef3bc85e6e736ed02c8f39fcc0e546ae1ecd0d6523815e5ac250bc18eb70",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 99.116,
+            "box": [
+              468,
+              562,
+              618,
+              643
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 92.232,
+            "box": [
+              494,
+              631,
+              651,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.402,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.822,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.806
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.402
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.046
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.299,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.207,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.415,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.661,
+            "box": [
+              315,
+              900,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481217,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000029.png",
+      "evidence_sha256": "9211f4e54bf2db0ac1c18e1e9241141e135fb01da8a403354ceb8f65257092c8",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 99.221,
+            "box": [
+              465,
+              561,
+              618,
+              644
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 91.624,
+            "box": [
+              494,
+              631,
+              651,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.513,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.752,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.721
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.513
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.02
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.302,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.176,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.406,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.65,
+            "box": [
+              315,
+              900,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481233,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000030.png",
+      "evidence_sha256": "673e5954d4de1c70f180fa4100ca693d14148141e1775a34f5ad6a4d68e207ea",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 98.641,
+            "box": [
+              468,
+              562,
+              617,
+              643
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 90.623,
+            "box": [
+              494,
+              631,
+              651,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.547,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.851,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.772
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.547
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.039
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.302,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.189,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.388,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.637,
+            "box": [
+              315,
+              900,
+              543,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481250,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000031.png",
+      "evidence_sha256": "7e2a4d6b377e5e3d44b67c378289729b9b95a6beedc4f576c6991dab509ae0e3",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 98.98,
+            "box": [
+              468,
+              562,
+              617,
+              643
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 89.054,
+            "box": [
+              494,
+              632,
+              651,
+              690
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.535,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.809,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.802
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.535
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.038
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.302,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.173,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.428,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.123,
+            "box": [
+              316,
+              902,
+              544,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481267,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000032.png",
+      "evidence_sha256": "f1ec246eaa35a51640a447311267e71ae3f1542aec26c0bb792c8452ee6a3ef9",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 86.24,
+            "box": [
+              466,
+              562,
+              617,
+              643
+            ]
+          },
+          {
+            "text": "Skill-Pts",
+            "confidence": 95.274,
+            "box": [
+              496,
+              636,
+              649,
+              688
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.513,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.752,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.721
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.513
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.02
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.317,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.184,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.368,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.12,
+            "box": [
+              316,
+              902,
+              544,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481283,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000033.png",
+      "evidence_sha256": "67701a0fd8370ae44c9af1b875b34c5f6b8c6b35a2474932355ad707f2bab3cb",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "+57",
+            "confidence": 89.655,
+            "box": [
+              465,
+              562,
+              617,
+              643
+            ]
+          },
+          {
+            "text": "SkillPts",
+            "confidence": 98.743,
+            "box": [
+              495,
+              635,
+              649,
+              688
+            ]
+          },
+          {
+            "text": "Stamina went up by 3.",
+            "confidence": 95.513,
+            "box": [
+              317,
+              807,
+              531,
+              834
+            ],
+            "original_text": "Stamina went up by 3.",
+            "original_confidence": 98.861,
+            "receipt_crop_views": [
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 96.717
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 95.513
+              },
+              {
+                "text": "Stamina went up by 3.",
+                "confidence": 98.098
+              }
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 99.903,
+            "box": [
+              316,
+              832,
+              515,
+              859
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.92,
+            "box": [
+              318,
+              856,
+              502,
+              882
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.314,
+            "box": [
+              317,
+              878,
+              492,
+              908
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.114,
+            "box": [
+              316,
+              902,
+              544,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481300,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000034.png",
+      "evidence_sha256": "05814c98033a6f60c84bcc028ed83bdf79fc9905fb4429a770e539cba24c96b9",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HiNTLM",
+            "confidence": 68.41,
+            "box": [
+              328,
+              542,
+              647,
+              709
+            ]
+          },
+          {
+            "text": "SkilrHts",
+            "confidence": 71.193,
+            "box": [
+              508,
+              645,
+              646,
+              684
+            ]
+          },
+          {
+            "text": "Jtailld went up y.",
+            "confidence": 76.559,
+            "box": [
+              317,
+              803,
+              531,
+              825
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.475,
+            "box": [
+              315,
+              822,
+              515,
+              851
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.861,
+            "box": [
+              316,
+              846,
+              501,
+              876
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.944,
+            "box": [
+              315,
+              868,
+              493,
+              900
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.403,
+            "box": [
+              317,
+              894,
+              543,
+              921
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Riah Handed ",
+            "confidence": 0,
+            "box": [
+              315,
+              915,
+              720,
+              943
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 95.149
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481317,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000035.png",
+      "evidence_sha256": "a7d483a24787c9255a53a7c459c0b91001b5c730356bf9f2db985b9903935893",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINT LMUP!",
+            "confidence": 87.007,
+            "box": [
+              292,
+              562,
+              804,
+              684
+            ]
+          },
+          {
+            "text": "mkPts",
+            "confidence": 77.354,
+            "box": [
+              543,
+              653,
+              645,
+              681
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.98,
+            "box": [
+              314,
+              814,
+              515,
+              846
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.534,
+            "box": [
+              318,
+              841,
+              502,
+              868
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.841,
+            "box": [
+              318,
+              865,
+              491,
+              891
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.104,
+            "box": [
+              316,
+              886,
+              542,
+              915
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right Handed .",
+            "confidence": 98.683,
+            "box": [
+              315,
+              909,
+              725,
+              939
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481333,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000036.png",
+      "evidence_sha256": "566f1b3352308c1f2ceb515bc41fe8550c4c5fd21cfcc7f8b6f983a982264a17",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINTLVI-UP!",
+            "confidence": 82.519,
+            "box": [
+              281,
+              566,
+              812,
+              679
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.651,
+            "box": [
+              316,
+              809,
+              511,
+              836
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 98.744,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.651
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.703
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 92.823
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.957,
+            "box": [
+              318,
+              834,
+              501,
+              861
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.72,
+            "box": [
+              316,
+              856,
+              493,
+              888
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.519,
+            "box": [
+              317,
+              881,
+              543,
+              908
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed .",
+            "confidence": 98.69,
+            "box": [
+              316,
+              904,
+              726,
+              934
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481350,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000037.png",
+      "evidence_sha256": "d23c4381b04176c0d6ccece466b764274f414a8607739dbe879891f27a7a5fef",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINTEMUP!",
+            "confidence": 89.983,
+            "box": [
+              265,
+              563,
+              830,
+              679
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 96.489,
+            "box": [
+              315,
+              805,
+              514,
+              837
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.643,
+            "box": [
+              317,
+              831,
+              502,
+              861
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 96.452,
+            "box": [
+              316,
+              855,
+              492,
+              885
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.354,
+            "box": [
+              317,
+              879,
+              543,
+              906
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 95.602,
+            "box": [
+              316,
+              902,
+              726,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481367,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000038.png",
+      "evidence_sha256": "a785908dbd9e9f9ed8aa8ba17f38dece342a284a1cda422d875f0a9e15c476be",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINTLMUP!",
+            "confidence": 89.647,
+            "box": [
+              269,
+              565,
+              823,
+              678
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.422,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 99.878,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.834
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.95
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.422
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.898,
+            "box": [
+              317,
+              832,
+              501,
+              859
+            ],
+            "original_text": "Guts went up by 3.",
+            "original_confidence": 99.933,
+            "receipt_crop_views": [
+              {
+                "text": "Guts went up by 3.",
+                "confidence": 97.898
+              },
+              {
+                "text": "Guts went up by 3.",
+                "confidence": 98.247
+              },
+              {
+                "text": "Guts went up by 3.",
+                "confidence": 88.134
+              }
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.536,
+            "box": [
+              317,
+              856,
+              492,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.659,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 95.145,
+            "box": [
+              316,
+              901,
+              727,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481383,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000039.png",
+      "evidence_sha256": "0a8fa9ec517a7a75939a9ac4072420162d7b6f2c9803d93d379346c94b47bb41",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINTIEMUP!",
+            "confidence": 88.582,
+            "box": [
+              276,
+              565,
+              814,
+              678
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.526,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 99.89,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.827
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.954
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.526
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 97.997,
+            "box": [
+              317,
+              832,
+              501,
+              859
+            ],
+            "original_text": "Guts went up by 3.",
+            "original_confidence": 99.939,
+            "receipt_crop_views": [
+              {
+                "text": "Guts went up by 3.",
+                "confidence": 97.997
+              },
+              {
+                "text": "Guts went up by 3.",
+                "confidence": 98.154
+              },
+              {
+                "text": "Guts went up by 3.",
+                "confidence": 87.836
+              }
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.849,
+            "box": [
+              317,
+              856,
+              492,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 97.663,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 97.611,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481400,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000040.png",
+      "evidence_sha256": "d1036cc2a9c4b78c5ae8765da57382037b23c477ebf6b97f79a81708e489ba80",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINTIEMUP!",
+            "confidence": 87.378,
+            "box": [
+              278,
+              564,
+              812,
+              678
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 96.824,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 99.899,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.823
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 96.824
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 97.842
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.278,
+            "box": [
+              317,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 99.142,
+            "box": [
+              317,
+              856,
+              492,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.558,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 96.776,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          },
+          {
+            "text": "666",
+            "confidence": 72.419,
+            "box": [
+              469,
+              979,
+              479,
+              1012
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481417,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000041.png",
+      "evidence_sha256": "056c467b1e28ce144ecd9d803226222d5f7c0089ad28e941d4649e7a1f7caa5c",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "HINTIEMUP!",
+            "confidence": 87.086,
+            "box": [
+              278,
+              564,
+              812,
+              678
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.375,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 99.886,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.829
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.955
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.375
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 99.937,
+            "box": [
+              317,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.843,
+            "box": [
+              317,
+              856,
+              492,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.612,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 97.741,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481433,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000042.png",
+      "evidence_sha256": "70f75a86f063a3505fd14d4dc15a562278d861a254f1179e3d0d25bb13ddce76",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Right-Handedo",
+            "confidence": 96.602,
+            "box": [
+              401,
+              683,
+              561,
+              710
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.032,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 99.884,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.844
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.961
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.032
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.153,
+            "box": [
+              318,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.477,
+            "box": [
+              317,
+              856,
+              491,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.619,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 97.367,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          },
+          {
+            "text": "666",
+            "confidence": 82.014,
+            "box": [
+              469,
+              978,
+              479,
+              1012
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481450,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000043.png",
+      "evidence_sha256": "2e3982f7cc34015ab7191cb30c701925074425b38d61c29c03ba38f563c102c6",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Right-HandedO",
+            "confidence": 97.786,
+            "box": [
+              399,
+              679,
+              563,
+              711
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.518,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 98.756,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.844
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.961
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.518
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.15,
+            "box": [
+              318,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.477,
+            "box": [
+              317,
+              856,
+              491,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.629,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed .",
+            "confidence": 98.347,
+            "box": [
+              317,
+              901,
+              727,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481467,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000044.png",
+      "evidence_sha256": "452c398df4f88da452653be6b08bad6e40ecc1e41c19bb723266e418375fd898",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Right-Handed",
+            "confidence": 99.982,
+            "box": [
+              401,
+              679,
+              565,
+              709
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.357,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 98.546,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.842
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.957
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.357
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.126,
+            "box": [
+              318,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.478,
+            "box": [
+              317,
+              856,
+              491,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.639,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 97.265,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481483,
+      "evidence": "receipt-inspection/1480750-1481500-60/frame-000045.png",
+      "evidence_sha256": "672cc78251f8ed6345ef8b06ef9832dd2433db92a4b9b44a87ebd3b92dea0798",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Right-Handed",
+            "confidence": 99.983,
+            "box": [
+              400,
+              677,
+              564,
+              709
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.361,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ],
+            "original_text": "Power went up by 3.",
+            "original_confidence": 98.699,
+            "receipt_crop_views": [
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.841
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 99.959
+              },
+              {
+                "text": "Power went up by 3.",
+                "confidence": 98.361
+              }
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.14,
+            "box": [
+              318,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.486,
+            "box": [
+              317,
+              856,
+              491,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.647,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 97.521,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "source_timestamp_ms": 1481500,
+      "evidence": "gameplay/part-012-frame-000167.png",
+      "evidence_sha256": "11b8cef9fddab75a28832985cbf3a9110fd2a66489430d404ed1d3df8c9d35e9",
+      "screen": "event_outcome",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Right-Handed",
+            "confidence": 99.991,
+            "box": [
+              401,
+              677,
+              564,
+              707
+            ]
+          },
+          {
+            "text": "Power went up by 3.",
+            "confidence": 98.699,
+            "box": [
+              317,
+              807,
+              512,
+              834
+            ]
+          },
+          {
+            "text": "Guts went up by 3.",
+            "confidence": 98.14,
+            "box": [
+              318,
+              832,
+              501,
+              859
+            ]
+          },
+          {
+            "text": "Wit went up by 3.",
+            "confidence": 98.486,
+            "box": [
+              317,
+              856,
+              491,
+              882
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 57.",
+            "confidence": 99.639,
+            "box": [
+              317,
+              878,
+              543,
+              905
+            ]
+          },
+          {
+            "text": "Gained 1 hint level(s) for Right-Handed O.",
+            "confidence": 97.671,
+            "box": [
+              317,
+              901,
+              727,
+              930
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "expected": [
+    [
+      1481133,
+      "skill_points",
+      57
+    ],
+    [
+      1481150,
+      "skill_points",
+      57
+    ],
+    [
+      1481183,
+      "skill_points",
+      57
+    ],
+    [
+      1481200,
+      "skill_points",
+      57
+    ],
+    [
+      1481217,
+      "skill_points",
+      57
+    ],
+    [
+      1481233,
+      "skill_points",
+      57
+    ],
+    [
+      1481250,
+      "skill_points",
+      57
+    ]
+  ]
+}

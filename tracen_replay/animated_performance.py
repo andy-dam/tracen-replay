@@ -39,6 +39,12 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
         if not event['first_seen_ms']<=row['source_timestamp_ms']<=event['last_seen_ms']:continue
         for candidate in row.get('facts',{}).get(fact,[]):
             groups.setdefault(candidate['field'],[]).append((row,candidate))
+    if stat:
+        from .award_tracking import tracked_stats
+        for row,candidate in tracked_stats(readings,event['first_seen_ms'],event['last_seen_ms']):
+            existing=groups.setdefault(candidate['field'],[])
+            if not any(r['source_timestamp_ms']==row['source_timestamp_ms'] and c['amount']==candidate['amount'] for r,c in existing):
+                existing.append((row,candidate))
     for field,observations in groups.items():
         values={c['amount'] for _,c in observations};times={r['source_timestamp_ms'] for r,_ in observations}
         if len(values)!=1 or len(times)<3 or max(times)-min(times)<50:continue
@@ -68,7 +74,8 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
                 receipt_amount=prior['amount'],animated_amount=candidate['amount']))
             continue
         proofs=[dict(source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence'],
-                     gain_box=c['gain_box'],label_box=c['label_box'],receipt_text=c['receipt_text']) for r,c in observations]
+                     gain_box=c['gain_box'],label_box=c['label_box'],receipt_text=c['receipt_text'],
+                     **(dict(label_anchors=c['label_anchors'],label_identity_basis=c['label_identity_basis']) if 'label_anchors' in c else {})) for r,c in observations]
         event.setdefault(proof_key,{})[field]=proofs
         if not prior:
             event['effects'][key]=dict(candidate,confirmation='repeated_labeled_award_animation')
