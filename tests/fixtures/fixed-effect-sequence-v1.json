@@ -1,0 +1,441 @@
+{
+  "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+  "start_ms": 60000,
+  "end_ms": 76000,
+  "scope": "All explicit bottom-dialogue receipts visible in every 250 ms sample from 01:00 to 01:16. Selected by time rather than analyzer predictions. Dialogue, choices, menu previews and effects invisible between samples are outside this measurement.",
+  "selection": "fixed_source_interval",
+  "sample_interval_ms": 250,
+  "complete_video_frame_review": false,
+  "independent_recording": false,
+  "groups": [
+    {
+      "start_ms": 62000,
+      "end_ms": 62500,
+      "effects": [
+        {
+          "kind": "energy_change",
+          "amount": 50
+        }
+      ]
+    },
+    {
+      "start_ms": 63500,
+      "end_ms": 69250,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "guts",
+          "amount": 10
+        },
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 10
+        },
+        {
+          "kind": "supporters_joined_announcement",
+          "amount": null
+        },
+        {
+          "kind": "supporter_joined",
+          "name": "Oguri Cap"
+        },
+        {
+          "kind": "supporter_joined",
+          "name": "Smart Falcon"
+        },
+        {
+          "kind": "song_learned",
+          "name": "Make Debut!"
+        },
+        {
+          "kind": "hype_increased",
+          "amount": null
+        },
+        {
+          "kind": "performance_change",
+          "field": "dance",
+          "amount": 10
+        },
+        {
+          "kind": "performance_change",
+          "field": "vocal",
+          "amount": 10
+        },
+        {
+          "kind": "performance_change",
+          "field": "passion",
+          "amount": 10
+        },
+        {
+          "kind": "performance_change",
+          "field": "visual",
+          "amount": 10
+        },
+        {
+          "kind": "performance_change",
+          "field": "composure",
+          "amount": 10
+        },
+        {
+          "kind": "training_appearance_unlocked",
+          "name": "Light Hello",
+          "amount": null
+        },
+        {
+          "kind": "training_appearance_unlocked",
+          "name": "Director Akikawa",
+          "amount": null
+        }
+      ]
+    },
+    {
+      "start_ms": 70250,
+      "end_ms": 72500,
+      "effects": [
+        {
+          "kind": "supporters_joined_announcement",
+          "amount": null
+        },
+        {
+          "kind": "supporter_joined",
+          "name": "Kitasan Black"
+        },
+        {
+          "kind": "supporter_joined",
+          "name": "Fine Motion"
+        },
+        {
+          "kind": "supporter_joined",
+          "name": "Super Creek"
+        },
+        {
+          "kind": "supporter_joined",
+          "name": "Nishino Flower"
+        }
+      ]
+    }
+  ],
+  "reviewed_samples": [
+    {
+      "source_timestamp_ms": 60000,
+      "evidence": "gameplay/part-000-frame-000241.png",
+      "sha256": "adcb9524900de233dd556a95fde90e81907a5adf562263fe08f6ba7e480b9e61"
+    },
+    {
+      "source_timestamp_ms": 60250,
+      "evidence": "gameplay/part-000-frame-000242.png",
+      "sha256": "8141b4581c3c34c70849aa9b575331e994744b22bc299c5db63162275e864bd6"
+    },
+    {
+      "source_timestamp_ms": 60500,
+      "evidence": "gameplay/part-000-frame-000243.png",
+      "sha256": "e522bea3ad340bfb145a1c332c99ded20ee7c6f57f272a0e97a7ca0a07f190ea"
+    },
+    {
+      "source_timestamp_ms": 60750,
+      "evidence": "gameplay/part-000-frame-000244.png",
+      "sha256": "993fd6c5ad23f29111d3e5a4eb813237e45e538b169939017b6fc283f239e1fe"
+    },
+    {
+      "source_timestamp_ms": 61000,
+      "evidence": "gameplay/part-000-frame-000245.png",
+      "sha256": "7464d0943d74bc9fcfd101bc2a57e6581c3bcd00c59aab12da4b5d993f0a2ce6"
+    },
+    {
+      "source_timestamp_ms": 61250,
+      "evidence": "gameplay/part-000-frame-000246.png",
+      "sha256": "7edf69c6471b04e592742c108180db839f1a4f247b52e8693e9b4dea33592ae3"
+    },
+    {
+      "source_timestamp_ms": 61500,
+      "evidence": "gameplay/part-000-frame-000247.png",
+      "sha256": "326f6007f08f29716727901cf736655c7a15591bd5a15c4562083d4f13656077"
+    },
+    {
+      "source_timestamp_ms": 61750,
+      "evidence": "gameplay/part-000-frame-000248.png",
+      "sha256": "a9f7f9881a29d9da3ee35c7018508c7ae791b4c4da08530ace073d8b2efcaa3a"
+    },
+    {
+      "source_timestamp_ms": 62000,
+      "evidence": "gameplay/part-000-frame-000249.png",
+      "sha256": "5a6a74357919279a6f229112fc1cc66e124bb516e56a885c989537d843e1bd63"
+    },
+    {
+      "source_timestamp_ms": 62250,
+      "evidence": "gameplay/part-000-frame-000250.png",
+      "sha256": "f5322a3691b520d803044a4058fdf9ba164039727fdd0e71eefb9f9a10d7f278"
+    },
+    {
+      "source_timestamp_ms": 62500,
+      "evidence": "gameplay/part-000-frame-000251.png",
+      "sha256": "6d77513e2e2ee141d8bf2fca6240e7044ed5b7303d0534c285c057ca3d4c5d5e"
+    },
+    {
+      "source_timestamp_ms": 62750,
+      "evidence": "gameplay/part-000-frame-000252.png",
+      "sha256": "3514aaa2a2e8770e06ee708a8a8d649ccdf4053aa962296bf9262972edfabe55"
+    },
+    {
+      "source_timestamp_ms": 63000,
+      "evidence": "gameplay/part-000-frame-000253.png",
+      "sha256": "440e501647e1b17b4a9a5b8e3155a5e00179aa9c1eb55edbe6dc6a2e96ac1803"
+    },
+    {
+      "source_timestamp_ms": 63250,
+      "evidence": "gameplay/part-000-frame-000254.png",
+      "sha256": "ca9cc6332e26b21806a9b7013b353433f5c5d94c51b26c5f28847732d280ab01"
+    },
+    {
+      "source_timestamp_ms": 63500,
+      "evidence": "gameplay/part-000-frame-000255.png",
+      "sha256": "667d64fb36104b968fbe9e0b7449bcd3abc322fe2bd14021e18de1f7910f94b3"
+    },
+    {
+      "source_timestamp_ms": 63750,
+      "evidence": "gameplay/part-000-frame-000256.png",
+      "sha256": "50b773b13740e1c2e134eb942fd5354dbb4e12e6f398b6be6416cc2a042e77a8"
+    },
+    {
+      "source_timestamp_ms": 64000,
+      "evidence": "gameplay/part-000-frame-000257.png",
+      "sha256": "f3871f283cc5628ed4ce1fc58c86b2daf2a506ea384ce0b0ff5ec2b7aa07e1f5"
+    },
+    {
+      "source_timestamp_ms": 64250,
+      "evidence": "gameplay/part-000-frame-000258.png",
+      "sha256": "199c07979d19a3f18054f229bb2a10b3dc1c75761b77274c40e2f558130574fa"
+    },
+    {
+      "source_timestamp_ms": 64500,
+      "evidence": "gameplay/part-000-frame-000259.png",
+      "sha256": "201ba8149f29ee4b63a6b4420eae67c3726b414e576b190f260f28b575537361"
+    },
+    {
+      "source_timestamp_ms": 64750,
+      "evidence": "gameplay/part-000-frame-000260.png",
+      "sha256": "766410851ad6303ad47e2a3fd79c96198a6e44b4927839f1a93b9ebbd8f85f8e"
+    },
+    {
+      "source_timestamp_ms": 65000,
+      "evidence": "gameplay/part-000-frame-000261.png",
+      "sha256": "3e1dbf1c945c33a72defce29a2aaebacaf561ef8ba4daf5788a9ce694799cf6f"
+    },
+    {
+      "source_timestamp_ms": 65250,
+      "evidence": "gameplay/part-000-frame-000262.png",
+      "sha256": "1471bd82f6fae7f273558f9ad8d9e2af0b1f7b02dc269fbd5d8573295775ce78"
+    },
+    {
+      "source_timestamp_ms": 65500,
+      "evidence": "gameplay/part-000-frame-000263.png",
+      "sha256": "f9b6f6678b06492e47d62dac484c6807baf9f5ec955afc941c5b8d9a4444711c"
+    },
+    {
+      "source_timestamp_ms": 65750,
+      "evidence": "gameplay/part-000-frame-000264.png",
+      "sha256": "9ed78e3ff9526fb401b1634060b154163acb5f37f2f1f08d8b2fb42c5faf7a8c"
+    },
+    {
+      "source_timestamp_ms": 66000,
+      "evidence": "gameplay/part-000-frame-000265.png",
+      "sha256": "e5c24f7f98c0e0924b42d0137448b52ac19919f7d435b13b4bceed40e006a5e4"
+    },
+    {
+      "source_timestamp_ms": 66250,
+      "evidence": "gameplay/part-000-frame-000266.png",
+      "sha256": "c5f297772e72fbf44f0a02bbe54abde35fd077fe2653568760be011f3d84fa26"
+    },
+    {
+      "source_timestamp_ms": 66500,
+      "evidence": "gameplay/part-000-frame-000267.png",
+      "sha256": "74f21cdee59c0b7cbac9ec44edd84cece074bd6c4e80bbff2ef064c4067d6b44"
+    },
+    {
+      "source_timestamp_ms": 66750,
+      "evidence": "gameplay/part-000-frame-000268.png",
+      "sha256": "41263ca2cba8dbe8a6e395d57bef59cfd96cf6f9ca9ee24ce48731ac60649d41"
+    },
+    {
+      "source_timestamp_ms": 67000,
+      "evidence": "gameplay/part-000-frame-000269.png",
+      "sha256": "00cd06e8b986a8b10185c14094af3e3797bf005654f828d3598cf0fd4645891a"
+    },
+    {
+      "source_timestamp_ms": 67250,
+      "evidence": "gameplay/part-000-frame-000270.png",
+      "sha256": "23f61fb23ea2aa94b160273ad2a9149b8181cfd0516ee932107cb8d6baab6804"
+    },
+    {
+      "source_timestamp_ms": 67500,
+      "evidence": "gameplay/part-000-frame-000271.png",
+      "sha256": "3c721d18fb2aca67cfabd270f467464562f424ad2c120366701327b36f03159f"
+    },
+    {
+      "source_timestamp_ms": 67750,
+      "evidence": "gameplay/part-000-frame-000272.png",
+      "sha256": "9807becea3d70b94f0d3b867552d170ab1a3586cf96bad7677281ccb289bb262"
+    },
+    {
+      "source_timestamp_ms": 68000,
+      "evidence": "gameplay/part-000-frame-000273.png",
+      "sha256": "66c5f6bc1fcff3ecc816aa9162581733d33bb267455f88060e66b5d3160c81b7"
+    },
+    {
+      "source_timestamp_ms": 68250,
+      "evidence": "gameplay/part-000-frame-000274.png",
+      "sha256": "0fab2659abac82eef9ebb56f664512d5ded933caf52e04e7454cd0b7fe9cff04"
+    },
+    {
+      "source_timestamp_ms": 68500,
+      "evidence": "gameplay/part-000-frame-000275.png",
+      "sha256": "f290ac046991e0ae28602c5adb5e03d3866d4250701a694cfde53bf48afe6830"
+    },
+    {
+      "source_timestamp_ms": 68750,
+      "evidence": "gameplay/part-000-frame-000276.png",
+      "sha256": "15c5d01da90dd28c7ce4c370d244a11479d3d2beb1c1205ae902f34c0dcb6f15"
+    },
+    {
+      "source_timestamp_ms": 69000,
+      "evidence": "gameplay/part-000-frame-000277.png",
+      "sha256": "b481c67a570e573c6ecda73acf5a875a17100764158dda9710f3515ebb0cf034"
+    },
+    {
+      "source_timestamp_ms": 69250,
+      "evidence": "gameplay/part-000-frame-000278.png",
+      "sha256": "4c216564771ef9d312ef9c80b2d0351836d3b7cfcfddd1291aa6431ead32dc7b"
+    },
+    {
+      "source_timestamp_ms": 69500,
+      "evidence": "gameplay/part-000-frame-000279.png",
+      "sha256": "88ea9900fdc076c222ee0e07a59833030ece5175dbac7b318c54b14a2665fea6"
+    },
+    {
+      "source_timestamp_ms": 69750,
+      "evidence": "gameplay/part-000-frame-000280.png",
+      "sha256": "3d4bfc9eb0d28ae2f2f6e9c7e5996e8eee5819887f220762a0c2b3f1083ce753"
+    },
+    {
+      "source_timestamp_ms": 70000,
+      "evidence": "gameplay/part-000-frame-000281.png",
+      "sha256": "818a02cc4b8703da74ef6e89f475dfee559e843a932d894bff9f1fe631a485dd"
+    },
+    {
+      "source_timestamp_ms": 70250,
+      "evidence": "gameplay/part-000-frame-000282.png",
+      "sha256": "4bdf299a7bdc7a29acaabf70b393a0d5706326a79fe2e983a5851746b4e911ad"
+    },
+    {
+      "source_timestamp_ms": 70500,
+      "evidence": "gameplay/part-000-frame-000283.png",
+      "sha256": "74c570a3401ba7e9d1c907e959f86c8e355da0acf07c8def8d2367163ec53791"
+    },
+    {
+      "source_timestamp_ms": 70750,
+      "evidence": "gameplay/part-000-frame-000284.png",
+      "sha256": "56fbf04e0cc74eb748c8d900fbd932884bdff3f0157107b648758470887dd4fd"
+    },
+    {
+      "source_timestamp_ms": 71000,
+      "evidence": "gameplay/part-000-frame-000285.png",
+      "sha256": "454ed89acddb84603315c14b8be23db7c08c7592626104bc32e2f371b52691eb"
+    },
+    {
+      "source_timestamp_ms": 71250,
+      "evidence": "gameplay/part-000-frame-000286.png",
+      "sha256": "f08d221cd8f745bde2050b81f3f7991a309831b81239bdf71a102ab3c9562a1a"
+    },
+    {
+      "source_timestamp_ms": 71500,
+      "evidence": "gameplay/part-000-frame-000287.png",
+      "sha256": "42950cbad057818aec94bba19eca0c896a5ef6e95b0844fdbea0dc58d72e4378"
+    },
+    {
+      "source_timestamp_ms": 71750,
+      "evidence": "gameplay/part-000-frame-000288.png",
+      "sha256": "513b7a4922be52270a9adcf20dcfcc5ece0865a34e5ab4509aa45b09169b0316"
+    },
+    {
+      "source_timestamp_ms": 72000,
+      "evidence": "gameplay/part-000-frame-000289.png",
+      "sha256": "1c11a564259a79fc2794175029b6f0e48de6fa1b71464c3aadf5a41d4254a056"
+    },
+    {
+      "source_timestamp_ms": 72250,
+      "evidence": "gameplay/part-000-frame-000290.png",
+      "sha256": "92b59e56fa174a786127c0e23dbe4e5b17af18c298d3e55f74eb92232c3bcf41"
+    },
+    {
+      "source_timestamp_ms": 72500,
+      "evidence": "gameplay/part-000-frame-000291.png",
+      "sha256": "b93e14a96705504c6259e90e093212227e6a65c73efa6b3062b3561a0bb10ac8"
+    },
+    {
+      "source_timestamp_ms": 72750,
+      "evidence": "gameplay/part-000-frame-000292.png",
+      "sha256": "ead5c50e351c9328ad25760d02e886596cf32dd9c83a5633f7383dd407dc1419"
+    },
+    {
+      "source_timestamp_ms": 73000,
+      "evidence": "gameplay/part-000-frame-000293.png",
+      "sha256": "be11a76fcbb71c429f39ab8198603cb04c4e333bdf089857e44f7de4449c395e"
+    },
+    {
+      "source_timestamp_ms": 73250,
+      "evidence": "gameplay/part-000-frame-000294.png",
+      "sha256": "237a8221af96bab75079ddc7bfb3e44d2de9e1c670c90eaaa44d4c365752d571"
+    },
+    {
+      "source_timestamp_ms": 73500,
+      "evidence": "gameplay/part-000-frame-000295.png",
+      "sha256": "be99114f0c82b6dcb3879a3d033e9cc707dd5f4ce7905087438909864b243ad6"
+    },
+    {
+      "source_timestamp_ms": 73750,
+      "evidence": "gameplay/part-000-frame-000296.png",
+      "sha256": "4aa9d140ddfe5ba0446c1d4e2563dd98f844fc88b14d836f28e7bf758faaf7e0"
+    },
+    {
+      "source_timestamp_ms": 74000,
+      "evidence": "gameplay/part-000-frame-000297.png",
+      "sha256": "079487931e12fe47c2e594550c31024939138706496191266aa291af7b3efc1c"
+    },
+    {
+      "source_timestamp_ms": 74250,
+      "evidence": "gameplay/part-000-frame-000298.png",
+      "sha256": "9260462c512c3ab7623547daa93bb33a4d4b60aaec77d299cbee635b1218c947"
+    },
+    {
+      "source_timestamp_ms": 74500,
+      "evidence": "gameplay/part-000-frame-000299.png",
+      "sha256": "1a7d0c99d2dd9d17d662003ac63fd43f1d7025719a7c546770171f4262c10946"
+    },
+    {
+      "source_timestamp_ms": 74750,
+      "evidence": "gameplay/part-000-frame-000300.png",
+      "sha256": "a0f02848563402903aaec32d0254a647565d7c70702934189cf48513c2994026"
+    },
+    {
+      "source_timestamp_ms": 75000,
+      "evidence": "gameplay/part-000-frame-000301.png",
+      "sha256": "1f1afa0751db14173b0aaf36841ffeae4b094c60f365687b396fcdd152af3716"
+    },
+    {
+      "source_timestamp_ms": 75250,
+      "evidence": "gameplay/part-000-frame-000302.png",
+      "sha256": "94485664703287ae507c3cbec5b8e2539208bcd3b6382bfaac628fcdd043e073"
+    },
+    {
+      "source_timestamp_ms": 75500,
+      "evidence": "gameplay/part-000-frame-000303.png",
+      "sha256": "9fd3919f78b896f03356f902a52ce5e4a8d52df2eebe4fc314f6a2ce84e48b85"
+    },
+    {
+      "source_timestamp_ms": 75750,
+      "evidence": "gameplay/part-000-frame-000304.png",
+      "sha256": "e2bd32893c9f6851f478859583ef98db51aa4852c8d791bda3dabf68f8dbbf83"
+    }
+  ]
+}

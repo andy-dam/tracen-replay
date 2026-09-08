@@ -93,6 +93,10 @@ def effects_from_lines(lines):
             effect = dict(kind='named_acquisition', name=m[1], acquisition='unknown', cost=None)
         elif m := re.fullmatch(r'(.+?) joined your cause[.!]?', text, re.I):
             effect = dict(kind='supporter_joined', name=m[1])
+        elif re.fullmatch(r'New supporters joined[!]',text,re.I):
+            effect=dict(kind='supporters_joined_announcement',amount=None)
+        elif m := re.fullmatch(r'(.+?) will now appear in training[.!]',text,re.I):
+            effect=dict(kind='training_appearance_unlocked',name=m[1],amount=None)
         elif re.fullmatch(r'Hype Level went up[.!]?', text, re.I):
             effect = dict(kind='hype_increased', amount=None)
         elif re.fullmatch(r'Hype Level is maxed out[.!]?', text, re.I):

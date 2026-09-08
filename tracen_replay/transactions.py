@@ -397,6 +397,8 @@ def outcome_events(readings):
             event['field_evidence'].setdefault(base_key,[]).extend(event['field_evidence'].get(variant_key,[]))
             removed.append(effect)
         event['effects']=[e for e in event['effects'] if e not in removed]
+        from .receipt_names import collapse_song_variants
+        collapse_song_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings})
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
     return events

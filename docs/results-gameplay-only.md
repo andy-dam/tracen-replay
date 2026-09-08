@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-122 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties.
+127 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties.
 
 All 58 reviewed unparsed receipt candidates now have matching accepted evidence in their nearby receipt. Four actual gaps required denser inspection: energy deductions of 18 and 14, unchanged friendship with Sirius Symboli, and maximum friendship with Light Hello. The source-linked fixture preserves the manual statements and screenshot hashes. This candidate-selected check does not measure effects that never became candidates. Recreation unlocks and inheritance inspiration/spark triggers are typed separately without inventing their rewards.
 
@@ -50,6 +50,8 @@ Two contiguous development references pass:
 
 - Opening 00:25-01:22: 5/5 training/rest actions, correct options, no extras.
 - Lessons and first concert 05:41-06:54: 11/11 transactions (10 lessons and one concert), exact reviewed costs and stat/fan awards, no extras. A canceled dialog is excluded. Decorative name symbols, choices, hype and complete non-stat effect recall are outside this score.
+
+A fixed 01:00-01:16 source review checks all explicit bottom-dialogue effects visible in 64 consecutive 250 ms samples. The initial report matched 16 of 20 effects and emitted one false extra song name. Training-appearance unlocks, generic supporter announcements and conservative single-character song-name resolution bring this development reference to 20/20 with no extras. Generic announcements do not add to named-supporter counts. This is sampled interval recall, not full-recording or native-frame recall.
 
 The earlier 15 reviewed point examples remain narrow fixtures, not a full-run accuracy score.
 
