@@ -1,0 +1,1894 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Source-guided regression of current stat values before an obscured cap; later complete result required. No later career-hub checkpoint supplied.",
+  "before": {
+    "id": "checkpoint-063",
+    "first_seen_ms": 779500,
+    "last_seen_ms": 783250,
+    "values": {
+      "speed": 585,
+      "stamina": 433,
+      "power": 499,
+      "guts": 325,
+      "wit": 544,
+      "skill_points": 1012
+    },
+    "evidence": "gameplay/part-006-frame-000239.png",
+    "supporting_frames": [
+      "gameplay/part-006-frame-000239.png",
+      "gameplay/part-006-frame-000240.png",
+      "gameplay/part-006-frame-000241.png",
+      "gameplay/part-006-frame-000242.png",
+      "gameplay/part-006-frame-000243.png",
+      "gameplay/part-006-frame-000244.png",
+      "gameplay/part-006-frame-000245.png",
+      "gameplay/part-006-frame-000246.png",
+      "gameplay/part-006-frame-000247.png",
+      "gameplay/part-006-frame-000248.png",
+      "gameplay/part-006-frame-000249.png",
+      "gameplay/part-006-frame-000250.png",
+      "gameplay/part-006-frame-000251.png",
+      "gameplay/part-006-frame-000252.png",
+      "gameplay/part-006-frame-000253.png",
+      "gameplay/part-006-frame-000254.png"
+    ],
+    "status": "ocr_consensus",
+    "human_verified": false,
+    "calendar_text": "Classic Year Late Sep",
+    "turns_remaining_to_goal": 4
+  },
+  "prefix_readings": [
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": null,
+      "effects": [],
+      "facts": {
+        "training_gains": {},
+        "result_values": {
+          "stamina": 133,
+          "power": 499,
+          "skill_points": null
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355
+        },
+        "training_gain_candidates": {
+          "speed": [],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [],
+          "skill_points": []
+        },
+        "result_value_candidates": {
+          "stamina": 133,
+          "power": 499,
+          "skill_points": null
+        },
+        "gain_digit_crosschecks": [],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.973,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 89.233,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784850,
+      "evidence": "training-inspection/784767-native-v2/frame-000006.png"
+    },
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": "wit",
+      "effects": [],
+      "facts": {
+        "training_gains": {
+          "speed": 14,
+          "skill_points": 15
+        },
+        "result_values": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355,
+          "guts": 1500
+        },
+        "training_gain_candidates": {
+          "speed": [
+            14
+          ],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [
+            32,
+            82
+          ],
+          "skill_points": [
+            15
+          ]
+        },
+        "result_value_candidates": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "gain_digit_crosschecks": [],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.968,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 93.423,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784867,
+      "evidence": "training-inspection/784500/frame-000012.png",
+      "supplemental_evidence": "training-inspection/784767-native-v2/frame-000007.png",
+      "inspection_conflicts": {}
+    },
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": "wit",
+      "effects": [],
+      "facts": {
+        "training_gains": {},
+        "result_values": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355,
+          "guts": 1500
+        },
+        "training_gain_candidates": {
+          "speed": [],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [],
+          "skill_points": []
+        },
+        "result_value_candidates": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "gain_digit_crosschecks": [],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.967,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 92.342,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784883,
+      "evidence": "training-inspection/784767-native-v2/frame-000008.png"
+    },
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": "wit",
+      "effects": [],
+      "facts": {
+        "training_gains": {
+          "speed": 1,
+          "skill_points": 1
+        },
+        "result_values": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355,
+          "guts": 1500
+        },
+        "training_gain_candidates": {
+          "speed": [
+            1
+          ],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [
+            3
+          ],
+          "skill_points": [
+            1
+          ]
+        },
+        "result_value_candidates": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "gain_digit_crosschecks": [],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.97,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 92.914,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784900,
+      "evidence": "training-inspection/784500/frame-000013.png",
+      "supplemental_evidence": "training-inspection/784767-native-v2/frame-000009.png",
+      "inspection_conflicts": {}
+    },
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": "wit",
+      "effects": [],
+      "facts": {
+        "training_gains": {
+          "speed": 14,
+          "skill_points": 1
+        },
+        "result_values": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": 1
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355,
+          "guts": 1500
+        },
+        "training_gain_candidates": {
+          "speed": [
+            1,
+            14
+          ],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [],
+          "skill_points": [
+            1
+          ]
+        },
+        "result_value_candidates": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": 1
+        },
+        "gain_digit_crosschecks": [
+          "skill_points"
+        ],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.966,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 92.24,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784917,
+      "evidence": "training-inspection/784767-native-v2/frame-000010.png"
+    },
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": "wit",
+      "effects": [],
+      "facts": {
+        "training_gains": {
+          "speed": 14
+        },
+        "result_values": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355,
+          "guts": 1500
+        },
+        "training_gain_candidates": {
+          "speed": [
+            14
+          ],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [],
+          "skill_points": []
+        },
+        "result_value_candidates": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "gain_digit_crosschecks": [],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.967,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 92.509,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784933,
+      "evidence": "training-inspection/784500/frame-000014.png",
+      "supplemental_evidence": "training-inspection/784767-native-v2/frame-000011.png",
+      "inspection_conflicts": {}
+    },
+    {
+      "screen": "training_result",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": "wit",
+      "effects": [],
+      "facts": {
+        "training_gains": {},
+        "result_values": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": null
+        },
+        "stat_caps": {
+          "stamina": 1348,
+          "power": 1355,
+          "guts": 1500
+        },
+        "training_gain_candidates": {
+          "speed": [],
+          "stamina": [],
+          "power": [],
+          "guts": [],
+          "wit": [],
+          "skill_points": []
+        },
+        "result_value_candidates": {
+          "stamina": 433,
+          "power": 499,
+          "guts": 325,
+          "skill_points": 1
+        },
+        "gain_digit_crosschecks": [],
+        "awarded_performance_gains": {
+          "vocal": 15,
+          "composure": 15
+        }
+      },
+      "completed_action": "training",
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.965,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 95.414,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 784950,
+      "evidence": "training-inspection/784767-native-v2/frame-000012.png"
+    }
+  ],
+  "frames": [
+    {
+      "raw": {
+        "lines": [
+          {
+            "text": "Training",
+            "confidence": 99.963,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 94.344,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ],
+        "regions": {
+          "header": {
+            "text": "Training",
+            "confidence": 99.963,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          "option": {
+            "text": "Wit Lvl 4",
+            "confidence": 94.344,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          },
+          "gain.speed": {
+            "text": "599",
+            "confidence": 98.57,
+            "box": [
+              300,
+              832,
+              414,
+              890
+            ]
+          },
+          "gain.stamina": {
+            "text": "433/1",
+            "confidence": 88.73,
+            "box": [
+              498,
+              832,
+              610,
+              890
+            ]
+          },
+          "gain.power": {
+            "text": "499/13",
+            "confidence": 98.534,
+            "box": [
+              696,
+              832,
+              812,
+              890
+            ]
+          },
+          "gain.guts": {
+            "text": "325/1",
+            "confidence": 98.072,
+            "box": [
+              300,
+              950,
+              414,
+              1008
+            ]
+          },
+          "gain.wit": {
+            "text": "576",
+            "confidence": 99.862,
+            "box": [
+              498,
+              950,
+              610,
+              1008
+            ]
+          },
+          "gain.skill_points": {
+            "text": "1027",
+            "confidence": 99.898,
+            "box": [
+              696,
+              950,
+              812,
+              1008
+            ]
+          },
+          "wide_gain.speed": {
+            "text": " 599",
+            "confidence": 88.271,
+            "box": [
+              250,
+              812,
+              462,
+              909
+            ]
+          },
+          "wide_gain.stamina": {
+            "text": "G 433/348",
+            "confidence": 76.121,
+            "box": [
+              448,
+              812,
+              660,
+              909
+            ]
+          },
+          "wide_gain.power": {
+            "text": "G 499/13",
+            "confidence": 82.952,
+            "box": [
+              646,
+              812,
+              858,
+              909
+            ]
+          },
+          "wide_gain.guts": {
+            "text": "325/1500",
+            "confidence": 91.839,
+            "box": [
+              250,
+              930,
+              462,
+              1027
+            ]
+          },
+          "wide_gain.wit": {
+            "text": "576",
+            "confidence": 91.071,
+            "box": [
+              448,
+              930,
+              660,
+              1027
+            ]
+          },
+          "wide_gain.skill_points": {
+            "text": "1027",
+            "confidence": 97.996,
+            "box": [
+              646,
+              930,
+              858,
+              1027
+            ]
+          },
+          "result.speed": {
+            "text": "599/",
+            "confidence": 99.058,
+            "box": [
+              322,
+              834,
+              448,
+              876
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.992,
+            "box": [
+              518,
+              834,
+              644,
+              876
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 99.992,
+            "box": [
+              714,
+              834,
+              840,
+              876
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.961,
+            "box": [
+              322,
+              952,
+              448,
+              994
+            ]
+          },
+          "result.wit": {
+            "text": "576/",
+            "confidence": 99.066,
+            "box": [
+              518,
+              952,
+              644,
+              994
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.88,
+            "box": [
+              708,
+              952,
+              810,
+              990
+            ]
+          },
+          "expanded_gain.speed": {
+            "text": "33",
+            "confidence": 47.873,
+            "box": [
+              215,
+              790,
+              600,
+              930
+            ]
+          }
+        },
+        "header": "Training",
+        "result_grid": true,
+        "current_grid": false,
+        "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7-training-8c27de659b01ef5d7bb7ae1a49cd7989623b7c53d8463062ede1232f66ac431e",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "gameplay_sha256": "0a1d353a448aa526a25e58eddd8ea7d262578314848d5faaaceb0d98097ce0c1",
+        "inspection": "training_result_only",
+        "source_timestamp_ms": 784967,
+        "source_frame_sha256": "4d4ba2fd81e9381ad046eaac8e8d35cf1d67d10a41fe36e4405e97114b5c07af",
+        "evidence": "training-inspection/784767-native-v2/frame-000013.png",
+        "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18"
+      },
+      "refinement": {
+        "raw_sha256": "fb10dabea3eb6ff952cc235d86bd91a53bf059db5b11718bc46c6ec90c4ea6a5",
+        "evidence_sha256": "37aed02183eed8cedc741c5a4ea39025e69cd194c71bfd793541378a94877b9a",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "regions": {
+          "result.speed": {
+            "text": "599/",
+            "confidence": 86.952,
+            "box": [
+              309,
+              832,
+              452,
+              880
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.925,
+            "box": [
+              505,
+              832,
+              648,
+              880
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 95.96,
+            "box": [
+              701,
+              832,
+              844,
+              880
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.937,
+            "box": [
+              309,
+              950,
+              452,
+              998
+            ]
+          },
+          "result.wit": {
+            "text": "576",
+            "confidence": 99.834,
+            "box": [
+              505,
+              950,
+              648,
+              998
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.847,
+            "box": [
+              701,
+              950,
+              822,
+              998
+            ]
+          }
+        }
+      }
+    },
+    {
+      "raw": {
+        "lines": [
+          {
+            "text": "Training",
+            "confidence": 99.963,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 93.729,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ],
+        "regions": {
+          "header": {
+            "text": "Training",
+            "confidence": 99.963,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          "option": {
+            "text": "Wit Lvl 4",
+            "confidence": 93.729,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          },
+          "gain.speed": {
+            "text": "599/1",
+            "confidence": 90.972,
+            "box": [
+              300,
+              832,
+              414,
+              890
+            ]
+          },
+          "gain.stamina": {
+            "text": "433/1",
+            "confidence": 98.643,
+            "box": [
+              498,
+              832,
+              610,
+              890
+            ]
+          },
+          "gain.power": {
+            "text": "499/13",
+            "confidence": 90.112,
+            "box": [
+              696,
+              832,
+              812,
+              890
+            ]
+          },
+          "gain.guts": {
+            "text": "325/15",
+            "confidence": 90.942,
+            "box": [
+              300,
+              950,
+              414,
+              1008
+            ]
+          },
+          "gain.wit": {
+            "text": "576/1",
+            "confidence": 94.767,
+            "box": [
+              498,
+              950,
+              610,
+              1008
+            ]
+          },
+          "gain.skill_points": {
+            "text": "1027",
+            "confidence": 99.98,
+            "box": [
+              696,
+              950,
+              812,
+              1008
+            ]
+          },
+          "wide_gain.speed": {
+            "text": "\u00a9 59910.0",
+            "confidence": 78.291,
+            "box": [
+              250,
+              812,
+              462,
+              909
+            ]
+          },
+          "wide_gain.stamina": {
+            "text": "G 433/348",
+            "confidence": 81.138,
+            "box": [
+              448,
+              812,
+              660,
+              909
+            ]
+          },
+          "wide_gain.power": {
+            "text": "G 499/13",
+            "confidence": 84.432,
+            "box": [
+              646,
+              812,
+              858,
+              909
+            ]
+          },
+          "wide_gain.guts": {
+            "text": "325/1500",
+            "confidence": 93.962,
+            "box": [
+              250,
+              930,
+              462,
+              1027
+            ]
+          },
+          "wide_gain.wit": {
+            "text": "\u00a9 576/1.0",
+            "confidence": 72.702,
+            "box": [
+              448,
+              930,
+              660,
+              1027
+            ]
+          },
+          "wide_gain.skill_points": {
+            "text": "1027",
+            "confidence": 91.061,
+            "box": [
+              646,
+              930,
+              858,
+              1027
+            ]
+          },
+          "result.speed": {
+            "text": "599/16",
+            "confidence": 98.004,
+            "box": [
+              322,
+              834,
+              448,
+              876
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.992,
+            "box": [
+              518,
+              834,
+              644,
+              876
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 99.992,
+            "box": [
+              714,
+              834,
+              840,
+              876
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.965,
+            "box": [
+              322,
+              952,
+              448,
+              994
+            ]
+          },
+          "result.wit": {
+            "text": "576/13.0",
+            "confidence": 92.37,
+            "box": [
+              518,
+              952,
+              644,
+              994
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.988,
+            "box": [
+              708,
+              952,
+              810,
+              990
+            ]
+          },
+          "expanded_gain.speed": {
+            "text": "C 590 433",
+            "confidence": 55.853,
+            "box": [
+              215,
+              790,
+              600,
+              930
+            ]
+          }
+        },
+        "header": "Training",
+        "result_grid": true,
+        "current_grid": false,
+        "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7-training-8c27de659b01ef5d7bb7ae1a49cd7989623b7c53d8463062ede1232f66ac431e",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "gameplay_sha256": "1e4633df40b4074327da5ac3e8085d380b389bcb123db2a8d6923578667c64a7",
+        "inspection": "training_result_only",
+        "source_timestamp_ms": 784983,
+        "source_frame_sha256": "af7fac5f4c75aec41b12b6966b46f018e723363e234df4c3fa395ca27a138547",
+        "evidence": "training-inspection/784767-native-v2/frame-000014.png",
+        "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18"
+      },
+      "refinement": {
+        "raw_sha256": "e877290855679890f310c240e1169569b59d9333de9155520003f066df3dc9f8",
+        "evidence_sha256": "f5641c72d2cc4f8fa5f02731e9ea3823c2c0472ae7484b3e246b86fbf1f82e4f",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "regions": {
+          "result.speed": {
+            "text": "599/16",
+            "confidence": 91.65,
+            "box": [
+              309,
+              832,
+              452,
+              880
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.926,
+            "box": [
+              505,
+              832,
+              648,
+              880
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 96.751,
+            "box": [
+              701,
+              832,
+              844,
+              880
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.934,
+            "box": [
+              309,
+              950,
+              452,
+              998
+            ]
+          },
+          "result.wit": {
+            "text": "576/13",
+            "confidence": 98.767,
+            "box": [
+              505,
+              950,
+              648,
+              998
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.938,
+            "box": [
+              701,
+              950,
+              822,
+              998
+            ]
+          }
+        }
+      }
+    },
+    {
+      "raw": {
+        "lines": [
+          {
+            "text": "Training",
+            "confidence": 99.962,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 94.705,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ],
+        "regions": {
+          "header": {
+            "text": "Training",
+            "confidence": 99.962,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          "option": {
+            "text": "Wit Lvl 4",
+            "confidence": 94.705,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          },
+          "gain.speed": {
+            "text": "599/1",
+            "confidence": 88.539,
+            "box": [
+              300,
+              832,
+              414,
+              890
+            ]
+          },
+          "gain.stamina": {
+            "text": "433/1",
+            "confidence": 98.607,
+            "box": [
+              498,
+              832,
+              610,
+              890
+            ]
+          },
+          "gain.power": {
+            "text": "499/13",
+            "confidence": 97.363,
+            "box": [
+              696,
+              832,
+              812,
+              890
+            ]
+          },
+          "gain.guts": {
+            "text": "325/15",
+            "confidence": 92.061,
+            "box": [
+              300,
+              950,
+              414,
+              1008
+            ]
+          },
+          "gain.wit": {
+            "text": "576/1",
+            "confidence": 96.988,
+            "box": [
+              498,
+              950,
+              610,
+              1008
+            ]
+          },
+          "gain.skill_points": {
+            "text": "1027",
+            "confidence": 99.975,
+            "box": [
+              696,
+              950,
+              812,
+              1008
+            ]
+          },
+          "wide_gain.speed": {
+            "text": "\u00a9 59910.0",
+            "confidence": 71.556,
+            "box": [
+              250,
+              812,
+              462,
+              909
+            ]
+          },
+          "wide_gain.stamina": {
+            "text": "G 433/348",
+            "confidence": 80.785,
+            "box": [
+              448,
+              812,
+              660,
+              909
+            ]
+          },
+          "wide_gain.power": {
+            "text": "G 499/15",
+            "confidence": 82.039,
+            "box": [
+              646,
+              812,
+              858,
+              909
+            ]
+          },
+          "wide_gain.guts": {
+            "text": "325/1500",
+            "confidence": 94.719,
+            "box": [
+              250,
+              930,
+              462,
+              1027
+            ]
+          },
+          "wide_gain.wit": {
+            "text": "C 576/10.",
+            "confidence": 73.497,
+            "box": [
+              448,
+              930,
+              660,
+              1027
+            ]
+          },
+          "wide_gain.skill_points": {
+            "text": "1027",
+            "confidence": 98.104,
+            "box": [
+              646,
+              930,
+              858,
+              1027
+            ]
+          },
+          "result.speed": {
+            "text": "599/160",
+            "confidence": 91.839,
+            "box": [
+              322,
+              834,
+              448,
+              876
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.992,
+            "box": [
+              518,
+              834,
+              644,
+              876
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 99.99,
+            "box": [
+              714,
+              834,
+              840,
+              876
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.965,
+            "box": [
+              322,
+              952,
+              448,
+              994
+            ]
+          },
+          "result.wit": {
+            "text": "576/13.0",
+            "confidence": 93.003,
+            "box": [
+              518,
+              952,
+              644,
+              994
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.988,
+            "box": [
+              708,
+              952,
+              810,
+              990
+            ]
+          },
+          "expanded_gain.speed": {
+            "text": "C 5990 433",
+            "confidence": 54.154,
+            "box": [
+              215,
+              790,
+              600,
+              930
+            ]
+          }
+        },
+        "header": "Training",
+        "result_grid": true,
+        "current_grid": false,
+        "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7-training-8c27de659b01ef5d7bb7ae1a49cd7989623b7c53d8463062ede1232f66ac431e",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "gameplay_sha256": "1a75f12ff36544fd11e6b836358ee23622200f1c98bb870d523283052e5a9364",
+        "inspection": "training_result_only",
+        "source_timestamp_ms": 785000,
+        "source_frame_sha256": "3739c9c3f0e5181f40f38754da447f605528e26692da5f2b9ea0fd32743df3f8",
+        "evidence": "training-inspection/784767-native-v2/frame-000015.png",
+        "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18"
+      },
+      "refinement": {
+        "raw_sha256": "fc6287aca03a30ee3c75e4fdfb9a9c62f541aadecf44246cb6b7cb3e7a4b8230",
+        "evidence_sha256": "685a61b3e6694f098512ea600583fd349d8714ba5c58a3dec65ec1482a6f0157",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "regions": {
+          "result.speed": {
+            "text": "599/16",
+            "confidence": 93.662,
+            "box": [
+              309,
+              832,
+              452,
+              880
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.926,
+            "box": [
+              505,
+              832,
+              648,
+              880
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 96.195,
+            "box": [
+              701,
+              832,
+              844,
+              880
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.941,
+            "box": [
+              309,
+              950,
+              452,
+              998
+            ]
+          },
+          "result.wit": {
+            "text": "576/13",
+            "confidence": 98.853,
+            "box": [
+              505,
+              950,
+              648,
+              998
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.932,
+            "box": [
+              701,
+              950,
+              822,
+              998
+            ]
+          }
+        }
+      }
+    },
+    {
+      "raw": {
+        "lines": [
+          {
+            "text": "Training",
+            "confidence": 99.974,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          {
+            "text": "Wit Lvl 4",
+            "confidence": 80.432,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          }
+        ],
+        "regions": {
+          "header": {
+            "text": "Training",
+            "confidence": 99.974,
+            "box": [
+              155,
+              0,
+              250,
+              29
+            ]
+          },
+          "option": {
+            "text": "Wit Lvl 4",
+            "confidence": 80.432,
+            "box": [
+              220,
+              162,
+              400,
+              198
+            ]
+          },
+          "gain.speed": {
+            "text": "599/1",
+            "confidence": 92.472,
+            "box": [
+              300,
+              832,
+              414,
+              890
+            ]
+          },
+          "gain.stamina": {
+            "text": "433/13",
+            "confidence": 92.722,
+            "box": [
+              498,
+              832,
+              610,
+              890
+            ]
+          },
+          "gain.power": {
+            "text": "499/13",
+            "confidence": 93.79,
+            "box": [
+              696,
+              832,
+              812,
+              890
+            ]
+          },
+          "gain.guts": {
+            "text": "325/15",
+            "confidence": 94.753,
+            "box": [
+              300,
+              950,
+              414,
+              1008
+            ]
+          },
+          "gain.wit": {
+            "text": "576/1",
+            "confidence": 98.004,
+            "box": [
+              498,
+              950,
+              610,
+              1008
+            ]
+          },
+          "gain.skill_points": {
+            "text": "1027",
+            "confidence": 99.978,
+            "box": [
+              696,
+              950,
+              812,
+              1008
+            ]
+          },
+          "wide_gain.speed": {
+            "text": "\u00a9 599/60",
+            "confidence": 67.786,
+            "box": [
+              250,
+              812,
+              462,
+              909
+            ]
+          },
+          "wide_gain.stamina": {
+            "text": "G 433/348",
+            "confidence": 87.95,
+            "box": [
+              448,
+              812,
+              660,
+              909
+            ]
+          },
+          "wide_gain.power": {
+            "text": "G 499/1355",
+            "confidence": 80.078,
+            "box": [
+              646,
+              812,
+              858,
+              909
+            ]
+          },
+          "wide_gain.guts": {
+            "text": "325/1500",
+            "confidence": 92.598,
+            "box": [
+              250,
+              930,
+              462,
+              1027
+            ]
+          },
+          "wide_gain.wit": {
+            "text": "C 576/13",
+            "confidence": 75.58,
+            "box": [
+              448,
+              930,
+              660,
+              1027
+            ]
+          },
+          "wide_gain.skill_points": {
+            "text": "1027",
+            "confidence": 87.74,
+            "box": [
+              646,
+              930,
+              858,
+              1027
+            ]
+          },
+          "result.speed": {
+            "text": "599/1600",
+            "confidence": 98.411,
+            "box": [
+              322,
+              834,
+              448,
+              876
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.992,
+            "box": [
+              518,
+              834,
+              644,
+              876
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 99.991,
+            "box": [
+              714,
+              834,
+              840,
+              876
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.97,
+            "box": [
+              322,
+              952,
+              448,
+              994
+            ]
+          },
+          "result.wit": {
+            "text": "576/1300",
+            "confidence": 99.008,
+            "box": [
+              518,
+              952,
+              644,
+              994
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.991,
+            "box": [
+              708,
+              952,
+              810,
+              990
+            ]
+          },
+          "expanded_gain.speed": {
+            "text": "C 50 433",
+            "confidence": 62.31,
+            "box": [
+              215,
+              790,
+              600,
+              930
+            ]
+          }
+        },
+        "header": "Training",
+        "result_grid": true,
+        "current_grid": false,
+        "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7-training-8c27de659b01ef5d7bb7ae1a49cd7989623b7c53d8463062ede1232f66ac431e",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "gameplay_sha256": "b3124332b0cb11de803a8790cd9011084601566307d9906dfaa6b0f3c3ce894d",
+        "inspection": "training_result_only",
+        "source_timestamp_ms": 785017,
+        "source_frame_sha256": "a8eb9c5761e46c177675a778fc58ad7f19b4ef4b9d9da99abc5f44a45e8b6e75",
+        "evidence": "training-inspection/784767-native-v2/frame-000016.png",
+        "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18"
+      },
+      "refinement": {
+        "raw_sha256": "6191ec34e82833144157e58c7023473d5df5a7b877ef48cd99453c2a5dc3fa8c",
+        "evidence_sha256": "abf841f188770d1061192ac3c74e7fc9d26e49d74f83c360d71f574c634461b9",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "regions": {
+          "result.speed": {
+            "text": "599/1600",
+            "confidence": 96.381,
+            "box": [
+              309,
+              832,
+              452,
+              880
+            ]
+          },
+          "result.stamina": {
+            "text": "433/1348",
+            "confidence": 99.977,
+            "box": [
+              505,
+              832,
+              648,
+              880
+            ]
+          },
+          "result.power": {
+            "text": "499/1355",
+            "confidence": 97.149,
+            "box": [
+              701,
+              832,
+              844,
+              880
+            ]
+          },
+          "result.guts": {
+            "text": "325/1500",
+            "confidence": 99.955,
+            "box": [
+              309,
+              950,
+              452,
+              998
+            ]
+          },
+          "result.wit": {
+            "text": "576/1300",
+            "confidence": 94.182,
+            "box": [
+              505,
+              950,
+              648,
+              998
+            ]
+          },
+          "result.skill_points": {
+            "text": "1027",
+            "confidence": 99.915,
+            "box": [
+              701,
+              950,
+              822,
+              998
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "expected_wit_gain": 32
+}

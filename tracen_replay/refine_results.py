@@ -20,7 +20,10 @@ def apply_result_refinement(raw,refinement):
         return bool(match and int(match[1])<=int(match[2]))
     for name,observation in refinement['regions'].items():
         if valid(name,observation) and (observation['confidence']>=97 or not valid(name,regions.get(name,{}))):regions[name]=observation
-    return dict(raw,regions=regions)
+    from .result_counter import partial_counter
+    partials={name:observation for name,observation in refinement['regions'].items()
+              if name!='result.skill_points' and partial_counter(observation)}
+    return dict(raw,regions=regions,result_numerator_refinement=partials)
 
 
 def refine(root):

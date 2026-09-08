@@ -356,7 +356,13 @@ def training_events(readings,states=()):
                     qualified=[]
                     for gain in {value for _,value in gain_observations}:
                         gain_rows=[row for row,value in gain_observations if value==gain]
-                        after_rows=[row for row in group['rows'] if row['source_timestamp_ms']>last_gain and row['facts'].get('result_value_candidates',{}).get(field)==before['values'][field]+gain]
+                        expected_total=before['values'][field]+gain
+                        complete_totals=[row for row in group['rows'] if row['source_timestamp_ms']>last_gain
+                                         and row['facts'].get('result_values',{}).get(field)==expected_total]
+                        after_rows=[row for row in group['rows'] if row['source_timestamp_ms']>last_gain and (
+                            row['facts'].get('result_value_candidates',{}).get(field)==expected_total
+                            or (row['facts'].get('result_numerator_candidates',{}).get(field)==[expected_total]
+                                and any(full['source_timestamp_ms']>=row['source_timestamp_ms'] for full in complete_totals)))]
                         times={row['source_timestamp_ms'] for row in gain_rows+after_rows}
                         strict_gain=any(row['facts'].get('training_gains',{}).get(field)==gain for row in gain_rows)
                         strict_total=any(row['facts'].get('result_values',{}).get(field)==before['values'][field]+gain for row in after_rows)
@@ -372,6 +378,12 @@ def training_events(readings,states=()):
                             events[-1].setdefault('gain_reading_disagreements',{})[field]=dict(animated_candidates=sorted({v for _,v in gain_observations}),cross_checked_change=gain)
                         deltas[field]=gain;proofs[field]=[before['evidence']]+[r['evidence'] for r in gain_rows+after_rows]
                         events[-1].setdefault('cross_checked_gain_fields',[]).append(field)
+                        partial_proofs=[dict(source_timestamp_ms=r['source_timestamp_ms'],
+                            evidence=r.get('supplemental_evidence',r['evidence']),
+                            readings=r['facts']['partial_result_counter_readings'][field]) for r in after_rows
+                            if r['facts'].get('result_numerator_candidates',{}).get(field)==[before['values'][field]+gain]
+                            and field in r['facts'].get('partial_result_counter_readings',{})]
+                        if partial_proofs:events[-1].setdefault('partial_result_counter_evidence',{})[field]=partial_proofs
                         if field not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(field)
                 suffix=[]
                 for row in reversed(group['rows']):

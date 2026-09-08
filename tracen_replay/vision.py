@@ -296,7 +296,7 @@ def parse(raw):
         failures=[l for l in lines if l['text']=='FAILURE' and l['confidence']>=97
                   and within(l,(300,600,800,790)) and l['box'][3]-l['box'][1]>=40]
         if failures:facts.update(training_outcome='failure',failure_banner=failures)
-        gains={}; totals={};caps={};gain_candidates={};result_candidates={};digit_crosschecks=[]
+        gains={}; totals={};caps={};gain_candidates={};result_candidates={};digit_crosschecks=[];partial_results={}
         for field in FIELDS:
             r=regions.get('gain.'+field,{})
             m=re.fullmatch(r'\+(\d{1,3})',r.get('text',''))
@@ -329,9 +329,19 @@ def parse(raw):
             if m and 1000<=int(m[2]) and int(m[1])<=int(m[2]):
                 if r['confidence']>=90:result_candidates[field]=int(m[1])
                 if r['confidence']>=97:totals[field]=int(m[1]);caps[field]=int(m[2])
+            if field!='skill_points':
+                from .result_counter import partial_counter
+                partials=[]
+                for view,observation in (('original',r),('padded',raw.get('result_numerator_refinement',{}).get('result.'+field,{}))):
+                    partial=partial_counter(observation)
+                    if partial:partials.append(dict(partial,source_view=view))
+                if partials:partial_results[field]=partials
         totals['skill_points']=number(regions.get('result.skill_points',{}))
         result_candidates['skill_points']=number(regions.get('result.skill_points',{}),90)
         facts.update(training_gains=gains,result_values=totals,stat_caps=caps,training_gain_candidates=gain_candidates,result_value_candidates=result_candidates,gain_digit_crosschecks=digit_crosschecks)
+        if partial_results:
+            facts['partial_result_counter_readings']=partial_results
+            facts['result_numerator_candidates']={field:sorted({p['value'] for p in views}) for field,views in partial_results.items()}
         performance={}
         for field in CURRENCIES:
             observation=regions.get('performance_gain.'+field,{})
