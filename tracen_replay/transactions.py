@@ -177,26 +177,43 @@ def skill_transactions(readings,states):
     return reconcile_skill_chains(transactions,readings,spans)
 
 
+def partial_song_name(requested,received):
+    """Match only a shared full name plus one unresolved terminal character."""
+    if not requested or not received or requested==received:return False
+    short,long=sorted((requested,received),key=len)
+    if len(short.split())<2 or len(short)<8 or not long.startswith(short):return False
+    remainder=long[len(short):];suffix=remainder.strip()
+    return len(suffix)==1 and not suffix.isdigit() and (remainder.startswith(' ') or not suffix.isalnum())
+
+
 def lesson_receipts(readings, outcomes):
     """Join named acquisition evidence to a matching request, retaining cost gaps."""
     purchases=[];used=set()
     for event in outcomes:
         acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
         for effect in acquired:
+            partial=False;requested=effect['name']
             confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
                 and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
                 and r['facts'].get('name_candidates')==[effect['name']]]
+            if not confirmations and effect['kind']=='song_learned' and len(acquired)==1:
+                nearby=[r for r in readings if r['screen']=='lesson_confirmation'
+                        and 0<event['first_seen_ms']-r['source_timestamp_ms']<=2000]
+                names={r['facts']['name_candidates'][0] for r in nearby if len(r['facts'].get('name_candidates',[]))==1}
+                if len(names)==1:
+                    requested=names.pop()
+                    if partial_song_name(requested,effect['name']):
+                        confirmations=[r for r in nearby if r['facts'].get('name_candidates')==[requested]];partial=True
             if not confirmations:continue
             last=confirmations[-1]
             # Only the final continuous request belongs to this receipt.
             group=[last]
             for row in reversed([r for r in readings if r['source_timestamp_ms']<last['source_timestamp_ms']]):
                 if row['screen']!='lesson_confirmation' or group[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
-                if row['facts'].get('name_candidates') not in ([],[effect['name']]):break
+                if row['facts'].get('name_candidates') not in ([],[requested]):break
                 group.append(row)
             first=group[-1];key=first['source_timestamp_ms']
             if key in used:continue
-            used.add(key)
             prior_receipts=[e['last_seen_ms'] for e in outcomes if e['last_seen_ms']<first['source_timestamp_ms']
                             and any(effect['kind'] in ('named_acquisition','song_learned') for effect in e['effects'])]
             baseline_start=max(prior_receipts,default=-1)
@@ -238,6 +255,18 @@ def lesson_receipts(readings, outcomes):
                 if row['source_timestamp_ms']-event['last_seen_ms']>5000 or row['screen']=='lesson_confirmation':break
                 if row['screen']=='lesson_selection' and all(type(row['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES):after.append(row)
             matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
+            if partial:
+                agreeing=[r for r in after if complete and r['facts']['performance_points']==projected]
+                between=[r for r in readings if first['source_timestamp_ms']<r['source_timestamp_ms']<event['first_seen_ms']]
+                returned=[r for r in between if r['screen']=='lesson_selection']
+                if (cost is None or not any(v>0 for v in cost.values())
+                    or len({r['source_timestamp_ms'] for r in group})<2
+                    or len({r['source_timestamp_ms'] for r in before_rows if r['facts'].get('performance_points')==initial})<2
+                    or len({r['source_timestamp_ms'] for r in agreeing})<2
+                    or len({r['source_timestamp_ms'] for r in returned})>=2
+                    or any(r['screen'] not in ('lesson_confirmation','lesson_selection','unknown') for r in between)
+                    or any(r['screen']=='lesson_confirmation' and r['facts'].get('name_candidates') not in ([],[requested]) for r in between)):continue
+            used.add(key)
             projected_effects=[];effect_keys=set()
             for row in reversed(group):
                 for projected_effect in row['facts'].get('projected_effects',[]):
@@ -246,6 +275,8 @@ def lesson_receipts(readings, outcomes):
             purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
                 performance_cost=cost,cost_basis='observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
+                requested_name=requested,receipt_name=effect['name'],name_identity_verified=False,
+                name_match_basis='partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
                 after_balance_observed=matched is not None,awarded_stats=event['deltas'],
                 projected_effects=projected_effects,
                 evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],

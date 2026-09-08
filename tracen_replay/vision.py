@@ -341,7 +341,7 @@ def parse(raw):
             matches=[re.fullmatch(r'(?:\(\s*)?\+\s*(\d+)(?:\s*\))?',l['text']) for l in candidates]
             numbers={int(m[1]) for m in matches if m}
             if len(numbers)==1:gains[field]=numbers.pop()
-        facts.update(name_candidates=[l['text'].strip() for l in lines if within(l,(280,85,650,125)) and l['confidence']>=95],
+        facts.update(name_candidates=[l['text'].strip() for l in lines if within(l,(280,85,650,125)) and l['confidence']>=95 and any(c.isalpha() for c in l['text'])],
                      projected_performance_points=currencies(True),current_stats=values('modal_current'),
                      projected_stat_gains=gains,
                      projected_effects=preview_effects([l for l in lines if l['confidence']>=97 and within(l,(440,130,820,245))]),awarded_effects=[])
