@@ -184,7 +184,17 @@ def cached_readings(report,root,allow_partial=False):
             from .concert_panel_refinement import apply as apply_concert_panel
             raw=apply_concert_panel(raw,json.loads(concert_panel.read_text(encoding='utf-8')),
                 root/raw['evidence'],observation_root=root,original=original)
+        receipt=root/'base-receipt-refinement'/path.name
+        if receipt.exists():
+            from .base_receipt_refinement import load as load_base_receipt
+            try:
+                raw=load_base_receipt(raw,receipt,original=original,
+                    evidence_path=root/original['evidence'],source_frame_path=root/frame['evidence'])
+            except ValueError as exc:
+                raise PipelineError(f'Base receipt refinement evidence invalid: {exc}') from exc
         row=parse_receipt_pixels(raw,root,frame,original)
+        if 'base_receipt_refinement' in raw:
+            row['base_receipt_refinement']=raw['base_receipt_refinement']
         race_quantities=root/'race-quantity-refinement'/path.name
         if race_quantities.exists():
             from .race_quantity_refinement import apply as apply_race_quantities
