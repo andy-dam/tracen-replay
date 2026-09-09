@@ -1,0 +1,54 @@
+{
+  "format": "inventory_suffix_real_fixture_v1",
+  "coordinate_convention": "boxes are full-recording coordinates; fixtures are 810x1080 gameplay crops with x offset 148",
+  "fixtures": [
+    {
+      "fixture": "inventory-suffix-v1-final.png",
+      "fixture_sha256": "07dbf060d1bb652696502c8a4325c3a9aa8951d18e356f634f7e2f91d6e9594e",
+      "source_root": "v1",
+      "source_recording": "2026-09-08 01-59-24.mp4",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "source_frame": "gameplay/part-015-frame-000193.png",
+      "source_frame_sha256": "1b45a5f4da7ccc70eb2640eab84752435ab5262810041d7e619518aad5a2e74f",
+      "crop_regions_pane": [[150, 510, 310, 560], [245, 635, 335, 685], [545, 700, 635, 745], [245, 765, 335, 817], [555, 828, 660, 875]],
+      "observations": [
+        {"label": "v1-final-no-suffix", "box": [318, 523, 433, 546], "expected": null},
+        {"label": "v1-final-corner-recovery", "box": [317, 646, 443, 675], "expected": "single_circle"},
+        {"label": "v1-final-medium-corners", "box": [599, 711, 740, 734], "expected": "single_circle"},
+        {"label": "v1-final-pace-chaser-straightaways", "box": [317, 783, 441, 807], "expected": "single_circle"},
+        {"label": "v1-final-pace-chaser-savvy", "box": [600, 837, 756, 861], "expected": "single_circle"}
+      ]
+    },
+    {
+      "fixture": "inventory-suffix-independent-final.png",
+      "fixture_sha256": "ddd4d4e7a1cb3dc2b4d9e859f676542d7c2120e79843c181da2e7c0b5aece295",
+      "source_root": "independent-01",
+      "source_recording": "2026-09-08 12-21-21.mp4",
+      "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+      "source_frame": "gameplay/part-014-frame-000317.png",
+      "source_frame_sha256": "4aa4078828def3871e09c9a47aae46e0ef2422c13d08a8f28359b5ca87672b27",
+      "crop_regions_pane": [[530, 575, 625, 622], [245, 638, 350, 680], [510, 638, 610, 680], [245, 702, 340, 745], [240, 835, 350, 880], [545, 900, 640, 945]],
+      "observations": [
+        {"label": "independent-final-right-handed", "box": [599, 584, 727, 611], "expected": "single_circle"},
+        {"label": "independent-final-firm-conditions", "box": [317, 647, 453, 669], "expected": "single_circle"},
+        {"label": "independent-final-fall-runner", "box": [599, 648, 707, 671], "expected": "single_circle"},
+        {"label": "independent-final-winter-runner", "box": [317, 711, 443, 734], "expected": "single_circle"},
+        {"label": "independent-final-medium-straightaways", "box": [316, 845, 440, 869], "expected": "single_circle"},
+        {"label": "independent-final-front-runner-straightaways", "box": [600, 909, 724, 933], "expected": "single_circle"}
+      ]
+    },
+    {
+      "fixture": "inventory-suffix-double-selection.png",
+      "fixture_sha256": "806cb08af6a05feb06f40c440b2be804572ff323dd74e02c20e330c6ea92daec",
+      "source_root": "v1",
+      "source_recording": "2026-09-08 01-59-24.mp4",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "source_frame": "gameplay/part-015-frame-000032.png",
+      "source_frame_sha256": "25347d36326b9cadfdf9ac6dafb84d55b1cca1f81b4ba0edf861552f39422b41",
+      "crop_regions_pane": [[330, 445, 445, 515]],
+      "observations": [
+        {"label": "skill-selection-double-circle", "box": [361, 459, 551, 487], "expected": "double_circle"}
+      ]
+    }
+  ]
+}

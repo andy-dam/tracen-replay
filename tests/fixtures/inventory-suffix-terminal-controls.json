@@ -1,0 +1,131 @@
+{
+  "fixture": "inventory-suffix-terminal-controls.png",
+  "fixture_sha256": "6f0b7d02794f4ae16fd8d76fe925819326ea3d02d544e7804a99df4737944761",
+  "canvas_size": [
+    810,
+    1080
+  ],
+  "font_at_generation": "Arial",
+  "controls": [
+    {
+      "word": "GO",
+      "size": 18,
+      "box": [
+        318,
+        84,
+        346,
+        97
+      ]
+    },
+    {
+      "word": "GO",
+      "size": 20,
+      "box": [
+        318,
+        129,
+        350,
+        144
+      ]
+    },
+    {
+      "word": "GO",
+      "size": 22,
+      "box": [
+        318,
+        174,
+        352,
+        190
+      ]
+    },
+    {
+      "word": "Hello",
+      "size": 18,
+      "box": [
+        318,
+        219,
+        359,
+        232
+      ]
+    },
+    {
+      "word": "Hello",
+      "size": 20,
+      "box": [
+        318,
+        264,
+        362,
+        279
+      ]
+    },
+    {
+      "word": "Hello",
+      "size": 22,
+      "box": [
+        318,
+        309,
+        368,
+        325
+      ]
+    },
+    {
+      "word": "Tokyo",
+      "size": 18,
+      "box": [
+        318,
+        354,
+        367,
+        371
+      ]
+    },
+    {
+      "word": "Tokyo",
+      "size": 20,
+      "box": [
+        318,
+        399,
+        372,
+        418
+      ]
+    },
+    {
+      "word": "Tokyo",
+      "size": 22,
+      "box": [
+        318,
+        444,
+        377,
+        464
+      ]
+    },
+    {
+      "word": "No",
+      "size": 18,
+      "box": [
+        318,
+        489,
+        341,
+        502
+      ]
+    },
+    {
+      "word": "No",
+      "size": 20,
+      "box": [
+        318,
+        534,
+        343,
+        549
+      ]
+    },
+    {
+      "word": "No",
+      "size": 22,
+      "box": [
+        318,
+        579,
+        346,
+        595
+      ]
+    }
+  ]
+}

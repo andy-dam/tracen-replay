@@ -21,14 +21,14 @@ def apply(row, original, extra, image_path):
     lines=[l for l in original['lines'] if not 500<=l['box'][1]<944]+extra['lines']
     cards=visible_cards(dict(original,lines=lines),row['facts']['final_attributes'])
     from PIL import Image
-    from .skill_variants import circle_suffix
+    from .inventory_suffix import detect as circle_suffix
     with Image.open(image_path) as pane:
         for card in cards:
             box=card['text_evidence'][-1]['box']
             variant=circle_suffix(pane,box)
             if variant:
                 card.update(observed_variant=variant,variant_evidence=dict(box=box,
-                    method='isolated_circle_geometry_three_threshold_agreement_v2',
+                    method='inventory_circle_geometry_with_terminal_letter_rejection_v1',
                     evidence_sha256=extra['evidence_sha256']))
     base={tuple(c['slot']):c for c in row['facts'].get('visible_owned_skill_cards',[])}
     conflicts=[]
