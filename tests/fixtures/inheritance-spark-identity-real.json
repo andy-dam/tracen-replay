@@ -1,0 +1,646 @@
+{
+  "source": {
+    "name": "2026-09-08 12-21-21.mp4",
+    "sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18"
+  },
+  "published_report": {
+    "path": "full-recording/independent-01/report.json",
+    "sha256": "95e117aedf222fdfdf89cdb351f7c08100d9df626846724913e32d2af39e8846"
+  },
+  "event": {
+    "id": "outcome-0086",
+    "kind": "outcome",
+    "first_seen_ms": 520250,
+    "last_seen_ms": 523433,
+    "evidence": "gameplay/part-004-frame-000162.png",
+    "context_title": null,
+    "effects": [
+      {
+        "kind": "inheritance_spark",
+        "name": "Straightaway Recovery",
+        "amount": null,
+        "awarded_effects_unknown": true,
+        "raw_text": "Straightaway Recovery spark activated!",
+        "confidence": 96.461
+      },
+      {
+        "kind": "inheritance_spark",
+        "name": "Stamina",
+        "amount": null,
+        "awarded_effects_unknown": true,
+        "raw_text": "Stamina spark activated!",
+        "confidence": 99.949
+      },
+      {
+        "kind": "inheritance_spark",
+        "name": "Straightaway Recover",
+        "amount": null,
+        "awarded_effects_unknown": true,
+        "raw_text": "Straightaway Recover spark activated!",
+        "confidence": 95.397
+      },
+      {
+        "kind": "inheritance_spark",
+        "name": "Power",
+        "amount": null,
+        "awarded_effects_unknown": true,
+        "raw_text": "Power spark activated!",
+        "confidence": 99.334
+      },
+      {
+        "kind": "inheritance_spark",
+        "name": "Sympathy",
+        "amount": null,
+        "awarded_effects_unknown": true,
+        "raw_text": "Sympathy spark activated!",
+        "confidence": 95.664
+      }
+    ],
+    "field_evidence": {
+      "inheritance_spark||Straightaway Recovery": [
+        "gameplay/part-004-frame-000162.png",
+        "gameplay/part-004-frame-000163.png"
+      ],
+      "inheritance_spark||Stamina": [
+        "gameplay/part-004-frame-000163.png",
+        "gameplay/part-004-frame-000164.png",
+        "gameplay/part-004-frame-000165.png"
+      ],
+      "inheritance_spark||Straightaway Recover": [
+        "gameplay/part-004-frame-000164.png"
+      ],
+      "inheritance_spark||Power": [
+        "gameplay/part-004-frame-000167.png"
+      ],
+      "inheritance_spark||Sympathy": [
+        "gameplay/part-004-frame-000167.png",
+        "gameplay/part-004-frame-000168.png",
+        "gameplay/part-004-frame-000169.png",
+        "receipt-inspection/522250-523500-60/frame-000007.png",
+        "receipt-inspection/522250-523500-60/frame-000008.png",
+        "receipt-inspection/522250-523500-60/frame-000009.png",
+        "receipt-inspection/522250-523500-60/frame-000019.png",
+        "receipt-inspection/522250-523500-60/frame-000020.png",
+        "receipt-inspection/522250-523500-60/frame-000021.png"
+      ]
+    },
+    "conflicting_readings": []
+  },
+  "rows_by_evidence": {
+    "gameplay/part-004-frame-000162.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "inheritance_spark",
+          "name": "Straightaway Recovery",
+          "amount": null,
+          "awarded_effects_unknown": true,
+          "raw_text": "Straightaway Recovery spark activated!",
+          "confidence": 98.762
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              506,
+              859,
+              518,
+              877
+            ]
+          ],
+          "alignments": [],
+          "provenance": null
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "traightaway Recovery",
+            "confidence": 99.942,
+            "box": [
+              458,
+              570,
+              896,
+              623
+            ]
+          },
+          {
+            "text": "Power",
+            "confidence": 99.933,
+            "box": [
+              291,
+              584,
+              356,
+              612
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 99.99,
+            "box": [
+              433,
+              663,
+              523,
+              691
+            ]
+          },
+          {
+            "text": "Inspired by T.M.p!",
+            "confidence": 93.124,
+            "box": [
+              315,
+              806,
+              571,
+              841
+            ]
+          },
+          {
+            "text": "Stamina spark ac wed!",
+            "confidence": 93.118,
+            "box": [
+              317,
+              835,
+              557,
+              861
+            ]
+          },
+          {
+            "text": "Inspired by Sei",
+            "confidence": 97.521,
+            "box": [
+              317,
+              858,
+              472,
+              887
+            ]
+          },
+          {
+            "text": "Power spark activatea:",
+            "confidence": 99.162,
+            "box": [
+              317,
+              883,
+              538,
+              909
+            ]
+          },
+          {
+            "text": "Straightaway Recovery spark activated!",
+            "confidence": 98.762,
+            "box": [
+              315,
+              904,
+              695,
+              935
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.803,
+            "box": [
+              519,
+              1034,
+              575,
+              1071
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.994,
+            "box": [
+              672,
+              1037,
+              735,
+              1066
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 520250,
+      "evidence": "gameplay/part-004-frame-000162.png"
+    },
+    "gameplay/part-004-frame-000163.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "inheritance_spark",
+          "name": "Straightaway Recovery",
+          "amount": null,
+          "awarded_effects_unknown": true,
+          "raw_text": "Straightaway Recovery spark activated!",
+          "confidence": 96.461
+        },
+        {
+          "kind": "inheritance_inspiration",
+          "name": "Mejiro Rya i",
+          "amount": null,
+          "raw_text": "Inspired by Mejiro Rya i!",
+          "confidence": 97.319
+        },
+        {
+          "kind": "inheritance_spark",
+          "name": "Stamina",
+          "amount": null,
+          "awarded_effects_unknown": true,
+          "raw_text": "Stamina spark activated!",
+          "confidence": 99.919
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              505,
+              860,
+              518,
+              877
+            ]
+          ],
+          "alignments": [],
+          "provenance": null
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Go with the Flow",
+            "confidence": 97.129,
+            "box": [
+              280,
+              502,
+              456,
+              529
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 96.861,
+            "box": [
+              510,
+              493,
+              653,
+              532
+            ]
+          },
+          {
+            "text": "**",
+            "confidence": 70.188,
+            "box": [
+              347,
+              540,
+              427,
+              575
+            ]
+          },
+          {
+            "text": "Power",
+            "confidence": 99.97,
+            "box": [
+              275,
+              584,
+              348,
+              611
+            ]
+          },
+          {
+            "text": "Straightaway Recovery",
+            "confidence": 99.335,
+            "box": [
+              575,
+              581,
+              816,
+              618
+            ]
+          },
+          {
+            "text": "***",
+            "confidence": 78.047,
+            "box": [
+              348,
+              620,
+              427,
+              655
+            ]
+          },
+          {
+            "text": "*",
+            "confidence": 72.789,
+            "box": [
+              651,
+              620,
+              726,
+              653
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 96.009,
+            "box": [
+              433,
+              663,
+              523,
+              691
+            ]
+          },
+          {
+            "text": "Power spark actiated!",
+            "confidence": 97.398,
+            "box": [
+              315,
+              804,
+              541,
+              836
+            ]
+          },
+          {
+            "text": "Straightaway Recovery spark activated!",
+            "confidence": 96.461,
+            "box": [
+              316,
+              830,
+              695,
+              859
+            ]
+          },
+          {
+            "text": "Go with the F.ow sk activated!",
+            "confidence": 91.798,
+            "box": [
+              318,
+              855,
+              640,
+              880
+            ]
+          },
+          {
+            "text": "Inspired by Mejiro Rya i!",
+            "confidence": 97.319,
+            "box": [
+              318,
+              879,
+              554,
+              906
+            ]
+          },
+          {
+            "text": "Stamina spark activated!",
+            "confidence": 99.919,
+            "box": [
+              317,
+              903,
+              555,
+              930
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.353,
+            "box": [
+              520,
+              1036,
+              574,
+              1070
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.892,
+            "box": [
+              672,
+              1037,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 520500,
+      "evidence": "gameplay/part-004-frame-000163.png"
+    },
+    "gameplay/part-004-frame-000164.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": null
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "inheritance_spark",
+          "name": "Straightaway Recover",
+          "amount": null,
+          "awarded_effects_unknown": true,
+          "raw_text": "Straightaway Recover spark activated!",
+          "confidence": 95.397
+        },
+        {
+          "kind": "inheritance_inspiration",
+          "name": "Mejiro Ryan",
+          "amount": null,
+          "raw_text": "Inspired by Mejiro Ryan!",
+          "confidence": 99.103
+        },
+        {
+          "kind": "inheritance_spark",
+          "name": "Stamina",
+          "amount": null,
+          "awarded_effects_unknown": true,
+          "raw_text": "Stamina spark activated!",
+          "confidence": 98.038
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              505,
+              859,
+              518,
+              877
+            ]
+          ],
+          "alignments": [],
+          "provenance": null
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Go with the Flow",
+            "confidence": 99.947,
+            "box": [
+              279,
+              502,
+              456,
+              529
+            ]
+          },
+          {
+            "text": "Stamina",
+            "confidence": 96.705,
+            "box": [
+              577,
+              502,
+              667,
+              530
+            ]
+          },
+          {
+            "text": "**",
+            "confidence": 62.754,
+            "box": [
+              348,
+              539,
+              427,
+              574
+            ]
+          },
+          {
+            "text": "***",
+            "confidence": 76.889,
+            "box": [
+              650,
+              540,
+              729,
+              575
+            ]
+          },
+          {
+            "text": "Power",
+            "confidence": 99.975,
+            "box": [
+              275,
+              584,
+              348,
+              611
+            ]
+          },
+          {
+            "text": "Straightaway Recovery",
+            "confidence": 99.99,
+            "box": [
+              576,
+              583,
+              815,
+              615
+            ]
+          },
+          {
+            "text": "*",
+            "confidence": 68.855,
+            "box": [
+              349,
+              622,
+              425,
+              654
+            ]
+          },
+          {
+            "text": "Power spark actira ed!",
+            "confidence": 91.313,
+            "box": [
+              314,
+              801,
+              542,
+              838
+            ]
+          },
+          {
+            "text": "Straightaway Recover spark activated!",
+            "confidence": 95.397,
+            "box": [
+              316,
+              830,
+              696,
+              859
+            ]
+          },
+          {
+            "text": "Go with the F'o ctivated!",
+            "confidence": 93.989,
+            "box": [
+              318,
+              855,
+              640,
+              880
+            ]
+          },
+          {
+            "text": "Inspired by Mejiro Ryan!",
+            "confidence": 99.103,
+            "box": [
+              317,
+              879,
+              553,
+              906
+            ]
+          },
+          {
+            "text": "Stamina spark activated!",
+            "confidence": 98.038,
+            "box": [
+              317,
+              903,
+              555,
+              930
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.353,
+            "box": [
+              520,
+              1036,
+              574,
+              1070
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.961,
+            "box": [
+              672,
+              1037,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 520750,
+      "evidence": "gameplay/part-004-frame-000164.png"
+    }
+  }
+}

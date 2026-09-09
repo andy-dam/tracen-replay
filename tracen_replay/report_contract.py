@@ -217,6 +217,13 @@ def _validate_gameplay(report, *, required):
     for key in _GAMEPLAY_OBJECTS:
         _object(_required(data, key, "report.gameplay_tracking"),
                 f"report.gameplay_tracking.{key}")
+    if "hint_card_observations" in data:
+        _object_array(data["hint_card_observations"], "report.gameplay_tracking.hint_card_observations")
+    if "hint_card_recovery" in data:
+        recovery = _object(data["hint_card_recovery"], "report.gameplay_tracking.hint_card_recovery")
+        for key in ("accepted", "rejected"):
+            _object_array(_required(recovery, key, "report.gameplay_tracking.hint_card_recovery"),
+                          f"report.gameplay_tracking.hint_card_recovery.{key}")
     inventory = data["owned_skill_inventory"]
     _boolean(_required(inventory, "complete", "report.gameplay_tracking.owned_skill_inventory"),
              "report.gameplay_tracking.owned_skill_inventory.complete")

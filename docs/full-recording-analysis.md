@@ -72,6 +72,40 @@ The currency command also rechecks unresolved menu balances with two crops that 
 
 ## Artifacts and provenance
 
+### Hint-card identity preparation
+
+When a cursor obscures a hint receipt's skill name, repeated readable skill cards
+can establish the identity. Preparation requires matching event context and
+geometry across adjacent source frames, repeated receipt-prefix OCR proving the
+hint amount, and pixel evidence for the circle rank. It preserves the original
+receipt spelling; a catalog name, ledger residual, or repeated misspelling does
+not supply missing evidence.
+
+After the last parser/refinement rebuild, prepare a new cache:
+
+```powershell
+python -m tracen_replay.hint_card_cache .local/full-recording/run-01/report.json --output .local/full-recording/run-01/hint-card-recovery.json
+python -m tracen_replay.full_recording "C:\path\to\recording.mp4" --output .local/full-recording/run-01 --reparse-only
+```
+
+Optional `--start-ms` and `--end-ms` bounds limit preparation to a source window.
+Preparation invokes local OCR for receipt prefixes. Report replay loads the
+cache without OCR and revalidates source frames, gameplay pixels, OCR sidecars,
+prefix crop hashes, and the exact parsed rows in each candidate's span. A missing
+cache leaves ordinary reconstruction available. A present invalid or stale cache
+stops publication; it cannot silently drop prepared evidence. Preparation refuses
+to overwrite an existing artifact. If parser or refinement changes invalidate a
+cache, archive it, rebuild the report, then prepare a new cache from that final
+state. Preserve the prior report and cache for comparison.
+
+The current cache supports base capture observations. Native inspection
+manifests require a separate adapter. Integration requires a unique existing
+outcome and refuses conflicting skill amounts or circle ranks before applying
+any candidate. It does not create event boundaries or infer a hint award from
+an inheritance spark.
+
+### Source artifacts
+
 - `capture.json`: source SHA-256, duration, layout, decoded PTS, and the complete base sampling manifest.
 - `neural/`: original OCR lines, numeric regions, model hashes, engine fingerprint, and source-frame hash.
 - `gameplay/`: cropped evidence images.

@@ -157,15 +157,21 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr'):
     return readings
 
 
-def assemble(report,readings,choice_observations=(),race_reward_observations=()):
+def assemble(report,readings,choice_observations=(),race_reward_observations=(),hint_card_observations=None):
     from .inventory import summarize as inventory_summary
+    if hint_card_observations is None:
+        hint_card_observations=report.get('gameplay_tracking',{}).get('hint_card_observations',[])
     if race_reward_observations:
         from .race_reward_inspection import refine_base_rows
         readings=refine_base_rows(readings,race_reward_observations)
     stat_rows=[dict(r['stats'],source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence']) for r in readings]
     spans=screen_summary(readings)
     report['gameplay_tracking']=dict(method='neural_gameplay_v1',auxiliary_log_used=False,input_region=[148,0,958,1080],readings=readings,
-        **reconstruct(readings,choice_observations,race_reward_observations),screens=spans,training_previews=preview_segments(stat_rows),skill_receipts=[s for s in spans if s['screen']=='skill_receipt'])
+        **reconstruct(readings,choice_observations,race_reward_observations,
+                      hint_card_observations=hint_card_observations,source_sha256=report.get('source',{}).get('sha256')),
+        screens=spans,training_previews=preview_segments(stat_rows),skill_receipts=[s for s in spans if s['screen']=='skill_receipt'])
+    if hint_card_observations:
+        report['gameplay_tracking']['hint_card_observations']=copy.deepcopy(hint_card_observations)
     if race_reward_observations:
         report['gameplay_tracking']['race_reward_observations']=race_reward_observations
     report['recognition']=dict(enabled=True,model='RapidOCR 3.9.2 / PP-OCRv6 detection + English PP-OCRv5 recognition')
@@ -305,7 +311,12 @@ def main():
     from .race_reward_inspection import load as load_race_rewards
     reward_metadata,reward_observations=load_race_rewards(args.output,report['source']['sha256'])
     if reward_metadata:report['race_reward_inspection']=reward_metadata
-    report=assemble(report,readings,choice_observations,reward_observations)
+    from .hint_card_cache import load as load_hint_cards
+    try:
+        hint_observations=load_hint_cards(readings,args.output,report['source']['sha256'])
+    except ValueError as exc:
+        raise PipelineError(f'Hint-card cache evidence invalid: {exc}') from exc
+    report=assemble(report,readings,choice_observations,reward_observations,hint_observations)
     validate_output(report,require_gameplay=True)
     evidence_audit=args.output/'evidence-audit.json'
     if evidence_audit.exists():

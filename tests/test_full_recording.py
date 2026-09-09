@@ -24,6 +24,38 @@ class FakeReader:
 
 
 class FullRecordingTests(unittest.TestCase):
+    def test_cli_loads_hint_cache_and_does_not_publish_invalid_evidence(self):
+        from contextlib import ExitStack
+        from tracen_replay.full_recording import main
+        for invalid in (False, True):
+            with self.subTest(invalid=invalid), workspace_temp() as root, ExitStack() as stack:
+                report={'source':{'sha256':'a'*64}}
+                rows=[{'evidence':'source.png','source_timestamp_ms':1000}]
+                candidates=[{'identity':'prepared source evidence'}]
+                stack.enter_context(patch('sys.argv',['full_recording','source.mp4','--output',str(root),'--reparse-only']))
+                stack.enter_context(patch('tracen_replay.full_recording.capture',return_value=report))
+                stack.enter_context(patch('tracen_replay.full_recording.cached_readings',return_value=rows))
+                stack.enter_context(patch('tracen_replay.full_recording.analyze_frames',side_effect=AssertionError('OCR during replay')))
+                stack.enter_context(patch('tracen_replay.inspect_choices.load',return_value=({},[])))
+                stack.enter_context(patch('tracen_replay.race_reward_inspection.load',return_value=({},[])))
+                loader=stack.enter_context(patch('tracen_replay.hint_card_cache.load',return_value=candidates,
+                    side_effect=ValueError('stale source proof') if invalid else None))
+                assemble=stack.enter_context(patch('tracen_replay.full_recording.assemble',return_value=report))
+                stack.enter_context(patch('tracen_replay.full_recording.validate_output'))
+                save=stack.enter_context(patch('tracen_replay.full_recording.save_json'))
+                stack.enter_context(patch('tracen_replay.full_recording.render',return_value='verified report'))
+                stack.enter_context(patch('builtins.print'))
+                if invalid:
+                    with self.assertRaisesRegex(PipelineError,'Hint-card cache evidence invalid: stale source proof'):
+                        main()
+                    assemble.assert_not_called();save.assert_not_called()
+                    self.assertFalse((root/'index.html').exists())
+                else:
+                    main()
+                    assemble.assert_called_once_with(report,rows,[],[],candidates)
+                    save.assert_called_once_with(root/'report.json',report)
+                loader.assert_called_once_with(rows,root,'a'*64)
+
     def test_neural_input_is_independent_of_auxiliary_pixels_and_cache_rejects_tampering(self):
         with workspace_temp() as root:
             frame=dict(id='one',evidence='frame.png',source_timestamp_ms=0)

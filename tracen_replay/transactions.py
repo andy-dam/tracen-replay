@@ -503,6 +503,8 @@ def outcome_events(readings):
         flag_friendship_identity_conflicts(event,rows_by_evidence)
         from .receipt_names import flag_inheritance_identity_conflicts
         flag_inheritance_identity_conflicts(event,rows_by_evidence)
+        from .inheritance_spark_identity import resolve as resolve_spark_identity
+        resolve_spark_identity(event,rows_by_evidence)
         from .receipt_names import collapse_visual_hint_variants
         collapse_visual_hint_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings},rows_by_evidence)
         from .receipt_names import collapse_punctuated_hint_variants
@@ -574,8 +576,11 @@ def reconcile_visible_training_candidates(before,after,events,readings):
     return resolutions
 
 
-def reconstruct(readings,choice_observations=(),race_reward_observations=()):
+def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hint_card_observations=(),source_sha256=None):
     states=checkpoints(readings);events=training_events(readings,states)+outcome_events(readings)
+    if hint_card_observations:
+        from .hint_card_events import apply as apply_hint_cards
+        hint_card_audit=apply_hint_cards(events,readings,hint_card_observations,source_sha256=source_sha256)
     skills=skill_transactions(readings,states);events+=skills
     events.sort(key=lambda e:e['first_seen_ms'])
     intervals=[]
@@ -602,6 +607,7 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=()):
     from .choice_evidence import reconstruct as reconstruct_choices,collect as collect_choices
     choice_rows=collect_choices(readings,choice_observations)
     return dict(checkpoints=states,events=events,intervals=intervals,
+                **({'hint_card_recovery':hint_card_audit} if hint_card_observations else {}),
                 dialogue_choices=reconstruct_choices(choice_rows),
                 fan_accounting=fan_accounting(race_results,events),song_acquisitions=song_acquisitions(events,lessons),
                 unparsed_receipt_candidates=unparsed_receipt_candidates(readings),

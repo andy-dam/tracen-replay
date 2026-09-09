@@ -5,9 +5,9 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest test run passes 678 automated tests.
+recording and 130 in the second. The latest test run passes 722 automated tests.
 All 12 preserved-reference checks in
-`cursor-padding-validation-v1/preserved-regression.json` pass against the
+`identity-validation-v2/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
 
@@ -48,13 +48,36 @@ references, parent hashes and label provenance remain separate from the derived
 development slices. Two references explicitly declare incomplete labels; 43
 legacy references leave completeness unspecified.
 
-The current report has 42 missing or extra effect entries in these diagnostics.
+The current report has 40 missing or extra effect entries in these diagnostics.
 Including the cursor's white outline removes a false hint identity and allows
 clear neighboring evidence to resolve a friendship recipient. The earlier
 separator rule still removes one duplicate hint while retaining its unresolved
 rank suffix. Numeric interval accounting is unchanged. Reference completeness,
 recognition failures and unobservable fields still need adjudication. Neither
 full semantic recall nor Go readiness is established.
+
+Repeated readable skill cards and receipt-prefix observations now recover
+`Winter Runner ○` with hint amount 2 in the second recording. Source-bound
+preparation stores card, circle, prefix crop and raw OCR evidence; normal report
+replay validates the cache without OCR. A cache prepared against older cursor
+bounds correctly fails after reparsing, while a cache prepared from the refreshed
+rows passes. Invalid caches stop report publication. Conflicting candidates are
+checked together so their order cannot select a skill amount or rank.
+
+Inheritance spark identity tracking retains `Straightaway Recovery` in the
+second recording and `Straightaway Acceleration` in the original. Truncated
+alternatives remain recorded as ambiguous observations. Adjacent receipt
+geometry and a matching neighboring line establish continuity; a longer string
+or a skill catalog does not decide the identity. This does not establish a hint
+award from a spark. The two fixes reduce the second report's effect diagnostics
+from 42 to 40 without changing any labels, actions or numeric ledgers.
+
+The identity batch changes one outcome in the original recording and two in the
+second. Both reports reproduce exactly through model-free reconstruction.
+Baselines, candidates, source-row changes and publication hashes are preserved
+under each run's `identity-integration-v2`. The second report's race, action and
+preserved-reference checks are in `identity-validation-v2`. Skill-card cache
+preparation and stale-cache checks are retained in `hint-card-recovery-v1`.
 
 Both published reports now carry the validated producer/consumer schema version.
 The latest cursor check reparsed 24 potentially affected timestamps across both
