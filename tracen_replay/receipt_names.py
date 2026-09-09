@@ -143,6 +143,60 @@ def collapse_visual_hint_variants(event,timestamps):
     event['effects']=[e for e in event['effects'] if e not in removed]
 
 
+def collapse_punctuated_hint_variants(event,rows_by_evidence):
+    """Resolve a lost name terminator using repeated same-frame skill labels.
+
+    A longer spelling alone is insufficient: the shorter receipt must overlap
+    two independent frames displaying the complete skill label. Keep its
+    evidence separate from the observations that actually read both marks.
+    """
+    hints=[e for e in event['effects'] if e['kind']=='skill_hint_change']
+    removed=[]
+    def observations(effect):
+        key='skill_hint_change||'+effect['name']
+        result=[]
+        for proof in event['field_evidence'].get(key,[]):
+            row=rows_by_evidence.get(proof)
+            if row is None:continue
+            lines=row.get('ocr',{}).get('neural',[])
+            matches=[l for l in lines if l.get('text')==effect.get('raw_text')
+                     and l.get('confidence',0)>=95 and len(l.get('box',[]))==4
+                     and 780<=(l['box'][1]+l['box'][3])/2<=960]
+            if len(matches)==1:result.append((row['source_timestamp_ms'],proof,lines))
+        return result
+    for weak in hints:
+        candidates=[]
+        first=observations(weak)
+        for strong in hints:
+            if strong['name']!=weak['name']+'!':continue
+            if strong.get('amount')!=weak.get('amount'):continue
+            if strong.get('raw_text')!=weak.get('raw_text','')+'.':continue
+            keys={'skill_hint_change||'+e['name'] for e in (weak,strong)}
+            if any(c.get('field') in keys for c in event.get('conflicting_readings',[])):continue
+            second=observations(strong)
+            a={t for t,_,_ in first};b={t for t,_,_ in second}
+            if not a or len(b)<2 or a&b:continue
+            times=sorted(a|b)
+            if any(y-x>250 for x,y in zip(times,times[1:])):continue
+            labels=[]
+            for t,proof,lines in first:
+                matches=[l for l in lines if l.get('text')==strong['name']
+                         and l.get('confidence',0)>=95 and len(l.get('box',[]))==4
+                         and 600<=(l['box'][1]+l['box'][3])/2<=780]
+                if len(matches)==1:labels.append((t,proof))
+            if len({t for t,_ in labels})<2:continue
+            candidates.append((strong,labels))
+        if len(candidates)!=1:continue
+        target,labels=candidates[0]
+        target.setdefault('observed_name_candidates',[target['name']]).append(weak['name'])
+        target.setdefault('alternate_name_evidence',[]).append(dict(
+            name=weak['name'],evidence=[p for _,p,_ in first]))
+        target['name_resolution']='repeated_same_frame_label_and_contiguous_punctuated_receipt'
+        target['name_label_evidence']=[p for _,p in labels]
+        removed.append(weak)
+    event['effects']=[e for e in event['effects'] if e not in removed]
+
+
 def collapse_song_variants(event,timestamps):
     songs=[e for e in event['effects'] if e['kind']=='song_learned']
     removed=[]
