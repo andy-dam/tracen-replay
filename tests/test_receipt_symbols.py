@@ -122,6 +122,26 @@ class ReceiptSymbolTests(unittest.TestCase):
             with self.subTest(word=control["word"], size=control["size"]):
                 self.assertIsNone(detect_circle_marker(image, control["box"]))
 
+    def test_native_inspection_uses_same_pixel_recovery_and_recording_proof(self):
+        from tracen_replay.inspect_training import reparse_inspection
+        raw=json.loads((FIXTURE_ROOT/self.manifest['neural_fixture']).read_text(encoding='utf-8'))
+        raw['source_sha256']=self.manifest['source_sha256']
+        raw['evidence']='receipt-inspection/probe/frame-000001.png'
+        with workspace_temp() as root:
+            root=Path(root); directory=root/'receipt-inspection/probe'
+            (directory/'frames').mkdir(parents=True)
+            shutil.copyfile(self.fixture_path,directory/'frame-000001.png')
+            shutil.copyfile(FIXTURE_ROOT/self.manifest['source_frame_fixture'],directory/'frames/frame-000001.jpg')
+            (directory/'frame-000001.v2.json').write_text(json.dumps(raw),encoding='utf-8')
+            frames=[dict(id='frame-000001',source_timestamp_ms=221250,evidence='frames/frame-000001.jpg')]
+            (directory/'frames.json').write_text(json.dumps(frames),encoding='utf-8')
+            inspection=dict(source_sha256=raw['source_sha256'],readings=[dict(evidence=raw['evidence'],source_timestamp_ms=221250)])
+            rows=reparse_inspection(inspection,root)
+        hints=[e for e in rows[0]['effects'] if e['kind']=='skill_hint_change']
+        self.assertEqual(len(hints),1)
+        self.assertEqual(hints[0]['name'],'Firm Conditions ○')
+        self.assertEqual(hints[0]['visual_symbol_observation']['source_sha256'],raw['source_sha256'])
+
     def test_normal_terminal_o_with_period_and_companion_abstains(self):
         manifest = json.loads(NORMAL_O_MANIFEST.read_text(encoding="utf-8"))
         path = FIXTURE_ROOT / manifest["fixture"]

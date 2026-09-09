@@ -125,8 +125,9 @@ def reparse_inspection(inspection,root):
         if receipt.exists():
             from .refine_receipts import apply
             raw=apply(raw,json.loads(receipt.read_text(encoding='utf-8')))
-        from .receipt_occlusion import annotate_path
-        result.append(dict(parse(annotate_path(raw,evidence,original)),source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']))
+        from .full_recording import parse_receipt_pixels
+        source_frame=dict(frame,evidence=(evidence.parent/frame['evidence']).relative_to(root).as_posix())
+        result.append(dict(parse_receipt_pixels(raw,root,source_frame,original),source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']))
     return result
 
 
