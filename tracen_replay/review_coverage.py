@@ -50,7 +50,7 @@ def coverage(capture,references,root):
                 declared_duration_by_finest_sample_interval=[dict(sample_interval_ms=spacing,duration_ms=amount)
                     for spacing,amount in sorted(cadence.items())],
                 declared_reviewed_percent=round(total/duration*100,3),unreviewed_intervals=gaps,
-                next_source_order_window=[gaps[0][0],min(gaps[0][0]+10000,gaps[0][1])] if gaps else None,
+                next_source_order_window=[gaps[0][0],min(gaps[0][0]+60000,gaps[0][1])] if gaps else None,
                 full_recording_effect_recall_measured=False,complete_video_frame_review=False,
                 scope='Union of declared sampled effect-reference intervals with checked sample hashes. This audits manifests, not the truth of labels or between-sample recall. No prediction-based interval selection.')
 

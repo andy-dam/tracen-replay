@@ -46,6 +46,16 @@ class ReviewCoverageTests(unittest.TestCase):
             result=coverage(dict(source=dict(sha256='source',duration_ms=1000)),[],root)
             self.assertEqual(result['declared_duration_by_finest_sample_interval'],[])
 
+    def test_next_window_uses_a_minute_without_crossing_a_reviewed_boundary(self):
+        with workspace_temp() as root:
+            capture=dict(source=dict(sha256='source',duration_ms=180000))
+            result=coverage(capture,[],root)
+            self.assertEqual(result['next_source_order_window'],[0,60000])
+            self.reference(root,'later.json',45000,46000)
+            result=coverage(capture,['later.json'],root)
+            self.assertEqual(result['next_source_order_window'],[0,45000])
+            self.assertFalse(result['full_recording_effect_recall_measured'])
+
     def test_source_mismatch_and_outside_interval_fail(self):
         with workspace_temp() as root:
             self.reference(root,'a.json',0,1000)

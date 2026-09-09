@@ -40,12 +40,16 @@ Triage based on predictions cannot discover every omission. A separate source-se
 
 Use larger contiguous sections to review the sequence of actions, event receipts and state changes. Preserve expected source labels before comparing predictions. Use dense inspection for ambiguous transitions. Existing ten-second labels remain regression fixtures; do not discard or expand their claimed scope.
 
+The coverage audit suggests the next source-ordered minute, stopping early at an already reviewed boundary. This changes the review batch size, not the sampling cadence or the amount of footage counted as reviewed.
+
 An exact-pixel deduplication probe of the separate recording's fixed dialogue crop found 7,017 distinct crops among 7,107 sampled frames: only 90 duplicates, a 1.266% display reduction. Background animation and text transitions make exact equality too restrictive to substantially reduce this review. Do not treat deduplication as a substitute for source review or spend further review time on this approach without new evidence. The local probe preserves every timestamp and proof hash; its result measures display repetition, not effect recall.
 
 Report review burden as both finding count and the union of queued footage durations. Footage length is not elapsed human review time, and source-sweep/triage durations overlap: do not add them together. A clean queue does not close full-recall, inventory, active-bonus or independent-validation gates.
 
 ## First measured queue
 
-On the current development reports, the original recording has 129 findings merged into 64 windows (252.049 seconds of footage). The separate recording has 347 findings merged into 77 windows (312.398 seconds). Neither has remaining numeric ledger residuals or missing dated actions; the candidates concern OCR conflicts/obstructions, unparsed receipts, race items and active bonuses. These counts are candidates before adjudication, not error counts or a product accuracy score.
+At the first measured queue snapshot, the original recording had 129 findings merged into 64 windows (252.049 seconds of footage). The separate recording had 347 findings merged into 77 windows (312.398 seconds). Neither had remaining numeric ledger residuals or missing dated actions; the candidates concerned OCR conflicts/obstructions, unparsed receipts, race items and active bonuses. These counts are candidates before adjudication, not error counts or a product accuracy score.
 
-The separate recording retains 245 seconds of sampled effect-reference coverage. Its remaining source sweep has 15 blocks, totaling 1531.717 seconds. No fresh held-out evaluation is implied. Both readiness flags remain false.
+That snapshot retained 245 seconds of sampled effect-reference coverage, with 15 remaining source-sweep blocks totaling 1531.717 seconds.
+
+After the race quantity refinement, the separate recording's queue contains 376 candidates across 83 triage windows (342.732 seconds). Sampled reference coverage is 755 seconds: 635 seconds at quarter-second spacing and 120 seconds at one-second spacing. The dense sweep retains the coarser intervals and totals 1141.717 seconds. No fresh held-out evaluation is implied. Both readiness flags remain false.
