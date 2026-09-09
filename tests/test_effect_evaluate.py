@@ -24,6 +24,29 @@ class EffectEvaluationTests(unittest.TestCase):
         report['gameplay_tracking']['events'][0]['conflicting_readings']=[dict(field='energy_change||')]
         self.assertFalse(evaluate(ref,report)['passed'])
 
+    def test_partial_labels_cannot_certify_a_perfect_prediction_subset(self):
+        ref,report=self.pair()
+        ref['reference_complete']=False
+        result=evaluate(ref,report)
+        self.assertEqual(result['matched'],1)
+        self.assertEqual(result['recall'],1)
+        self.assertFalse(result['reference_complete'])
+        self.assertFalse(result['passed'])
+        # An empty partial annotation is likewise not a verified negative interval.
+        ref['groups']=[]
+        report['gameplay_tracking']['events']=[]
+        self.assertFalse(evaluate(ref,report)['passed'])
+        ref['reference_complete']=True
+        self.assertTrue(evaluate(ref,report)['passed'])
+
+    def test_reference_completeness_rejects_truthy_strings_and_numbers(self):
+        for value in ('false',0,1,None):
+            with self.subTest(value=value):
+                ref,report=self.pair()
+                ref['reference_complete']=value
+                with self.assertRaisesRegex(ValueError,'completeness'):
+                    evaluate(ref,report)
+
     def test_source_onset_bracket_accepts_detection_between_reviewed_samples(self):
         ref,report=self.pair()
         report['gameplay_tracking']['events'][0]['first_seen_ms']=200

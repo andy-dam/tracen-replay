@@ -6,6 +6,9 @@ from pathlib import Path
 
 
 def evaluate(reference,report,root=None):
+    reference_complete=reference.get('reference_complete',True)
+    if type(reference_complete) is not bool:
+        raise ValueError('Reference completeness must be a boolean.')
     if reference['source_sha256']!=report['source']['sha256']:raise ValueError('Different source recording.')
     start,end=reference['start_ms'],reference['end_ms']
     if not 0<=start<end:raise ValueError('Invalid interval.')
@@ -98,7 +101,8 @@ def evaluate(reference,report,root=None):
     return dict(scope=reference['scope'],source_sha256=reference['source_sha256'],start_ms=start,end_ms=end,
         expected=expected,predicted=len(predictions),matched=matched,precision=matched/len(predictions) if predictions else None,
         recall=matched/expected if expected else None,missing=missing,extra_predictions=extras,evidence_errors=evidence_errors,
-        passed=not missing and not extras and not evidence_errors and not timing_errors,reviewed_samples=len(samples),
+        passed=reference_complete and not missing and not extras and not evidence_errors and not timing_errors,reviewed_samples=len(samples),
+        reference_complete=reference_complete,
         timing_basis=timing_basis,timing_errors=timing_errors,
         source_onset_windows=onset_windows,
         evidence_hashes_checked=root is not None,complete_video_frame_review=False,full_recording_effect_recall_measured=False,
