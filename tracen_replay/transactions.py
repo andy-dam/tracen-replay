@@ -475,6 +475,9 @@ def outcome_events(readings):
             event['effects'][key]=matches[-1][2];event['field_evidence'][key]=[o[1] for o in matches]
             event.setdefault('resolved_reading_conflicts',[]).append(dict(field=key,observed_amounts=list(amounts),accepted_amount=winners[0],basis='repeated_complete_digits_with_single_truncated_outlier'))
             event['conflicting_readings']=[c for c in event['conflicting_readings'] if c['field']!=key]
+        from .receipt_confirmation import resolve_with_later_repeat
+        for key,observations in receipt_observations.items():
+            resolve_with_later_repeat(event,key,observations,event['pending_effects'].get(key,[]))
         for key,observations in event.pop('pending_effects').items():
             if key in event['effects']:continue
             partial=observations[0][2]
