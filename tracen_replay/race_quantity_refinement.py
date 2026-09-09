@@ -85,6 +85,32 @@ REFINEMENT_POLICY = {
     "list_complete": False,
 }
 
+# Stable badge slots are deliberately read twice when the section-relative
+# layout is used: once with the complete badge retained for longer quantities,
+# and once with a lower-right quantity-focused crop that avoids the artwork
+# behind short quantities.  The two views are correlated observations of the
+# same source frame; the confidence and distinct-PTS gates still apply.
+QUANTITY_CROP_VARIANT_POLICY = {
+    "name": "stable_badge_quantity_focus_v1",
+    "version": 1,
+    "variants": {
+        "badge": {
+            "role": "broad",
+            "relative_box": [0.0, 0.0, 1.0, 1.0],
+        },
+        "quantity_focus": {
+            "role": "focused",
+            "relative_box": [0.39, 0.09, 0.89, 1.0],
+        },
+    },
+    "broad_variant": "badge",
+    "focused_variant": "quantity_focus",
+    "focused_variant_max_digits": 1,
+    "multi_digit_requires_broad_support": True,
+    "scaled_views_count_as_independent_frames": False,
+}
+QUANTITY_FOCUS_RELATIVE_BOX = (0.39, 0.09, 0.89, 1.0)
+
 # Boxes in the source gameplay PNG (810x1080).  ``full_box`` is the same
 # location in the original 1920x1080 coordinate system used by neural.py and
 # the parsed row facts.  Keeping both coordinate systems explicit prevents an
@@ -409,6 +435,45 @@ def _fallback_quantity_crop_box(source_box: Sequence[Any]) -> tuple[int, int, in
     ))
 
 
+def _relative_crop_box(
+    source_box: Sequence[Any],
+    relative_box: Sequence[Any],
+) -> tuple[int, int, int, int] | None:
+    """Translate a normalized crop box into one source gameplay box.
+
+    The source box is always validated before translation.  Keeping this
+    helper independent of OCR makes the resulting geometry auditable and
+    prevents a crop variant from silently escaping the gameplay pane.
+    """
+
+    box = _valid_crop_box(source_box)
+    if box is None or isinstance(relative_box, (str, bytes)) or not isinstance(relative_box, Sequence) or len(relative_box) != 4:
+        return None
+    try:
+        relative = [float(value) for value in relative_box]
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not all(math.isfinite(value) for value in relative):
+        return None
+    x0, y0, x1, y1 = relative
+    if not (0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1):
+        return None
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    return _valid_crop_box((
+        left + round(width * x0),
+        top + round(height * y0),
+        left + round(width * x1),
+        top + round(height * y1),
+    ))
+
+
+def _quantity_focus_crop_box(source_box: Sequence[Any]) -> tuple[int, int, int, int] | None:
+    """Resolve the bounded lower-right crop used for short quantities."""
+
+    return _relative_crop_box(source_box, QUANTITY_FOCUS_RELATIVE_BOX)
+
+
 def _same_position(first: Sequence[Any], second: Sequence[Any]) -> bool:
     try:
         first_center = _center(first)
@@ -673,6 +738,57 @@ def _source_crop_box(
     return source_box, detector
 
 
+def _source_crop_variants(
+    raw: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    allow_fixed_fallback: bool = False,
+    gameplay_path: Path | None = None,
+    section_layout: Mapping[str, Any] | None = None,
+    quantity_policy: Mapping[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Resolve auditable crop views for one slot.
+
+    Historical artifacts have one crop per scale and leave
+    ``quantity_policy`` unset.  New section-relative artifacts add a focused
+    view only for a detectorless stable badge, while retaining the complete
+    badge as the broad view.  Detector-backed and fallback crops already have
+    quantity-specific geometry and therefore keep one broad view.
+    """
+
+    source_box, detector = _source_crop_box(
+        raw,
+        spec,
+        allow_fixed_fallback=allow_fixed_fallback,
+        gameplay_path=gameplay_path,
+        section_layout=section_layout,
+    )
+    if source_box is None:
+        return []
+    if quantity_policy is None:
+        return [{"variant": None, "role": "broad", "source_box": source_box, "detector": detector}]
+    if not _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY):
+        raise ValueError("Race quantity refinement quantity crop policy changed.")
+
+    # The policy is scoped to section-relative generation.  Keeping a legacy
+    # artifact's single crop here is necessary for backwards-compatible
+    # validation and avoids rewriting frozen fixed-layout evidence.
+    if section_layout is None:
+        return [{"variant": None, "role": "broad", "source_box": source_box, "detector": detector}]
+    if detector is not None:
+        return [{"variant": "detector", "role": "broad", "source_box": source_box, "detector": detector}]
+    if str(spec.get("strategy")) != "stable_badge_geometry":
+        return [{"variant": "fallback", "role": "broad", "source_box": source_box, "detector": None}]
+
+    focused_box = _quantity_focus_crop_box(source_box)
+    if focused_box is None:
+        raise ValueError("Race quantity refinement focused crop geometry is invalid.")
+    return [
+        {"variant": "badge", "role": "broad", "source_box": source_box, "detector": None},
+        {"variant": "quantity_focus", "role": "focused", "source_box": focused_box, "detector": None},
+    ]
+
+
 def _crop_resolution(
     spec: Mapping[str, Any],
     detector: Mapping[str, Any] | None,
@@ -724,6 +840,17 @@ def _recognize_crops(reader: Any, crops: Sequence[Image.Image]) -> list[dict[str
     return _recognition_results(result, len(crops))
 
 
+def _variant_role(observation: Mapping[str, Any]) -> str:
+    """Return the declared role of one crop view.
+
+    Old observations have no variant metadata and are treated as broad views
+    for backwards-compatible aggregation.  New artifacts validate this field
+    against the immutable crop policy before aggregation.
+    """
+
+    return "focused" if observation.get("crop_variant_role") == "focused" else "broad"
+
+
 def _frame_summary(observations: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     by_time: dict[int, list[Mapping[str, Any]]] = defaultdict(list)
     for observation in observations:
@@ -754,6 +881,43 @@ def _frame_summary(observations: Sequence[Mapping[str, Any]]) -> tuple[list[dict
             continue
         if len(values) == 1:
             selected = [view for view in high if int(view["quantity"]) == values[0]]
+            # A focused crop is intentionally narrow enough to avoid badge
+            # artwork for short values.  If it is the only high-confidence
+            # evidence for a multi-digit value, it may have clipped the
+            # left-hand digits.  Require a high-confidence broad view for
+            # those values; otherwise leave the frame explicitly unresolved.
+            focused_policy = any("crop_variant" in view for view in views)
+            broad_high = [view for view in selected if _variant_role(view) == "broad"]
+            broad_quantities = {
+                int(view["quantity"])
+                for view in views
+                if _variant_role(view) == "broad" and type(view.get("quantity")) is int
+            }
+            if focused_policy and broad_quantities and broad_quantities != {values[0]}:
+                frame_observations.append({
+                    "timestamp_ms": timestamp,
+                    "status": "clipping_risk",
+                    "candidate_quantity": values[0],
+                    "candidate_text": selected[0]["text"],
+                    "candidate_confidence": min(float(view["confidence"]) for view in selected),
+                    "view_count": len(views),
+                    "high_confidence_view_count": len(high),
+                    "broad_quantities": sorted(broad_quantities),
+                    "reason": "focused_variant_conflicts_with_broad_reading",
+                })
+                continue
+            if focused_policy and values[0] >= 10 and not broad_high:
+                frame_observations.append({
+                    "timestamp_ms": timestamp,
+                    "status": "clipping_risk",
+                    "candidate_quantity": values[0],
+                    "candidate_text": selected[0]["text"],
+                    "candidate_confidence": min(float(view["confidence"]) for view in selected),
+                    "view_count": len(views),
+                    "high_confidence_view_count": len(high),
+                    "reason": "focused_variant_without_broad_support",
+                })
+                continue
             frame_observations.append({
                 "timestamp_ms": timestamp,
                 "status": "accepted_frame",
@@ -829,9 +993,14 @@ def _measurement(
     recognized: Mapping[str, Any],
     crop_resolution: str,
     resolved_full_box: Sequence[Any] | None = None,
+    crop_variant: str | None = None,
+    crop_variant_role: str | None = None,
 ) -> dict[str, Any]:
     frame_id = identity["frame_id"]
-    crop_path = output_root / OBSERVATION_DIRNAME / frame_id / spec["slot_id"] / f"{frame_id}-scale-{scale}.png"
+    suffix = f"-scale-{scale}"
+    if crop_variant is not None:
+        suffix += f"-{crop_variant}"
+    crop_path = output_root / OBSERVATION_DIRNAME / frame_id / spec["slot_id"] / f"{frame_id}{suffix}.png"
     crop_path.parent.mkdir(parents=True, exist_ok=True)
     crop.save(crop_path, format="PNG")
     source_path = Path(identity["source_path"])
@@ -839,7 +1008,7 @@ def _measurement(
     text = str(recognized.get("text", ""))
     confidence = round(float(recognized.get("confidence", 0)), 4)
     measurement_full_box = resolved_full_box if resolved_full_box is not None else spec["full_box"]
-    return {
+    measurement = {
         "timestamp_ms": int(raw["source_timestamp_ms"]),
         "frame_id": frame_id,
         "group": spec["group"],
@@ -880,6 +1049,10 @@ def _measurement(
             "output_mode": "RGB",
         },
     }
+    if crop_variant is not None:
+        measurement["crop_variant"] = crop_variant
+        measurement["crop_variant_role"] = crop_variant_role
+    return measurement
 
 
 def _artifact_for_group(
@@ -911,34 +1084,58 @@ def _artifact_for_group(
             raise ValueError("Race quantity refinement section layout policy differs within group.")
     observations_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     expected_keys_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    quantity_policy = QUANTITY_CROP_VARIANT_POLICY if dynamic_enabled else None
     for spec in missing:
-        inputs: list[tuple[Mapping[str, Any], Mapping[str, Any] | None, tuple[int, int, int, int], int, Image.Image]] = []
+        inputs: list[
+            tuple[
+                Mapping[str, Any],
+                Mapping[str, Any] | None,
+                tuple[int, int, int, int],
+                int,
+                Image.Image,
+                str | None,
+                str,
+            ]
+        ] = []
         for item in group:
             gameplay_path = Path(item["identity"]["gameplay_path"])
             item_layout = item.get("section_layout") if dynamic_enabled else None
-            source_box, detector = _source_crop_box(
+            variants = _source_crop_variants(
                 item["raw"], spec,
                 allow_fixed_fallback=allow_fixed_fallback,
                 gameplay_path=gameplay_path,
                 section_layout=item_layout,
+                quantity_policy=quantity_policy,
             )
-            if source_box is None:
-                continue
-            crops = _scaled_crops(gameplay_path, source_box)
-            for scale, crop in crops.items():
-                inputs.append((item, detector, source_box, scale, crop))
-                expected_keys_by_slot[spec["slot_id"]].append({
-                    "frame_id": item["identity"]["frame_id"],
-                    "timestamp_ms": int(item["raw"]["source_timestamp_ms"]),
-                    "slot_id": spec["slot_id"],
-                    "view_scale": scale,
-                })
+            for variant in variants:
+                source_box = variant["source_box"]
+                detector = variant["detector"]
+                crops = _scaled_crops(gameplay_path, source_box)
+                for scale, crop in crops.items():
+                    inputs.append((
+                        item,
+                        detector,
+                        source_box,
+                        scale,
+                        crop,
+                        variant["variant"],
+                        variant["role"],
+                    ))
+                    key = {
+                        "frame_id": item["identity"]["frame_id"],
+                        "timestamp_ms": int(item["raw"]["source_timestamp_ms"]),
+                        "slot_id": spec["slot_id"],
+                        "view_scale": scale,
+                    }
+                    if variant["variant"] is not None:
+                        key["crop_variant"] = variant["variant"]
+                    expected_keys_by_slot[spec["slot_id"]].append(key)
         if not inputs:
             continue
         recognitions = _recognize_crops(reader, [item[4] for item in inputs])
         if len(recognitions) != len(inputs):
             raise ValueError("OCR returned a different number of results than crops.")
-        for (item, detector, source_box, scale, crop), recognized in zip(inputs, recognitions):
+        for (item, detector, source_box, scale, crop, crop_variant, crop_variant_role), recognized in zip(inputs, recognitions):
             item_layout = item.get("section_layout") if dynamic_enabled else None
             resolved = section_layout_slot(item_layout, spec["slot_id"]) if item_layout is not None else None
             resolved_full_box = None
@@ -965,6 +1162,8 @@ def _artifact_for_group(
                     recognized,
                     _crop_resolution(spec, detector, section_layout=item_layout),
                     resolved_full_box=resolved_full_box,
+                    crop_variant=crop_variant,
+                    crop_variant_role=crop_variant_role if crop_variant is not None else None,
                 )
             )
 
@@ -1034,6 +1233,7 @@ def _artifact_for_group(
     if dynamic_enabled:
         artifact.update({
             "section_anchor_policy": copy.deepcopy(SECTION_LAYOUT_POLICY),
+            "quantity_crop_policy": copy.deepcopy(QUANTITY_CROP_VARIANT_POLICY),
             "base_section_layout": copy.deepcopy(base["section_layout"]),
             "source_frame_layouts": {
                 item["identity"]["frame_id"]: copy.deepcopy(item["section_layout"])
@@ -1052,10 +1252,14 @@ def _rejection(output_root: Path, frame_id: str, reason: str, details: Mapping[s
     return path
 
 
-def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | Path = ".local/models/rapidocr") -> dict[str, Any]:
+def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | Path = ".local/models/rapidocr", frame_ids: Sequence[str] | None = None) -> dict[str, Any]:
     """Generate refinement artifacts for race-result groups with missing slots."""
 
     root = Path(root).resolve()
+    if frame_ids is not None and (isinstance(frame_ids, (str, bytes)) or not frame_ids
+            or any(not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', value) for value in frame_ids)):
+        raise ValueError('Frame selection requires a nonempty list of frame IDs.')
+    selected = set(frame_ids) if frame_ids is not None else None
     output_root = root / OUTPUT_DIRNAME
     output_root.mkdir(parents=True, exist_ok=True)
     try:
@@ -1070,6 +1274,8 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
     eligible = []
     rejected = []
     for raw, raw_path in _raw_index(root):
+        if selected is not None and raw_path.stem not in selected:
+            continue
         identity = _source_identity(root, raw, raw_path, capture_rows)
         if identity is None:
             rejected.append(str(_rejection(output_root, raw_path.stem, "source_identity_mismatch")))
@@ -1188,6 +1394,7 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
         "rejected_count": len(rejected),
         "minimum_confidence": MIN_CONFIDENCE,
         "minimum_distinct_timestamps": MIN_DISTINCT_TIMESTAMPS,
+        "selected_frame_ids": sorted(selected) if selected is not None else None,
     }
     _save_json(output_root / "generation-summary.json", summary)
     return summary
@@ -1305,6 +1512,7 @@ def _validate_raw_observation(
     *,
     allow_fixed_fallback: bool = False,
     section_layout: Mapping[str, Any] | None = None,
+    quantity_policy: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Validate raw OCR, source pixels and the crop backing one measurement."""
 
@@ -1318,6 +1526,8 @@ def _validate_raw_observation(
         "source_manifest_row_id", "source_recording_sha256", "reader_fingerprint",
         "model_sha256", "preprocessing",
     )
+    if quantity_policy is not None:
+        required += ("crop_variant", "crop_variant_role")
     if any(key not in observation for key in required):
         raise ValueError("Incomplete race quantity refinement observation provenance.")
     if observation.get("slot_id") != spec["slot_id"]:
@@ -1381,18 +1591,28 @@ def _validate_raw_observation(
     if not isinstance(observation.get("model_sha256"), Mapping) or not observation.get("model_sha256"):
         raise ValueError("Race quantity refinement model binding is missing.")
 
-    expected_crop_box, expected_detector = _source_crop_box(
+    variants = _source_crop_variants(
         raw,
         spec,
         allow_fixed_fallback=allow_fixed_fallback,
         gameplay_path=gameplay_path,
         section_layout=section_layout,
+        quantity_policy=quantity_policy,
     )
+    crop_variant = observation.get("crop_variant") if quantity_policy is not None else None
+    matching_variants = [variant for variant in variants if variant.get("variant") == crop_variant]
+    if len(matching_variants) != 1:
+        raise ValueError("Race quantity refinement crop variant geometry changed.")
+    selected_variant = matching_variants[0]
+    expected_crop_box = selected_variant["source_box"]
+    expected_detector = selected_variant["detector"]
     if expected_crop_box is None or observation.get("source_crop_box") != list(expected_crop_box):
         raise ValueError("Race quantity refinement source crop geometry changed.")
     expected_detector_box = list(expected_detector["box"]) if expected_detector is not None else None
     if observation.get("detector_box") != expected_detector_box:
         raise ValueError("Race quantity refinement detector geometry changed.")
+    if quantity_policy is not None and observation.get("crop_variant_role") != selected_variant.get("role"):
+        raise ValueError("Race quantity refinement crop variant role changed.")
     expected_resolution = _crop_resolution(spec, expected_detector, section_layout=section_layout)
     if allow_fixed_fallback:
         if observation.get("crop_resolution") != expected_resolution:
@@ -1441,6 +1661,9 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         raise ValueError("Race quantity refinement fixed fallback policy changed.")
     else:
         allow_fixed_fallback = True
+    quantity_policy = artifact.get("quantity_crop_policy")
+    if quantity_policy is not None and not _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY):
+        raise ValueError("Race quantity refinement quantity crop policy changed.")
     section_anchor_metadata = artifact.get("section_anchor_policy")
     dynamic_section_policy = section_anchor_metadata is not None
     if dynamic_section_policy and not is_section_layout_policy(section_anchor_metadata):
@@ -1559,22 +1782,25 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                     raise ValueError("Race quantity refinement source raw cache identity changed.")
             gameplay_path = _safe_path(root, frame_raw.get("evidence"))
             frame_layout = validated_section_layouts.get(frame_id) if dynamic_section_policy else None
-            source_box, _ = _source_crop_box(
+            variants = _source_crop_variants(
                 frame_raw,
                 spec,
                 allow_fixed_fallback=allow_fixed_fallback,
                 gameplay_path=gameplay_path,
                 section_layout=frame_layout,
+                quantity_policy=quantity_policy,
             )
-            if source_box is None:
-                continue
-            for scale in SCALE_FACTORS:
-                keys.append({
-                    "frame_id": frame_id,
-                    "timestamp_ms": frame.get("source_timestamp_ms"),
-                    "slot_id": spec["slot_id"],
-                    "view_scale": scale,
-                })
+            for variant in variants:
+                for scale in SCALE_FACTORS:
+                    key = {
+                        "frame_id": frame_id,
+                        "timestamp_ms": frame.get("source_timestamp_ms"),
+                        "slot_id": spec["slot_id"],
+                        "view_scale": scale,
+                    }
+                    if variant["variant"] is not None:
+                        key["crop_variant"] = variant["variant"]
+                    keys.append(key)
         expected_keys_by_slot[spec["slot_id"]] = keys
 
     slots = artifact.get("slots")
@@ -1622,6 +1848,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                 manifest_hash,
                 allow_fixed_fallback=allow_fixed_fallback,
                 section_layout=observation_layout,
+                quantity_policy=quantity_policy,
             )
             if observation.get("reader_fingerprint") != artifact.get("reader_fingerprint") or \
                     not _mapping_equal(observation.get("model_sha256"), artifact.get("model_sha256")):
@@ -1637,12 +1864,15 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                 if observation.get("frame_id") not in validated_source_frames:
                     raise ValueError("Race quantity refinement support frame is outside the artifact group.")
             validated.append(observation)
-            actual_keys.append({
+            actual_key = {
                 "frame_id": observation.get("frame_id"),
                 "timestamp_ms": observation.get("timestamp_ms"),
                 "slot_id": slot_id,
                 "view_scale": observation.get("view_scale"),
-            })
+            }
+            if quantity_policy is not None:
+                actual_key["crop_variant"] = observation.get("crop_variant")
+            actual_keys.append(actual_key)
             if raw_observation.get("source_timestamp_ms") != observation.get("timestamp_ms"):
                 raise ValueError("Race quantity refinement raw timestamp changed.")
         if not isinstance(expected_keys, list) or not _mapping_equal(expected_keys, actual_keys) or \
@@ -1776,8 +2006,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path, help="full-recording run root containing capture.json, neural/, and gameplay/")
     parser.add_argument("--model-dir", type=Path, default=Path(".local/models/rapidocr"))
+    parser.add_argument("--frame-id", action="append", dest="frame_ids", help="Limit OCR and support evidence to these frames; repeat for all desired adjacent samples.")
     args = parser.parse_args(argv)
-    print(json.dumps(generate(args.root, model_dir=args.model_dir), ensure_ascii=False))
+    print(json.dumps(generate(args.root, model_dir=args.model_dir, frame_ids=args.frame_ids), ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -9,10 +9,13 @@ from PIL import Image
 from tracen_replay.race_quantity_refinement import (
     FIXED_SLOT_FALLBACK_POLICY,
     MIN_CONFIDENCE,
+    QUANTITY_CROP_VARIANT_POLICY,
     SLOT_BY_ID,
     _fallback_quantity_crop_box,
     _fixed_slot_pixel_guard,
+    _quantity_focus_crop_box,
     _source_crop_box,
+    _source_crop_variants,
     aggregate_slot,
     apply,
     generate,
@@ -58,8 +61,13 @@ class RaceQuantityRefinementTests(unittest.TestCase):
             "crop_evidence": f"crop-{timestamp}.png",
         }
 
+    def _variant_observation(self, timestamp, text, quantity, confidence, variant, role):
+        observation = self._observation(timestamp, text, quantity, confidence)
+        observation.update(crop_variant=variant, crop_variant_role=role)
+        return observation
+
     @contextmanager
-    def _strict_generated_case(self):
+    def _strict_generated_case(self, frame_ids=None):
         """Build a small source-bound run for mutation tests."""
 
         with workspace_temp() as root:
@@ -110,11 +118,20 @@ class RaceQuantityRefinementTests(unittest.TestCase):
                 (run / "neural" / f"{frame_id}.json").write_text(json.dumps(raw), encoding="utf-8")
             (run / "capture.json").write_text(json.dumps({"source": {"sha256": "f" * 64}, "frames": rows}), encoding="utf-8")
             reader = FakeReader()
-            summary = generate(run, reader_factory=lambda _: reader)
+            summary = generate(run, reader_factory=lambda _: reader, frame_ids=frame_ids)
             artifact = json.loads(Path(summary["artifacts"][0]).read_text(encoding="utf-8"))
             raw_path = run / "neural" / "part-001-frame-000001.json"
             raw = json.loads(raw_path.read_text(encoding="utf-8"))
             yield run, raw, parse(raw), artifact
+
+    def test_bounded_generation_keeps_full_capture_and_only_selected_support(self):
+        selected=['part-001-frame-000001','part-001-frame-000002']
+        with self._strict_generated_case(frame_ids=selected) as (run, raw, row, artifact):
+            capture=json.loads((run/'capture.json').read_text())
+            self.assertEqual(len(capture['frames']),3)
+            self.assertEqual({o['timestamp_ms'] for o in artifact['all_observations']},{1000,1250})
+            self.assertFalse((run/'race-quantity-refinement'/'part-001-frame-000003.json').exists())
+            apply(row,artifact,raw=raw,root=run)
 
     def test_same_quantity_on_distinct_timestamps_is_accepted(self):
         result = aggregate_slot([
@@ -138,6 +155,123 @@ class RaceQuantityRefinementTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "insufficient_distinct_timestamps")
         self.assertIsNone(result["accepted"])
+
+    def test_quantity_focus_geometry_scales_with_the_resolved_badge(self):
+        self.assertEqual(
+            _quantity_focus_crop_box((168, 854, 240, 898)),
+            (196, 858, 232, 898),
+        )
+        self.assertEqual(
+            _quantity_focus_crop_box((250, 500, 330, 540)),
+            (281, 504, 321, 540),
+        )
+        self.assertIsNone(_quantity_focus_crop_box((10, 10, 10, 20)))
+
+    def test_focus_only_multidigit_reading_is_marked_as_clipping_risk(self):
+        result = aggregate_slot([
+            self._variant_observation(1000, "x400", 400, 98.5, "quantity_focus", "focused"),
+            self._variant_observation(1250, "x400", 400, 98.5, "quantity_focus", "focused"),
+        ])
+
+        self.assertEqual(result["status"], "no_high_confidence_consensus")
+        self.assertIsNone(result["accepted"])
+        self.assertEqual(
+            [frame["status"] for frame in result["frame_observations"]],
+            ["clipping_risk", "clipping_risk"],
+        )
+        self.assertTrue(all(
+            frame["reason"] == "focused_variant_without_broad_support"
+            for frame in result["frame_observations"]
+        ))
+
+    def test_focused_single_digit_reading_cannot_hide_a_broad_clipped_digit(self):
+        result = aggregate_slot([
+            self._variant_observation(1000, "x10", 10, 96.5, "badge", "broad"),
+            self._variant_observation(1000, "x1", 1, 98.5, "quantity_focus", "focused"),
+            self._variant_observation(1250, "x10", 10, 96.5, "badge", "broad"),
+            self._variant_observation(1250, "x1", 1, 98.5, "quantity_focus", "focused"),
+        ])
+
+        self.assertEqual(result["status"], "no_high_confidence_consensus")
+        self.assertIsNone(result["accepted"])
+        self.assertEqual(
+            [frame["reason"] for frame in result["frame_observations"]],
+            ["focused_variant_conflicts_with_broad_reading"] * 2,
+        )
+        self.assertEqual(
+            [frame["broad_quantities"] for frame in result["frame_observations"]],
+            [[10], [10]],
+        )
+
+    def test_low_confidence_broad_agreement_keeps_focused_short_quantity(self):
+        result = aggregate_slot([
+            self._variant_observation(1000, "x1", 1, 72.6, "badge", "broad"),
+            self._variant_observation(1000, "x1", 1, 98.7, "quantity_focus", "focused"),
+            self._variant_observation(1250, "x1", 1, 91.8, "badge", "broad"),
+            self._variant_observation(1250, "x1", 1, 98.1, "quantity_focus", "focused"),
+        ])
+
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(result["accepted"]["quantity"], 1)
+
+    def test_broad_variant_supports_multidigit_value_and_focus_views_are_correlated(self):
+        observations = []
+        for timestamp in (1000, 1250):
+            observations.extend([
+                self._variant_observation(timestamp, "x400", 400, 98.5, "badge", "broad"),
+                self._variant_observation(timestamp, "x400", 400, 98.2, "quantity_focus", "focused"),
+            ])
+        result = aggregate_slot(observations)
+
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(result["accepted"]["quantity"], 400)
+        self.assertEqual(result["accepted"]["support_timestamps_ms"], [1000, 1250])
+
+    def test_broad_and_focus_conflict_abstains(self):
+        result = aggregate_slot([
+            self._variant_observation(1000, "x400", 400, 98.5, "badge", "broad"),
+            self._variant_observation(1000, "x1", 1, 98.2, "quantity_focus", "focused"),
+            self._variant_observation(1250, "x400", 400, 98.5, "badge", "broad"),
+        ])
+
+        self.assertEqual(result["status"], "conflict")
+        self.assertIsNone(result["accepted"])
+        self.assertEqual(result["conflicts"][0]["quantities"], [1, 400])
+
+    def test_focus_views_at_one_timestamp_do_not_count_as_distinct_pts(self):
+        result = aggregate_slot([
+            self._variant_observation(1000, "x1", 1, 98.5, "quantity_focus", "focused"),
+            self._variant_observation(1000, "x1", 1, 98.4, "badge", "broad"),
+            self._variant_observation(1000, "x1", 1, 98.3, "quantity_focus", "focused"),
+        ])
+
+        self.assertEqual(result["status"], "insufficient_distinct_timestamps")
+        self.assertIsNone(result["accepted"])
+
+    def test_dynamic_source_variants_keep_broad_and_focus_geometry(self):
+        section_layout = {
+            "resolved_slots": {
+                "items-0": {
+                    "resolved_source_box": [168, 854, 240, 898],
+                    "resolved_full_box": [318, 856, 386, 896],
+                    "detected_line": None,
+                },
+            },
+        }
+        variants = _source_crop_variants(
+            {},
+            SLOT_BY_ID["items-0"],
+            section_layout=section_layout,
+            quantity_policy=QUANTITY_CROP_VARIANT_POLICY,
+        )
+
+        self.assertEqual(
+            [(variant["variant"], variant["role"], variant["source_box"]) for variant in variants],
+            [
+                ("badge", "broad", (168, 854, 240, 898)),
+                ("quantity_focus", "focused", (196, 858, 232, 898)),
+            ],
+        )
 
     def test_conflicting_high_confidence_views_abstain(self):
         result = aggregate_slot([

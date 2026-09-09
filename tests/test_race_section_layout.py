@@ -7,6 +7,7 @@ from pathlib import Path
 from PIL import Image
 
 from tracen_replay.race_quantity_refinement import (
+    QUANTITY_CROP_VARIANT_POLICY,
     SLOT_SPECS,
     SLOT_BY_ID,
     _legacy_fixed_geometry_usable,
@@ -209,11 +210,26 @@ class DynamicRaceQuantityIntegrationTests(unittest.TestCase):
             self.assertEqual(summary["artifact_count"], 3)
             artifact = json.loads(Path(summary["artifacts"][0]).read_text(encoding="utf-8"))
             self.assertEqual(artifact["section_anchor_policy"]["name"], "section_relative_quantity_row_v1")
+            self.assertEqual(artifact["quantity_crop_policy"], QUANTITY_CROP_VARIANT_POLICY)
             self.assertEqual(set(artifact["source_frame_layouts"]), {
                 "part-001-frame-000001", "part-001-frame-000002", "part-001-frame-000003",
             })
             self.assertEqual({slot["slot_id"] for slot in artifact["slots"]}, {"items-0", "items-2"})
             self.assertTrue(all(slot["status"] == "accepted" for slot in artifact["slots"]))
+            item_zero = next(slot for slot in artifact["slots"] if slot["slot_id"] == "items-0")
+            self.assertEqual(
+                {observation["crop_variant"] for observation in item_zero["observations"]},
+                {"badge", "quantity_focus"},
+            )
+            self.assertEqual(len(item_zero["observations"]), 18)
+            self.assertEqual(
+                {tuple(observation["source_crop_box"]) for observation in item_zero["observations"]},
+                {(168, 854, 240, 898), (196, 858, 232, 898)},
+            )
+            self.assertEqual(
+                len({observation["crop_evidence"] for observation in item_zero["observations"]}),
+                18,
+            )
             self.assertTrue(all(
                 observation["full_box"][1] >= 850
                 for observation in artifact["all_observations"]
@@ -248,6 +264,22 @@ class DynamicRaceQuantityIntegrationTests(unittest.TestCase):
             raw = json.loads((Path(root) / "neural" / "part-001-frame-000001.json").read_text(encoding="utf-8"))
 
             with self.assertRaisesRegex(ValueError, "source section layout changed"):
+                apply(parse(raw), artifact, raw=raw, root=root)
+
+    def test_tampered_quantity_focus_geometry_is_rejected(self):
+        with workspace_temp() as root:
+            self._make_run(root)
+            summary = generate(root, reader_factory=lambda _: self.Reader())
+            artifact = json.loads(Path(summary["artifacts"][0]).read_text(encoding="utf-8"))
+            item_zero = next(slot for slot in artifact["slots"] if slot["slot_id"] == "items-0")
+            focused = next(
+                observation for observation in item_zero["observations"]
+                if observation["crop_variant"] == "quantity_focus"
+            )
+            focused["source_crop_box"] = [168, 854, 240, 898]
+            raw = json.loads((Path(root) / "neural" / "part-001-frame-000001.json").read_text(encoding="utf-8"))
+
+            with self.assertRaisesRegex(ValueError, "source crop geometry changed"):
                 apply(parse(raw), artifact, raw=raw, root=root)
 
 
