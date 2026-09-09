@@ -8,6 +8,27 @@ from tracen_replay.transactions import outcome_events
 
 
 class ReceiptOcclusionTests(unittest.TestCase):
+    def test_real_cursor_outline_blocks_corrupted_hint_but_preserves_clear_stats(self):
+        import json
+        from pathlib import Path
+        fixtures=Path(__file__).parent/'fixtures'
+        proof=json.loads((fixtures/'cursor-outline-hint.json').read_text(encoding='utf-8'))
+        path=fixtures/'cursor-outline-hint.png'
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),proof['crop_sha256'])
+        pane=Image.new('RGB',(810,1080),'white')
+        with Image.open(path) as crop:pane.paste(crop,tuple(proof['crop_bounds'][:2]))
+        source=raw(proof['lines'])
+        source['gameplay_sha256']=hashlib.sha256(pane.tobytes()).hexdigest()
+        # The green fill alone stops above the hint's center. The visible
+        # white outline still covers the name; OCR confidence is misleading.
+        self.assertTrue(any(e.get('name')=='Wilter Runner' for e in parse(source)['effects']))
+        marked=annotate(source,pane)
+        effects=parse(marked)['effects']
+        self.assertFalse(any(e['kind']=='skill_hint_change' for e in effects))
+        self.assertEqual({e['field']:e['amount'] for e in effects},{'speed':10,'wit':20})
+        self.assertEqual(marked['occluded_receipt_lines'][0]['text'],proof['lines'][-1]['text'])
+        self.assertEqual(source['lines'][-1]['confidence'],96.745)
+
     def test_omitted_recipient_suffix_still_lies_inside_protected_name_span(self):
         from unittest.mock import patch
         from tracen_replay.receipt_occlusion import friendship_name_bounds

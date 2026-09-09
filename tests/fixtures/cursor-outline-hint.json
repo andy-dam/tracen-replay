@@ -1,0 +1,45 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "source_timestamp_ms": 301750,
+  "evidence": "gameplay/part-002-frame-000248.png",
+  "evidence_sha256": "3f2241edb5e0287e75fe5c0d20df8d47fe36d1c1c1c08c4cf558e3ef8154cf77",
+  "crop_bounds": [
+    130,
+    790,
+    620,
+    940
+  ],
+  "crop_sha256": "cb1171e12d115d7d6b50e638746cbbebb326e0668d9952ee4441a7f646109c0e",
+  "lines": [
+    {
+      "text": "Speed went up by 10.",
+      "confidence": 97.566,
+      "box": [
+        317,
+        807,
+        529,
+        834
+      ]
+    },
+    {
+      "text": "Wit went up by 20.",
+      "confidence": 97.008,
+      "box": [
+        317,
+        831,
+        505,
+        858
+      ]
+    },
+    {
+      "text": "Gained 2 hint level(s) for Wilter Runner .",
+      "confidence": 96.745,
+      "box": [
+        316,
+        853,
+        731,
+        881
+      ]
+    }
+  ]
+}

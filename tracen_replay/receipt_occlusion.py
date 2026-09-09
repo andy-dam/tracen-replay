@@ -8,6 +8,13 @@ import json
 import re
 
 
+# The color mask captures the green fill, not the white cursor outline and
+# antialiased edge. In this capture profile the outline extends three pixels
+# beyond the fill. Keep the glyph-center check below: padding alone near a
+# neighboring baseline must not erase that receipt.
+CURSOR_OUTLINE_PADDING = 3
+
+
 def numeric_line(line):
     return 770<=line['box'][1]<1000 and bool(re.search(
         r'went|recover|Gained|Friendship|Frienlship|Friewdship|Frendship',
@@ -133,7 +140,8 @@ def overlay_boxes(pane):
         neighborhood=pixels[max(770,top-10):min(1000,bottom+10),max(0,left-10):min(810,right+10)]
         white=(neighborhood.min(axis=2)>190)&(neighborhood.max(axis=2)-neighborhood.min(axis=2)<55)
         if float(white.mean())<.5:continue
-        boxes.append([left+148-2,top-2,right+148+2,bottom+2])
+        padding=CURSOR_OUTLINE_PADDING
+        boxes.append([left+148-padding,top-padding,right+148+padding,bottom+padding])
     return boxes
 
 
