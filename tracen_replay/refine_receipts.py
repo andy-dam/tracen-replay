@@ -27,7 +27,6 @@ def consensus(views):
 
 
 def receipt(text):
-    text=re.sub(r'\bby(\d)',r'by \1',text)
     effects=effects_from_lines([dict(text=text,confidence=100)])
     if not effects:return None
     return json.dumps([{k:v for k,v in e.items() if k not in ('raw_text','confidence')} for e in effects],sort_keys=True)

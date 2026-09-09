@@ -37,7 +37,10 @@ def effects_from_lines(lines):
     for line in lines:
         if line['confidence'] < 60:
             continue
-        text = line['text'].strip()
+        original_text = line['text'].strip()
+        # Missing whitespace at an explicit award verb/amount boundary is
+        # formatting, not evidence for changing digits or recipient names.
+        text = re.sub(r'\b((?:went (?:up|down)|recovered|increased) by)(?=\d)',r'\1 ',original_text)
         effect = None
         if m := CHANGE.fullmatch(text):
             field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
@@ -104,7 +107,7 @@ def effects_from_lines(lines):
         elif m := re.fullmatch(r'(.+?) hint (?:level|Lv\.?) (?:went up by|increased by) (\d+)[.!]?', text, re.I):
             effect = dict(kind='skill_hint_change', name=m[1], amount=int(m[2]))
         if effect:
-            effects.append(dict(effect, raw_text=text, confidence=line['confidence']))
+            effects.append(dict(effect, raw_text=original_text, confidence=line['confidence']))
     return effects
 
 
