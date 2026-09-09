@@ -273,7 +273,18 @@ def _actual_matches(field: str, expected: Any, actual: Any) -> bool:
 
 
 def _overlap(first: int, last: int, start: int, end: int) -> bool:
-    return first < end and last >= start
+    """Return whether an observed race span belongs to a half-open window.
+
+    Reference scopes and race windows use ``[start, end)`` semantics.  A
+    report span includes the sampled frames at both ``first`` and ``last``.
+    Therefore a result observed before a boundary and still visible at exactly
+    ``start`` is carry-in owned by the preceding window, while a result first
+    observed at ``start`` belongs to the new window.  This excludes boundary-only
+    carry-in without dropping a result that genuinely straddles a boundary or
+    begins on it. Spans crossing a boundary can still overlap both windows.
+    """
+
+    return first < end and (first == start or last > start)
 
 
 def _verify_proofs(

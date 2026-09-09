@@ -75,6 +75,13 @@ unchanged when reports are rebuilt.
 
 Validation follows the output type: race fan gains are checked in race receipts, goal status in screen observations, and dialogue awards in event effects. A missing value in the wrong evaluator is not a recognition failure. Moving a reference between these checks must preserve its source evidence and original observation count.
 
+Race evaluation uses half-open reference windows. A result first observed before
+a window and last observed exactly at its start is carry-in from the preceding
+window. A result beginning at the start belongs to the new window; a result
+continuing beyond that boundary remains a candidate. This rule applies to both
+the review scope and individual race matching, without choosing candidates by
+their recognized names or reward values.
+
 An effect reference that also labels training-result grids may explicitly set
 `include_training_results: true`. This adds the completed training event's typed
 stat and performance deltas to the comparison without changing report events or
