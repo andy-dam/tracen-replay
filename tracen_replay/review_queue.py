@@ -8,6 +8,14 @@ from pathlib import Path
 from urllib.parse import quote
 
 
+def reviewed_intervals_for_sweep(coverage,max_interval_ms=250):
+    """Only sufficiently dense declared reviews retire source-sweep work."""
+    if type(max_interval_ms) is not int or max_interval_ms<=0:
+        raise ValueError('Invalid required review interval.')
+    return [(r['start_ms'],r['end_ms']) for r in coverage['references']
+            if r['sample_interval_ms']<=max_interval_ms]
+
+
 def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
     data=report['gameplay_tracking'];duration=report['source']['duration_ms']
     if data.get('auxiliary_log_used') is not False:raise ValueError('Gameplay-only report required.')
@@ -156,10 +164,12 @@ def main():
         old=json.loads(args.coverage.read_text(encoding='utf-8'))
         if old['source_sha256']!=report['source']['sha256']:raise ValueError('Coverage source mismatch.')
         fresh=coverage(json.loads((root/'capture.json').read_text(encoding='utf-8')),[x['path'] for x in old['references']],root)
-        intervals=fresh['declared_reviewed_intervals']
+        intervals=reviewed_intervals_for_sweep(fresh)
     from .recording_verification import audit
     report['verification']=audit(report)
     queue=build(report,intervals,sweep_ms=args.sweep_seconds*1000)
+    queue['source_sweep_review_policy']=dict(maximum_sample_interval_ms=250,
+        scope='Coarser reviews remain useful evidence but do not retire dense source-review windows. Sampled review does not certify native-frame or full-mechanics recall.')
     queue['report_sha256']=hashlib.sha256(raw).hexdigest()
     from .review_decisions import apply
     path=root/'review-decisions.json'

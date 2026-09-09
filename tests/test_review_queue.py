@@ -1,5 +1,5 @@
 import unittest
-from tracen_replay.review_queue import build
+from tracen_replay.review_queue import build,reviewed_intervals_for_sweep
 
 
 def report():
@@ -7,6 +7,16 @@ def report():
 
 
 class ReviewQueueTests(unittest.TestCase):
+    def test_coarse_review_does_not_retire_dense_sweep_work(self):
+        coverage=dict(references=[dict(start_ms=0,end_ms=60000,sample_interval_ms=1000),
+                                  dict(start_ms=10000,end_ms=20000,sample_interval_ms=250)])
+        intervals=reviewed_intervals_for_sweep(coverage)
+        self.assertEqual(intervals,[(10000,20000)])
+        queue=build(report(),intervals)
+        self.assertEqual(queue['source_sweep'][0]['start_ms'],0)
+        self.assertEqual(queue['summary']['unreviewed_source_ms'],290000)
+        with self.assertRaises(ValueError):reviewed_intervals_for_sweep(coverage,0)
+
     def test_balanced_ledgers_do_not_hide_obscured_names(self):
         r=report();d=r['gameplay_tracking']
         d['intervals']=[dict(start_ms=0,end_ms=1000,status='balanced',unexplained_change={'speed':0})]
