@@ -190,6 +190,7 @@ def parse(raw):
         # confidence and the complete past-tense sentence remain untouched.
         fixed=re.sub(r'^(?:Friewdship|Frendship)( with .+? went up by \d+[.!])$',r'Friendship\1',fixed)
         fixed=re.sub(r'^(Friendship with .+?) wert (up by \d+[.!])$',r'\1 went \2',fixed)
+        fixed=re.sub(r'^Friendship wh (.+? went up by \d+[.!])$',r'Friendship with \1',fixed)
         if fixed!=line['text']:
             repairs[fixed]=line['text'];joined[i]=dict(line,text=fixed)
     parsed_effects=effects_from_lines(joined)
