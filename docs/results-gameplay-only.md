@@ -5,9 +5,9 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest test run passes 677 automated tests.
+recording and 130 in the second. The latest test run passes 678 automated tests.
 All 12 preserved-reference checks in
-`batch-final-validation-v1/preserved-regression.json` pass against the
+`cursor-padding-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
 
@@ -48,32 +48,38 @@ references, parent hashes and label provenance remain separate from the derived
 development slices. Two references explicitly declare incomplete labels; 43
 legacy references leave completeness unspecified.
 
-The current report has 44 missing or extra effect entries in these diagnostics.
-A source-supported separator rule removes one duplicate hint award while
-retaining both spellings and the unresolved rank suffix. Numeric interval
-accounting is unchanged. Reference completeness, recognition failures and
-unobservable fields still need adjudication. Neither full semantic recall nor
-Go readiness is established.
+The current report has 42 missing or extra effect entries in these diagnostics.
+Including the cursor's white outline removes a false hint identity and allows
+clear neighboring evidence to resolve a friendship recipient. The earlier
+separator rule still removes one duplicate hint while retaining its unresolved
+rank suffix. Numeric interval accounting is unchanged. Reference completeness,
+recognition failures and unobservable fields still need adjudication. Neither
+full semantic recall nor Go readiness is established.
 
 Both published reports now carry the validated producer/consumer schema version.
-The original report's gameplay data is unchanged. The latest second-report
-changes are confined to race quantity observations and aggregates, plus the
-duplicate hint and its linked interval evidence. Previous report bytes, replaced
+The latest cursor check reparsed 24 potentially affected timestamps across both
+recordings through the source-bound production loaders. Replaying the old policy
+first reproduced all 24 existing rows exactly. Checkpoints, action receipts,
+purchases, concert records and numeric balances remain unchanged. The original
+run loses one cursor-covered friendship name as well as a false OCR name; another
+friendship identity resolves from clearer neighboring evidence. These changes
+preserve uncertainty instead of treating high OCR confidence as visibility.
+Previous report bytes are retained in each run's `cursor-padding-probe-v1`;
 refinement sidecars, historical crop proofs and the initial separate-recording
 evaluation remain preserved. Legacy unversioned capture adaptation is restricted
 to the producer; generic consumers require an explicit supported schema.
 
 Current report SHA-256 values are
-`afa1f4ea32e7bf1c199d8f80e928db7a7490bb25efcf0d5fbc61745a3b368c5d`
+`23aabf34aedb735fab7f54eec3db56de4427977fc6cfe7f760c1f1e5e1310a4d`
 (original) and
-`1ede0e192d2b900ce8f49e11b68d9e82d41fef4ba7fa3e92371c12428fa99bf1`
+`95e117aedf222fdfdf89cdb351f7c08100d9df626846724913e32d2af39e8846`
 (second). The action corpus index SHA-256 is
 `8189172fb21291b1cc5761a4a6e17239f3985ad5b42db3f1bd68b3d137be25c5`
 and its report-bound score is in
-`batch-final-validation-v1/action-score.json`. The disjoint effect index is
+`cursor-padding-validation-v1/action-score.json`. The disjoint effect index is
 `reference-index-v6/index.json`, with SHA-256
 `c9538df54b33ff40f0002d20562507c54a8bb87510227131e21a1fea178c5919`;
-its current report-bound score is in `batch-final-validation-v1/effect-score.json`.
+its current report-bound score is in `cursor-padding-validation-v1/effect-score.json`.
 
 ## Earlier 473-test snapshot
 
