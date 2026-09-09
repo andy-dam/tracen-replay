@@ -75,6 +75,7 @@ def _same_slots(left,right):
     return len(left)==len(right) and all(
         all(abs(a-b)<=3 for a,b in zip(x['card_y'],y['card_y']))
         and (not x.get('text') or not y.get('text') or x['text']==y['text'])
+        and (not x.get('text') or not y.get('text') or _card_agrees(x,y))
         for x,y in zip(left,right))
 
 
@@ -93,7 +94,7 @@ def _slot_consensus(rows):
 
 def _card_agrees(card,option):
     if 'text_box' in option:
-        aligned=abs(card['text_box'][1]-option['text_box'][1])<=20
+        aligned=all(abs(card['text_box'][i]-option['text_box'][i])<=20 for i in (0,1,2))
     else:
         aligned=option['card_y'][0]<=card['text_box'][1]<option['card_y'][1]
     return aligned and (not option.get('text') or card['text']==option['text'])
@@ -106,6 +107,9 @@ def reconstruct(observations):
         if row.get('screen_boundary'):
             active=None;pending=[];slot_rows=[];continue
         time=row['source_timestamp_ms'];cards=row['offered_card_candidates']
+        slots=row.get('offered_card_slots')
+        if slots and not any(s.get('text') for s in slots):
+            active=None;pending=[];slot_rows=[];continue
         if active and time-active['last_ms']>1500:active=None
         # A readable different response at the same height is a new menu,
         # not evidence that an option from the previous menu was selected.
@@ -123,8 +127,9 @@ def reconstruct(observations):
             active['collapsing']=True
             active.setdefault('transition_evidence',[]).append(row['evidence'])
         collapsing=active and active.get('collapsing',False)
-        slots=row.get('offered_card_slots')
-        if collapsing:
+        visible_count=len(slots) if slots is not None else len(cards)
+        shrinking=active and 0<visible_count<len(active['options'])
+        if collapsing or shrinking:
             pending=[];slot_rows=[]
         elif slots:
             pending=[]

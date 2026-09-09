@@ -57,6 +57,7 @@ def verify(root,source):
             for extra_path in extras:
                 if not extra_path.exists():continue
                 extra=json.loads(extra_path.read_text(encoding='utf-8'))
+                if not isinstance(extra,dict):raise ValueError('Refinement must be a JSON object: '+str(extra_path.relative_to(root)))
                 if extra['raw_sha256']!=raw_hash or extra['evidence_sha256']!=proof_hash:raise ValueError('Refinement provenance mismatch: '+str(extra_path.relative_to(root)))
                 if extra_path.parent.name=='concert-panel-refinement':
                     from .concert_panel_refinement import apply as apply_concert_panel

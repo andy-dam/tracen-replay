@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 
 from tracen_replay.choice_card_refinement import build, observation, apply
 from tracen_replay.choice_evidence import observe, reconstruct
+from tracen_replay.refine_contrast import fingerprint
 from tracen_replay.full_recording import cached_readings
 from tracen_replay.verify_evidence import verify
 from tests.test_gameplay import workspace_temp
@@ -90,15 +91,37 @@ class ChoiceCardRefinementTests(unittest.TestCase):
             (root/'choice-card-refinement').mkdir()
             path = root/'choice-card-refinement/one.json'
             path.write_text(json.dumps(extra),encoding='utf-8')
-            self.assertTrue(cached_readings(capture,root)[0]['facts']['choice_observation']['menu_text_complete'])
+            observed=cached_readings(capture,root)[0]['facts']['choice_observation']
+            self.assertTrue(observed['menu_text_complete'])
+            provenance=observed['refinement_provenance']
+            self.assertFalse(provenance['independent_observations'])
+            self.assertEqual(provenance['refinement_content_sha256'],fingerprint(extra))
+            self.assertEqual(provenance['crops'][0]['crop_rgb_sha256'],extra['views'][0]['crop_rgb_sha256'])
             audit=verify(root,source)
             self.assertTrue(audit['evidence_integrity_verified'])
             self.assertEqual(audit['verified_refinements'],1)
             extra['views'][0]['crop_rgb_sha256']='tampered'
             path.write_text(json.dumps(extra),encoding='utf-8')
-            with self.assertRaisesRegex(ValueError,'pixels'):
+            with self.assertRaisesRegex(ValueError,'changed'):
                 cached_readings(capture,root)
             self.assertFalse(verify(root,source)['evidence_integrity_verified'])
+            original_view=copy.deepcopy(extra['views'][0])
+            huge_line=copy.deepcopy(original_view['lines'][0])
+            huge_line['confidence']=10**400
+            for malformed in ([None], [dict(original_view,lines=[None])],
+                              [dict(original_view,crop_box=[10**400,0,1,1])],
+                              [dict(original_view,lines=[huge_line])]):
+                extra['views']=malformed
+                extra['views_sha256']=fingerprint(malformed)
+                path.write_text(json.dumps(extra),encoding='utf-8')
+                self.assertFalse(verify(root,source)['evidence_integrity_verified'])
+
+    def test_changed_native_text_is_detected_before_confidence_promotion(self):
+        pane,raw=self.scene()
+        extra=build(pane,raw,'proof',self.reader('First..'))
+        extra['views'][0]['lines'][0]['text']='First...'
+        with self.assertRaisesRegex(ValueError,'OCR contents changed'):
+            observation(pane,raw,extra)
 
     def test_provenance_and_geometry_tampering_rejected(self):
         pane, raw = self.scene()
@@ -202,3 +225,32 @@ class ChoiceCardRefinementTests(unittest.TestCase):
         self.assertEqual(event['options'],['First...','Second.'])
         self.assertEqual(event['selected_index'],1)
         self.assertIn('550.png',event['evidence'])
+
+    def test_shrinking_white_cards_without_readable_green_card_preserve_menu(self):
+        rows=self.rows()
+        for time in (550,600):
+            partial=copy.deepcopy(rows[0])
+            partial.update(source_timestamp_ms=time,evidence=f'{time}.png')
+            for field in ('offered_card_slots','offered_card_candidates'):
+                partial[field]=partial[field][1:]
+            rows.insert(-1,partial)
+        event=reconstruct(rows)[0]
+        self.assertEqual(event['kind'],'dialogue_choice')
+        self.assertEqual(event['options'],['First...','Second.'])
+
+    def test_all_unknown_menu_interrupts_active_identity(self):
+        rows=self.rows()
+        unknown=copy.deepcopy(rows[0])
+        unknown.update(source_timestamp_ms=600,evidence='unknown.png',offered_card_candidates=[],menu_text_complete=False)
+        for slot in unknown['offered_card_slots']:
+            slot.update(text=None,confidence=0)
+        rows.insert(-1,unknown)
+        self.assertEqual(reconstruct(rows),[])
+
+    def test_horizontal_geometry_changes_do_not_establish_same_menu(self):
+        for coordinate in (0,2):
+            rows=self.rows()
+            for field in ('offered_card_slots','offered_card_candidates'):
+                for card in rows[1][field]:
+                    card['text_box'][coordinate]+=60
+            self.assertEqual(reconstruct(rows),[])

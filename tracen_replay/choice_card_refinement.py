@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -45,16 +46,45 @@ def build(pane, raw, proof_sha256, reader):
                          round(float(corners[:, 1].max())) + box[1]]))
         views.append(dict(card_y=slot['card_y'], crop_box=box,
                           crop_rgb_sha256=hashlib.sha256(crop.tobytes()).hexdigest(), lines=lines))
-    return dict(version=1, policy=POLICY, raw_sha256=fingerprint(raw),
+    return dict(version=2, policy=POLICY, raw_sha256=fingerprint(raw),
                 evidence_sha256=proof_sha256, models=reader.models,
-                engine_fingerprint=reader.fingerprint, views=views,
+                engine_fingerprint=reader.fingerprint, views=views,views_sha256=fingerprint(views),
                 independent_observations=False)
+
+
+def _validate_extra(extra):
+    if not isinstance(extra,dict) or extra.get('version')!=2 or extra.get('policy')!=POLICY:
+        raise ValueError('Unsupported choice card refinement policy or version; regenerate observations.')
+    if not isinstance(extra.get('views'),list):
+        raise ValueError('Choice card views must be a list.')
+    if extra.get('views_sha256')!=fingerprint(extra['views']):
+        raise ValueError('Choice card OCR contents changed.')
+    if (extra.get('independent_observations') is not False or not isinstance(extra.get('models'),dict)
+            or not extra['models'] or not isinstance(extra.get('engine_fingerprint'),str) or not extra['engine_fingerprint']):
+        raise ValueError('Choice card refinement provenance is incomplete.')
+    def numbers(values,size):
+        return isinstance(values,list) and len(values)==size and all(
+            type(v) in (int,float) and -10000<=v<=10000 and math.isfinite(v) for v in values)
+    for view in extra['views']:
+        if (not isinstance(view,dict) or not numbers(view.get('crop_box'),4)
+                or not numbers(view.get('card_y'),2) or not isinstance(view.get('crop_rgb_sha256'),str)
+                or not isinstance(view.get('lines'),list)):
+            raise ValueError('Malformed choice card crop observation.')
+        for line in view['lines']:
+            if (not isinstance(line,dict) or not isinstance(line.get('text'),str) or not line['text']
+                    or type(line.get('confidence')) not in (int,float)
+                    or not 0<=line['confidence']<=100 or not math.isfinite(line['confidence'])
+                    or not numbers(line.get('box'),4)):
+                raise ValueError('Malformed choice card OCR line.')
+            left,top,right,bottom=line['box']
+            crop=view['crop_box']
+            if not crop[0]+148<=left<right<=crop[2]+148 or not crop[1]<=top<bottom<=crop[3]:
+                raise ValueError('Choice card OCR line leaves its source crop.')
 
 
 def observation(pane, raw, extra):
     """Recompute geometry and accept only exact base/crop text agreement."""
-    if extra.get('version') != 1 or extra.get('policy') != POLICY:
-        raise ValueError('Unsupported choice card refinement policy.')
+    _validate_extra(extra)
     if extra['raw_sha256'] != fingerprint(raw):
         raise ValueError('Choice card raw provenance mismatch.')
     if pane.size != (810, 1080) or hashlib.sha256(pane.tobytes()).hexdigest() != raw['gameplay_sha256']:
@@ -83,12 +113,19 @@ def observation(pane, raw, extra):
 
 
 def apply(row, raw, extra, proof):
+    _validate_extra(extra)
     if hashlib.sha256(proof.read_bytes()).hexdigest() != extra['evidence_sha256']:
         raise ValueError('Choice card evidence provenance mismatch.')
     with Image.open(proof) as image:
         observed = observation(image.convert('RGB'), raw, extra)
     if row['screen'] != 'unknown':
         return row
+    observed['refinement_provenance']=dict(
+        policy=extra['policy'],version=extra['version'],raw_sha256=extra['raw_sha256'],
+        evidence_sha256=extra['evidence_sha256'],views_sha256=extra['views_sha256'],
+        refinement_content_sha256=fingerprint(extra),models=extra['models'],
+        engine_fingerprint=extra['engine_fingerprint'],independent_observations=False,
+        crops=[{k:v[k] for k in ('card_y','crop_box','crop_rgb_sha256')} for v in extra['views']])
     return dict(row, facts=dict(row.get('facts', {}), choice_observation=observed))
 
 
