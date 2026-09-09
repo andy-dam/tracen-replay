@@ -12,6 +12,12 @@ from .reconcile import FIELDS, stable_checkpoints, preview_segments, account
 PANE = (148, 0, 958, 1080)
 CURRENCIES = ('dance', 'passion', 'vocal', 'visual', 'composure')
 CHANGE = re.compile(r'^(Speed|Stamina|Power|Guts|Wit|Skill (?:Pts|Points)) went (up|down) by (\d+)(?: to new heights)?[.!]?$', re.I)
+ITEM_DELIVERY = re.compile(r"Here(?:'s|’s) your (.+?)[.!]$", re.I)
+AWARD_CONTEXT = re.compile(
+    r'(?:^|[.!?]\s+)'
+    r'(?!(?:[^.!?]*\b(?:if|unless|when|whether|had|would|could|should|might|may)\b))'
+    r'(?!(?:[^.!?]*\b(?:never|not|haven(?:\'t|’t)|hasn(?:\'t|’t)|didn(?:\'t|’t))\b))'
+    r'[^.!?]*\b(?:won|received|earned)\b.{0,80}\b(?:prize|reward)\b[.!?]$', re.I)
 
 
 def text_lines(reader, image, psm=6):
@@ -31,10 +37,45 @@ def text_lines(reader, image, psm=6):
     return result
 
 
+def _same_receipt_block(previous, current):
+    """Check that two OCR lines are adjacent rows in one receipt panel."""
+    previous_box, current_box = previous.get('box'), current.get('box')
+    if not (isinstance(previous_box, (list, tuple)) and len(previous_box) == 4
+            and isinstance(current_box, (list, tuple)) and len(current_box) == 4):
+        return False
+    previous_left, previous_top, previous_right, previous_bottom = previous_box
+    current_left, current_top, current_right, current_bottom = current_box
+    previous_center_y = (previous_top + previous_bottom) / 2
+    current_center_y = (current_top + current_bottom) / 2
+    if not 770 <= previous_center_y <= 1000 or not 770 <= current_center_y <= 1000:
+        return False
+    if not 0 < current_center_y - previous_center_y <= 45:
+        return False
+    # Wrapped receipt lines share a left edge even when their widths differ.
+    return abs(current_left - previous_left) <= 15
+
+
+def _has_item_delivery_context(lines, index):
+    """Require a contiguous, high-confidence award sentence before an item.
+
+    A generic ``Here's your ...`` line is common in narrative dialogue. The
+    supported source receipt places it directly after an explicit award
+    sentence, so only that local relationship can authorize the item effect.
+    No item or character names are consulted.
+    """
+    if index <= 0:
+        return False
+    previous = lines[index - 1]
+    current = lines[index]
+    return (previous.get('confidence', 0) >= 95
+            and AWARD_CONTEXT.search(previous.get('text', '').strip())
+            and _same_receipt_block(previous, current))
+
+
 def effects_from_lines(lines):
     """Only explicit past-tense receipts; plus signs in previews do not qualify."""
     effects = []
-    for line in lines:
+    for index, line in enumerate(lines):
         if line['confidence'] < 60:
             continue
         original_text = line['text'].strip()
@@ -77,7 +118,10 @@ def effects_from_lines(lines):
             effect=dict(kind='mood_status',value=m[1].lower(),amount=None)
         elif m := re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit) training leveled up[.!]?',text,re.I):
             effect=dict(kind='training_level_change',field=m[1].lower(),direction='up',amount=None)
-        elif m := re.fullmatch(r'(.+?) leveled up[.!]',text,re.I):
+        # RapidOCR can omit the terminal punctuation from an otherwise
+        # complete level-up receipt.  The phrase itself is the receipt; keep
+        # the name unconstrained and require the complete ``leveled up`` verb.
+        elif m := re.fullmatch(r'(.+?) leveled up[.!]?',text,re.I):
             effect=dict(kind='skill_level_change',name=m[1],direction='up',amount=None,levels_observed=False)
         elif m := re.fullmatch(r'Friendship with (.+?) is maxed out[.!]?',text,re.I):
             effect=dict(kind='friendship_status',name=m[1],value='maximum',amount=None)
@@ -86,7 +130,10 @@ def effects_from_lines(lines):
         elif m := re.fullmatch(r'Friendship with (.+?) went up by (\d+)[.!]?', text, re.I):
             effect = dict(kind='friendship_change', name=m[1], amount=int(m[2]))
         elif m := re.fullmatch(r'Gained (\d+) hint level\(s\) for (.+?)[.!]?', text, re.I):
-            effect = dict(kind='skill_hint_change', name=m[2].rstrip('.!').strip(), amount=int(m[1]))
+            # The pattern already consumes one sentence terminator. Keep
+            # preceding punctuation that belongs to the skill name itself.
+            name = m[2].strip()
+            effect = dict(kind='skill_hint_change', name=name, amount=int(m[1]))
         elif m := re.fullmatch(r'(Dance|Passion|Vocals?|Visuals?|Composure) went (up|down) by (\d+)[.!]?', text, re.I):
             field = {'vocals':'vocal','visuals':'visual'}.get(m[1].lower(),m[1].lower())
             effect = dict(kind='performance_change', field=field, amount=int(m[3])*(1 if m[2].lower()=='up' else -1))
@@ -94,6 +141,11 @@ def effects_from_lines(lines):
             effect = dict(kind='song_learned', name=m[1].strip(), acquisition='unknown', cost=None)
         elif m := re.fullmatch(r'Learned (.+?)[.!]', text, re.I):
             effect = dict(kind='named_acquisition', name=m[1], acquisition='unknown', cost=None)
+        elif _has_item_delivery_context(lines, index) and (m := ITEM_DELIVERY.fullmatch(text)):
+            # Generic named item delivery.  The receipt exposes the item
+            # wording but does not establish a quantity or inventory delta.
+            effect = dict(kind='item_reward', name=m[1].strip(), quantity=None,
+                          quantity_observed=False)
         elif m := re.fullmatch(r'(.+?) joined your cause[.!]?', text, re.I):
             effect = dict(kind='supporter_joined', name=m[1])
         elif re.fullmatch(r'New supporters joined[!]',text,re.I):
