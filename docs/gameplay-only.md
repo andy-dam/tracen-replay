@@ -126,6 +126,25 @@ Predicted action rows must also carry a supported kind and an integer timestamp
 within the recording; malformed rows are rejected before scope filtering, with
 the offending row index in the error.
 
+`python -m tracen_replay.action_corpus INDEX REPORT --evidence-root RUN --output SCORE`
+combines action references using a versioned index. Its `schema` is
+`tracen-replay/action-corpus-v1`; it declares `source_sha256`,
+`source_duration_ms`, and a `references` array containing source-relative
+`path` and `sha256` entries. An entry may set `selected_kinds` to a nonempty
+subset of its reference's declared kinds. This can replace an older rest
+reference while retaining its training channel, without rewriting the source
+labels. Two selected scopes for the same kind cannot overlap; different kinds
+may cover the same interval.
+
+The score preserves each original reference result and reports agreement,
+unmatched labels, extra predictions, unassessed predictions, scope gaps and
+completeness declarations separately for each kind. Explicitly incomplete
+references cannot pass scoped agreement. Matching a positive-only race label
+does not establish absence of other actions in its window. Reference file hashes
+are verified; source-pixel provenance and visual annotation completeness still
+require their separate audits. The command refuses to overwrite an existing
+score artifact.
+
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.
 - [x] Separate previews, confirmations, receipts, immediate awards and future effects.
