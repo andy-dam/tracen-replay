@@ -24,7 +24,15 @@ The command appends to `review-decisions.json`; regenerate the queue afterward. 
 
 Only `recovered` leaves the pending queue. `confirmed_issue` and `unobservable` remain visible. Recovered findings stay in the JSON and the HTML's saved-recoveries section. Pending footage is recomputed from individual findings so resolving one warning cannot hide its unresolved neighbor. Source-review coverage and readiness are never changed by dispositions. Hash validity establishes that the decision still refers to the same artifacts, not that the reviewer's interpretation was correct.
 
-Nine fragments from the source-reviewed 94-second friendship receipt were explicitly marked recovered using the later readable native frame and the passing effect reference. The separate recording now has 338 pending findings across 76 windows, totaling 309.264 seconds of footage. This is an initial real-data check of persistence, not automatic adjudication of the whole recording. Evidence-based recovery suggestions and replacement decision history remain future work.
+Nine fragments from the source-reviewed 94-second friendship receipt were explicitly marked recovered using the later readable native frame and the passing effect reference. That initially reduced the separate recording to 338 pending findings across 76 windows, totaling 309.264 seconds of footage. The subsequent race-quantity report rebuild correctly invalidated those nine report-bound decisions: the current queue has 347 pending findings and nine stale decisions. Their historical evidence remains saved. This is a real-data check of persistence and invalidation, not automatic adjudication of the whole recording. Replacement decision history remains future work.
+
+## Alternate evidence suggestions
+
+The queue links obscured receipts to alternate frames only when the exact text matches an accepted effect, one event contains the finding, and at least two distinct alternate timestamps support the same typed effect through that event's field evidence. Covered recipient names, conflicting events, malformed text, ambiguous event membership, and partial coverage of a multi-line finding receive no suggestion. No OCR confidence is changed and no fuzzy name repair is attempted.
+
+Suggestions are navigation aids requiring visual review. They do not change pending counts, saved decisions, source coverage, or readiness. Current reports yield one suggestion in the original recording and three in the separate recording, all for pending findings. This conservative first pass has limited coverage; it does not resolve most warnings.
+
+Incomplete inventory is also localized to the observed summary frames, with visible name, level, and variant status included in one review item. Unknown details are not claims that a suffix or level is absent. Conflicting panel names and conflicting detail values produce separate evidence-linked items. This adds one inventory review item to each current recording; the global completeness gate remains open.
 
 ## Source review remains separate
 

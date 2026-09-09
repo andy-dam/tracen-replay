@@ -48,7 +48,9 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
     for row in data.get('races',[]):
         missing=[k for k in ('race_name','placing','fans','fans_gained','course') if row.get(k) is None]
         if missing:add('missing_race_fields',row,missing)
-        if not row.get('item_rewards_complete',False):add('unverified_race_items',row)
+        if not row.get('item_rewards_complete',False):add('unverified_race_items',row,
+            dict(visible_item_reward_snapshots=row.get('visible_item_reward_snapshots',[]),
+                 item_identity_verified=False,list_complete=False))
     for row in data.get('concerts',[]):
         if not row.get('all_bonus_totals_verified',False):add('unverified_active_bonuses',row)
     for row in data.get('turn_action_receipts',[]):
@@ -58,6 +60,31 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
         for value in verification.get(key,[]):
             row=dict(source_timestamp_ms=value) if type(value) is int else dict(start_ms=0,end_ms=duration)
             add(key,row,value)
+    inventory=data.get('owned_skill_inventory',{})
+    frames=inventory.get('summary_frames',[])
+    if frames and not inventory.get('complete',False):
+        add('incomplete_owned_inventory',dict(
+            start_ms=min(f['timestamp_ms'] for f in frames),
+            end_ms=max(f['timestamp_ms'] for f in frames),
+            evidence=list(dict.fromkeys(f['evidence'] for f in frames))),
+            dict(scope=inventory.get('scope'),unresolved=inventory.get('unresolved',[]),
+                 visible_cards=[dict(name=c['name_text'],level=c.get('level'),
+                    level_verified=c.get('level_verified',False),variant=c.get('variant'),
+                    variant_verified=c.get('variant_verified',False))
+                    for c in inventory.get('observed_owned_cards',[])],
+                 missing_detail_is_not_confirmed_absence=True))
+    for row in readings:
+        if conflicts:=row.get('facts',{}).get('owned_skill_panel_conflicts'):
+            add('owned_skill_name_conflict',row,conflicts)
+    for card in inventory.get('observed_owned_cards',[]):
+        conflicts={f:card[f+'_conflicts'] for f in ('level','variant') if card.get(f+'_conflicts')}
+        observations=card.get('observations',[])
+        if conflicts and observations:
+            add('owned_skill_detail_conflict',dict(
+                start_ms=min(o['timestamp_ms'] for o in observations),
+                end_ms=max(o['timestamp_ms'] for o in observations),
+                evidence=list(dict.fromkeys(o['evidence'] for o in observations))),
+                dict(name=card['name_text'],conflicts=conflicts))
     # Merge overlapping footage, not findings. Repeated OCR observations stay inspectable.
     windows=[]
     for f in sorted(findings,key=lambda f:(f['start_ms'],f['end_ms'],f['id'])):
@@ -103,7 +130,11 @@ def render(queue,root):
         for fid in w['finding_ids']:
             f=by_id[fid];parts.append('<details><summary>'+html.escape(fid+' '+f['reason']+' ['+f['disposition']+']')+'</summary><pre>'+html.escape(json.dumps(f['details'],ensure_ascii=False))+'</pre>')
             if f.get('review_error'):parts.append('<p>'+html.escape(f['review_error'])+'</p>')
-            for relative in dict.fromkeys(f['evidence']):
+            links=list(f['evidence'])
+            if suggestion:=f.get('recovery_suggestion'):
+                parts.append('<p>Possible alternate evidence; visual review required.</p><pre>'+html.escape(json.dumps(suggestion,ensure_ascii=False))+'</pre>')
+                links.extend(proof['path'] for match in suggestion['matches'] for proof in match['evidence'])
+            for relative in dict.fromkeys(links):
                 path=(root/relative).resolve()
                 if path.is_relative_to(root) and path.is_file():
                     parts.append('<a target="_blank" href="'+html.escape(quote(path.relative_to(root).as_posix(),safe='/'))+'">'+html.escape(relative)+'</a>')
@@ -133,6 +164,8 @@ def main():
     from .review_decisions import apply
     path=root/'review-decisions.json'
     apply(queue,json.loads(path.read_text(encoding='utf-8')) if path.exists() else [],root)
+    from .review_suggestions import attach
+    attach(queue,report)
     (root/'review-queue.json').write_text(json.dumps(queue,indent=2),encoding='utf-8')
     (root/'review-queue.html').write_text(render(queue,root),encoding='utf-8')
     print(json.dumps(queue['summary']))

@@ -426,6 +426,17 @@ def parse(raw):
                                       variant=variants.pop() if len(variants)==1 else None,variant_verified=False))
             facts['skill_cards']=cards
     if screen=='race_result':
+        item_headers=[l for l in lines if l['text']=='Items' and l['confidence']>=97
+                      and within(l,(250,500,830,900))]
+        quantities=[]
+        if len(item_headers)==1:
+            for line in lines:
+                match=re.fullmatch(r'[x\u00d7]\s*(\d{1,6})',line['text'])
+                if (match and line['confidence']>=97 and
+                    within(line,(260,item_headers[0]['box'][3],825,940))):
+                    quantities.append(dict(quantity=int(match[1]),name=None,
+                        box=line['box'],raw_text=line['text'],confidence=line['confidence']))
+        facts['visible_item_quantities']=quantities
         m=re.search(r'Fans\s+([\d,]+)\s*\(\+([\d,]+)\)',text,re.I)
         facts.update(fans=int(m[1].replace(',','')),fans_gained=int(m[2].replace(',','')))
         names=[re.sub(r'^(?:DEBUT|G[123]|OP|PRE-OP|EX)\s+','',l['text'],flags=re.I) for l in lines if l['confidence']>=95 and within(l,(280,425,810,456))

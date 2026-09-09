@@ -157,6 +157,10 @@ def cached_readings(report,root,allow_partial=False):
             raw=apply_symbols(raw,json.loads(symbols.read_text(encoding='utf-8')),root/raw['evidence'],original)
         from .receipt_occlusion import annotate_path
         row=parse(annotate_path(raw,root/raw['evidence'],original))
+        inventory=root/'inventory-refinement'/path.name
+        if inventory.exists():
+            from .refine_inventory import apply as apply_inventory
+            row=apply_inventory(row,original,json.loads(inventory.read_text(encoding='utf-8')),root/raw['evidence'])
         choice=root/'choice-refinement'/path.name
         if choice.exists():
             from .refine_choices import apply as apply_choice

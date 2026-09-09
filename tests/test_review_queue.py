@@ -36,3 +36,19 @@ class ReviewQueueTests(unittest.TestCase):
         for intervals in [[(-1,5)],[(0,400000)],[(5,5)]]:
             with self.assertRaises(ValueError):build(report(),intervals)
         with self.assertRaises(ValueError):build(report(),sweep_ms=0)
+
+    def test_inventory_gaps_are_localized_without_claiming_missing_values(self):
+        r=report();d=r['gameplay_tracking']
+        d['owned_skill_inventory']=dict(complete=False,summary_frames=[dict(timestamp_ms=200000,evidence='summary.png')],
+            observed_owned_cards=[dict(name_text='Example',level=None,variant=None,level_conflicts=[4,5],
+                observations=[dict(timestamp_ms=200000,evidence='summary.png')])])
+        d['readings']=[dict(source_timestamp_ms=200000,evidence='summary.png',facts=dict(
+            owned_skill_panel_conflicts=[dict(slot=[0,0],names=['A','B'])]))]
+        q=build(r)
+        self.assertEqual(set(q['summary']['findings_by_reason']),{
+            'incomplete_owned_inventory','owned_skill_name_conflict','owned_skill_detail_conflict'})
+        self.assertEqual(len(q['triage_windows']),1)
+        finding=q['findings'][0]
+        self.assertEqual(finding['evidence'],['summary.png'])
+        self.assertTrue(finding['details']['missing_detail_is_not_confirmed_absence'])
+        self.assertFalse(q['go_ready'])

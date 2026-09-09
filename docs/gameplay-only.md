@@ -18,7 +18,7 @@ The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080
 - `lesson_purchases`: matching named receipt and confirmation, five-resource costs, observed debits, actual awards and separate projected effects.
 - `skill_purchases`: receipt-backed batch SP debit, cart additions/removals, committed bundles, prerequisite candidates and circle variants. Complete ownership is a separate claim.
 - `owned_skill_inventory`: repeated visible final-summary card text with source evidence. Partial names, symbol variants, levels and off-screen ownership are not promoted to a complete inventory; see [ownership observations](owned-skill-observations.md).
-- `races`: identity, course, placing, fans and unknown item identities.
+- `races`: identity, course, placing, fans and repeated visible item-quantity snapshots. Snapshots require distinct timestamps, preserve evidence, and are never summed across scrolling into an inventory transaction. Item identities and reward-list completeness remain unknown.
 - `concerts`: confirmation, result, aftermath, queued effects, update receipts and later observed current-bonus snapshots. The update caption does not prove every value.
 - `song_acquisitions`: one acquisition per receipt with alternative observed names and supported paid-lesson or story-event associations.
 - `performance_accounting` and `fan_accounting`: separate resource ledgers with unknown observations preserved.

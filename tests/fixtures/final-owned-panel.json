@@ -1,0 +1,380 @@
+[
+  {
+    "source_timestamp_ms": 1759000,
+    "evidence": "gameplay/part-014-frame-000317.png",
+    "raw_sha256": "96457dc81addf5db270b72feec410bfc57d29f8dfa145cf629a92a2265c383ee",
+    "evidence_sha256": "4aa4078828def3871e09c9a47aae46e0ef2422c13d08a8f28359b5ca87672b27",
+    "model_sha256": {
+      "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+      "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+    },
+    "box": [
+      258,
+      500,
+      838,
+      944
+    ],
+    "lines": [
+      {
+        "text": "Festive Miracle",
+        "confidence": 97.207,
+        "box": [
+          318,
+          522,
+          433,
+          546
+        ]
+      },
+      {
+        "text": "Lvl 5",
+        "confidence": 99.495,
+        "box": [
+          495,
+          524,
+          548,
+          550
+        ]
+      },
+      {
+        "text": "Angling and Scheming",
+        "confidence": 99.206,
+        "box": [
+          599,
+          520,
+          767,
+          549
+        ]
+      },
+      {
+        "text": "Barcarole of Blessings",
+        "confidence": 96.94,
+        "box": [
+          317,
+          583,
+          480,
+          611
+        ]
+      },
+      {
+        "text": "Right-Handed",
+        "confidence": 99.969,
+        "box": [
+          599,
+          584,
+          727,
+          611
+        ]
+      },
+      {
+        "text": "Firm Conditions ",
+        "confidence": 98.558,
+        "box": [
+          317,
+          647,
+          453,
+          669
+        ]
+      },
+      {
+        "text": "Fall Runner",
+        "confidence": 99.931,
+        "box": [
+          599,
+          648,
+          707,
+          671
+        ]
+      },
+      {
+        "text": "Winter Runner",
+        "confidence": 95.635,
+        "box": [
+          317,
+          711,
+          443,
+          734
+        ]
+      },
+      {
+        "text": "Swinging Maestro",
+        "confidence": 99.744,
+        "box": [
+          598,
+          709,
+          735,
+          738
+        ]
+      },
+      {
+        "text": "Straightaway Adept",
+        "confidence": 99.977,
+        "box": [
+          318,
+          775,
+          465,
+          798
+        ]
+      },
+      {
+        "text": "Focus",
+        "confidence": 99.964,
+        "box": [
+          600,
+          775,
+          650,
+          796
+        ]
+      },
+      {
+        "text": "Medium",
+        "confidence": 99.99,
+        "box": [
+          317,
+          827,
+          384,
+          851
+        ]
+      },
+      {
+        "text": "Straightaways",
+        "confidence": 99.582,
+        "box": [
+          316,
+          845,
+          440,
+          869
+        ]
+      },
+      {
+        "text": "Thunderbolt Step",
+        "confidence": 99.982,
+        "box": [
+          601,
+          837,
+          732,
+          861
+        ]
+      },
+      {
+        "text": "Murmur",
+        "confidence": 99.982,
+        "box": [
+          315,
+          897,
+          381,
+          924
+        ]
+      },
+      {
+        "text": "Front Runner",
+        "confidence": 99.972,
+        "box": [
+          600,
+          892,
+          698,
+          912
+        ]
+      },
+      {
+        "text": "Straightaways",
+        "confidence": 99.995,
+        "box": [
+          600,
+          909,
+          724,
+          933
+        ]
+      }
+    ],
+    "independent_frame_count": 1
+  },
+  {
+    "source_timestamp_ms": 1759250,
+    "evidence": "gameplay/part-014-frame-000318.png",
+    "raw_sha256": "a6d636e4893243b8d73afa7ee96d6841b1a9d781cea30bb56d62cd9dee439010",
+    "evidence_sha256": "3889b0be4650e37d586c25660f4199180bb6e5e116a92d000b08eb37dbd46bf8",
+    "model_sha256": {
+      "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+      "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+    },
+    "box": [
+      258,
+      500,
+      838,
+      944
+    ],
+    "lines": [
+      {
+        "text": "Festive Miracle",
+        "confidence": 97.315,
+        "box": [
+          318,
+          522,
+          433,
+          546
+        ]
+      },
+      {
+        "text": "Lvl 5",
+        "confidence": 99.489,
+        "box": [
+          495,
+          524,
+          548,
+          550
+        ]
+      },
+      {
+        "text": "Angling and Scheming",
+        "confidence": 99.171,
+        "box": [
+          599,
+          520,
+          767,
+          549
+        ]
+      },
+      {
+        "text": "Barcarole of Blessings",
+        "confidence": 97.032,
+        "box": [
+          317,
+          583,
+          480,
+          611
+        ]
+      },
+      {
+        "text": "Right-Handed",
+        "confidence": 99.968,
+        "box": [
+          599,
+          584,
+          727,
+          611
+        ]
+      },
+      {
+        "text": "Firm Conditions ",
+        "confidence": 98.565,
+        "box": [
+          317,
+          647,
+          453,
+          669
+        ]
+      },
+      {
+        "text": "Fall Runner",
+        "confidence": 99.928,
+        "box": [
+          599,
+          648,
+          707,
+          671
+        ]
+      },
+      {
+        "text": "Winter Runner",
+        "confidence": 95.608,
+        "box": [
+          317,
+          711,
+          443,
+          734
+        ]
+      },
+      {
+        "text": "Swinging Maestro",
+        "confidence": 99.753,
+        "box": [
+          598,
+          709,
+          735,
+          738
+        ]
+      },
+      {
+        "text": "Straightaway Adept",
+        "confidence": 97.813,
+        "box": [
+          317,
+          774,
+          464,
+          797
+        ]
+      },
+      {
+        "text": "Focus",
+        "confidence": 99.965,
+        "box": [
+          600,
+          775,
+          650,
+          796
+        ]
+      },
+      {
+        "text": "Medium",
+        "confidence": 99.991,
+        "box": [
+          317,
+          827,
+          384,
+          851
+        ]
+      },
+      {
+        "text": "Straightaways",
+        "confidence": 99.585,
+        "box": [
+          316,
+          845,
+          440,
+          869
+        ]
+      },
+      {
+        "text": "Thunderbolt Step",
+        "confidence": 99.982,
+        "box": [
+          601,
+          837,
+          732,
+          861
+        ]
+      },
+      {
+        "text": "Murmur",
+        "confidence": 99.982,
+        "box": [
+          315,
+          897,
+          381,
+          924
+        ]
+      },
+      {
+        "text": "Front Runner",
+        "confidence": 99.971,
+        "box": [
+          600,
+          892,
+          698,
+          912
+        ]
+      },
+      {
+        "text": "Straightaways",
+        "confidence": 99.994,
+        "box": [
+          600,
+          909,
+          724,
+          933
+        ]
+      }
+    ],
+    "independent_frame_count": 1
+  }
+]

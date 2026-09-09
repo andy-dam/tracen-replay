@@ -703,6 +703,26 @@ def races(readings):
             fields[field]=unique[0] if len(unique)==1 else None
             if len(unique)>1:conflicts[field]=unique
         group.update(fields,evidence=[r['evidence'] for r in rows],conflicting_readings=conflicts,completed_action='race',item_rewards_complete=False,verified=False)
+        # Preserve stable visible snapshots; scrolling cannot establish item identity
+        # or authorize summing repeated quantities into an inventory transaction.
+        snapshots=[];pending=[]
+        def finish_items():
+            if len({r['source_timestamp_ms'] for r in pending})<2:return
+            snapshots.append(dict(first_seen_ms=pending[0]['source_timestamp_ms'],
+                last_seen_ms=pending[-1]['source_timestamp_ms'],
+                items=[dict(quantity=x['quantity'],name=None) for x in pending[0]['facts']['visible_item_quantities']],
+                evidence=list(dict.fromkeys(r['evidence'] for r in pending)),
+                identity_verified=False,list_complete=False))
+        for row in sorted(rows,key=lambda r:r['source_timestamp_ms']):
+            items=row['facts'].get('visible_item_quantities',[])
+            previous=pending[-1]['facts']['visible_item_quantities'] if pending else []
+            same=(len(items)==len(previous) and all(a['quantity']==b['quantity'] and
+                all(abs(x-y)<=8 for x,y in zip(a['box'],b['box'])) for a,b in zip(items,previous)))
+            if pending and (not same or row['source_timestamp_ms']-pending[-1]['source_timestamp_ms']>500):
+                finish_items();pending=[]
+            if items:pending.append(row)
+        finish_items()
+        group['visible_item_reward_snapshots']=snapshots
     return groups
 
 
