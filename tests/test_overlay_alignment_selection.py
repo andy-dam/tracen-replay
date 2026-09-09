@@ -33,3 +33,13 @@ class OverlayAlignmentSelectionTests(unittest.TestCase):
         pane=Image.new('RGB',(810,1080),'white')
         source=raw([line('Power went up by 5.')],gameplay_sha256='changed')
         with self.assertRaises(ValueError):alignment_boxes(source,pane,[])
+
+    def test_inheritance_receipts_use_physical_overlap_not_name_similarity(self):
+        pane=Image.new('RGB',(810,1080),'white')
+        source=raw([line('Inspired by Seiun S!',[317,806,550,834]),
+                    line('Inspired by Mihono Sourbon!',[318,836,596,863])])
+        source['gameplay_sha256']=hashlib.sha256(pane.tobytes()).hexdigest()
+        with patch('tracen_replay.refine_overlay.overlay_boxes',return_value=[[528,818,540,838]]):
+            self.assertEqual(alignment_boxes(source,pane,[]),[[317,806,550,834]])
+        with patch('tracen_replay.refine_overlay.overlay_boxes',return_value=[[528,867,540,884]]):
+            self.assertEqual(alignment_boxes(source,pane,[]),[])

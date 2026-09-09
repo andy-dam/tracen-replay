@@ -35,7 +35,8 @@ def friendship_status_line(line):
 
 
 def receipt_line(line):
-    return numeric_line(line) or friendship_status_line(line)
+    return numeric_line(line) or friendship_status_line(line) or (
+        770<=line['box'][1]<1000 and bool(re.match(r'^Inspired by\s+\S',line.get('text',''))))
 
 
 def recovered_leading_digit(line,alignments):
@@ -97,6 +98,21 @@ def friendship_name_bounds(box,words,columns,line_length):
     return [a+max(0,start)*scale,b,a+min(line_length,stop)*scale,d]
 
 
+def inspiration_name_bounds(box,words,columns,line_length):
+    """Protect the name and omitted-letter gaps, excluding sentence punctuation."""
+    if line_length<=0 or len(words)!=len(columns) or len(words)<3:return None
+    if words[:2]!=['Inspired','by'] or any(len(w)!=len(c) or not c for w,c in zip(words,columns)):return None
+    if any(v<0 or v>=line_length for c in columns for v in c):return None
+    flattened=[v for group in columns for v in group]
+    if any(left>=right for left,right in zip(flattened,flattened[1:])):return None
+    if not words[-1].endswith(('!','.')):return None
+    a,b,c,d=box;scale=(c-a)/line_length
+    start=max(columns[1])+.75;end=columns[-1][-1]-.5
+    name_columns=[v for group in columns[2:-1] for v in group]+columns[-1][:-1]
+    if not name_columns or start>=min(name_columns) or end<=max(name_columns):return None
+    return [a+start*scale,b,a+end*scale,d]
+
+
 def overlay_boxes(pane):
     import numpy as np
     if pane.size != (810,1080):raise ValueError('Expected the gameplay crop.')
@@ -139,6 +155,11 @@ def annotate(raw,pane):
             if 'words' in item:
                 name=friendship_name_bounds(item['line_box'],item['words'],item['columns'],item['line_length'])
                 if name:name_regions.append(name)
+                inspiration=inspiration_name_bounds(item['line_box'],item['words'],item['columns'],item['line_length']) if (
+                    item.get('recognized_text')==line['text'] and ' '.join(item['words'])==line['text']) else None
+                if inspiration:
+                    name_regions.append(inspiration)
+                    localized.append(inspiration)
         if len(localized)==1:a,b,c,d=localized[0]
         # Detector boxes include space below the baseline. A cursor there can
         # overlap the box while the glyphs remain readable. Require obstruction
