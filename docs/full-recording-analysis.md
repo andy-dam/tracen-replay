@@ -80,6 +80,7 @@ The currency command also rechecks unresolved menu balances with two crops that 
 - `report.json` and `index.html`: reconstructed observations, transactions, accounting, and verification status.
 - `currency-refinement/` and `skill-variants/`: source-bound counter and suffix observations.
 - `skill-points-refinement/`: recognition of the menu counter from two gameplay crops when text detection misses a small number. Both views are one frame's evidence; disagreement remains unresolved.
+- `song-symbols/`: optional pixel observations of a music-note suffix omitted from a song receipt. Run `python -m tracen_replay.song_symbols OUTPUT_DIRECTORY`, then rebuild with `--reparse-only`. The pass requires an isolated note and closing quotes in the supported receipt layout; it preserves original OCR and never substitutes a song catalog name. Threshold variants are correlated views of one frame. Other fonts, clipped symbols, recognized letters and uncertain shapes remain unresolved.
 - `native-inspection.json`: active native-rate windows and their source references.
 - `receipt-inspection.json` and `receipt-inspection/`: bounded ordinary-receipt observations and crop variants, preserving original text and disagreements.
 - `evidence-audit.json`: whole-source identity, decoded frame hashes, exact crop pixels and refinement hashes. Re-run this audit after changing evidence artifacts; it is an integrity snapshot, not a semantic accuracy score.

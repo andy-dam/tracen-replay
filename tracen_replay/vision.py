@@ -190,6 +190,9 @@ def parse(raw):
             repairs[fixed]=line['text'];joined[i]=dict(line,text=fixed)
     parsed_effects=effects_from_lines(joined)
     for effect in parsed_effects:
+        symbol_line=next((l for l in lines if l['text']==effect['raw_text'] and l.get('visual_symbol_observation')),None)
+        if symbol_line:
+            effect.update(original_text=symbol_line['original_symbol_text'],visual_symbol_observation=symbol_line['visual_symbol_observation'])
         if effect['raw_text'] in repairs:
             effect['original_text']=repairs[effect['raw_text']];effect['text_normalization']='fixed_receipt_verb'
     # Typewriter/fade frames can expose a prefix such as "... by 5" of "... by 57."

@@ -53,7 +53,7 @@ def verify(root,source):
             extras=[raw_path.with_suffix('.'+suffix+'.json') for suffix in ('totals','contrast','performance','awards','receipt')]
             extras.append(evidence.with_suffix('.overlay.json'))
             extras.append(evidence.with_suffix('.choice.json'))
-            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement')]
+            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','song-symbols')]
             for extra_path in extras:
                 if not extra_path.exists():continue
                 extra=json.loads(extra_path.read_text(encoding='utf-8'))

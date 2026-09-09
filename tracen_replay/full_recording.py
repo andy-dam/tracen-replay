@@ -149,6 +149,10 @@ def cached_readings(report,root,allow_partial=False):
             extra=json.loads(variants.read_text(encoding='utf-8'))
             if extra['raw_sha256']!=fingerprint(original) or extra['evidence_sha256']!=hashlib.sha256((root/raw['evidence']).read_bytes()).hexdigest():raise PipelineError('Skill variant evidence changed.')
             raw=dict(raw,skill_variants=extra['observations'])
+        symbols=root/'song-symbols'/path.name
+        if symbols.exists():
+            from .song_symbols import apply as apply_symbols
+            raw=apply_symbols(raw,json.loads(symbols.read_text(encoding='utf-8')),root/raw['evidence'],original)
         from .receipt_occlusion import annotate_path
         row=parse(annotate_path(raw,root/raw['evidence'],original))
         choice=root/'choice-refinement'/path.name
