@@ -90,12 +90,16 @@ References may also attach `source_performance_balance` with complete five-curre
 
 ## Gates before the application
 
-Effect references with unfinished labels must declare `reference_complete: false`.
+Action and effect references with unfinished labels must declare `reference_complete: false`.
 Their agreement counts remain available for debugging, but the evaluator cannot
 return a passing result even when every labeled effect matches. This also prevents
 an empty partial reference from being mistaken for a verified negative interval.
 Legacy references without this field keep their existing scoring behavior;
 the flag is a reviewer declaration, not automatic proof of annotation completeness.
+Completeness applies to the declared channel, interval and sampling scope. A fully
+labeled set of 250 ms samples can be complete within that scope while events
+between those samples remain unknown. Action scores explicitly distinguish a
+complete declaration, an incomplete declaration and legacy unspecified metadata.
 
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.

@@ -3,6 +3,9 @@
 
 def evaluate(reference,report):
     if reference['source_sha256']!=report['source']['sha256']:raise ValueError('Different source recordings.')
+    complete=reference.get('reference_complete')
+    if 'reference_complete' in reference and type(complete) is not bool:
+        raise ValueError('reference_complete must be an explicit boolean when supplied.')
     if not isinstance(reference.get('actions'),list) or not reference.get('kinds'):
         raise ValueError('Explicit actions and scoped kinds are required.')
     if not 0<=reference['start_ms']<reference['end_ms']:raise ValueError('Invalid evaluation interval.')
@@ -28,5 +31,8 @@ def evaluate(reference,report):
     return dict(matched=len(matched),expected=len(reference['actions']),predicted=len(predictions),
         precision=len(matched)/len(predictions) if predictions else None,
         recall=len(matched)/len(reference['actions']) if reference['actions'] else None,
-        missed=missed,extra=extra,matches=matched,passed=not missed and not extra,
+        missed=missed,extra=extra,matches=matched,passed=complete is not False and not missed and not extra,
+        reference_complete=complete,
+        completeness='complete' if complete is True else 'incomplete' if complete is False else 'legacy_unspecified',
+        score_blockers=['incomplete_reference'] if complete is False else [],
         independently_reviewed=reference.get('independently_reviewed',False),scope=reference['scope'])
