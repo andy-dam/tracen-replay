@@ -116,3 +116,5 @@ The final-summary reader now retains repeated visible owned-card text independen
 ## Source-ordered coverage
 
 A new negative reference reviews all 40 samples in the first 10 seconds of the separate recording: setup menus and no gameplay award receipts. It scores zero extras. Together with the unchanged 115 seconds of earlier references, declared sampled-effect coverage is 125 seconds (7.035%). This is still not full-source or native-frame recall. The coverage auditor checks reference/sample hashes, avoids double-counting overlaps, and identifies 0:10–0:20 as the next unreviewed source interval. See [source review procedure](source-review-coverage.md).
+
+The next two source-ordered intervals, 0:10–0:20 and 0:20–0:30, now pass 8/8 inheritance effects and the 1/1 introduction SP award. Persistent receipt lines across the interval boundary are not counted again. Combined declared sampled-effect coverage reaches 145 seconds (8.161%); the next uncovered window starts at 0:30. No analyzer or threshold changes were required.
