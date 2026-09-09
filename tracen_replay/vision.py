@@ -216,6 +216,12 @@ def parse(raw):
     stats=dict(values=values('current') if raw['current_grid'] else None,training_preview=preview,
                preview_option=option if preview else None,completed_action=None,
                turns_remaining_to_goal=number(regions.get('countdown',{})))
+    if not raw['current_grid']:
+        from .race_hub_stats import observation as race_hub_observation
+        race_totals=race_hub_observation(lines,grid_verified=raw.get('race_hub_grid_verified') is True)
+        if race_totals:
+            stats.update(values=race_totals['values'],observation_profile=race_totals['profile'],
+                         field_observations=race_totals['field_observations'])
     calendar=[l['text'] for l in lines if within(l,(390,28,830,62)) and l['confidence']>=95
               and re.fullmatch(r'(?:Junior|Classic|Senior) Year (?:Pre-Debut|(?:Early|Late) [A-Z][a-z]{2})|Finale Underway',l['text'])]
     stats['calendar_text']=' '.join(calendar) or None

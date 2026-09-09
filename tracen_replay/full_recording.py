@@ -27,6 +27,15 @@ def parse_receipt_pixels(raw,root,frame,original=None):
     root=Path(root)
     evidence_path=root/raw['evidence']
     checked=annotate_path(raw,evidence_path,original)
+    # Race-day totals occupy a lower ribbon. Verify its pixels before allowing
+    # the original numeric OCR to supply a state during label/button animation.
+    if not checked.get('current_grid'):
+        from .race_hub_stats import observation as race_hub_observation, pixel_layout
+        candidate=race_hub_observation(checked['lines'],grid_verified=True)
+        if candidate:
+            from PIL import Image
+            with Image.open(evidence_path) as pane:
+                if pixel_layout(pane):checked=dict(checked,race_hub_grid_verified=True)
     # Open pixels for suffix recovery only when an eligible receipt exists.
     # Occlusion runs first: a blocked line must not regain confidence here.
     if any(line.get('confidence',0)>=95 and line.get('text','').startswith('Gained ')

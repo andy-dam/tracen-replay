@@ -1,0 +1,447 @@
+{
+  "lines": [
+    {
+      "text": "Classic Year Late Nov",
+      "confidence": 97.885,
+      "box": [
+        389,
+        35,
+        537,
+        55
+      ]
+    },
+    {
+      "text": "GOAL",
+      "confidence": 99.974,
+      "box": [
+        260,
+        58,
+        373,
+        100
+      ]
+    },
+    {
+      "text": "GGoal",
+      "confidence": 85.163,
+      "box": [
+        377,
+        71,
+        446,
+        99
+      ]
+    },
+    {
+      "text": "Place top 3 in Mile Ch.",
+      "confidence": 99.621,
+      "box": [
+        445,
+        63,
+        643,
+        88
+      ]
+    },
+    {
+      "text": "Details",
+      "confidence": 99.982,
+      "box": [
+        771,
+        73,
+        836,
+        101
+      ]
+    },
+    {
+      "text": "Entry criteria met!",
+      "confidence": 99.262,
+      "box": [
+        448,
+        88,
+        603,
+        112
+      ]
+    },
+    {
+      "text": "2 turn(s)",
+      "confidence": 96.15,
+      "box": [
+        282,
+        125,
+        368,
+        153
+      ]
+    },
+    {
+      "text": "Concert in",
+      "confidence": 94.58,
+      "box": [
+        283,
+        110,
+        355,
+        131
+      ]
+    },
+    {
+      "text": "Energy",
+      "confidence": 99.72,
+      "box": [
+        381,
+        119,
+        441,
+        154
+      ]
+    },
+    {
+      "text": "GREAT",
+      "confidence": 99.854,
+      "box": [
+        732,
+        122,
+        804,
+        151
+      ]
+    },
+    {
+      "text": "HINT",
+      "confidence": 95.672,
+      "box": [
+        877,
+        226,
+        924,
+        248
+      ]
+    },
+    {
+      "text": "Action not supported.",
+      "confidence": 99.206,
+      "box": [
+        454,
+        522,
+        648,
+        555
+      ]
+    },
+    {
+      "text": "I'm in peak condition. Thank",
+      "confidence": 98.246,
+      "box": [
+        456,
+        666,
+        677,
+        694
+      ]
+    },
+    {
+      "text": "you, Trainer!",
+      "confidence": 99.946,
+      "box": [
+        457,
+        689,
+        560,
+        715
+      ]
+    },
+    {
+      "text": "Full",
+      "confidence": 99.981,
+      "box": [
+        775,
+        689,
+        812,
+        713
+      ]
+    },
+    {
+      "text": "Silver",
+      "confidence": 99.994,
+      "box": [
+        301,
+        707,
+        362,
+        736
+      ]
+    },
+    {
+      "text": "Stats",
+      "confidence": 99.992,
+      "box": [
+        771,
+        710,
+        816,
+        732
+      ]
+    },
+    {
+      "text": "Speed",
+      "confidence": 99.909,
+      "box": [
+        298,
+        754,
+        359,
+        778
+      ]
+    },
+    {
+      "text": "Stamina",
+      "confidence": 99.993,
+      "box": [
+        392,
+        755,
+        461,
+        778
+      ]
+    },
+    {
+      "text": "Power",
+      "confidence": 99.965,
+      "box": [
+        494,
+        757,
+        549,
+        778
+      ]
+    },
+    {
+      "text": "Guts",
+      "confidence": 99.73,
+      "box": [
+        596,
+        756,
+        639,
+        778
+      ]
+    },
+    {
+      "text": "Wit",
+      "confidence": 99.988,
+      "box": [
+        671,
+        754,
+        731,
+        779
+      ]
+    },
+    {
+      "text": "Skill Pts",
+      "confidence": 99.951,
+      "box": [
+        757,
+        754,
+        832,
+        779
+      ]
+    },
+    {
+      "text": "642",
+      "confidence": 99.978,
+      "box": [
+        311,
+        777,
+        365,
+        807
+      ]
+    },
+    {
+      "text": "462",
+      "confidence": 99.996,
+      "box": [
+        407,
+        777,
+        461,
+        807
+      ]
+    },
+    {
+      "text": "515",
+      "confidence": 99.95,
+      "box": [
+        502,
+        777,
+        555,
+        807
+      ]
+    },
+    {
+      "text": "358",
+      "confidence": 99.996,
+      "box": [
+        598,
+        777,
+        651,
+        806
+      ]
+    },
+    {
+      "text": "671",
+      "confidence": 99.987,
+      "box": [
+        692,
+        777,
+        744,
+        807
+      ]
+    },
+    {
+      "text": "1085",
+      "confidence": 99.991,
+      "box": [
+        752,
+        780,
+        835,
+        819
+      ]
+    },
+    {
+      "text": "/1600",
+      "confidence": 99.973,
+      "box": [
+        306,
+        802,
+        364,
+        823
+      ]
+    },
+    {
+      "text": "/1348",
+      "confidence": 99.977,
+      "box": [
+        399,
+        801,
+        461,
+        825
+      ]
+    },
+    {
+      "text": "/1355",
+      "confidence": 99.984,
+      "box": [
+        497,
+        802,
+        553,
+        823
+      ]
+    },
+    {
+      "text": "/1500",
+      "confidence": 99.968,
+      "box": [
+        592,
+        801,
+        651,
+        825
+      ]
+    },
+    {
+      "text": "/1300",
+      "confidence": 99.979,
+      "box": [
+        686,
+        801,
+        746,
+        825
+      ]
+    },
+    {
+      "text": "Race",
+      "confidence": 99.968,
+      "box": [
+        493,
+        834,
+        559,
+        868
+      ]
+    },
+    {
+      "text": "Day",
+      "confidence": 77.494,
+      "box": [
+        572,
+        844,
+        602,
+        864
+      ]
+    },
+    {
+      "text": "2",
+      "confidence": 99.75,
+      "box": [
+        518,
+        877,
+        540,
+        897
+      ]
+    },
+    {
+      "text": "3",
+      "confidence": 99.95,
+      "box": [
+        557,
+        880,
+        574,
+        897
+      ]
+    },
+    {
+      "text": "Skills",
+      "confidence": 83.82,
+      "box": [
+        309,
+        919,
+        394,
+        958
+      ]
+    },
+    {
+      "text": "Race!",
+      "confidence": 95.117,
+      "box": [
+        497,
+        919,
+        602,
+        964
+      ]
+    },
+    {
+      "text": "Lessons",
+      "confidence": 99.799,
+      "box": [
+        701,
+        925,
+        805,
+        956
+      ]
+    },
+    {
+      "text": "Skip",
+      "confidence": 99.965,
+      "box": [
+        520,
+        1036,
+        613,
+        1071
+      ]
+    },
+    {
+      "text": "Quick",
+      "confidence": 99.984,
+      "box": [
+        671,
+        1038,
+        734,
+        1066
+      ]
+    }
+  ],
+  "regions": {},
+  "header": "",
+  "current_grid": false,
+  "result_grid": false,
+  "source_timestamp_ms": 879000,
+  "evidence": "gameplay/part-007-frame-000157.png",
+  "source_frame_sha256": "df52a7f247f97a5e3c31c7aa286ab36d208b78a572d54aace6a5a08939cac578",
+  "gameplay_sha256": "0f9f8238709e44388c9b1696d1fcf05f406f6a623f302e74b4e139735e398727",
+  "model_sha256": {
+    "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+    "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+  },
+  "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7"
+}
