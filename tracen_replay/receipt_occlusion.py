@@ -47,6 +47,18 @@ def numeric_bounds(box,words,columns,line_length):
     return [a+start*scale,b,a+end*scale,d]
 
 
+def friendship_name_bounds(box,words,columns,line_length):
+    """A readable amount cannot establish a cursor-covered recipient name."""
+    if line_length<=0 or len(words)!=len(columns) or any(not c for c in columns):return None
+    if any(v<0 or v>=line_length for c in columns for v in c):return None
+    if words[:2]!=['Friendship','with'] or 'went' not in words[2:]:return None
+    end=words.index('went',2)
+    if end<=2:return None
+    a,b,c,d=box;scale=(c-a)/line_length
+    return [a+max(0,min(columns[2])-.5)*scale,b,
+            a+min(line_length,max(columns[end-1])+1.5)*scale,d]
+
+
 def overlay_boxes(pane):
     import numpy as np
     if pane.size != (810,1080):raise ValueError('Expected the gameplay crop.')
@@ -81,23 +93,30 @@ def annotate(raw,pane):
     lines=[dict(line) for line in raw['lines']];blocked=[];resolved=[]
     for index in candidates:
         line=lines[index];a,b,c,d=line['box']
-        localized=[]
+        localized=[];name_regions=[]
         for item in raw.get('overlay_alignment',[]):
             if item['line_box']!=line['box'] or item.get('confidence',100)<95:continue
             bounds=numeric_bounds(item['line_box'],item['words'],item['columns'],item['line_length']) if 'words' in item else item.get('numeric_box')
             if bounds:localized.append(bounds)
+            if 'words' in item:
+                name=friendship_name_bounds(item['line_box'],item['words'],item['columns'],item['line_length'])
+                if name:name_regions.append(name)
         if len(localized)==1:a,b,c,d=localized[0]
         # Detector boxes include space below the baseline. A cursor there can
         # overlap the box while the glyphs remain readable. Require obstruction
         # through the text's vertical center, not padding or a glyph's edge.
         middle=(b+d)/2
         overlaps=[box for box in boxes if min(c,box[2])-max(a,box[0])>=3 and box[1]<=middle<=box[3]]
+        name_overlaps=[box for x,y,z,w in name_regions for box in boxes
+                       if min(z,box[2])-max(x,box[0])>=3 and box[1]<=(y+w)/2<=box[3]]
+        overlaps+=name_overlaps
         if overlaps:
-            if recovered_leading_digit(line,raw.get('overlay_alignment',[])):
+            if not name_overlaps and recovered_leading_digit(line,raw.get('overlay_alignment',[])):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
                                      basis='padded_views_recover_leading_digit',independent_frame_count=1))
                 continue
-            blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps))
+            blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps,
+                                recipient_name_occluded=bool(name_overlaps)))
             line.update(confidence=0,overlay_occluded=True,pre_occlusion_confidence=line['confidence'])
     return dict(raw,lines=lines,occluded_receipt_lines=blocked,resolved_receipt_occlusions=resolved) if blocked or resolved else raw
 

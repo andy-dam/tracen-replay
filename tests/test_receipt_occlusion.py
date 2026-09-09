@@ -8,6 +8,20 @@ from tracen_replay.transactions import outcome_events
 
 
 class ReceiptOcclusionTests(unittest.TestCase):
+    def test_recipient_obstruction_is_not_excused_by_clear_amount(self):
+        from unittest.mock import patch
+        pane=Image.new('RGB',(810,1080),'white')
+        source=raw([line('Friendship with Example Name went up by 7.',(300,820,740,850))])
+        source['gameplay_sha256']=hashlib.sha256(pane.tobytes()).hexdigest()
+        words=['Friendship','with','Example','Name','went','up','by','7.']
+        columns=[[1,2],[4,5],[7,8,9],[11,12],[14,15],[17,18],[20,21],[24,25]]
+        source['overlay_alignment']=[dict(line_box=[300,820,740,850],words=words,columns=columns,line_length=27,confidence=99)]
+        with patch('tracen_replay.receipt_occlusion.overlay_boxes',return_value=[[445,824,458,846]]):
+            marked=annotate(source,pane)
+            self.assertEqual(parse(marked)['effects'],[])
+            self.assertTrue(marked['occluded_receipt_lines'][0]['recipient_name_occluded'])
+        self.assertEqual(source['lines'][0]['confidence'],99)
+
     def test_numeric_alignment_includes_hidden_leading_digit_gap(self):
         box=numeric_bounds([317,856,542,882],['Skill','Pts','went','up','by','7.'],
                            [[2,4,6,7,9],[12,14,16],[20,23,26,28],[32,34],[38,41],[48,50]],52)
