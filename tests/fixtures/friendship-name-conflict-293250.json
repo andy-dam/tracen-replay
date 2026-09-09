@@ -1,0 +1,696 @@
+[
+  {
+    "screen": "event_outcome",
+    "stats": {
+      "values": null,
+      "training_preview": false,
+      "preview_option": null,
+      "completed_action": null,
+      "turns_remaining_to_goal": null,
+      "calendar_text": "Junior Year Late Nov"
+    },
+    "training_option": null,
+    "effects": [
+      {
+        "kind": "stat_change",
+        "field": "wit",
+        "amount": 2,
+        "raw_text": "Wit went up by 2.",
+        "confidence": 99.888
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Etsuko Otonashi",
+        "amount": 7,
+        "raw_text": "Friendship with Etsuko Otonashi went up by 7.",
+        "confidence": 98.972
+      }
+    ],
+    "facts": {},
+    "completed_action": null,
+    "context_title": null,
+    "context_title_candidate": null,
+    "ocr": {
+      "neural": [
+        {
+          "text": "Career",
+          "confidence": 99.941,
+          "box": [
+            154,
+            3,
+            218,
+            30
+          ]
+        },
+        {
+          "text": "Junior Year Late Nov",
+          "confidence": 97.159,
+          "box": [
+            390,
+            37,
+            531,
+            54
+          ]
+        },
+        {
+          "text": "3",
+          "confidence": 99.959,
+          "box": [
+            270,
+            53,
+            312,
+            103
+          ]
+        },
+        {
+          "text": "turn(s)",
+          "confidence": 99.77,
+          "box": [
+            322,
+            62,
+            375,
+            82
+          ]
+        },
+        {
+          "text": "Earn 3000 fans",
+          "confidence": 99.98,
+          "box": [
+            446,
+            63,
+            579,
+            86
+          ]
+        },
+        {
+          "text": "left",
+          "confidence": 99.626,
+          "box": [
+            321,
+            78,
+            357,
+            101
+          ]
+        },
+        {
+          "text": "CGoal",
+          "confidence": 87.152,
+          "box": [
+            377,
+            73,
+            445,
+            98
+          ]
+        },
+        {
+          "text": "Progress",
+          "confidence": 99.932,
+          "box": [
+            448,
+            87,
+            517,
+            114
+          ]
+        },
+        {
+          "text": "1,756 fan(s) to go",
+          "confidence": 97.386,
+          "box": [
+            537,
+            86,
+            678,
+            113
+          ]
+        },
+        {
+          "text": "Details",
+          "confidence": 99.98,
+          "box": [
+            773,
+            74,
+            836,
+            99
+          ]
+        },
+        {
+          "text": "2 turn(s)",
+          "confidence": 95.243,
+          "box": [
+            282,
+            125,
+            368,
+            153
+          ]
+        },
+        {
+          "text": "Concert in",
+          "confidence": 98.335,
+          "box": [
+            284,
+            110,
+            356,
+            131
+          ]
+        },
+        {
+          "text": "Energy",
+          "confidence": 99.549,
+          "box": [
+            382,
+            120,
+            440,
+            154
+          ]
+        },
+        {
+          "text": "GREAT",
+          "confidence": 90.137,
+          "box": [
+            722,
+            119,
+            795,
+            151
+          ]
+        },
+        {
+          "text": "Day",
+          "confidence": 99.971,
+          "box": [
+            691,
+            360,
+            719,
+            375
+          ]
+        },
+        {
+          "text": "Wit went up by 2.",
+          "confidence": 99.888,
+          "box": [
+            316,
+            806,
+            490,
+            835
+          ]
+        },
+        {
+          "text": "Friendship with Etsuko Otonashi went up by 7.",
+          "confidence": 98.972,
+          "box": [
+            314,
+            828,
+            759,
+            862
+          ]
+        },
+        {
+          "text": "Skip",
+          "confidence": 99.917,
+          "box": [
+            522,
+            1038,
+            573,
+            1069
+          ]
+        },
+        {
+          "text": ">",
+          "confidence": 85.739,
+          "box": [
+            565,
+            1042,
+            607,
+            1065
+          ]
+        },
+        {
+          "text": "Quick",
+          "confidence": 99.945,
+          "box": [
+            670,
+            1037,
+            733,
+            1065
+          ]
+        }
+      ]
+    },
+    "source_timestamp_ms": 292750,
+    "evidence": "gameplay/part-002-frame-000212.png"
+  },
+  {
+    "screen": "event_outcome",
+    "stats": {
+      "values": null,
+      "training_preview": false,
+      "preview_option": null,
+      "completed_action": null,
+      "turns_remaining_to_goal": null,
+      "calendar_text": "Junior Year Late Nov"
+    },
+    "training_option": null,
+    "effects": [
+      {
+        "kind": "stat_change",
+        "field": "wit",
+        "amount": 2,
+        "raw_text": "Wit went up by 2.",
+        "confidence": 97.402
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Etsuko Otonashi",
+        "amount": 7,
+        "raw_text": "Friendship with Etsuko Otonashi went up by 7.",
+        "confidence": 97.86
+      }
+    ],
+    "facts": {},
+    "completed_action": null,
+    "context_title": null,
+    "context_title_candidate": null,
+    "ocr": {
+      "neural": [
+        {
+          "text": "Career",
+          "confidence": 99.941,
+          "box": [
+            154,
+            3,
+            218,
+            30
+          ]
+        },
+        {
+          "text": "Junior Year Late Nov",
+          "confidence": 99.828,
+          "box": [
+            390,
+            37,
+            531,
+            54
+          ]
+        },
+        {
+          "text": "3",
+          "confidence": 99.959,
+          "box": [
+            270,
+            53,
+            312,
+            103
+          ]
+        },
+        {
+          "text": "turn(s)",
+          "confidence": 99.77,
+          "box": [
+            322,
+            62,
+            375,
+            82
+          ]
+        },
+        {
+          "text": "Earn 3000 fans",
+          "confidence": 99.973,
+          "box": [
+            446,
+            63,
+            579,
+            86
+          ]
+        },
+        {
+          "text": "left",
+          "confidence": 99.626,
+          "box": [
+            321,
+            78,
+            357,
+            101
+          ]
+        },
+        {
+          "text": "CGoal",
+          "confidence": 87.152,
+          "box": [
+            377,
+            73,
+            445,
+            98
+          ]
+        },
+        {
+          "text": "Progress",
+          "confidence": 99.932,
+          "box": [
+            448,
+            87,
+            517,
+            114
+          ]
+        },
+        {
+          "text": "1,756 fan(s) to go",
+          "confidence": 98.402,
+          "box": [
+            537,
+            86,
+            678,
+            113
+          ]
+        },
+        {
+          "text": "Details",
+          "confidence": 99.98,
+          "box": [
+            773,
+            74,
+            836,
+            99
+          ]
+        },
+        {
+          "text": "Concert in",
+          "confidence": 98.519,
+          "box": [
+            284,
+            110,
+            356,
+            131
+          ]
+        },
+        {
+          "text": "2 turn(s)",
+          "confidence": 88.738,
+          "box": [
+            282,
+            125,
+            368,
+            153
+          ]
+        },
+        {
+          "text": "Energy",
+          "confidence": 99.549,
+          "box": [
+            382,
+            120,
+            440,
+            154
+          ]
+        },
+        {
+          "text": "GREAT",
+          "confidence": 99.704,
+          "box": [
+            724,
+            121,
+            794,
+            150
+          ]
+        },
+        {
+          "text": "Day",
+          "confidence": 99.96,
+          "box": [
+            689,
+            359,
+            721,
+            377
+          ]
+        },
+        {
+          "text": "Wit went up by 2.",
+          "confidence": 97.402,
+          "box": [
+            316,
+            805,
+            490,
+            837
+          ]
+        },
+        {
+          "text": "Friendship with Etsuko Otonashi went up by 7.",
+          "confidence": 97.86,
+          "box": [
+            316,
+            830,
+            758,
+            860
+          ]
+        },
+        {
+          "text": "Skip",
+          "confidence": 99.922,
+          "box": [
+            522,
+            1038,
+            573,
+            1069
+          ]
+        },
+        {
+          "text": "Quick",
+          "confidence": 99.946,
+          "box": [
+            670,
+            1037,
+            733,
+            1065
+          ]
+        }
+      ]
+    },
+    "source_timestamp_ms": 293000,
+    "evidence": "gameplay/part-002-frame-000213.png"
+  },
+  {
+    "screen": "event_outcome",
+    "stats": {
+      "values": null,
+      "training_preview": false,
+      "preview_option": null,
+      "completed_action": null,
+      "turns_remaining_to_goal": null,
+      "calendar_text": "Junior Year Late Nov"
+    },
+    "training_option": null,
+    "effects": [
+      {
+        "kind": "stat_change",
+        "field": "wit",
+        "amount": 2,
+        "raw_text": "Wit went up by 2.",
+        "confidence": 97.739
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Etsuko Stonashi",
+        "amount": 7,
+        "raw_text": "Friendship with Etsuko Stonashi went up by 7.",
+        "confidence": 97.974
+      }
+    ],
+    "facts": {},
+    "completed_action": null,
+    "context_title": null,
+    "context_title_candidate": null,
+    "ocr": {
+      "neural": [
+        {
+          "text": "Career",
+          "confidence": 99.941,
+          "box": [
+            154,
+            3,
+            218,
+            30
+          ]
+        },
+        {
+          "text": "Junior Year Late Nov",
+          "confidence": 99.828,
+          "box": [
+            390,
+            37,
+            531,
+            54
+          ]
+        },
+        {
+          "text": "3",
+          "confidence": 99.959,
+          "box": [
+            270,
+            53,
+            312,
+            103
+          ]
+        },
+        {
+          "text": "turn(s)",
+          "confidence": 99.769,
+          "box": [
+            322,
+            62,
+            375,
+            82
+          ]
+        },
+        {
+          "text": "Earn 3000 fans",
+          "confidence": 99.973,
+          "box": [
+            446,
+            63,
+            579,
+            86
+          ]
+        },
+        {
+          "text": "left",
+          "confidence": 99.63,
+          "box": [
+            321,
+            78,
+            357,
+            101
+          ]
+        },
+        {
+          "text": "CGoal",
+          "confidence": 86.738,
+          "box": [
+            377,
+            73,
+            445,
+            98
+          ]
+        },
+        {
+          "text": "Progress",
+          "confidence": 99.932,
+          "box": [
+            448,
+            87,
+            517,
+            114
+          ]
+        },
+        {
+          "text": "1,756 fan(s) to go",
+          "confidence": 98.392,
+          "box": [
+            537,
+            86,
+            678,
+            113
+          ]
+        },
+        {
+          "text": "Details",
+          "confidence": 99.98,
+          "box": [
+            773,
+            74,
+            836,
+            99
+          ]
+        },
+        {
+          "text": "Concert in",
+          "confidence": 98.582,
+          "box": [
+            284,
+            110,
+            356,
+            131
+          ]
+        },
+        {
+          "text": "2 turn(s)",
+          "confidence": 96.003,
+          "box": [
+            282,
+            125,
+            368,
+            153
+          ]
+        },
+        {
+          "text": "Energy",
+          "confidence": 93.141,
+          "box": [
+            382,
+            120,
+            441,
+            153
+          ]
+        },
+        {
+          "text": "GREAT",
+          "confidence": 99.713,
+          "box": [
+            724,
+            121,
+            794,
+            150
+          ]
+        },
+        {
+          "text": "Day",
+          "confidence": 99.972,
+          "box": [
+            691,
+            360,
+            719,
+            375
+          ]
+        },
+        {
+          "text": "Wit went up by 2.",
+          "confidence": 97.739,
+          "box": [
+            316,
+            805,
+            489,
+            835
+          ]
+        },
+        {
+          "text": "Friendship with Etsuko Stonashi went up by 7.",
+          "confidence": 97.974,
+          "box": [
+            314,
+            828,
+            759,
+            862
+          ]
+        },
+        {
+          "text": "Skip",
+          "confidence": 99.921,
+          "box": [
+            522,
+            1038,
+            573,
+            1069
+          ]
+        },
+        {
+          "text": "Quick",
+          "confidence": 99.935,
+          "box": [
+            670,
+            1037,
+            733,
+            1065
+          ]
+        }
+      ]
+    },
+    "source_timestamp_ms": 293250,
+    "evidence": "gameplay/part-002-frame-000214.png"
+  }
+]

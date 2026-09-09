@@ -422,6 +422,7 @@ def continued_title(current,row):
 
 def outcome_events(readings):
     events=[];current=None
+    rows_by_evidence={r['evidence']:r for r in readings}
     for row in readings:
         time=row['source_timestamp_ms'];effects=row.get('effects',[]);pending=row.get('facts',{}).get('effect_candidates',[])
         if not effects and not pending:
@@ -489,6 +490,8 @@ def outcome_events(readings):
         reconcile_animated_performance(event,readings)
         reconcile_animated_performance(event,readings,stat=True,receipt_observations=receipt_observations)
         event['effects']=list(event['effects'].values())
+        from .receipt_names import flag_friendship_identity_conflicts
+        flag_friendship_identity_conflicts(event,rows_by_evidence)
         from .receipt_names import collapse_visual_hint_variants
         collapse_visual_hint_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings})
         # Missing circle glyphs must not turn one visible hint into two awards.

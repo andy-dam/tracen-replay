@@ -1,6 +1,59 @@
 """Resolve narrowly supported missing-character variants inside one song receipt."""
 
 
+def flag_friendship_identity_conflicts(event,rows_by_evidence):
+    """Abstain when adjacent views of one receipt slot disagree on a name.
+
+    No spelling is selected. Simultaneous recipients and separate receipt
+    positions remain distinct, even when their names and gains are similar.
+    """
+    effects=[e for e in event['effects'] if e['kind']=='friendship_change']
+    def observations(effect):
+        key='friendship_change||'+effect['name'];result=[]
+        for proof in event['field_evidence'].get(key,[]):
+            row=rows_by_evidence.get(proof)
+            if row is None:continue
+            texts={effect.get('raw_text'),effect.get('original_text')}-{None}
+            lines=[l for l in row.get('ocr',{}).get('neural',[])
+                   if l.get('confidence',0)>=95 and l.get('text') in texts]
+            if len(lines)==1:
+                result.append((row['source_timestamp_ms'],proof,lines[0]['box']))
+        return result
+    observed={e['name']:observations(e) for e in effects}
+    disputed=set()
+    for index,left in enumerate(effects):
+        for right in effects[index+1:]:
+            a,b=left['name'],right['name']
+            if len(a)<8 or len(a)!=len(b) or sum(x!=y for x,y in zip(a,b))!=1:continue
+            if left.get('amount')!=right.get('amount'):continue
+            first,second=observed[a],observed[b]
+            if {x[0] for x in first}&{x[0] for x in second}:continue
+            pairs=[]
+            for ta,pa,ba in first:
+                for tb,pb,bb in second:
+                    if not 0<abs(ta-tb)<=250:continue
+                    if len(ba)!=4 or len(bb)!=4:continue
+                    width=max(0,min(ba[2],bb[2])-max(ba[0],bb[0]))
+                    height=max(0,min(ba[3],bb[3])-max(ba[1],bb[1]))
+                    intersection=width*height
+                    union=(ba[2]-ba[0])*(ba[3]-ba[1])+(bb[2]-bb[0])*(bb[3]-bb[1])-intersection
+                    if union>0 and intersection/union>=.8 and abs((ba[1]+ba[3]-bb[1]-bb[3])/2)<=3:
+                        pairs.append([pa,pb])
+            if not pairs:continue
+            disputed.update((a,b))
+            for name in (a,b):
+                event['conflicting_readings'].append(dict(field='friendship_change||'+name,
+                    reason='recipient_name_changes_in_adjacent_same_slot_receipt',
+                    name_candidates=[a,b],evidence_pairs=pairs))
+    if disputed:
+        event.setdefault('ambiguous_effect_candidates',[]).extend(
+            dict(effect=e,reason='unresolved_recipient_identity',
+                 evidence=event['field_evidence'].get('friendship_change||'+e['name'],[]))
+            for e in effects if e['name'] in disputed)
+        event['effects']=[e for e in event['effects'] if not
+            (e['kind']=='friendship_change' and e['name'] in disputed)]
+
+
 def collapse_visual_hint_variants(event,timestamps):
     """Keep one award when contiguous receipt frames lose a proven marker.
 
