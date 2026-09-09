@@ -32,6 +32,32 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
     positions remain distinct, even when their names and gains are similar.
     """
     effects=[e for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')]
+    def same_slot(ba,bb):
+        if len(ba)!=4 or len(bb)!=4:return False
+        width=max(0,min(ba[2],bb[2])-max(ba[0],bb[0]))
+        height=max(0,min(ba[3],bb[3])-max(ba[1],bb[1]))
+        intersection=width*height
+        union=(ba[2]-ba[0])*(ba[3]-ba[1])+(bb[2]-bb[0])*(bb[3]-bb[1])-intersection
+        return union>0 and intersection/union>=.8 and abs((ba[1]+ba[3]-bb[1]-bb[3])/2)<=3
+    def occluded_bridge(ta,tb,pa,pb,ba,bb,effect):
+        if abs(ta-tb)!=500:return False
+        middle=(ta+tb)//2
+        proofs={p for paths in event['field_evidence'].values() for p in paths}
+        rows=[rows_by_evidence[p] for p in proofs if p in rows_by_evidence
+              and rows_by_evidence[p]['source_timestamp_ms']==middle]
+        if len(rows)!=1:return False
+        row=rows[0]
+        if _dialogue_text_moved(rows_by_evidence[pa],row) or _dialogue_text_moved(row,rows_by_evidence[pb]):return False
+        from .gameplay import effects_from_lines
+        for line in row.get('facts',{}).get('occluded_receipt_lines',[]):
+            if line.get('recipient_name_occluded') is not True:continue
+            if not same_slot(ba,line.get('box',[])) or not same_slot(bb,line.get('box',[])):continue
+            # Read the retained pre-occlusion grammar only to identify this
+            # unknown slot. Its recipient is never restored as an effect.
+            parsed=effects_from_lines([line])
+            if len(parsed)==1 and all(parsed[0].get(k)==effect.get(k) for k in ('kind','amount','value')):
+                return row['evidence']
+        return False
     def identity(effect):return (effect['kind'],effect['name'])
     def field(effect):return effect['kind']+'||'+effect['name']
     def observations(effect):
@@ -57,24 +83,22 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             if left.get('amount')!=right.get('amount') or left.get('value')!=right.get('value'):continue
             first,second=observed[identity(left)],observed[identity(right)]
             if {x[0] for x in first}&{x[0] for x in second}:continue
-            pairs=[]
+            pairs=[];bridges=[]
             for ta,pa,ba in first:
                 for tb,pb,bb in second:
-                    if not 0<abs(ta-tb)<=250:continue
+                    bridge=occluded_bridge(ta,tb,pa,pb,ba,bb,left) if abs(ta-tb)>250 else False
+                    if not (0<abs(ta-tb)<=250 or bridge):continue
                     if _dialogue_text_moved(rows_by_evidence[pa],rows_by_evidence[pb]):continue
-                    if len(ba)!=4 or len(bb)!=4:continue
-                    width=max(0,min(ba[2],bb[2])-max(ba[0],bb[0]))
-                    height=max(0,min(ba[3],bb[3])-max(ba[1],bb[1]))
-                    intersection=width*height
-                    union=(ba[2]-ba[0])*(ba[3]-ba[1])+(bb[2]-bb[0])*(bb[3]-bb[1])-intersection
-                    if union>0 and intersection/union>=.8 and abs((ba[1]+ba[3]-bb[1]-bb[3])/2)<=3:
+                    if same_slot(ba,bb):
                         pairs.append([pa,pb])
+                        if bridge:bridges.append(bridge)
             if not pairs:continue
             disputed.update((identity(left),identity(right)))
             for effect in (left,right):
                 event['conflicting_readings'].append(dict(field=field(effect),
                     reason='recipient_name_changes_in_adjacent_same_slot_receipt',
-                    name_candidates=[a,b],evidence_pairs=pairs))
+                    name_candidates=[a,b],evidence_pairs=pairs,
+                    **({'occluded_bridge_evidence':sorted(set(bridges))} if bridges else {})))
     if disputed:
         event.setdefault('ambiguous_effect_candidates',[]).extend(
             dict(effect=e,reason='unresolved_recipient_identity',

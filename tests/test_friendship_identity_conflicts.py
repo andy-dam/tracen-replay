@@ -7,6 +7,36 @@ from tracen_replay.transactions import outcome_events
 
 
 class FriendshipIdentityConflictsTests(unittest.TestCase):
+    def bridge_fixture(self):
+        return json.loads(Path('tests/fixtures/friendship-occluded-bridge-1181000.json').read_text(encoding='utf-8'))
+
+    def test_explicit_occluded_middle_frame_connects_conflicting_source_names(self):
+        from tracen_replay.receipt_names import flag_friendship_identity_conflicts
+        fixture=self.bridge_fixture();event=fixture['event']
+        flag_friendship_identity_conflicts(event,fixture['rows_by_evidence'])
+        self.assertEqual([e['kind'] for e in event['effects']],['stat_change'])
+        self.assertEqual({c['effect']['name'] for c in event['ambiguous_effect_candidates']},
+                         {'Director Akikawa','Directo Akikawa'})
+        self.assertTrue(all(c['occluded_bridge_evidence']==['gameplay/part-009-frame-000407.png'] for c in event['conflicting_readings']))
+
+    def test_unobserved_unrelated_or_moved_middle_frame_cannot_bridge(self):
+        from tracen_replay.receipt_names import flag_friendship_identity_conflicts
+        for mutation in ('missing','not_name_occlusion','different_award','different_slot','scroll'):
+            fixture=self.bridge_fixture();event=fixture['event'];rows=fixture['rows_by_evidence']
+            key='gameplay/part-009-frame-000407.png';row=rows[key]
+            candidate=row['facts']['occluded_receipt_lines'][0]
+            if mutation=='missing':del rows[key]
+            elif mutation=='not_name_occlusion':candidate['recipient_name_occluded']=False
+            elif mutation=='different_award':candidate['text']=candidate['text'].replace('by 5','by 6')
+            elif mutation=='different_slot':candidate['box'][1]+=40;candidate['box'][3]+=40
+            else:
+                line=next(l for l in row['ocr']['neural'] if l['text'].startswith('Skill Pts'))
+                line['box'][1]+=24;line['box'][3]+=24
+            flag_friendship_identity_conflicts(event,rows)
+            with self.subTest(mutation=mutation):
+                self.assertEqual(len(event['effects']),3)
+                self.assertFalse(event['conflicting_readings'])
+
     def test_scrolling_source_dialogue_does_not_make_distinct_people_ambiguous(self):
         from tracen_replay.receipt_names import flag_friendship_identity_conflicts
         fixture=json.loads(Path('tests/fixtures/friendship-status-scroll-1447750.json').read_text(encoding='utf-8'))

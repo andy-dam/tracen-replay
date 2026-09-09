@@ -1,0 +1,1146 @@
+{
+  "event": {
+    "id": "outcome-0183",
+    "kind": "outcome",
+    "first_seen_ms": 1181000,
+    "last_seen_ms": 1182000,
+    "evidence": "gameplay/part-009-frame-000405.png",
+    "context_title": null,
+    "effects": [
+      {
+        "kind": "stat_change",
+        "field": "skill_points",
+        "amount": 4,
+        "raw_text": "Skill Pts went up by 4.",
+        "confidence": 95.194
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Director Akikawa",
+        "amount": 5,
+        "raw_text": "Friendship with Director Akikawa went up by 5.",
+        "confidence": 99.108
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Directo Akikawa",
+        "amount": 5,
+        "raw_text": "Friendship with Directo Akikawa went up by 5.",
+        "confidence": 97.553
+      }
+    ],
+    "field_evidence": {
+      "stat_change|skill_points|": [
+        "gameplay/part-009-frame-000405.png",
+        "gameplay/part-009-frame-000406.png",
+        "gameplay/part-009-frame-000407.png",
+        "gameplay/part-009-frame-000408.png",
+        "gameplay/part-009-frame-000409.png"
+      ],
+      "friendship_change||Director Akikawa": [
+        "gameplay/part-009-frame-000406.png"
+      ],
+      "friendship_change||Directo Akikawa": [
+        "gameplay/part-009-frame-000408.png"
+      ]
+    },
+    "conflicting_readings": [],
+    "action_time_ms": null,
+    "context_title_candidate": null,
+    "deltas": {
+      "skill_points": 4
+    }
+  },
+  "rows_by_evidence": {
+    "gameplay/part-009-frame-000405.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Jun"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 96.875
+        }
+      ],
+      "facts": {
+        "goal_status_observation": {
+          "status": "achieved",
+          "raw_text": "Goal Achieved!",
+          "confidence": 98.965,
+          "box": [
+            448,
+            90,
+            584,
+            113
+          ],
+          "semantics": "visible_status_only; completion_time_and_rewards_not_inferred"
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.946,
+            "box": [
+              157,
+              7,
+              217,
+              28
+            ]
+          },
+          {
+            "text": "Senior Year Late Jun",
+            "confidence": 99.858,
+            "box": [
+              389,
+              37,
+              528,
+              54
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.768,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.784,
+            "box": [
+              322,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 84.596,
+            "box": [
+              377,
+              71,
+              445,
+              99
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 98.903,
+            "box": [
+              446,
+              65,
+              748,
+              87
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 95.008,
+            "box": [
+              773,
+              74,
+              835,
+              99
+            ]
+          },
+          {
+            "text": "Goal Achieved!",
+            "confidence": 98.965,
+            "box": [
+              448,
+              90,
+              584,
+              113
+            ]
+          },
+          {
+            "text": "Concert begins",
+            "confidence": 99.887,
+            "box": [
+              265,
+              112,
+              371,
+              136
+            ]
+          },
+          {
+            "text": "after this turn",
+            "confidence": 96.98,
+            "box": [
+              267,
+              129,
+              367,
+              152
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.776,
+            "box": [
+              381,
+              119,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.819,
+            "box": [
+              745,
+              122,
+              813,
+              150
+            ]
+          },
+          {
+            "text": "Skill Pts",
+            "confidence": 99.441,
+            "box": [
+              500,
+              638,
+              646,
+              686
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 96.875,
+            "box": [
+              315,
+              804,
+              530,
+              838
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.975,
+            "box": [
+              523,
+              1039,
+              573,
+              1069
+            ]
+          },
+          {
+            "text": ">",
+            "confidence": 93.01,
+            "box": [
+              567,
+              1043,
+              607,
+              1065
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.992,
+            "box": [
+              672,
+              1038,
+              733,
+              1066
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1181000,
+      "evidence": "gameplay/part-009-frame-000405.png"
+    },
+    "gameplay/part-009-frame-000406.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Jun"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 95.37
+        },
+        {
+          "kind": "friendship_change",
+          "name": "Director Akikawa",
+          "amount": 5,
+          "raw_text": "Friendship with Director Akikawa went up by 5.",
+          "confidence": 99.108
+        }
+      ],
+      "facts": {
+        "goal_status_observation": {
+          "status": "achieved",
+          "raw_text": "Goal Achieved!",
+          "confidence": 99.132,
+          "box": [
+            448,
+            89,
+            584,
+            113
+          ],
+          "semantics": "visible_status_only; completion_time_and_rewards_not_inferred"
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.962,
+            "box": [
+              156,
+              4,
+              217,
+              30
+            ]
+          },
+          {
+            "text": "Senior Year Late Jun",
+            "confidence": 99.856,
+            "box": [
+              389,
+              37,
+              528,
+              54
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.768,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.784,
+            "box": [
+              322,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 83.648,
+            "box": [
+              377,
+              72,
+              445,
+              97
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 96.956,
+            "box": [
+              444,
+              62,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.392,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Goal Achieved!",
+            "confidence": 99.132,
+            "box": [
+              448,
+              89,
+              584,
+              113
+            ]
+          },
+          {
+            "text": "Concert begins",
+            "confidence": 99.887,
+            "box": [
+              265,
+              112,
+              371,
+              136
+            ]
+          },
+          {
+            "text": "after this turn",
+            "confidence": 99.853,
+            "box": [
+              267,
+              129,
+              367,
+              152
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.76,
+            "box": [
+              381,
+              119,
+              442,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.859,
+            "box": [
+              743,
+              121,
+              812,
+              149
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 95.37,
+            "box": [
+              315,
+              802,
+              577,
+              838
+            ]
+          },
+          {
+            "text": "Friendship with Director Akikawa went up by 5.",
+            "confidence": 99.108,
+            "box": [
+              316,
+              831,
+              767,
+              861
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.975,
+            "box": [
+              523,
+              1039,
+              573,
+              1069
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 90.748,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1181250,
+      "evidence": "gameplay/part-009-frame-000406.png"
+    },
+    "gameplay/part-009-frame-000407.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Jun"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 99.521
+        }
+      ],
+      "facts": {
+        "goal_status_observation": {
+          "status": "achieved",
+          "raw_text": "Goal Achieved!",
+          "confidence": 95.546,
+          "box": [
+            448,
+            89,
+            584,
+            113
+          ],
+          "semantics": "visible_status_only; completion_time_and_rewards_not_inferred"
+        },
+        "occluded_receipt_lines": [
+          {
+            "text": "Friendship with Directorkikawa went up by 5.",
+            "box": [
+              315,
+              831,
+              766,
+              861
+            ],
+            "confidence": 98.876,
+            "overlay_boxes": [
+              [
+                555,
+                843,
+                567,
+                860
+              ]
+            ],
+            "recipient_name_occluded": true
+          }
+        ]
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.948,
+            "box": [
+              156,
+              5,
+              217,
+              29
+            ]
+          },
+          {
+            "text": "Senior Year Late Jun",
+            "confidence": 99.856,
+            "box": [
+              389,
+              37,
+              528,
+              54
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.768,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 96.957,
+            "box": [
+              444,
+              62,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.784,
+            "box": [
+              322,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.117,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.392,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Goal Achieved!",
+            "confidence": 95.546,
+            "box": [
+              448,
+              89,
+              584,
+              113
+            ]
+          },
+          {
+            "text": "Concert begins",
+            "confidence": 99.887,
+            "box": [
+              265,
+              112,
+              371,
+              136
+            ]
+          },
+          {
+            "text": "after this turn",
+            "confidence": 99.853,
+            "box": [
+              267,
+              129,
+              367,
+              152
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.76,
+            "box": [
+              381,
+              119,
+              442,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.957,
+            "box": [
+              738,
+              121,
+              812,
+              149
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 99.521,
+            "box": [
+              315,
+              805,
+              531,
+              836
+            ]
+          },
+          {
+            "text": "Friendship with Directorkikawa went up by 5.",
+            "confidence": 0,
+            "box": [
+              315,
+              831,
+              766,
+              861
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 98.876
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.975,
+            "box": [
+              523,
+              1039,
+              573,
+              1069
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 90.748,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1181500,
+      "evidence": "gameplay/part-009-frame-000407.png"
+    },
+    "gameplay/part-009-frame-000408.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Jun"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 95.668
+        },
+        {
+          "kind": "friendship_change",
+          "name": "Directo Akikawa",
+          "amount": 5,
+          "raw_text": "Friendship with Directo Akikawa went up by 5.",
+          "confidence": 97.553
+        }
+      ],
+      "facts": {
+        "goal_status_observation": {
+          "status": "achieved",
+          "raw_text": "Goal Achieved!",
+          "confidence": 95.525,
+          "box": [
+            448,
+            89,
+            584,
+            113
+          ],
+          "semantics": "visible_status_only; completion_time_and_rewards_not_inferred"
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.948,
+            "box": [
+              156,
+              5,
+              217,
+              29
+            ]
+          },
+          {
+            "text": "Senior Year Late Jun",
+            "confidence": 99.857,
+            "box": [
+              389,
+              37,
+              528,
+              54
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.76,
+            "box": [
+              322,
+              62,
+              376,
+              82
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 96.911,
+            "box": [
+              444,
+              62,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.784,
+            "box": [
+              322,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.117,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.392,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Goal Achieved!",
+            "confidence": 95.525,
+            "box": [
+              448,
+              89,
+              584,
+              113
+            ]
+          },
+          {
+            "text": "Concert begins",
+            "confidence": 99.887,
+            "box": [
+              265,
+              112,
+              371,
+              136
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.76,
+            "box": [
+              381,
+              119,
+              442,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.531,
+            "box": [
+              739,
+              117,
+              815,
+              152
+            ]
+          },
+          {
+            "text": "after this turn",
+            "confidence": 99.853,
+            "box": [
+              267,
+              129,
+              367,
+              152
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 95.668,
+            "box": [
+              315,
+              804,
+              531,
+              837
+            ]
+          },
+          {
+            "text": "Friendship with Directo Akikawa went up by 5.",
+            "confidence": 97.553,
+            "box": [
+              315,
+              829,
+              766,
+              861
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.975,
+            "box": [
+              523,
+              1039,
+              573,
+              1069
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 90.748,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1181750,
+      "evidence": "gameplay/part-009-frame-000408.png"
+    },
+    "gameplay/part-009-frame-000409.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Jun"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 95.194
+        }
+      ],
+      "facts": {
+        "goal_status_observation": {
+          "status": "achieved",
+          "raw_text": "Goal Achieved!",
+          "confidence": 95.546,
+          "box": [
+            448,
+            89,
+            584,
+            113
+          ],
+          "semantics": "visible_status_only; completion_time_and_rewards_not_inferred"
+        },
+        "occluded_receipt_lines": [
+          {
+            "text": "Friendship with Direrstor Akikawa went up by 5.",
+            "box": [
+              316,
+              831,
+              767,
+              861
+            ],
+            "confidence": 97.87,
+            "overlay_boxes": [
+              [
+                506,
+                843,
+                518,
+                859
+              ]
+            ],
+            "recipient_name_occluded": true
+          }
+        ]
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.948,
+            "box": [
+              156,
+              5,
+              217,
+              29
+            ]
+          },
+          {
+            "text": "Senior Year Late Jun",
+            "confidence": 99.856,
+            "box": [
+              389,
+              37,
+              528,
+              54
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.768,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 96.957,
+            "box": [
+              444,
+              62,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.784,
+            "box": [
+              322,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.117,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.392,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Goal Achieved!",
+            "confidence": 95.546,
+            "box": [
+              448,
+              89,
+              584,
+              113
+            ]
+          },
+          {
+            "text": "Concert begins",
+            "confidence": 99.887,
+            "box": [
+              265,
+              112,
+              371,
+              136
+            ]
+          },
+          {
+            "text": "after this turn",
+            "confidence": 99.853,
+            "box": [
+              267,
+              129,
+              367,
+              152
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.76,
+            "box": [
+              381,
+              119,
+              442,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.727,
+            "box": [
+              741,
+              121,
+              812,
+              149
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 95.194,
+            "box": [
+              316,
+              804,
+              531,
+              837
+            ]
+          },
+          {
+            "text": "Friendship with Direrstor Akikawa went up by 5.",
+            "confidence": 0,
+            "box": [
+              316,
+              831,
+              767,
+              861
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 97.87
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.975,
+            "box": [
+              523,
+              1039,
+              573,
+              1069
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 90.748,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1182000,
+      "evidence": "gameplay/part-009-frame-000409.png"
+    }
+  }
+}

@@ -61,6 +61,8 @@ Friendship recipients that change across adjacent observations of the same recei
 
 Validation follows the output type: race fan gains are checked in race receipts, goal status in screen observations, and dialogue awards in event effects. A missing value in the wrong evaluator is not a recognition failure. Moving a reference between these checks must preserve its source evidence and original observation count.
 
+Identity comparison can bridge one intervening 250 ms frame only when that frame explicitly records name occlusion at the same receipt position with the same award or status. The obscured name is not accepted as an effect. Missing frames, different awards and scrolling do not establish this connection; the conflict retains the middle frame as evidence.
+
 Lesson transaction references can check the exact observed `name`, `requested_name`, and `receipt_name` alongside costs and awards. A correct numeric reward cannot compensate for a mismatched name. Evaluation output lists `evaluated_fields`; older numeric-only references do not establish lesson identity, and an unreadable name must not be labeled as an empty or null identity.
 
 ## Gates before the application
