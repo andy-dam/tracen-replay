@@ -8,13 +8,13 @@ Run:
 python -m tracen_replay.review_coverage RUN_DIRECTORY REFERENCE_1 REFERENCE_2 --output COVERAGE_JSON
 ```
 
-Reference paths are relative to the run directory. The tool never reads predictions to choose the next window. Its next window is the first uncovered source interval, limited to ten seconds for review. Generating the coverage file does not create labels or certify that existing labels are correct. Sample spacing and individual reference scope remain in the output; even complete interval coverage would not establish native-frame recall.
+Reference paths are relative to the run directory. The tool never reads predictions to choose the next window. Its legacy next-window hint is limited to ten seconds; use the [whole-recording workflow](whole-recording-review.md) for consolidated triage and larger contiguous source-review blocks. Generating the coverage file does not create labels or certify that existing labels are correct. Sample spacing and individual reference scope remain in the output; even complete interval coverage would not establish native-frame recall.
 
 ## Separate recording
 
 The four preserved effect references cover 115 seconds. A new source-ordered review covers 0:00–0:10: forty consecutive 250 ms gameplay samples show support-card browsing, setup confirmation, projected TP costs and strategy selection, with no explicit gameplay award receipts. The empty effect reference passes with zero predictions; precision and recall remain undefined because there are no positives. This does not score support-deck configuration or account-resource transactions.
 
-Combined declared sampled-effect coverage is now 235 seconds, or 13.227% of the 1776.717-second recording, including the continuous opening 150 seconds. The next source-ordered window is 2:30–2:40. The untouched initial evaluation remains unchanged; new reviews are development evidence. Coverage includes the unresolved 0:30–0:40 reference and is not a passing-coverage percentage.
+Combined declared sampled-effect coverage is now 245 seconds, or 13.789% of the 1776.717-second recording, including the continuous opening 160 seconds. The next uncovered source begins at 2:40; the whole-recording queue schedules larger blocks from there. The untouched initial evaluation remains unchanged; new reviews are development evidence. Coverage includes the unresolved 0:30–0:40 reference and is not a passing-coverage percentage.
 
 For each new window, inspect source screenshots before predictions, preserve all sample timestamps and hashes, record explicit effect groups or an empty negative reference, then score missing and extra predictions. View ambiguous text at full resolution and inspect intervening frames where necessary. Contact sheets assist navigation; they do not excuse skipping unreadable frames. Keep between-sample limitations explicit. Continue through gaps rather than skipping ahead to interesting predicted events.
 
