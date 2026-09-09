@@ -52,10 +52,12 @@ def unparsed_receipt_candidates(readings):
     prefix=re.compile(r'^(?:Gained \d|Learned |Acquired |(?:Max )?Energy |Friendship with |'
                       r'(?:Speed|Stamina|Power|Guts|Wit|Skill Pts|Dance|Passion|Vocals?|Visuals?|Composure) '
                       r'(?:cap |Bonus |went )|(?:Front Runner|Pace Chaser|Sprint|Mile|Medium|Long) Aptitude )',re.I)
+    supporter=re.compile(r'^.+? joined your\b',re.I)
     for row in readings:
         if row['screen'] not in ('unknown','event_outcome'):continue
         for line in row.get('ocr',{}).get('neural',[]):
-            if line['confidence']<95 or not within(line,(250,770,850,1000)) or not prefix.match(line['text']):continue
+            if line['confidence']<95 or not within(line,(250,770,850,1000)):continue
+            if not (prefix.match(line['text']) or supporter.match(line['text'])):continue
             if effects_from_lines([line]):continue
             if any(line['text'] in e.get('raw_text','') or line['text']==e.get('original_text') for e in row.get('effects',[])):continue
             key=line['text'];time=row['source_timestamp_ms'];entry=latest.get(key)
