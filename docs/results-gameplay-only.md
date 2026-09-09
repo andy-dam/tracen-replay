@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-245 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
+248 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
 
 Consecutive skill receipts can be reconciled jointly between observed balances when repeated final-cart counters explain the full debit and no other SP transaction intervenes. Intermediate counters retain their projected status. Account fan totals after career completion are separate from race results. Repeated completed-training identity remains an action even when its reward digits are unreadable; reward completeness stays false.
 
@@ -112,3 +112,7 @@ Eight manually reviewed Concert Info panels provide 48 current/planned field val
 ## Final owned-card observations
 
 The final-summary reader now retains repeated visible owned-card text independently of skill purchases. Source review finds 14 visible cards on each first page; 12 original-run names and 13 separate-run names meet the repeated-reading requirement, with three visible cards still missing. Wrapped fragments below confidence are not shortened into different skill names. Circle variants, unique-skill levels, off-screen cards and complete inventory remain unverified. See [ownership evidence and limits](owned-skill-observations.md).
+
+## Source-ordered coverage
+
+A new negative reference reviews all 40 samples in the first 10 seconds of the separate recording: setup menus and no gameplay award receipts. It scores zero extras. Together with the unchanged 115 seconds of earlier references, declared sampled-effect coverage is 125 seconds (7.035%). This is still not full-source or native-frame recall. The coverage auditor checks reference/sample hashes, avoids double-counting overlaps, and identifies 0:10–0:20 as the next unreviewed source interval. See [source review procedure](source-review-coverage.md).
