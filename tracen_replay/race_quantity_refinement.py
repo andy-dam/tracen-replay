@@ -29,6 +29,16 @@ from typing import Any, Mapping, Sequence
 from PIL import Image
 
 from .refine_contrast import fingerprint
+from .race_section_layout import (
+    HEADER_LEFT as SECTION_HEADER_LEFT,
+    HEADER_RIGHT as SECTION_HEADER_RIGHT,
+    SectionLayoutError,
+    augment_slot_specs,
+    is_policy as is_section_layout_policy,
+    policy as section_layout_policy,
+    resolve as resolve_section_layout,
+    slot as section_layout_slot,
+)
 from .vision import NeuralReader, parse
 
 
@@ -128,8 +138,12 @@ SLOT_SPECS: tuple[dict[str, Any], ...] = (
 )
 
 SLOT_BY_ID = {spec["slot_id"]: spec for spec in SLOT_SPECS}
+SECTION_SLOT_SPECS = augment_slot_specs(SLOT_SPECS)
+SECTION_SLOT_BY_ID = {spec["slot_id"]: spec for spec in SECTION_SLOT_SPECS}
 ITEMS_HEADER_BOX = (250, 500, 830, 700)
 BONUS_HEADER_BOX = (250, 700, 830, 840)
+SECTION_LAYOUT_POLICY = section_layout_policy()
+LEGACY_HEADER_BASELINES = {"Items": 612, "Bonus": 778}
 
 
 def _sha256(path: Path) -> str:
@@ -196,17 +210,31 @@ def _header(raw: Mapping[str, Any], text: str, box: Sequence[int]) -> Mapping[st
     return max(matches, key=lambda line: float(line.get("confidence", 0)), default=None)
 
 
-def layout_guard(raw: Mapping[str, Any], row: Mapping[str, Any] | None = None) -> bool:
-    """Require a race result with both visible Items and Bonus sections.
+def layout_guard(
+    raw: Mapping[str, Any],
+    row: Mapping[str, Any] | None = None,
+    *,
+    section_anchor_policy: bool = False,
+) -> bool:
+    """Require a usable race-result layout.
 
-    The parsed ``visible_item_quantities`` list may be empty or partial.  It is
-    used as a layout/result contract, never as a complete inventory claim.
+    The default is the legacy fixed-layout guard used by existing artifacts:
+    both ``Items`` and ``Bonus`` headers must be visible.  New generation can
+    opt into the section-relative policy, where a source-visible ``Items``
+    section is sufficient and the optional ``Bonus`` section contributes no
+    slots when absent.  The parsed ``visible_item_quantities`` list remains a
+    partial observation in either mode.
     """
 
     if row is None:
         try:
             row = parse(raw)
         except (KeyError, TypeError, ValueError, AttributeError):
+            return False
+    if section_anchor_policy:
+        try:
+            return resolve_section_layout(raw, row, SLOT_SPECS) is not None
+        except (SectionLayoutError, KeyError, TypeError, ValueError):
             return False
     if row.get("screen") != "race_result":
         return False
@@ -218,6 +246,50 @@ def layout_guard(raw: Mapping[str, Any], row: Mapping[str, Any] | None = None) -
     if facts.get("item_rewards_complete") is not False:
         return False
     return _header(raw, "Items", ITEMS_HEADER_BOX) is not None and _header(raw, "Bonus", BONUS_HEADER_BOX) is not None
+
+
+def _legacy_fixed_geometry_usable(raw: Mapping[str, Any], row: Mapping[str, Any]) -> bool:
+    """Return whether the old fixed crops are source-compatible for a frame.
+
+    ``layout_guard`` intentionally remains broad for validating historical
+    artifacts.  Generation uses this narrower check before selecting that
+    legacy path, so a shifted two-section result is resolved by the declared
+    section-relative policy instead of silently reading the old y positions.
+    """
+
+    if not layout_guard(raw, row):
+        return False
+    for name, region in (("Items", ITEMS_HEADER_BOX), ("Bonus", BONUS_HEADER_BOX)):
+        header = _header(raw, name, region)
+        if header is None or not _within_box(
+            header.get("box", ()),
+            (SECTION_HEADER_LEFT, region[1], SECTION_HEADER_RIGHT, region[3]),
+        ):
+            return False
+        try:
+            if abs(float(header["box"][3]) - LEGACY_HEADER_BASELINES[name]) > 8:
+                return False
+        except (TypeError, ValueError, IndexError):
+            return False
+
+    # A high-confidence quantity line in the old result bands must belong to
+    # one of the canonical slots.  This prevents a shifted row from being
+    # treated as fixed merely because both broad header windows still match.
+    for line in _lines(raw):
+        try:
+            confidence = float(line.get("confidence", 0))
+            center_y = _center(line.get("box", ()))[1]
+        except (TypeError, ValueError, IndexError):
+            if _quantity(line.get("text")) is not None:
+                return False
+            continue
+        if confidence < MIN_CONFIDENCE or _quantity(line.get("text")) is None:
+            continue
+        if 500 <= center_y <= 940 and not any(
+            _within_box(line.get("box", ()), spec["full_box"]) for spec in SLOT_SPECS
+        ):
+            return False
+    return True
 
 
 def _quantity(text: Any) -> int | None:
@@ -232,16 +304,37 @@ def _slot_for_box(box: Sequence[Any]) -> str | None:
     return None
 
 
-def _present_slots(row: Mapping[str, Any]) -> set[str]:
+def _present_slots(row: Mapping[str, Any], section_layout: Mapping[str, Any] | None = None) -> set[str]:
     facts = row.get("facts")
     if not isinstance(facts, Mapping):
         return set()
     result = set()
     for entry in facts.get("visible_item_quantities", []):
         if isinstance(entry, Mapping) and isinstance(entry.get("box"), Sequence):
+            if section_layout is not None:
+                resolved = section_layout.get("resolved_slots")
+                if isinstance(resolved, Mapping):
+                    for slot_id, slot in resolved.items():
+                        if isinstance(slot, Mapping) and _same_position(entry.get("box", ()), slot.get("resolved_full_box", ())):
+                            result.add(str(slot_id))
+                    continue
             slot_id = _slot_for_box(entry["box"])
             if slot_id:
                 result.add(slot_id)
+    return result
+
+
+def _dynamic_spec(spec: Mapping[str, Any], section_layout: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Copy canonical slot metadata with the per-frame resolved geometry."""
+
+    if section_layout is None:
+        return dict(spec)
+    resolved = section_layout_slot(section_layout, str(spec.get("slot_id")))
+    if resolved is None:
+        return None
+    result = dict(spec)
+    result["full_box"] = tuple(resolved["resolved_full_box"])
+    result["source_box"] = tuple(resolved["resolved_source_box"])
     return result
 
 
@@ -482,6 +575,7 @@ def _group_frames(eligible: Sequence[dict[str, Any]]) -> list[list[dict[str, Any
         if (
             not groups
             or groups[-1][0]["race_key"] != key
+            or bool(groups[-1][0].get("section_layout")) != bool(item.get("section_layout"))
             or timestamp - groups[-1][-1]["raw"]["source_timestamp_ms"] > MAX_GROUP_SPAN_MS
         ):
             groups.append([item])
@@ -512,6 +606,7 @@ def _source_crop_box(
     *,
     allow_fixed_fallback: bool = False,
     gameplay_path: Path | None = None,
+    section_layout: Mapping[str, Any] | None = None,
 ) -> tuple[tuple[int, int, int, int] | None, Mapping[str, Any] | None]:
     """Resolve a source crop, optionally using an occupied fixed slot box.
 
@@ -520,6 +615,32 @@ def _source_crop_box(
     explicitly opts into the fixed geometry fallback and must provide the
     gameplay pixels for the occupancy guard.
     """
+
+    if section_layout is not None:
+        resolved = section_layout_slot(section_layout, str(spec.get("slot_id")))
+        if resolved is None:
+            # The optional/absent section has no slots.  Never fall through to
+            # the legacy fixed geometry for a slot that the source did not
+            # expose in this frame.
+            return None, None
+        resolved_box = _valid_crop_box(resolved.get("resolved_source_box"))
+        if resolved_box is None:
+            return None, None
+        detected_line = resolved.get("detected_line")
+        if isinstance(detected_line, Mapping):
+            # The detector line is the source-visible geometry.  Preserve its
+            # exact box as proof while using the same two-pixel crop padding as
+            # the legacy detector path.
+            return resolved_box, detected_line
+        effective = _dynamic_spec(spec, section_layout)
+        if effective is None:
+            return None, None
+        if not _detector_backed(effective):
+            return resolved_box, None
+        if allow_fixed_fallback and gameplay_path is not None and \
+                _fixed_slot_pixel_guard(gameplay_path, resolved_box):
+            return _fallback_quantity_crop_box(resolved_box), None
+        return None, None
 
     if not _detector_backed(spec):
         box = _valid_crop_box(spec.get("source_box"))
@@ -552,9 +673,16 @@ def _source_crop_box(
     return source_box, detector
 
 
-def _crop_resolution(spec: Mapping[str, Any], detector: Mapping[str, Any] | None) -> str:
+def _crop_resolution(
+    spec: Mapping[str, Any],
+    detector: Mapping[str, Any] | None,
+    *,
+    section_layout: Mapping[str, Any] | None = None,
+) -> str:
     """Name the geometry source recorded in a measurement."""
 
+    if section_layout is not None:
+        return "section_anchor_line" if detector is not None else "section_anchor_fixed_slot"
     if not _detector_backed(spec):
         return "fixed"
     return "detector" if detector is not None else "fixed_fallback_quantity_text"
@@ -700,6 +828,7 @@ def _measurement(
     crop: Image.Image,
     recognized: Mapping[str, Any],
     crop_resolution: str,
+    resolved_full_box: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
     frame_id = identity["frame_id"]
     crop_path = output_root / OBSERVATION_DIRNAME / frame_id / spec["slot_id"] / f"{frame_id}-scale-{scale}.png"
@@ -709,6 +838,7 @@ def _measurement(
     gameplay_path = Path(identity["gameplay_path"])
     text = str(recognized.get("text", ""))
     confidence = round(float(recognized.get("confidence", 0)), 4)
+    measurement_full_box = resolved_full_box if resolved_full_box is not None else spec["full_box"]
     return {
         "timestamp_ms": int(raw["source_timestamp_ms"]),
         "frame_id": frame_id,
@@ -730,7 +860,7 @@ def _measurement(
         "gameplay_evidence": gameplay_path.relative_to(root).as_posix(),
         "gameplay_file_sha256": _sha256(gameplay_path),
         "source_crop_box": list(source_box),
-        "full_box": list(spec["full_box"]),
+        "full_box": [int(round(value)) for value in measurement_full_box],
         "detector_box": list(detector["box"]) if detector is not None else None,
         "crop_evidence": crop_path.relative_to(root).as_posix(),
         "crop_sha256": _sha256(crop_path),
@@ -766,16 +896,31 @@ def _artifact_for_group(
 ) -> dict[str, Any]:
     base = base_item or group[0]
     base_raw = base["raw"]
+    dynamic_layout = base.get("section_layout")
+    dynamic_enabled = dynamic_layout is not None
+    if dynamic_enabled:
+        if not isinstance(dynamic_layout, Mapping):
+            raise ValueError("Race quantity refinement section layout is malformed.")
+        if not is_section_layout_policy(dynamic_layout.get("policy")):
+            raise ValueError("Race quantity refinement section layout policy is invalid.")
+        if any(
+            not isinstance(item.get("section_layout"), Mapping)
+            or not is_section_layout_policy(item["section_layout"].get("policy"))
+            for item in group
+        ):
+            raise ValueError("Race quantity refinement section layout policy differs within group.")
     observations_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     expected_keys_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for spec in missing:
         inputs: list[tuple[Mapping[str, Any], Mapping[str, Any] | None, tuple[int, int, int, int], int, Image.Image]] = []
         for item in group:
             gameplay_path = Path(item["identity"]["gameplay_path"])
+            item_layout = item.get("section_layout") if dynamic_enabled else None
             source_box, detector = _source_crop_box(
                 item["raw"], spec,
                 allow_fixed_fallback=allow_fixed_fallback,
                 gameplay_path=gameplay_path,
+                section_layout=item_layout,
             )
             if source_box is None:
                 continue
@@ -794,6 +939,15 @@ def _artifact_for_group(
         if len(recognitions) != len(inputs):
             raise ValueError("OCR returned a different number of results than crops.")
         for (item, detector, source_box, scale, crop), recognized in zip(inputs, recognitions):
+            item_layout = item.get("section_layout") if dynamic_enabled else None
+            resolved = section_layout_slot(item_layout, spec["slot_id"]) if item_layout is not None else None
+            resolved_full_box = None
+            if isinstance(resolved, Mapping):
+                resolved_full_box = (
+                    detector.get("box")
+                    if detector is not None
+                    else resolved.get("resolved_full_box")
+                )
             observations_by_slot[spec["slot_id"]].append(
                 _measurement(
                     root,
@@ -809,7 +963,8 @@ def _artifact_for_group(
                     scale,
                     crop,
                     recognized,
-                    _crop_resolution(spec, detector),
+                    _crop_resolution(spec, detector, section_layout=item_layout),
+                    resolved_full_box=resolved_full_box,
                 )
             )
 
@@ -831,7 +986,7 @@ def _artifact_for_group(
         })
 
     source = capture["source"]
-    return {
+    artifact = {
         "version": 1,
         "source_sha256": source["sha256"],
         "source_recording_sha256": source["sha256"],
@@ -876,6 +1031,16 @@ def _artifact_for_group(
         "slots": slots,
         "all_observations": [observation for slot in slots for observation in slot["observations"]],
     }
+    if dynamic_enabled:
+        artifact.update({
+            "section_anchor_policy": copy.deepcopy(SECTION_LAYOUT_POLICY),
+            "base_section_layout": copy.deepcopy(base["section_layout"]),
+            "source_frame_layouts": {
+                item["identity"]["frame_id"]: copy.deepcopy(item["section_layout"])
+                for item in group
+            },
+        })
+    return artifact
 
 
 def _rejection(output_root: Path, frame_id: str, reason: str, details: Mapping[str, Any] | None = None) -> Path:
@@ -914,13 +1079,37 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
             row = parse(raw)
         except (KeyError, TypeError, ValueError, AttributeError):
             continue
-        if not layout_guard(raw, row):
-            continue
+        # Preserve the fixed-layout contract only when the frame also matches
+        # its narrow historical geometry.  The relative policy is selected for
+        # shifted sections even when both broad legacy header windows happen to
+        # match.
+        if _legacy_fixed_geometry_usable(raw, row):
+            section_layout = None
+        else:
+            try:
+                section_layout = resolve_section_layout(raw, row, SLOT_SPECS)
+            except (SectionLayoutError, KeyError, TypeError, ValueError) as exc:
+                rejected.append(str(_rejection(
+                    output_root,
+                    raw_path.stem,
+                    "section_layout_rejected",
+                    {"error": str(exc)},
+                )))
+                continue
+            if section_layout is None:
+                continue
         race_key = _race_key(row)
         if race_key is None:
             rejected.append(str(_rejection(output_root, raw_path.stem, "race_key_missing")))
             continue
-        eligible.append({"raw": raw, "raw_path": raw_path, "row": row, "identity": identity, "race_key": race_key})
+        eligible.append({
+            "raw": raw,
+            "raw_path": raw_path,
+            "row": row,
+            "identity": identity,
+            "race_key": race_key,
+            "section_layout": section_layout,
+        })
 
     reader = None
     artifacts = []
@@ -931,10 +1120,20 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
         # to produce a source-bound observation.  Applying a consensus remains
         # timestamp-gated below, so a support frame cannot manufacture a badge
         # on a frame that has no accepted source observation.
-        missing = [
-            spec for spec in SLOT_SPECS
-            if any(spec["slot_id"] not in _present_slots(item["row"]) for item in group)
-        ]
+        if group[0].get("section_layout") is not None:
+            missing = [
+                spec for spec in SECTION_SLOT_SPECS
+                if any(
+                    section_layout_slot(item.get("section_layout"), spec["slot_id"]) is not None
+                    and spec["slot_id"] not in _present_slots(item["row"], item.get("section_layout"))
+                    for item in group
+                )
+            ]
+        else:
+            missing = [
+                spec for spec in SLOT_SPECS
+                if any(spec["slot_id"] not in _present_slots(item["row"]) for item in group)
+            ]
         if not missing:
             continue
         if reader is None:
@@ -973,6 +1172,8 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
                     base_gameplay_evidence=base_raw["evidence"],
                     race_key=list(base["race_key"]),
                 )
+                if base.get("section_layout") is not None:
+                    artifact["base_section_layout"] = copy.deepcopy(base["section_layout"])
                 _save_json(target, artifact)
                 artifacts.append(str(target))
             except (OSError, ValueError, KeyError, TypeError, Image.DecompressionBombError) as exc:
@@ -1103,6 +1304,7 @@ def _validate_raw_observation(
     manifest_hash: str,
     *,
     allow_fixed_fallback: bool = False,
+    section_layout: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Validate raw OCR, source pixels and the crop backing one measurement."""
 
@@ -1124,7 +1326,10 @@ def _validate_raw_observation(
         raise ValueError("Race quantity refinement observation group binding changed.")
     if observation.get("group_index") != spec["group_index"] or observation.get("strategy") != spec["strategy"]:
         raise ValueError("Race quantity refinement observation strategy binding changed.")
-    if observation.get("full_box") != list(spec["full_box"]):
+    resolved_slot = section_layout_slot(section_layout, str(spec["slot_id"])) if section_layout is not None else None
+    if section_layout is not None and resolved_slot is None:
+        raise ValueError("Race quantity refinement observation section slot is absent.")
+    if section_layout is None and observation.get("full_box") != list(spec["full_box"]):
         raise ValueError("Race quantity refinement observation slot geometry changed.")
     if not _typed_confidence(observation.get("confidence")):
         raise ValueError("Race quantity refinement observation confidence is invalid.")
@@ -1181,18 +1386,28 @@ def _validate_raw_observation(
         spec,
         allow_fixed_fallback=allow_fixed_fallback,
         gameplay_path=gameplay_path,
+        section_layout=section_layout,
     )
     if expected_crop_box is None or observation.get("source_crop_box") != list(expected_crop_box):
         raise ValueError("Race quantity refinement source crop geometry changed.")
     expected_detector_box = list(expected_detector["box"]) if expected_detector is not None else None
     if observation.get("detector_box") != expected_detector_box:
         raise ValueError("Race quantity refinement detector geometry changed.")
-    expected_resolution = _crop_resolution(spec, expected_detector)
+    expected_resolution = _crop_resolution(spec, expected_detector, section_layout=section_layout)
     if allow_fixed_fallback:
         if observation.get("crop_resolution") != expected_resolution:
             raise ValueError("Race quantity refinement crop resolution changed.")
     elif "crop_resolution" in observation and observation.get("crop_resolution") != expected_resolution:
         raise ValueError("Race quantity refinement crop resolution changed.")
+    if section_layout is not None:
+        expected_full_box = (
+            expected_detector.get("box")
+            if expected_detector is not None
+            else resolved_slot.get("resolved_full_box")
+        )
+        if not isinstance(expected_full_box, Sequence) or len(expected_full_box) != 4 or \
+                observation.get("full_box") != [int(round(value)) for value in expected_full_box]:
+            raise ValueError("Race quantity refinement observation resolved geometry changed.")
     crop_path = _safe_path(root, observation.get("crop_evidence"))
     if crop_path is None or not crop_path.is_file() or observation.get("crop_sha256") != _sha256(crop_path):
         raise ValueError("Race quantity refinement crop proof hash mismatch.")
@@ -1226,13 +1441,25 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         raise ValueError("Race quantity refinement fixed fallback policy changed.")
     else:
         allow_fixed_fallback = True
+    section_anchor_metadata = artifact.get("section_anchor_policy")
+    dynamic_section_policy = section_anchor_metadata is not None
+    if dynamic_section_policy and not is_section_layout_policy(section_anchor_metadata):
+        raise ValueError("Race quantity refinement section layout policy changed.")
     if raw is None or root is None:
         return {}
     root = Path(root).resolve()
     capture, capture_rows, manifest_hash = _validate_capture_identity(root, artifact)
     if artifact.get("base_raw_sha256") != fingerprint(raw) or artifact.get("base_gameplay_evidence") != raw.get("evidence"):
         raise ValueError("Race quantity refinement base source mismatch.")
-    if not layout_guard(raw, row):
+    base_layout: Mapping[str, Any] | None = None
+    if dynamic_section_policy:
+        try:
+            base_layout = resolve_section_layout(raw, row, SLOT_SPECS)
+        except (SectionLayoutError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError("Race quantity refinement section layout guard failed.") from exc
+        if base_layout is None:
+            raise ValueError("Race quantity refinement section layout guard failed.")
+    elif not layout_guard(raw, row):
         raise ValueError("Race quantity refinement layout guard failed.")
     row_key = _race_key(row)
     if row_key is None or artifact.get("race_key") != list(row_key):
@@ -1268,15 +1495,24 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     if artifact.get("base_frame_id") not in validated_source_frames:
         raise ValueError("Race quantity refinement base frame is absent from source-frame provenance.")
 
-    # Reconstruct the expected source-frame/scale key set from the immutable
-    # raw cache.  Checking only the artifact's copied key list would allow a
-    # caller to delete observations and rewrite that list along with it.
-    expected_keys_by_slot: dict[str, list[dict[str, Any]]] = {}
-    for spec in SLOT_SPECS:
-        keys: list[dict[str, Any]] = []
+    validated_section_layouts: dict[str, Mapping[str, Any]] = {}
+    cached_raw_by_frame: dict[str, Mapping[str, Any]] = {}
+    if dynamic_section_policy:
+        stored_base_layout = artifact.get("base_section_layout")
+        stored_frame_layouts = artifact.get("source_frame_layouts")
+        if not isinstance(stored_base_layout, Mapping) or not isinstance(stored_frame_layouts, Mapping):
+            raise ValueError("Race quantity refinement section layout provenance is missing.")
+        if not _mapping_equal(stored_base_layout, base_layout):
+            raise ValueError("Race quantity refinement base section layout changed.")
+        if set(stored_frame_layouts) != set(validated_source_frames):
+            raise ValueError("Race quantity refinement source section layout set changed.")
         for frame_id, frame in validated_source_frames.items():
             raw_path = (root / "neural" / f"{frame_id}.json").resolve()
-            if not raw_path.is_file():
+            try:
+                inside_root = raw_path.is_relative_to(root)
+            except (OSError, ValueError):
+                inside_root = False
+            if not inside_root or not raw_path.is_file():
                 raise ValueError("Race quantity refinement source raw cache is missing.")
             try:
                 frame_raw = _load_json(raw_path)
@@ -1284,12 +1520,51 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                 raise ValueError("Race quantity refinement source raw cache is unreadable.") from exc
             if not isinstance(frame_raw, Mapping) or frame_raw.get("source_timestamp_ms") != frame.get("source_timestamp_ms"):
                 raise ValueError("Race quantity refinement source raw cache identity changed.")
+            try:
+                frame_row = parse(frame_raw)
+                resolved = resolve_section_layout(frame_raw, frame_row, SLOT_SPECS)
+            except (SectionLayoutError, KeyError, TypeError, ValueError) as exc:
+                raise ValueError("Race quantity refinement source section layout changed.") from exc
+            if resolved is None:
+                raise ValueError("Race quantity refinement source section layout is absent.")
+            if resolved.get("race_identity") != {
+                "fans": artifact["race_key"][0],
+                "fans_gained": artifact["race_key"][1],
+            }:
+                raise ValueError("Race quantity refinement source race identity changed.")
+            stored_layout = stored_frame_layouts.get(frame_id)
+            if not _mapping_equal(stored_layout, resolved):
+                raise ValueError("Race quantity refinement source section layout changed.")
+            validated_section_layouts[frame_id] = resolved
+            cached_raw_by_frame[frame_id] = frame_raw
+
+    # Reconstruct the expected source-frame/scale key set from the immutable
+    # raw cache.  Checking only the artifact's copied key list would allow a
+    # caller to delete observations and rewrite that list along with it.
+    expected_keys_by_slot: dict[str, list[dict[str, Any]]] = {}
+    specs_for_validation = SECTION_SLOT_SPECS if dynamic_section_policy else SLOT_SPECS
+    for spec in specs_for_validation:
+        keys: list[dict[str, Any]] = []
+        for frame_id, frame in validated_source_frames.items():
+            frame_raw = cached_raw_by_frame.get(frame_id)
+            if frame_raw is None:
+                raw_path = (root / "neural" / f"{frame_id}.json").resolve()
+                if not raw_path.is_file():
+                    raise ValueError("Race quantity refinement source raw cache is missing.")
+                try:
+                    frame_raw = _load_json(raw_path)
+                except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise ValueError("Race quantity refinement source raw cache is unreadable.") from exc
+                if not isinstance(frame_raw, Mapping) or frame_raw.get("source_timestamp_ms") != frame.get("source_timestamp_ms"):
+                    raise ValueError("Race quantity refinement source raw cache identity changed.")
             gameplay_path = _safe_path(root, frame_raw.get("evidence"))
+            frame_layout = validated_section_layouts.get(frame_id) if dynamic_section_policy else None
             source_box, _ = _source_crop_box(
                 frame_raw,
                 spec,
                 allow_fixed_fallback=allow_fixed_fallback,
                 gameplay_path=gameplay_path,
+                section_layout=frame_layout,
             )
             if source_box is None:
                 continue
@@ -1313,7 +1588,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         if not isinstance(slot, Mapping):
             raise ValueError("Race quantity refinement slot is malformed.")
         slot_id = slot.get("slot_id")
-        spec = SLOT_BY_ID.get(slot_id)
+        spec = (SECTION_SLOT_BY_ID if dynamic_section_policy else SLOT_BY_ID).get(slot_id)
         if spec is None or slot_id in seen_slots:
             raise ValueError("Race quantity refinement slot identity is invalid.")
         seen_slots.add(slot_id)
@@ -1331,6 +1606,13 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         for observation in observations:
             if not isinstance(observation, Mapping):
                 raise ValueError("Race quantity refinement observation is malformed.")
+            observation_layout = (
+                validated_section_layouts.get(observation.get("frame_id"))
+                if dynamic_section_policy
+                else None
+            )
+            if dynamic_section_policy and observation_layout is None:
+                raise ValueError("Race quantity refinement observation section layout is missing.")
             raw_observation = _validate_raw_observation(
                 observation,
                 spec,
@@ -1339,6 +1621,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                 capture_rows,
                 manifest_hash,
                 allow_fixed_fallback=allow_fixed_fallback,
+                section_layout=observation_layout,
             )
             if observation.get("reader_fingerprint") != artifact.get("reader_fingerprint") or \
                     not _mapping_equal(observation.get("model_sha256"), artifact.get("model_sha256")):
@@ -1389,6 +1672,8 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
         raise ValueError("Race quantity refinement requires mappings.")
     if (raw is None) != (root is None):
         raise ValueError("Race quantity refinement production apply requires both raw and root.")
+    if artifact.get("section_anchor_policy") is not None and raw is None:
+        raise ValueError("Race quantity refinement section-relative artifacts require production provenance.")
     summaries = _validate_provenance(row, artifact, raw, Path(root) if root is not None else None)
     if row.get("screen") != "race_result":
         return dict(row)
@@ -1418,6 +1703,21 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
             # did not provide a high-confidence supporting reading.
             continue
         box = slot.get("full_box")
+        if artifact.get("section_anchor_policy") is not None and raw is not None:
+            # Dynamic layouts may move an entire section.  Use the validated
+            # target-frame observation's actual OCR/fallback box; the slot's
+            # canonical box remains metadata for slot identity only.
+            target_observations = [
+                observation
+                for observation in slot.get("observations", [])
+                if isinstance(observation, Mapping)
+                and observation.get("timestamp_ms") == raw.get("source_timestamp_ms")
+                and observation.get("quantity") == quantity
+                and float(observation.get("confidence", 0)) >= MIN_CONFIDENCE
+            ]
+            if not target_observations:
+                continue
+            box = target_observations[0].get("full_box")
         if not isinstance(box, Sequence) or len(box) != 4:
             continue
         existing_indexes = [
