@@ -40,6 +40,8 @@ Triage based on predictions cannot discover every omission. A separate source-se
 
 Use larger contiguous sections to review the sequence of actions, event receipts and state changes. Preserve expected source labels before comparing predictions. Use dense inspection for ambiguous transitions. Existing ten-second labels remain regression fixtures; do not discard or expand their claimed scope.
 
+An exact-pixel deduplication probe of the separate recording's fixed dialogue crop found 7,017 distinct crops among 7,107 sampled frames: only 90 duplicates, a 1.266% display reduction. Background animation and text transitions make exact equality too restrictive to substantially reduce this review. Do not treat deduplication as a substitute for source review or spend further review time on this approach without new evidence. The local probe preserves every timestamp and proof hash; its result measures display repetition, not effect recall.
+
 Report review burden as both finding count and the union of queued footage durations. Footage length is not elapsed human review time, and source-sweep/triage durations overlap: do not add them together. A clean queue does not close full-recall, inventory, active-bonus or independent-validation gates.
 
 ## First measured queue
