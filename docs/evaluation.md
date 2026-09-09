@@ -63,6 +63,44 @@ User corrections will be stored separately from predictions and reviewed before 
 
 Every dataset update will record provenance and split membership. New analyses will preserve their model and dataset-version references so changes can be traced.
 
+## Reference-index diagnostics
+
+`tracen_replay.reference_index` organizes source-reviewed reference intervals into deterministic, non-overlapping partitions. It preserves every registered reference and any explicitly selected revision, then records overlaps, cadence ties, scope crossings, incomplete annotations, and missing or extra effects. Build an index with the coverage registry:
+
+```powershell
+python -m tracen_replay.reference_index build RUN_DIRECTORY `
+  --coverage RUN_DIRECTORY/source-review-coverage.json `
+  --output RUN_DIRECTORY/reference-index-v1/index.json
+```
+
+An optional mapping file selects an immutable revision for a registered reference while retaining the original. The file is a JSON object keyed by the registered reference path:
+
+```json
+{
+  "review/effects-reference.json": {
+    "path": "review/effects-reference-v2.json",
+    "sha256": "<variant-file-sha256>",
+    "kind": "source-adjudication",
+    "prediction_informed": true,
+    "reason": "Explain why this version is retained."
+  }
+}
+```
+
+Pass it with `--mapping MAPPINGS.json`. A mapped file must remain inside the run directory, have the same source hash, interval, and sampling cadence as its registered parent, and match the declared file hash. There is no built-in recording-specific mapping catalog.
+
+Score an existing index against a report and its evidence:
+
+```powershell
+python -m tracen_replay.reference_index score RUN_DIRECTORY `
+  --index RUN_DIRECTORY/reference-index-v1/index.json `
+  --report RUN_DIRECTORY/report.json `
+  --evidence-root RUN_DIRECTORY `
+  --output RUN_DIRECTORY/reference-index-v1/score.json
+```
+
+The score file is a diagnostic index. Its per-reference counts and partition rows must not be added together: overlapping windows, revisions, and different cadences can describe the same source interval. `full_recording_effect_recall_measured` and `aggregate_accuracy_claimed` therefore remain false, even when every declared partition has a passing local score. A clean reference also does not establish a holdout result; `independent_test_established` remains false until a recording-level split and untouched run are documented. Hash or source mismatches fail closed, while evaluator validation errors are reported as bounded reference blockers and unexpected runtime errors are allowed to surface.
+
 ## Model release
 
 Each model artifact will include a manifest with data/split hashes, architecture, initialization weights, training configuration, seed, preprocessing, selected checkpoint, evaluation output, and checksum.
