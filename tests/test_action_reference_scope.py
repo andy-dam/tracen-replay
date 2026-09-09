@@ -58,3 +58,36 @@ class ActionReferenceScopeTests(unittest.TestCase):
                 reference.update(actions=[action], no_completed_actions=False)
                 with self.assertRaises(ValueError):
                     evaluate(reference, report)
+
+    def test_malformed_prediction_times_cannot_pass_or_disappear_from_scoring(self):
+        for value in (False, True, 50.0, '50', None, -1, 1000):
+            with self.subTest(value=value):
+                reference, report = self.inputs()
+                report['gameplay_tracking']['turn_action_receipts'] = [dict(kind='training', source_timestamp_ms=value)]
+                with self.assertRaisesRegex(ValueError, 'Invalid predicted action row 0'):
+                    evaluate(reference, report)
+
+    def test_prediction_validation_precedes_scope_filtering(self):
+        for action in (None, {}, dict(kind='race'), dict(kind='event', source_timestamp_ms=500),
+                       dict(kind='race', source_timestamp_ms=None)):
+            with self.subTest(action=action):
+                reference, report = self.inputs()
+                report['gameplay_tracking']['turn_action_receipts'] = [action]
+                with self.assertRaisesRegex(ValueError, 'Invalid predicted action row 0'):
+                    evaluate(reference, report)
+
+    def test_missing_prediction_list_and_malformed_duration_are_rejected(self):
+        for value in (None, {}, 'missing'):
+            reference, report = self.inputs()
+            report['gameplay_tracking']['turn_action_receipts'] = value
+            with self.assertRaisesRegex(ValueError, 'predicted action rows'):
+                evaluate(reference, report)
+        reference, report = self.inputs()
+        del report['gameplay_tracking']['turn_action_receipts']
+        with self.assertRaisesRegex(ValueError, 'predicted action rows'):
+            evaluate(reference, report)
+        for value in (None, False, 1000.0, '1000', 0):
+            reference, report = self.inputs()
+            report['source']['duration_ms'] = value
+            with self.assertRaisesRegex(ValueError, 'Invalid source duration'):
+                evaluate(reference, report)

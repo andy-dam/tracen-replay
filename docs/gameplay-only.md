@@ -115,6 +115,9 @@ the exact kinds and interval in its result. Lessons, concerts and dialogue choic
 belong to their separate evaluators. Coverage of a training-only reference does
 not establish race, rest or outing recall over the same interval. References that
 exceed the recording duration or use malformed time bounds are rejected.
+Predicted action rows must also carry a supported kind and an integer timestamp
+within the recording; malformed rows are rejected before scope filtering, with
+the offending row index in the error.
 
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.

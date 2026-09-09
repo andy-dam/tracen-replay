@@ -1,5 +1,7 @@
 """One-to-one receipt evaluation within an explicitly labeled source interval."""
 
+ACTION_KINDS=('training','rest','outing','race')
+
 
 def evaluate(reference,report):
     if reference['source_sha256']!=report['source']['sha256']:raise ValueError('Different source recordings.')
@@ -10,14 +12,16 @@ def evaluate(reference,report):
         raise ValueError('Explicit actions are required.')
     kinds=reference.get('kinds')
     if (not isinstance(kinds,list) or not kinds
-            or any(k not in ('training','rest','outing','race') for k in kinds)
+            or any(k not in ACTION_KINDS for k in kinds)
             or len(set(kinds))!=len(kinds)):
         raise ValueError('Declare unique supported training/rest/outing/race kinds.')
     start,end=reference.get('start_ms'),reference.get('end_ms')
     if type(start) is not int or type(end) is not int or not 0<=start<end:
         raise ValueError('Invalid evaluation interval.')
-    if 'duration_ms' in report['source'] and end>report['source']['duration_ms']:
-        raise ValueError('Reference exceeds source duration.')
+    duration=report['source'].get('duration_ms')
+    if 'duration_ms' in report['source']:
+        if type(duration) is not int or duration<=0:raise ValueError('Invalid source duration.')
+        if end>duration:raise ValueError('Reference exceeds source duration.')
     negative=reference.get('no_completed_actions') is True
     if not reference['actions'] and not (negative and reference.get('independently_reviewed') is True):
         raise ValueError('Empty actions require an explicitly reviewed negative reference.')
@@ -29,7 +33,15 @@ def evaluate(reference,report):
             raise ValueError('Action annotation lies outside the declared evaluation scope.')
     data=report['gameplay_tracking']
     if data.get('auxiliary_log_used') is not False:raise ValueError('Only gameplay-only results are eligible.')
-    predictions=[a for a in data['turn_action_receipts'] if a['kind'] in reference['kinds'] and reference['start_ms']<=a['source_timestamp_ms']<reference['end_ms']]
+    receipts=data.get('turn_action_receipts')
+    if not isinstance(receipts,list):raise ValueError('Explicit predicted action rows are required.')
+    for index,action in enumerate(receipts):
+        if (not isinstance(action,dict) or action.get('kind') not in ACTION_KINDS
+                or type(action.get('source_timestamp_ms')) is not int
+                or action['source_timestamp_ms']<0
+                or (duration is not None and action['source_timestamp_ms']>=duration)):
+            raise ValueError(f'Invalid predicted action row {index}: supported kind and integer source-bounded timestamp required.')
+    predictions=[a for a in receipts if a['kind'] in kinds and start<=a['source_timestamp_ms']<end]
     used=set();matched=[];missed=[]
     for expected in reference['actions']:
         candidates=[(i,a) for i,a in enumerate(predictions) if i not in used and a['kind']==expected['kind']
