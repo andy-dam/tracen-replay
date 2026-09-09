@@ -49,5 +49,17 @@ class RaceItemsTests(unittest.TestCase):
         moved=self.row(250);moved['facts']['visible_item_quantities'][0]['box']=[312,800,377,827]
         self.assertEqual(races([self.row(0),moved])[0]['visible_item_reward_snapshots'],[])
 
+    def test_snapshot_preserves_per_frame_quantity_provenance(self):
+        first,second=self.row(0),self.row(250)
+        first['facts']['visible_item_quantities'][0].update(raw_text='x200',confidence=99)
+        second['facts']['visible_item_quantities'][0].update(raw_text='x200',confidence=98)
+        snapshot=races([first,second])[0]['visible_item_reward_snapshots'][0]
+        self.assertEqual([x['source_timestamp_ms'] for x in snapshot['item_observations']],[0,250])
+        self.assertEqual(snapshot['item_observations'][1]['evidence'],'250.png')
+        self.assertEqual(snapshot['item_observations'][1]['items'][0]['confidence'],98)
+        self.assertEqual(snapshot['item_observations'][0]['items'][0]['box'],[312,863,377,890])
+        self.assertFalse(snapshot['identity_verified'])
+        self.assertFalse(snapshot['list_complete'])
+
 
 if __name__=='__main__':unittest.main()

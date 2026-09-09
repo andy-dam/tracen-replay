@@ -716,6 +716,8 @@ def races(readings):
             snapshots.append(dict(first_seen_ms=pending[0]['source_timestamp_ms'],
                 last_seen_ms=pending[-1]['source_timestamp_ms'],
                 items=[dict(quantity=x['quantity'],name=None) for x in pending[0]['facts']['visible_item_quantities']],
+                item_observations=[dict(source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence'],
+                    items=[dict(x) for x in r['facts']['visible_item_quantities']]) for r in pending],
                 evidence=list(dict.fromkeys(r['evidence'] for r in pending)),
                 identity_verified=False,list_complete=False))
         for row in sorted(rows,key=lambda r:r['source_timestamp_ms']):
