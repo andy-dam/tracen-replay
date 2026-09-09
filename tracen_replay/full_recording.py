@@ -185,6 +185,14 @@ def cached_readings(report,root,allow_partial=False):
             raw=apply_concert_panel(raw,json.loads(concert_panel.read_text(encoding='utf-8')),
                 root/raw['evidence'],observation_root=root,original=original)
         row=parse_receipt_pixels(raw,root,frame,original)
+        race_quantities=root/'race-quantity-refinement'/path.name
+        if race_quantities.exists():
+            from .race_quantity_refinement import apply as apply_race_quantities
+            try:
+                row=apply_race_quantities(row,json.loads(race_quantities.read_text(encoding='utf-8')),
+                                          raw=original,root=root)
+            except ValueError as exc:
+                raise PipelineError(f'Race quantity refinement evidence invalid: {exc}') from exc
         inventory=root/'inventory-refinement'/path.name
         if inventory.exists():
             from .refine_inventory import apply as apply_inventory

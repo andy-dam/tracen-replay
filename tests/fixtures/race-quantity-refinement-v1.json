@@ -1,0 +1,83 @@
+{
+  "source_sha256": "fixture-recording-sha256",
+  "capture_manifest_sha256": "fixture-capture-manifest-sha256",
+  "reader_fingerprint": "fixture-reader-fingerprint",
+  "model_sha256": {
+    "fixture-recognition.onnx": "fixture-model-sha256"
+  },
+  "row": {
+    "screen": "race_result",
+    "facts": {
+      "fans": 12882,
+      "fans_gained": 11638,
+      "visible_item_quantities": [
+        {
+          "quantity": 400,
+          "name": null,
+          "box": [425, 699, 489, 727]
+        }
+      ],
+      "item_rewards_complete": false
+    }
+  },
+  "accepted_views": [
+    {
+      "timestamp_ms": 1000,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 98.2
+    },
+    {
+      "timestamp_ms": 1250,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 97.4
+    },
+    {
+      "timestamp_ms": 1500,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 98.0
+    }
+  ],
+  "single_frame_views": [
+    {
+      "timestamp_ms": 1000,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 99.0
+    },
+    {
+      "timestamp_ms": 1000,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 99.1
+    },
+    {
+      "timestamp_ms": 1000,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 99.2
+    }
+  ],
+  "conflicting_views": [
+    {
+      "timestamp_ms": 1000,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 98.5
+    },
+    {
+      "timestamp_ms": 1000,
+      "text": "x400",
+      "quantity": 400,
+      "confidence": 98.1
+    },
+    {
+      "timestamp_ms": 1250,
+      "text": "x1",
+      "quantity": 1,
+      "confidence": 98.5
+    }
+  ]
+}
