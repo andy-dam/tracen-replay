@@ -2,6 +2,16 @@
 
 The original English Our Grand Concert recording was processed from 00:00 through 31:06.333. The source coverage and accounting below use development source SHA-256 `a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174`. A separate-recording evaluation appears below. Media, weights and generated reports remain local.
 
+## Latest regression checks
+
+The race-day totals layout supplies eight additional stable checkpoints across the two recordings. The current reports contain 143 balanced six-field intervals in the original recording and 130 in the second. This measures agreement between observed states and recognized numeric effects, not complete event recall.
+
+The subsequent friendship-status identity check preserves these checkpoints and numeric intervals. It reports conflicting names as uncertain and distinguishes them from different recipients passing through the same row as dialogue scrolls. All 442 automated tests and all 12 checks against the preserved initial evaluation references pass.
+
+A broader before/after regression checks all 29 registered sampled effect references for the second recording. Only the 13:10–14:10 reference changes: matched effects fall from 28/29 to 27/29 because one previously accepted recipient is now unresolved; its false extra spelling is also removed. This remains a recognition gap. The declared reviewed duration is 985 seconds (55.439%), including overlapping references counted once. These are development measurements; neither full-recording effect recall nor Go readiness is established.
+
+Report SHA-256 values for this comparison are `3ea28a8b7e5c33a3a5c24016de1119a06332d56935927e1b6f75f7b91507a6ff` (original recording) and `729e12ae018629bd4729db1df0362649da557a4b27c94be69f731273a141019d` (second recording). Earlier benchmark results below retain their original scope and counts.
+
 ## Source coverage
 
 - 7,466 base frames at 4 FPS, no sampling gap above 250 ms, final sample 83 ms before the end.
