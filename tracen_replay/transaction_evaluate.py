@@ -24,7 +24,9 @@ def evaluate(reference,report):
     if data.get('auxiliary_log_used') is not False:raise ValueError('Only gameplay-only reports are eligible.')
     for purchase in data.get('lesson_purchases',[]):
         predictions.append(dict(kind='lesson',timestamp_ms=purchase['source_timestamp_ms'],id=purchase['id'],
-                                performance_cost=purchase['performance_cost'],stats=purchase['awarded_stats']))
+                                performance_cost=purchase['performance_cost'],stats=purchase['awarded_stats'],
+                                name=purchase.get('name'),requested_name=purchase.get('requested_name'),
+                                receipt_name=purchase.get('receipt_name')))
     for concert in data.get('concerts',[]):
         effects=[e for group in concert['observed_rewards'] for e in group]
         predictions.append(dict(kind='concert',timestamp_ms=concert['first_seen_ms'],id=concert['id'],
@@ -35,10 +37,13 @@ def evaluate(reference,report):
     for expected in reference['transactions']:
         if expected['kind'] not in reference['kinds']:raise ValueError('Expected transaction outside declared kinds.')
         if not start<=expected['start_ms']<=expected['end_ms']<end:raise ValueError('Expected transaction outside reference scope.')
+        for key in ('name','requested_name','receipt_name'):
+            if key in expected and (expected['kind']!='lesson' or not isinstance(expected[key],str) or not expected[key].strip()):
+                raise ValueError('Identity labels require a nonempty source-observed lesson name.')
         options=[(i,p) for i,p in enumerate(predictions) if i not in used and p['kind']==expected['kind'] and expected['start_ms']<=p['timestamp_ms']<=expected['end_ms']]
         if len(options)!=1:missing.append(expected);continue
         index,prediction=options[0];used.add(index);matches.append(prediction['id'])
-        for key in ('performance_cost','stats','fans'):
+        for key in ('performance_cost','stats','fans','name','requested_name','receipt_name'):
             if key not in expected:continue
             actual=prediction.get(key);wanted=expected[key]
             if key in ('performance_cost','stats') and actual is not None:
@@ -53,6 +58,8 @@ def evaluate(reference,report):
                 missing=missing,extra_predictions=extras,field_errors=field_errors,
                 passed=not missing and not extras and not field_errors,
                 independently_reviewed=reference.get('independently_reviewed',False),
+                evaluated_fields=sorted({key for expected in reference['transactions']
+                    for key in ('performance_cost','stats','fans','name','requested_name','receipt_name') if key in expected}),
                 explicitly_reviewed_negative=negative,
                 independent_recording=False,complete_effect_recall_measured=False)
 
