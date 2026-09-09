@@ -29,6 +29,8 @@ When final-state cross-checking lacks a required observation, `verification.fina
 
 Concert `later_active_bonus_snapshot` likewise keeps source-timestamped `observations` separate from confirmed `values`. Confirmation requires matching current-column values at two distinct timestamps; duplicate observations of one frame cannot satisfy it. `unresolved_fields` distinguishes absent readings, conflicting readings, and insufficient temporal support. Planned-column values never fill a missing current value. No reviewed post-fifth-concert panel currently establishes the final active totals in either recording; incomplete source recall means this is a limitation of reviewed evidence, not proof that no such panel exists anywhere in the video.
 
+Validated concert-slot refinements retain their supporting source timestamps and crop proofs through parsing and aggregation. Their distinct frames can confirm the unchanged support-chain level even when the refinement emits one corrected base row; threshold variants of one frame cannot. The original run's first later-current snapshot confirms specialty priority 10 and support-chain level 0, while friendship effectiveness 10 remains separately observed without repeated confirmation.
+
 ## Counting rules
 
 | Mechanic | Count from | Keep separate or unknown |

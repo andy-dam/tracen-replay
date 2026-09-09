@@ -38,3 +38,16 @@ class ActiveBonusSnapshotTests(unittest.TestCase):
         self.assertEqual(result['unresolved_fields']['specialty_priority'],'conflicting_observations')
         self.assertEqual(result['unresolved_fields']['friendship_training_effectiveness'],'not_observed')
         self.assertEqual(result['observations']['friendship_training_effectiveness'],[])
+
+    def test_validated_slot_refinement_retains_distinct_support_frames(self):
+        field='support_chain_event_frequency'
+        row=self.row(1000,{field:0})
+        detail=dict(refinement='concert_support_level',refinement_source_timestamps_ms=[1250,1500,1750],
+                    refinement_evidence=['a.png','b.png','c.png'])
+        row['facts']['concert_bonus_evidence']={field:detail}
+        result=active_bonus_snapshot([row])
+        self.assertEqual(result['values'],{field:0})
+        self.assertEqual(result['evidence'][field],['frame-1000.png','a.png','b.png','c.png'])
+        self.assertFalse(result['complete'])
+        detail['refinement_source_timestamps_ms']=[1250,1250,1250]
+        self.assertEqual(active_bonus_snapshot([row])['values'],{})

@@ -523,6 +523,7 @@ def apply(raw, refinement, evidence_path, *, observation_root=None, original=Non
         refinement_evidence_sha256=[item["evidence_sha256"] for item in result["observations"]],
         refinement_source_frames=[item["source_frame_evidence"] for item in result["observations"]],
         refinement_source_pts=[item["source_pts"] for item in result["observations"]],
+        refinement_source_timestamps_ms=[item["timestamp_ms"] for item in result["observations"]],
     )
     lines.append(marked)
     extra = dict(refinement)

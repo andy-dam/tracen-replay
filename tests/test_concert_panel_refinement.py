@@ -143,6 +143,10 @@ class ConcertPanelRefinementTests(unittest.TestCase):
             evidence = refined["facts"]["concert_bonus_evidence"]["support_chain_event_frequency"]
             self.assertEqual(evidence["text"], "Lvl 0")
             self.assertEqual(evidence["refinement"], "concert_support_level")
+            self.assertEqual(evidence['refinement_source_timestamps_ms'],[662000,662250,662500])
+            from tracen_replay.transactions import active_bonus_snapshot
+            snapshot=active_bonus_snapshot([dict(refined,source_timestamp_ms=self.raw['source_timestamp_ms'],evidence=self.raw['evidence'])])
+            self.assertEqual(snapshot['values']['support_chain_event_frequency'],0)
 
     def test_apply_rejects_tampered_source_proof(self):
         with workspace_temp() as root:

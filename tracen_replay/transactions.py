@@ -735,10 +735,22 @@ def active_bonus_snapshot(snapshots):
         rows=[r for r in snapshots if field in r['facts'].get('current_concert_bonuses',{})]
         observations[field]=[dict(value=r['facts']['current_concert_bonuses'][field],
                                   source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence']) for r in rows]
+        # The validated slot refinement has distinct source-frame support even
+        # though its corrected OCR line is emitted on a single base row.
+        if field=='support_chain_event_frequency':
+            for row in rows:
+                detail=row['facts'].get('concert_bonus_evidence',{}).get(field,{})
+                times=detail.get('refinement_source_timestamps_ms',[])
+                evidence=detail.get('refinement_evidence',[])
+                if detail.get('refinement')!='concert_support_level' or len(times)!=len(evidence):continue
+                if len(set(times))<3 or any(type(t) is not int for t in times):continue
+                for time,proof in zip(times,evidence):
+                    observations[field].append(dict(value=row['facts']['current_concert_bonuses'][field],
+                        source_timestamp_ms=time,evidence=proof,basis='validated_concert_slot_refinement'))
         numbers={o['value'] for o in observations[field]}
         times={o['source_timestamp_ms'] for o in observations[field]}
         if len(numbers)==1 and len(times)>=2:
-            values[field]=next(iter(numbers));proofs[field]=list(dict.fromkeys(r['evidence'] for r in rows))
+            values[field]=next(iter(numbers));proofs[field]=list(dict.fromkeys(o['evidence'] for o in observations[field]))
         else:
             unresolved[field]='not_observed' if not rows else ('conflicting_observations' if len(numbers)>1 else 'insufficient_distinct_timestamps')
     return dict(values=values,evidence=proofs,complete=len(values)==3,
