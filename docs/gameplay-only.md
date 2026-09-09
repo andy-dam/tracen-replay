@@ -63,6 +63,16 @@ Friendship recipients that change across adjacent observations of the same recei
 
 A shorter friendship name can be removed as a cursor-obscured suffix variant when two later, distinct source frames already provide the exact full name and amount. Verified OCR alignments must place the retained letters in the same stationary positions and every omitted letter under the earlier cursor. At least one supporting name must have no cursor intersection; missing alignment, a different amount, a competing recipient, scrolling or a screen change prevents resolution. Validated source, frame, image and model identity travel with the alignment, and cross-frame or cross-source evidence is rejected. This rule neither supplies an unobserved name nor accepts a lone gap-obscured reading. It preserves the shorter reading and the supporting timestamps, alignments and cursor boxes. Overlay alignment collection includes lower-edge intersections so the center-of-line heuristic does not exclude the evidence needed to assess them.
 
+Conflicting inheritance names become explicit ambiguous candidates when adjacent
+source observations track the same upward-scrolling receipt. The name boxes must
+keep compatible dimensions and move with independently unique neighboring text;
+contradictory motion, competing names, missing samples or changed context prevents
+that inference. A stationary screen position alone is insufficient because a new
+recipient can replace the preceding line there. This guard preserves both spellings
+and their evidence without choosing a name or claiming to detect confetti.
+Reconstruction annotates copies of parsed effects, keeping source observations
+unchanged when reports are rebuilt.
+
 Validation follows the output type: race fan gains are checked in race receipts, goal status in screen observations, and dialogue awards in event effects. A missing value in the wrong evaluator is not a recognition failure. Moving a reference between these checks must preserve its source evidence and original observation count.
 
 An effect reference that also labels training-result grids may explicitly set

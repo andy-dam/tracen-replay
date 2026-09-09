@@ -501,6 +501,8 @@ def outcome_events(readings):
         resolve_friendship_suffix(event,rows_by_evidence)
         from .receipt_names import flag_friendship_identity_conflicts
         flag_friendship_identity_conflicts(event,rows_by_evidence)
+        from .receipt_names import flag_inheritance_identity_conflicts
+        flag_inheritance_identity_conflicts(event,rows_by_evidence)
         from .receipt_names import collapse_visual_hint_variants
         collapse_visual_hint_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings},rows_by_evidence)
         from .receipt_names import collapse_punctuated_hint_variants
