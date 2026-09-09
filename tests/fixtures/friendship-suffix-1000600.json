@@ -1,0 +1,1337 @@
+{
+  "description": "Four consecutive source frames; cursor omits a suffix before two exact full-name readings. Fullname reviewed from gameplay pixels. No character catalog.",
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "rows": [
+    {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Early Jan"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 99.267
+        },
+        {
+          "kind": "friendship_change",
+          "name": "Director Akikaw",
+          "amount": 5,
+          "raw_text": "Friendship with Director Akikaw went up by 5.",
+          "confidence": 96.683
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              621,
+              846,
+              633,
+              863
+            ]
+          ],
+          "alignments": [
+            {
+              "line_box": [
+                314,
+                828,
+                768,
+                862
+              ],
+              "recognized_text": "Friendship with Director Akikaw went up by 5.",
+              "confidence": 97.716,
+              "words": [
+                "Friendship",
+                "with",
+                "Director",
+                "Akikaw",
+                "went",
+                "up",
+                "by",
+                "5."
+              ],
+              "columns": [
+                [
+                  2,
+                  3,
+                  5,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  15,
+                  17
+                ],
+                [
+                  20,
+                  22,
+                  23,
+                  25
+                ],
+                [
+                  28,
+                  30,
+                  31,
+                  33,
+                  35,
+                  36,
+                  38,
+                  40
+                ],
+                [
+                  43,
+                  45,
+                  46,
+                  48,
+                  50,
+                  52
+                ],
+                [
+                  58,
+                  60,
+                  62,
+                  63
+                ],
+                [
+                  66,
+                  68
+                ],
+                [
+                  71,
+                  74
+                ],
+                [
+                  77,
+                  78
+                ]
+              ],
+              "line_length": 80.0,
+              "numeric_box": [
+                738.20625,
+                828,
+                759.4875,
+                862
+              ]
+            }
+          ],
+          "provenance": {
+            "validated_by": "annotate_path",
+            "raw_sha256": "804f072a6cfc451d69fb8f371bf75649c3aa15e4019021712648c1c98ab9c48b",
+            "evidence_sha256": "d083d8542fc2ac383b48797e39ebd773ddb05df7e88ca734188171ab64fef992",
+            "model_sha256": {
+              "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+              "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+            },
+            "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+            "source_frame_sha256": "b240bc51607bcd4ac401adb747286bf750256d38ce8fbd9a1cf64095e5fe92ed",
+            "gameplay_sha256": "c70e89715deb4088b5a07ec6bacd7118c951520981966d7a989e05ffc96083d1",
+            "source_timestamp_ms": 1000600,
+            "evidence": "receipt-inspection/1000500-1001250-60/frame-000007.png"
+          }
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.953,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Senior Year Early Jan",
+            "confidence": 99.665,
+            "box": [
+              388,
+              36,
+              532,
+              56
+            ]
+          },
+          {
+            "text": "12",
+            "confidence": 99.926,
+            "box": [
+              256,
+              51,
+              330,
+              106
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 92.738,
+            "box": [
+              320,
+              60,
+              376,
+              84
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 99.037,
+            "box": [
+              445,
+              63,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.708,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.679,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.97,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Progress",
+            "confidence": 99.972,
+            "box": [
+              451,
+              90,
+              518,
+              111
+            ]
+          },
+          {
+            "text": "2 time(s) left",
+            "confidence": 97.926,
+            "box": [
+              536,
+              88,
+              638,
+              111
+            ]
+          },
+          {
+            "text": "11 tur(s)",
+            "confidence": 88.43,
+            "box": [
+              278,
+              125,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Concertin",
+            "confidence": 99.601,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.705,
+            "box": [
+              382,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "T GREAT",
+            "confidence": 93.59,
+            "box": [
+              718,
+              117,
+              806,
+              152
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 99.267,
+            "box": [
+              315,
+              805,
+              531,
+              836
+            ]
+          },
+          {
+            "text": "Friendship with Director Akikaw went up by 5.",
+            "confidence": 96.683,
+            "box": [
+              314,
+              828,
+              768,
+              862
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.848,
+            "box": [
+              521,
+              1037,
+              574,
+              1070
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.951,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1000600,
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000007.png"
+    },
+    {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Early Jan"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 99.272
+        },
+        {
+          "kind": "friendship_change",
+          "name": "Director Akikawa",
+          "amount": 5,
+          "raw_text": "Friendship with Director Akikawa went up by 5.",
+          "confidence": 98.248
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              627,
+              846,
+              639,
+              860
+            ]
+          ],
+          "alignments": [
+            {
+              "line_box": [
+                315,
+                829,
+                767,
+                860
+              ],
+              "recognized_text": "Friendship with Director Akikawa went up by 5.",
+              "confidence": 99.034,
+              "words": [
+                "Friendship",
+                "with",
+                "Director",
+                "Akikawa",
+                "went",
+                "up",
+                "by",
+                "5."
+              ],
+              "columns": [
+                [
+                  2,
+                  4,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15,
+                  17,
+                  18
+                ],
+                [
+                  22,
+                  24,
+                  25,
+                  27
+                ],
+                [
+                  31,
+                  33,
+                  34,
+                  36,
+                  38,
+                  40,
+                  42,
+                  43
+                ],
+                [
+                  47,
+                  49,
+                  51,
+                  53,
+                  55,
+                  57,
+                  59
+                ],
+                [
+                  63,
+                  66,
+                  68,
+                  69
+                ],
+                [
+                  73,
+                  75
+                ],
+                [
+                  78,
+                  81
+                ],
+                [
+                  84,
+                  85
+                ]
+              ],
+              "line_length": 87.0,
+              "numeric_box": [
+                739.7241379310345,
+                829,
+                759.2068965517242,
+                860
+              ]
+            }
+          ],
+          "provenance": {
+            "validated_by": "annotate_path",
+            "raw_sha256": "2b12f373bcb2e924722658687923160862703c7d081a889a41b0e5b5126f5642",
+            "evidence_sha256": "adf304bf126d510dd1d1e795d624b1ee9a34784fbda943128638b01ed20eeee9",
+            "model_sha256": {
+              "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+              "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+            },
+            "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+            "source_frame_sha256": "31a57f88ffdad19f62293ef16e17c9e7e38ff0dbe1d8b06c19f16596947a0dc7",
+            "gameplay_sha256": "21471e9527b519f4bd02458ec340e04078fd05c80a8bc43758e154b75e388caf",
+            "source_timestamp_ms": 1000617,
+            "evidence": "receipt-inspection/1000500-1001250-60/frame-000008.png"
+          }
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.952,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Senior Year Early Jan",
+            "confidence": 99.963,
+            "box": [
+              388,
+              36,
+              532,
+              56
+            ]
+          },
+          {
+            "text": "12",
+            "confidence": 99.926,
+            "box": [
+              256,
+              51,
+              330,
+              106
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.888,
+            "box": [
+              320,
+              60,
+              376,
+              84
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 99.058,
+            "box": [
+              445,
+              63,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.73,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.752,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.964,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Progress",
+            "confidence": 99.972,
+            "box": [
+              451,
+              90,
+              518,
+              111
+            ]
+          },
+          {
+            "text": "2 time(s) left",
+            "confidence": 97.924,
+            "box": [
+              536,
+              88,
+              638,
+              111
+            ]
+          },
+          {
+            "text": "11 turn(s)",
+            "confidence": 84.356,
+            "box": [
+              278,
+              125,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Concertin",
+            "confidence": 99.599,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.701,
+            "box": [
+              382,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "T GREAT",
+            "confidence": 93.766,
+            "box": [
+              718,
+              117,
+              806,
+              152
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 99.272,
+            "box": [
+              315,
+              805,
+              531,
+              836
+            ]
+          },
+          {
+            "text": "Friendship with Director Akikawa went up by 5.",
+            "confidence": 98.248,
+            "box": [
+              315,
+              829,
+              767,
+              860
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.848,
+            "box": [
+              521,
+              1037,
+              574,
+              1070
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.948,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1000617,
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000008.png"
+    },
+    {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Early Jan"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 99.272
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              632,
+              846,
+              645,
+              861
+            ]
+          ],
+          "alignments": [
+            {
+              "line_box": [
+                315,
+                829,
+                767,
+                860
+              ],
+              "recognized_text": "Friendship with Director Akikawawent up by 5.",
+              "confidence": 98.048,
+              "words": [
+                "Friendship",
+                "with",
+                "Director",
+                "Akikawawent",
+                "up",
+                "by",
+                "5."
+              ],
+              "columns": [
+                [
+                  2,
+                  4,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15,
+                  17,
+                  18
+                ],
+                [
+                  22,
+                  24,
+                  25,
+                  27
+                ],
+                [
+                  31,
+                  33,
+                  34,
+                  36,
+                  38,
+                  40,
+                  42,
+                  43
+                ],
+                [
+                  47,
+                  49,
+                  51,
+                  53,
+                  55,
+                  57,
+                  60,
+                  63,
+                  66,
+                  68,
+                  69
+                ],
+                [
+                  73,
+                  75
+                ],
+                [
+                  78,
+                  81
+                ],
+                [
+                  84,
+                  85
+                ]
+              ],
+              "line_length": 87.0,
+              "numeric_box": [
+                739.7241379310345,
+                829,
+                759.2068965517242,
+                860
+              ]
+            }
+          ],
+          "provenance": {
+            "validated_by": "annotate_path",
+            "raw_sha256": "0eabe0689fbedaf26c75492a551162726aae0b691a622e4b8e108c96c0903a81",
+            "evidence_sha256": "e225dfddfb62df51ed3bff12827fbced67fe567beb81c506b5c235374eb53c1e",
+            "model_sha256": {
+              "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+              "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+            },
+            "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+            "source_frame_sha256": "566cf74554e82006c948d8ec2dbefbd32643b5936e52c23e59bc495c943d3ab7",
+            "gameplay_sha256": "ba9db3e8e7ce750d1e824919d196ed57eb3ea1a566b7644aa14280ec7267a127",
+            "source_timestamp_ms": 1000633,
+            "evidence": "receipt-inspection/1000500-1001250-60/frame-000009.png"
+          }
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.952,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Senior Year Early Jan",
+            "confidence": 99.262,
+            "box": [
+              388,
+              36,
+              532,
+              56
+            ]
+          },
+          {
+            "text": "12",
+            "confidence": 99.926,
+            "box": [
+              256,
+              51,
+              330,
+              106
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.888,
+            "box": [
+              320,
+              60,
+              376,
+              84
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 99.058,
+            "box": [
+              445,
+              63,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.73,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.752,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.964,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Progress",
+            "confidence": 99.972,
+            "box": [
+              451,
+              90,
+              518,
+              111
+            ]
+          },
+          {
+            "text": "2 time(s) left",
+            "confidence": 97.924,
+            "box": [
+              536,
+              88,
+              638,
+              111
+            ]
+          },
+          {
+            "text": "11 turn(s)",
+            "confidence": 84.356,
+            "box": [
+              278,
+              125,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Concertin",
+            "confidence": 99.599,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.701,
+            "box": [
+              382,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "T GREAT",
+            "confidence": 93.766,
+            "box": [
+              718,
+              117,
+              806,
+              152
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 99.272,
+            "box": [
+              315,
+              805,
+              531,
+              836
+            ]
+          },
+          {
+            "text": "Friendship with Director Akikawawent up by 5.",
+            "confidence": 97.815,
+            "box": [
+              315,
+              829,
+              767,
+              860
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.848,
+            "box": [
+              521,
+              1037,
+              574,
+              1070
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.948,
+            "box": [
+              670,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1000633,
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000009.png"
+    },
+    {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Early Jan"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 4,
+          "raw_text": "Skill Pts went up by 4.",
+          "confidence": 99.267
+        },
+        {
+          "kind": "friendship_change",
+          "name": "Director Akikawa",
+          "amount": 5,
+          "raw_text": "Friendship with Director Akikawa went up by 5.",
+          "confidence": 97.149
+        }
+      ],
+      "facts": {
+        "receipt_overlay_evidence": {
+          "overlay_boxes": [
+            [
+              636,
+              845,
+              648,
+              861
+            ]
+          ],
+          "alignments": [
+            {
+              "line_box": [
+                315,
+                829,
+                767,
+                860
+              ],
+              "recognized_text": "Friendship with Director Akikawa went up by 5.",
+              "confidence": 97.651,
+              "words": [
+                "Friendship",
+                "with",
+                "Director",
+                "Akikawa",
+                "went",
+                "up",
+                "by",
+                "5."
+              ],
+              "columns": [
+                [
+                  2,
+                  4,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15,
+                  17,
+                  18
+                ],
+                [
+                  22,
+                  24,
+                  25,
+                  27
+                ],
+                [
+                  31,
+                  33,
+                  34,
+                  36,
+                  38,
+                  40,
+                  42,
+                  43
+                ],
+                [
+                  47,
+                  49,
+                  51,
+                  53,
+                  55,
+                  57,
+                  59
+                ],
+                [
+                  64,
+                  66,
+                  68,
+                  69
+                ],
+                [
+                  73,
+                  75
+                ],
+                [
+                  78,
+                  81
+                ],
+                [
+                  84,
+                  85
+                ]
+              ],
+              "line_length": 87.0,
+              "numeric_box": [
+                739.7241379310345,
+                829,
+                759.2068965517242,
+                860
+              ]
+            }
+          ],
+          "provenance": {
+            "validated_by": "annotate_path",
+            "raw_sha256": "679a81e014d0f70c7ecb9f7b7d3ab84cab35862652be0f49356e2aa1c9a1f384",
+            "evidence_sha256": "fd277261bc82c635f20b09263aadda193bbecc980da024c674295d1cd7362324",
+            "model_sha256": {
+              "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+              "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+            },
+            "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+            "source_frame_sha256": "f90a2764e5d8d1693fd440887fff9acaa172c4022196557ab8346508682a6a25",
+            "gameplay_sha256": "2881ea6e16bacfc36689f5c73744a9df93a6797bfb03201c8a0fea3784c9bd36",
+            "source_timestamp_ms": 1000650,
+            "evidence": "receipt-inspection/1000500-1001250-60/frame-000010.png"
+          }
+        }
+      },
+      "completed_action": null,
+      "context_title": null,
+      "context_title_candidate": null,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.953,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Senior Year Early Jan",
+            "confidence": 99.961,
+            "box": [
+              388,
+              36,
+              532,
+              56
+            ]
+          },
+          {
+            "text": "12",
+            "confidence": 99.925,
+            "box": [
+              256,
+              51,
+              330,
+              106
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 92.328,
+            "box": [
+              320,
+              60,
+              376,
+              84
+            ]
+          },
+          {
+            "text": "In G1, place within the top 3 2 time(s)",
+            "confidence": 99.048,
+            "box": [
+              445,
+              63,
+              749,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.704,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.679,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.97,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Progress",
+            "confidence": 99.972,
+            "box": [
+              451,
+              90,
+              518,
+              111
+            ]
+          },
+          {
+            "text": "2 time(s) left",
+            "confidence": 97.926,
+            "box": [
+              536,
+              88,
+              638,
+              111
+            ]
+          },
+          {
+            "text": "11 turn(s)",
+            "confidence": 86.22,
+            "box": [
+              278,
+              125,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Concertin",
+            "confidence": 99.6,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.705,
+            "box": [
+              382,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "T GREAT",
+            "confidence": 93.59,
+            "box": [
+              718,
+              117,
+              806,
+              152
+            ]
+          },
+          {
+            "text": "Skill Pts went up by 4.",
+            "confidence": 99.267,
+            "box": [
+              315,
+              805,
+              531,
+              836
+            ]
+          },
+          {
+            "text": "Friendship with Director Akikawa went up by 5.",
+            "confidence": 97.149,
+            "box": [
+              315,
+              829,
+              767,
+              860
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.848,
+            "box": [
+              521,
+              1037,
+              574,
+              1070
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.974,
+            "box": [
+              671,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1000650,
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000010.png"
+    }
+  ],
+  "proofs": [
+    {
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000007.png",
+      "evidence_sha256": "d083d8542fc2ac383b48797e39ebd773ddb05df7e88ca734188171ab64fef992",
+      "raw_sha256": "1a5af2b29fad4fa7d57c1854c377260bcb7a7f59cd4a78b73f1ecdfcc666be4b",
+      "alignment_sha256": "c5b7b4f1bcb280f5d2c98b21579861fe0a6c302df831ac5d7cd0f616d68042dd"
+    },
+    {
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000008.png",
+      "evidence_sha256": "adf304bf126d510dd1d1e795d624b1ee9a34784fbda943128638b01ed20eeee9",
+      "raw_sha256": "2821c9f09b5c6e7a031cbe21e17593515b1bb8948c7d438a23e248ee07481b40",
+      "alignment_sha256": "6b4b452acb13615081b5d182f57a321eeba177f056533b06126b65f40931934e"
+    },
+    {
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000009.png",
+      "evidence_sha256": "e225dfddfb62df51ed3bff12827fbced67fe567beb81c506b5c235374eb53c1e",
+      "raw_sha256": "5fd2bab00f8390df2c6264d6ec8b2cb2c2612b322d57af51777e0a8ab8d1f484",
+      "alignment_sha256": "ab2649fa5fd71377b2eb066cc8f3e29474bb8c0cb859bc7a58ebe1562b397c03"
+    },
+    {
+      "evidence": "receipt-inspection/1000500-1001250-60/frame-000010.png",
+      "evidence_sha256": "fd277261bc82c635f20b09263aadda193bbecc980da024c674295d1cd7362324",
+      "raw_sha256": "1151f0579d812ec1878d39173b7279d35560aa7550454e2ac5e4dcb8129d7c28",
+      "alignment_sha256": "775646beb19d4736afd2e9f3afb67fd3a5566c9670f902ff8b2ccaca3583d920"
+    }
+  ]
+}

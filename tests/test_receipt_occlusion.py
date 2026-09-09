@@ -94,6 +94,27 @@ class ReceiptOcclusionTests(unittest.TestCase):
         observation['gameplay_sha256']=hashlib.sha256(pane.tobytes()).hexdigest()
         return observation,pane
 
+    def test_capture_identity_is_retained_and_cannot_override_a_different_source(self):
+        import json
+        from tests.test_gameplay import workspace_temp
+        from tracen_replay.refine_contrast import fingerprint
+        with workspace_temp() as directory:
+            path=directory/'proof.png';source,pane=self.sample();pane.save(path)
+            source.update(evidence='proof.png',source_timestamp_ms=100,source_frame_sha256='b'*64)
+            def sidecar():
+                path.with_suffix('.overlay.json').write_text(json.dumps(dict(
+                    raw_sha256=fingerprint(source),evidence_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                    model_sha256={'recognizer':'c'*64},lines=[])),encoding='utf-8')
+            sidecar()
+            marked=annotate_path(source,path,source_sha256='a'*64)
+            provenance=marked['receipt_overlay_evidence']['provenance']
+            self.assertEqual(provenance['source_sha256'],'a'*64)
+            self.assertEqual(provenance['source_timestamp_ms'],100)
+            self.assertEqual(provenance['model_sha256'],{'recognizer':'c'*64})
+            self.assertNotIn('source_sha256',source)
+            source['source_sha256']='d'*64;sidecar()
+            with self.assertRaises(ValueError):annotate_path(source,path,source_sha256='a'*64)
+
     def test_obstruction_abstains_without_replacing_digit_or_modifying_source(self):
         source,pane=self.sample();marked=annotate(source,pane);reading=parse(marked)
         self.assertEqual(source['lines'][0]['confidence'],99)

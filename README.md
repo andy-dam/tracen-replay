@@ -4,7 +4,7 @@ Replay analysis for Umamusume: Pretty Derby.
 
 Tracen Replay is being developed to turn gameplay recordings into editable timelines. Screen recognition and field extraction will connect each observation to a source frame, helping players review training runs and compare their progress.
 
-**Status:** a local Python pipeline analyzes full recordings into source-linked actions, six-field stat accounting, lesson/skill transactions, races and concerts. It targets one English 1080p layout. Full-run accounting has been checked on one development recording; complete effect recall and independent-recording validation remain open. The Go application and Azure deployment remain planned.
+**Status:** a local Python pipeline analyzes full recordings into source-linked actions, six-field stat accounting, lesson/skill transactions, races and concerts. It targets one English 1080p layout. Checkpoint accounting has been checked on two development recordings; complete action/effect recall remains open. The Go application and Azure deployment remain planned.
 
 ## Run locally
 

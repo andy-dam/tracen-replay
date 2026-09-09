@@ -69,7 +69,7 @@ class SongSymbolsTests(unittest.TestCase):
             (root/'neural/one.json').write_text(json.dumps(raw),encoding='utf-8')
             (root/'song-symbols/one.json').write_text(json.dumps(extra),encoding='utf-8')
             report=dict(frames=[dict(id='one',evidence='source.png',source_timestamp_ms=1222250)])
-            with patch('tracen_replay.receipt_occlusion.annotate_path',side_effect=lambda raw,*args:raw):
+            with patch('tracen_replay.receipt_occlusion.annotate_path',side_effect=lambda raw,*args,**kwargs:raw):
                 self.assertEqual(cached_readings(report,root)[0]['effects'][0]['name'],'Present March\u266a')
             with self.assertRaisesRegex(ValueError,'provenance'):
                 apply(dict(raw,header='changed'),extra,root/'proof.png')

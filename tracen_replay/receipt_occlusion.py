@@ -156,17 +156,29 @@ def annotate(raw,pane):
             blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps,
                                 recipient_name_occluded=bool(name_overlaps)))
             line.update(confidence=0,overlay_occluded=True,pre_occlusion_confidence=line['confidence'])
-    return dict(raw,lines=lines,occluded_receipt_lines=blocked,resolved_receipt_occlusions=resolved) if blocked or resolved else raw
+    return dict(raw,lines=lines,occluded_receipt_lines=blocked,resolved_receipt_occlusions=resolved,
+                receipt_overlay_evidence=dict(overlay_boxes=boxes,alignments=raw.get('overlay_alignment',[]),
+                                              provenance=raw.get('receipt_overlay_provenance')))
 
 
-def annotate_path(raw,path,original=None):
+def annotate_path(raw,path,original=None,*,source_sha256=None):
     if not any(receipt_line(l) for l in raw['lines']):return raw
     from PIL import Image
     from .refine_contrast import fingerprint
+    raw=dict(raw)
+    raw.pop('receipt_overlay_provenance',None)
     extra_path=path.with_suffix('.overlay.json')
     if extra_path.exists():
         extra=json.loads(extra_path.read_text(encoding='utf-8'))
         if extra['raw_sha256']!=fingerprint(original or raw) or extra['evidence_sha256']!=hashlib.sha256(path.read_bytes()).hexdigest():
             raise ValueError('Receipt overlay alignment provenance changed.')
-        raw=dict(raw,overlay_alignment=extra['lines'])
+        origin=original or raw
+        if source_sha256 and origin.get('source_sha256') and source_sha256!=origin['source_sha256']:
+            raise ValueError('Receipt alignment belongs to a different recording.')
+        raw=dict(raw,overlay_alignment=extra['lines'],receipt_overlay_provenance=dict(
+            validated_by='annotate_path',raw_sha256=extra['raw_sha256'],
+            evidence_sha256=extra['evidence_sha256'],model_sha256=extra.get('model_sha256'),
+            source_sha256=source_sha256 or origin.get('source_sha256'),source_frame_sha256=origin.get('source_frame_sha256'),
+            gameplay_sha256=origin.get('gameplay_sha256'),
+            source_timestamp_ms=origin.get('source_timestamp_ms'),evidence=origin.get('evidence')))
     with Image.open(path) as pane:return annotate(raw,pane)

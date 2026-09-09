@@ -21,12 +21,12 @@ def save_json(path,value):
     temporary.replace(path)
 
 
-def parse_receipt_pixels(raw,root,frame,original=None):
+def parse_receipt_pixels(raw,root,frame,original=None,*,source_sha256=None):
     """Apply source-bound receipt checks before interpreting an OCR observation."""
     from .receipt_occlusion import annotate_path
     root=Path(root)
     evidence_path=root/raw['evidence']
-    checked=annotate_path(raw,evidence_path,original)
+    checked=annotate_path(raw,evidence_path,original,source_sha256=source_sha256)
     # Race-day totals occupy a lower ribbon. Verify its pixels before allowing
     # the original numeric OCR to supply a state during label/button animation.
     if not checked.get('current_grid'):
@@ -118,7 +118,7 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr'):
                 save_json(root/'progress.json',progress);print(json.dumps(progress),flush=True)
     readings=[]
     for frame in report['frames']:
-        raw=raws[frame['id']];row=parse_receipt_pixels(raw,root,frame);row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
+        raw=raws[frame['id']];row=parse_receipt_pixels(raw,root,frame,source_sha256=report.get('source',{}).get('sha256'));row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
     return readings
 
 
@@ -205,7 +205,7 @@ def cached_readings(report,root,allow_partial=False):
                     evidence_path=root/original['evidence'],source_frame_path=root/frame['evidence'])
             except ValueError as exc:
                 raise PipelineError(f'Base receipt refinement evidence invalid: {exc}') from exc
-        row=parse_receipt_pixels(raw,root,frame,original)
+        row=parse_receipt_pixels(raw,root,frame,original,source_sha256=report.get('source',{}).get('sha256'))
         if 'base_receipt_refinement' in raw:
             row['base_receipt_refinement']=raw['base_receipt_refinement']
         race_quantities=root/'race-quantity-refinement'/path.name

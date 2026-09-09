@@ -494,6 +494,8 @@ def outcome_events(readings):
         reconcile_animated_performance(event,readings)
         reconcile_animated_performance(event,readings,stat=True,receipt_observations=receipt_observations)
         event['effects']=list(event['effects'].values())
+        from .friendship_suffix import resolve as resolve_friendship_suffix
+        resolve_friendship_suffix(event,rows_by_evidence)
         from .receipt_names import flag_friendship_identity_conflicts
         flag_friendship_identity_conflicts(event,rows_by_evidence)
         from .receipt_names import collapse_visual_hint_variants
