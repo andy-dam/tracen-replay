@@ -4,6 +4,7 @@ import re
 from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, screen_summary
 from .skill_chains import cart_bundles,reconcile_skill_chains
+from .receipt_continuity import collapse_cross_event_hint_duplicates
 
 
 def skill_point_states(readings,states):
@@ -513,6 +514,10 @@ def outcome_events(readings):
         event['effects']=[e for e in event['effects'] if e not in removed]
         from .receipt_names import collapse_song_variants
         collapse_song_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings})
+        ambiguous={c['field'] for c in event['conflicting_readings']}
+        event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
+    events=collapse_cross_event_hint_duplicates(events,readings)
+    for event in events:
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
     return events
