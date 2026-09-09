@@ -69,6 +69,8 @@ Identity comparison can bridge one intervening 250 ms frame only when that frame
 
 Lesson transaction references can check the exact observed `name`, `requested_name`, and `receipt_name` alongside costs and awards. A correct numeric reward cannot compensate for a mismatched name. Evaluation output lists `evaluated_fields`; older numeric-only references do not establish lesson identity, and an unreadable name must not be labeled as an empty or null identity.
 
+References may also attach `source_performance_balance` with complete five-currency `before` and `after` observations and explicit `other_changes`. Each balance records `values`, `source_timestamp_ms`, `evidence`, and `sha256`. The evaluator rejects a labeled cost unless it equals before plus other changes minus after for every currency. `--evidence-root` additionally checks the referenced proof files. This verifies label consistency and file integrity; the reviewer must still establish that the screenshots show actual balances around the committed purchase and account for intervening changes. Legacy references without this witness remain reproducible and report zero source-balance checks.
+
 ## Gates before the application
 
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.

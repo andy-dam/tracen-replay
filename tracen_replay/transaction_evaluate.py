@@ -1,5 +1,6 @@
 """Score transaction recall and exact numeric fields in a reviewed source interval."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from .gameplay import CURRENCIES
@@ -13,7 +14,42 @@ def numeric_valid(value,key):
             and all(type(v) is int and (key!='performance_cost' or v>=0) for v in value.values()))
 
 
-def evaluate(reference,report):
+def validate_source_balance(expected,start,end,root=None):
+    """Check optional source labels against each other, before scoring output."""
+    if 'source_performance_balance' not in expected:return False
+    check=expected['source_performance_balance']
+    if expected.get('kind')!='lesson' or not isinstance(check,dict) or 'performance_cost' not in expected:
+        raise ValueError('Source performance balances require a labeled lesson cost.')
+    def vector(value,nonnegative):
+        return isinstance(value,dict) and set(value)==set(CURRENCIES) and all(
+            type(v) is int and (not nonnegative or v>=0) for v in value.values())
+    other=check.get('other_changes')
+    if not vector(other,False):raise ValueError('Explicit changes for all five performance currencies are required.')
+    points=[]
+    for phase in ('before','after'):
+        point=check.get(phase)
+        if not isinstance(point,dict) or not vector(point.get('values'),True):
+            raise ValueError('Source balances require all five nonnegative currency values.')
+        time=point.get('source_timestamp_ms')
+        if type(time) is not int or not start<=time<end:raise ValueError('Source balance time outside reference.')
+        evidence,digest=point.get('evidence'),point.get('sha256')
+        if not isinstance(evidence,str) or not evidence or not isinstance(digest,str) or len(digest)!=64 or any(c not in '0123456789abcdef' for c in digest):
+            raise ValueError('Source balance requires evidence path and SHA-256.')
+        if root is not None:
+            directory=Path(root).resolve();path=(directory/evidence).resolve()
+            if not path.is_relative_to(directory) or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
+                raise ValueError('Source balance evidence hash or path is invalid.')
+        points.append(point)
+    before,after=points
+    if not before['source_timestamp_ms']<=expected['start_ms']<=after['source_timestamp_ms'] or before['source_timestamp_ms']==after['source_timestamp_ms']:
+        raise ValueError('Source balances must bracket the reviewed purchase.')
+    observed={f:before['values'][f]+other[f]-after['values'][f] for f in CURRENCIES}
+    wanted={f:expected['performance_cost'].get(f,0) for f in CURRENCIES}
+    if observed!=wanted:raise ValueError('Reference lesson cost disagrees with its source balance labels.')
+    return True
+
+
+def evaluate(reference,report,root=None):
     if reference['source_sha256']!=report['source']['sha256']:raise ValueError('Reference belongs to a different recording.')
     if not isinstance(reference.get('transactions'),list):raise ValueError('Explicit transaction labels are required.')
     kinds=reference.get('kinds')
@@ -44,7 +80,7 @@ def evaluate(reference,report):
                                 fans=sum(e['amount'] for e in fan_effects)
                                     if all(type(e.get('amount')) is int for e in fan_effects) else None))
     predictions=[p for p in predictions if start<=p['timestamp_ms']<end and p['kind'] in reference['kinds']]
-    used=set();matches=[];missing=[];field_errors=[]
+    used=set();matches=[];missing=[];field_errors=[];balance_checks=0
     for expected in reference['transactions']:
         if expected['kind'] not in reference['kinds']:raise ValueError('Expected transaction outside declared kinds.')
         if not start<=expected['start_ms']<=expected['end_ms']<end:raise ValueError('Expected transaction outside reference scope.')
@@ -54,6 +90,7 @@ def evaluate(reference,report):
         for key in ('name','requested_name','receipt_name'):
             if key in expected and (expected['kind']!='lesson' or not isinstance(expected[key],str) or not expected[key].strip()):
                 raise ValueError('Identity labels require a nonempty source-observed lesson name.')
+        balance_checks+=validate_source_balance(expected,start,end,root)
         options=[(i,p) for i,p in enumerate(predictions) if i not in used and p['kind']==expected['kind'] and expected['start_ms']<=p['timestamp_ms']<=expected['end_ms']]
         if len(options)!=1:missing.append(expected);continue
         index,prediction=options[0];used.add(index);matches.append(prediction['id'])
@@ -79,10 +116,12 @@ def evaluate(reference,report):
                 evaluated_fields=sorted({key for expected in reference['transactions']
                     for key in ('performance_cost','stats','fans','name','requested_name','receipt_name') if key in expected}),
                 explicitly_reviewed_negative=negative,
+                source_balance_checks=balance_checks,source_balance_hashes_checked=bool(balance_checks and root is not None),
                 independent_recording=False,complete_effect_recall_measured=False)
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('reference',type=Path);parser.add_argument('report',type=Path);parser.add_argument('--output',type=Path,required=True)
-    args=parser.parse_args();result=evaluate(json.loads(args.reference.read_text(encoding='utf-8')),json.loads(args.report.read_text(encoding='utf-8')))
+    parser.add_argument('--evidence-root',type=Path)
+    args=parser.parse_args();result=evaluate(json.loads(args.reference.read_text(encoding='utf-8')),json.loads(args.report.read_text(encoding='utf-8')),args.evidence_root)
     args.output.write_text(json.dumps(result,indent=2),encoding='utf-8');print(json.dumps(result))
