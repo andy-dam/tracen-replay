@@ -1,0 +1,473 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "report_sha256": "a3bed531a22e3d6f04c80354aeab26ef2bc579be082b9c4445af8fd7d0dce343",
+  "scope": "Gameplay-only parsed observations of one unstable friendship receipt; no recipient spelling is a target for correction.",
+  "event": {
+    "effects": [
+      {
+        "kind": "friendship_change",
+        "name": "or Akikawa",
+        "amount": 4,
+        "raw_text": "Friendship with or Akikawa went up by 4.",
+        "confidence": 96.619
+      },
+      {
+        "kind": "friendship_change",
+        "name": "r Akikawa",
+        "amount": 4,
+        "raw_text": "Friendship with r Akikawa went up by 4.",
+        "confidence": 97.07
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Diecorkikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Diecorkikawa went up by 4.",
+        "confidence": 95.961
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Deor .kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Deor .kikawa went up by 4.",
+        "confidence": 95.376
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Dor A.kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Dor A.kikawa went up by 4.",
+        "confidence": 96.454
+      },
+      {
+        "kind": "friendship_change",
+        "name": ": A.kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with : A.kikawa went up by 4.",
+        "confidence": 96.048
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Dicor Akikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Dicor Akikawa went up by 4.",
+        "confidence": 96.751
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Diector kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Diector kikawa went up by 4.",
+        "confidence": 96.395
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Diecor kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Diecor kikawa went up by 4.",
+        "confidence": 96.012
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Dieor kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Dieor kikawa went up by 4.",
+        "confidence": 96.708
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Dieokikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Dieokikawa went up by 4.",
+        "confidence": 96.784
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Drectokkawa",
+        "amount": 4,
+        "raw_text": "Friendship with Drectokkawa went up by 4.",
+        "confidence": 95.423
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Director kikawa",
+        "amount": 4,
+        "raw_text": "Friendship with Director kikawa went up by 4.",
+        "confidence": 99.362
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Director kika wa",
+        "amount": 4,
+        "raw_text": "Friendship with Director kika wa went up by 4.",
+        "confidence": 96.044
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Director Akilaa",
+        "amount": 4,
+        "raw_text": "Friendship with Director Akilaa went up by 4.",
+        "confidence": 97.669
+      }
+    ],
+    "field_evidence": {
+      "friendship_change||or Akikawa": [
+        "receipt-inspection/893750-895250-60/frame-000031.png"
+      ],
+      "friendship_change||r Akikawa": [
+        "receipt-inspection/893750-895250-60/frame-000032.png"
+      ],
+      "friendship_change||Diecorkikawa": [
+        "receipt-inspection/893750-895250-60/frame-000048.png"
+      ],
+      "friendship_change||Deor .kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000049.png"
+      ],
+      "friendship_change||Dor A.kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000051.png"
+      ],
+      "friendship_change||: A.kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000053.png"
+      ],
+      "friendship_change||Dicor Akikawa": [
+        "receipt-inspection/893750-895250-60/frame-000055.png"
+      ],
+      "friendship_change||Diector kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000056.png"
+      ],
+      "friendship_change||Diecor kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000057.png"
+      ],
+      "friendship_change||Dieor kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000058.png"
+      ],
+      "friendship_change||Dieokikawa": [
+        "receipt-inspection/893750-895250-60/frame-000059.png"
+      ],
+      "friendship_change||Directo kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000060.png"
+      ],
+      "friendship_change||Drectokkawa": [
+        "receipt-inspection/893750-895250-60/frame-000062.png"
+      ],
+      "friendship_change||Directo kikewa": [
+        "receipt-inspection/893750-895250-60/frame-000063.png"
+      ],
+      "friendship_change||Director  kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000065.png",
+        "receipt-inspection/893750-895250-60/frame-000066.png"
+      ],
+      "friendship_change||Director kikawa": [
+        "receipt-inspection/893750-895250-60/frame-000067.png",
+        "receipt-inspection/893750-895250-60/frame-000068.png",
+        "receipt-inspection/893750-895250-60/frame-000070.png"
+      ],
+      "friendship_change||Director Akikawa": [
+        "receipt-inspection/893750-895250-60/frame-000069.png",
+        "receipt-inspection/893750-895250-60/frame-000071.png",
+        "receipt-inspection/893750-895250-60/frame-000072.png"
+      ],
+      "friendship_change||Directorkikawa": [
+        "receipt-inspection/893750-895250-60/frame-000073.png"
+      ],
+      "friendship_change||Director kika wa": [
+        "receipt-inspection/893750-895250-60/frame-000074.png"
+      ],
+      "friendship_change||Director Akilaa": [
+        "receipt-inspection/893750-895250-60/frame-000076.png"
+      ]
+    },
+    "conflicting_readings": []
+  },
+  "rows_by_evidence": {
+    "receipt-inspection/893750-895250-60/frame-000031.png": {
+      "source_timestamp_ms": 894250,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with or Akikawa went up by 4.",
+            "confidence": 96.619,
+            "box": [
+              314,
+              909,
+              768,
+              939
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000032.png": {
+      "source_timestamp_ms": 894267,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with r Akikawa went up by 4.",
+            "confidence": 97.07,
+            "box": [
+              315,
+              909,
+              767,
+              939
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000048.png": {
+      "source_timestamp_ms": 894533,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Diecorkikawa went up by 4.",
+            "confidence": 95.961,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000049.png": {
+      "source_timestamp_ms": 894550,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Deor .kikawa went up by 4.",
+            "confidence": 95.376,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000051.png": {
+      "source_timestamp_ms": 894583,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Dor A.kikawa went up by 4.",
+            "confidence": 96.454,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000053.png": {
+      "source_timestamp_ms": 894617,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with : A.kikawa went up by 4.",
+            "confidence": 96.048,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000055.png": {
+      "source_timestamp_ms": 894650,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Dicor Akikawa went up by 4.",
+            "confidence": 96.751,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000056.png": {
+      "source_timestamp_ms": 894667,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Diector kikawa went up by 4.",
+            "confidence": 96.395,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000057.png": {
+      "source_timestamp_ms": 894683,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Diecor kikawa went up by 4.",
+            "confidence": 96.012,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000058.png": {
+      "source_timestamp_ms": 894700,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Dieor kikawa went up by 4.",
+            "confidence": 96.708,
+            "box": [
+              315,
+              900,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000059.png": {
+      "source_timestamp_ms": 894717,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Dieokikawa went up by 4.",
+            "confidence": 96.784,
+            "box": [
+              316,
+              901,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000062.png": {
+      "source_timestamp_ms": 894767,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Drectokkawa went up by 4.",
+            "confidence": 95.423,
+            "box": [
+              315,
+              899,
+              768,
+              932
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000067.png": {
+      "source_timestamp_ms": 894850,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Director kikawa went up by 4.",
+            "confidence": 96.395,
+            "box": [
+              315,
+              902,
+              766,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000068.png": {
+      "source_timestamp_ms": 894867,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Director kikawa went up by 4.",
+            "confidence": 98.331,
+            "box": [
+              315,
+              902,
+              766,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000070.png": {
+      "source_timestamp_ms": 894900,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Director kikawa went up by 4.",
+            "confidence": 99.362,
+            "box": [
+              315,
+              902,
+              766,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000074.png": {
+      "source_timestamp_ms": 894967,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Director kika wa went up by 4.",
+            "confidence": 96.044,
+            "box": [
+              316,
+              902,
+              767,
+              931
+            ]
+          }
+        ]
+      }
+    },
+    "receipt-inspection/893750-895250-60/frame-000076.png": {
+      "source_timestamp_ms": 895000,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Friendship with Director Akilaa went up by 4.",
+            "confidence": 97.669,
+            "box": [
+              315,
+              901,
+              766,
+              931
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

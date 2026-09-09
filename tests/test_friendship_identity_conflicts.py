@@ -7,6 +7,18 @@ from tracen_replay.transactions import outcome_events
 
 
 class FriendshipIdentityConflictsTests(unittest.TestCase):
+    def test_severely_corrupted_source_names_remain_candidates_not_people(self):
+        from tracen_replay.receipt_names import flag_friendship_identity_conflicts
+        fixture=json.loads(Path('tests/fixtures/friendship-slot-894250.json').read_text(encoding='utf-8'))
+        event=fixture['event']
+        names={e['name'] for e in event['effects']}
+        self.assertEqual(len(names),15)
+        flag_friendship_identity_conflicts(event,fixture['rows_by_evidence'])
+        self.assertEqual(event['effects'],[])
+        self.assertEqual({c['effect']['name'] for c in event['ambiguous_effect_candidates']},names)
+        self.assertTrue(all(c['evidence'] for c in event['ambiguous_effect_candidates']))
+        self.assertTrue(all(c['evidence_pairs'] for c in event['conflicting_readings']))
+
     def setUp(self):
         self.rows=json.loads(Path('tests/fixtures/friendship-name-conflict-293250.json').read_text(encoding='utf-8'))
 

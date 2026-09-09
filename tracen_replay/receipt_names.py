@@ -24,7 +24,9 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
     for index,left in enumerate(effects):
         for right in effects[index+1:]:
             a,b=left['name'],right['name']
-            if len(a)<8 or len(a)!=len(b) or sum(x!=y for x,y in zip(a,b))!=1:continue
+            # Geometry and time identify the disputed slot. OCR can lose many
+            # characters under an overlay; edit distance cannot establish that
+            # the changing text describes separate people.
             if left.get('amount')!=right.get('amount'):continue
             first,second=observed[a],observed[b]
             if {x[0] for x in first}&{x[0] for x in second}:continue
