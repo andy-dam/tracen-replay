@@ -26,7 +26,13 @@ The original recording's four panels show:
 | 24:51.250 | 45 → 65 | 25 → 25 | 3 → 3 |
 | 25:57.000 | 45 → 65 | 25 → 30 | 3 → 5 |
 
-The original first panel's level zero remains below the confidence threshold. Its two reference values are counted as missing, not converted to passing unknowns. The other 46 values match. Repeated-frame aggregation has a separate requirement: a readable value in one frame does not suffice to establish a later active snapshot.
+Base OCR leaves the original first panel's level zero below the confidence threshold, giving 46/48 matches. A separate source-backed refinement now recovers the two missing values, bringing the reviewed panel score to 48/48 with no incorrect values. The initial evaluation is preserved separately from the refined score. Repeated-frame aggregation has a separate requirement: a readable value in one frame does not suffice to establish a later active snapshot.
+
+The refinement uses three distinct base frames at 662000, 662250, and 662500 ms. Each yields numeric `Lvl 0` above the existing threshold after a documented crop/contrast pass. Their decoded PTS, source images, immutable panel OCR, screenshot hashes, panel anchors, and `2nd Concert` context are checked. Support frames must form a bounded sequence near the target panel. A visible current-to-planned transition, conflicting numeric readings, or missing provenance prevents application. The original uncertain `Lvl O` remains in the OCR record.
+
+Run-local artifacts under `concert-panel-refinement` are applied during cached reparsing and checked by the evidence auditor, including their supporting files. The original run's stat, performance, and fan ledgers remain balanced after integration. No later active value is inferred from a pre-concert plan.
+
+Automatic generation is still under validation. An isolated replay of all 16 base frames recognized as Concert Info panels reproduced the support-level text, but only two supporting crops cleared the unchanged confidence threshold. It correctly emitted no refinement. The 48/48 score therefore describes the current evidence-backed reports; it does not yet prove that a fresh automatic run reproduces the recovery. The difference between the original batched OCR probe and the generator must be resolved before claiming that capability.
 
 ## Scope and remaining work
 

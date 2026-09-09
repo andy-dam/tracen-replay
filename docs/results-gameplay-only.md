@@ -107,11 +107,11 @@ The optional choice-refinement pass stores gameplay-only card and selection-mark
 
 ## Concert panel development
 
-Eight manually reviewed Concert Info panels provide 48 current/planned field values. The parser matches 46 with no incorrect values; the first recording has two missing values for the same low-confidence level-zero display. Numeric-slot normalization recovers the second recording's level zero and retains original OCR. This panel-selected review does not establish missed-panel recall or final active bonuses. See [panel evidence and scope](concert-panel-validation.md).
+Eight manually reviewed Concert Info panels provide 48 current/planned field values. The current reports match all 48 with no incorrect values. The initial 46/48 result remains preserved: the two missing values came from one unreadable support-level display in the first recording. A refinement supported by three nearby source frames now recovers that display while retaining the original OCR and proof hashes. This panel-selected review does not establish missed-panel recall or final active bonuses. See [panel evidence and scope](concert-panel-validation.md).
 
 ## Final owned-card observations
 
-The final-summary reader now retains repeated visible owned-card text independently of skill purchases. Source review finds 14 visible cards on each first page; 12 original-run names and 13 separate-run names meet the repeated-reading requirement, with three visible cards still missing. Wrapped fragments below confidence are not shortened into different skill names. Circle variants, unique-skill levels, off-screen cards and complete inventory remain unverified. See [ownership evidence and limits](owned-skill-observations.md).
+The final-summary reader retains repeated visible owned-card text independently of skill purchases. Source review finds 14 visible cards on each first page; gameplay-panel refinement now recovers all 14 names in each recording with no extras. The reviewed details also match: four single-circle variants and unique-skill level 4 in the original recording, and six single-circle variants and level 5 in the separate recording. These are first-page observations, not complete inventories. Off-screen cards remain unknown, and unreadable details are not treated as absent. See [ownership evidence and limits](owned-skill-observations.md).
 
 ## Source-ordered coverage
 

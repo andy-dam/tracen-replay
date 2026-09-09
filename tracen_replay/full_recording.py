@@ -155,6 +155,11 @@ def cached_readings(report,root,allow_partial=False):
         if symbols.exists():
             from .song_symbols import apply as apply_symbols
             raw=apply_symbols(raw,json.loads(symbols.read_text(encoding='utf-8')),root/raw['evidence'],original)
+        concert_panel=root/'concert-panel-refinement'/path.name
+        if concert_panel.exists():
+            from .concert_panel_refinement import apply as apply_concert_panel
+            raw=apply_concert_panel(raw,json.loads(concert_panel.read_text(encoding='utf-8')),
+                root/raw['evidence'],observation_root=root,original=original)
         from .receipt_occlusion import annotate_path
         row=parse(annotate_path(raw,root/raw['evidence'],original))
         inventory=root/'inventory-refinement'/path.name
