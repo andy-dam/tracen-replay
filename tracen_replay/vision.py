@@ -184,7 +184,7 @@ def parse(raw):
         fixed=re.sub(r'^(Energy recovered by)(\d+[.!]?)$',r'\1 \2',fixed)
         fixed=re.sub(r'^(Energy went (?:up|down))by\s*(\d+[.!]?)$',r'\1 by \2',fixed)
         fixed=re.sub(r'^(Energy went (?:up|down) by)(\d+[.!]?)$',r'\1 \2',fixed)
-        fixed=re.sub(r"^(Friendship with .+?)(didn't go up[.!]?)$",r'\1 \2',fixed)
+        fixed=re.sub(r"^(Friendship with .+?)(?<!\s)(didn't go up[.!]?)$",r'\1 \2',fixed)
         fixed=re.sub(r'^(Friendship with .+? is)maxed out([.!]?)$',r'\1 maxed out\2',fixed)
         # Repair only the fixed receipt keyword. Recipient spelling, amount,
         # confidence and the complete past-tense sentence remain untouched.
