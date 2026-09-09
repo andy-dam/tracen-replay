@@ -27,6 +27,8 @@ The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080
 
 When final-state cross-checking lacks a required observation, `verification.final_state` retains separately observed summary attributes and completion-hub skill points with timestamps and evidence. It lists the missing observations and leaves agreement unknown. A hub showing stat ranks cannot corroborate exact numeric attributes; ranks are never converted into numbers. These partial observations do not establish complete final verification or inventory ownership.
 
+Concert `later_active_bonus_snapshot` likewise keeps source-timestamped `observations` separate from confirmed `values`. Confirmation requires matching current-column values at two distinct timestamps; duplicate observations of one frame cannot satisfy it. `unresolved_fields` distinguishes absent readings, conflicting readings, and insufficient temporal support. Planned-column values never fill a missing current value. No reviewed post-fifth-concert panel currently establishes the final active totals in either recording; incomplete source recall means this is a limitation of reviewed evidence, not proof that no such panel exists anywhere in the video.
+
 ## Counting rules
 
 | Mechanic | Count from | Keep separate or unknown |

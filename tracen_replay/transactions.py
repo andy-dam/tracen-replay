@@ -728,6 +728,23 @@ def races(readings):
     return groups
 
 
+def active_bonus_snapshot(snapshots):
+    """Retain observed current values separately from repeated confirmation."""
+    values={};proofs={};observations={};unresolved={}
+    for field in ('friendship_training_effectiveness','specialty_priority','support_chain_event_frequency'):
+        rows=[r for r in snapshots if field in r['facts'].get('current_concert_bonuses',{})]
+        observations[field]=[dict(value=r['facts']['current_concert_bonuses'][field],
+                                  source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence']) for r in rows]
+        numbers={o['value'] for o in observations[field]}
+        times={o['source_timestamp_ms'] for o in observations[field]}
+        if len(numbers)==1 and len(times)>=2:
+            values[field]=next(iter(numbers));proofs[field]=list(dict.fromkeys(r['evidence'] for r in rows))
+        else:
+            unresolved[field]='not_observed' if not rows else ('conflicting_observations' if len(numbers)>1 else 'insufficient_distinct_timestamps')
+    return dict(values=values,evidence=proofs,complete=len(values)==3,
+                observations=observations,unresolved_fields=unresolved)
+
+
 def concerts(readings,events,lessons):
     result=[]
     for span in screen_summary(readings):
@@ -761,11 +778,6 @@ def concerts(readings,events,lessons):
             concert['bonus_update_receipt']=dict(first_seen_ms=updates[0]['source_timestamp_ms'],last_seen_ms=updates[-1]['source_timestamp_ms'],evidence=[r['evidence'] for r in updates])
             concert['activation_scope']='The update receipt confirms the activation step; it does not enumerate every bonus value.'
         snapshots=[r for r in readings if r['screen']=='concert_info' and updates and updates[-1]['source_timestamp_ms']<r['source_timestamp_ms']<end]
-        values={};proofs={}
-        for field in ('friendship_training_effectiveness','specialty_priority','support_chain_event_frequency'):
-            observed=[r for r in snapshots if field in r['facts'].get('current_concert_bonuses',{})]
-            numbers={r['facts']['current_concert_bonuses'][field] for r in observed}
-            if len(numbers)==1 and len(observed)>=2:values[field]=numbers.pop();proofs[field]=[r['evidence'] for r in observed]
-        concert['later_active_bonus_snapshot']=dict(values=values,evidence=proofs,complete=len(values)==3)
+        concert['later_active_bonus_snapshot']=active_bonus_snapshot(snapshots)
         concert['all_bonus_totals_verified']=False
     return result
