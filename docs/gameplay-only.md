@@ -61,6 +61,15 @@ Friendship recipients that change across adjacent observations of the same recei
 
 Validation follows the output type: race fan gains are checked in race receipts, goal status in screen observations, and dialogue awards in event effects. A missing value in the wrong evaluator is not a recognition failure. Moving a reference between these checks must preserve its source evidence and original observation count.
 
+An effect reference that also labels training-result grids may explicitly set
+`include_training_results: true`. This adds the completed training event's typed
+stat and performance deltas to the comparison without changing report events or
+counting browsed previews. The score records how many typed training predictions
+were included. Existing receipt-only references keep their prior scope. This option
+requires `event_start` timing: a value derived from before/after counters does not
+establish an exact receipt-observation timestamp. Reference scope corrections must
+be versioned separately from recognition fixes.
+
 A maximum-friendship receipt records a status, not an additional numeric gain or proof that the maximum was first reached at that moment. Count repeated frames of one receipt once. Separate training and support-event receipts may each report that same status; a reference group spanning both must retain both observations. Grouping them within one review interval is not evidence that the second receipt is a duplicate.
 
 Effect references may explicitly set `timing_basis` to `first_exact_effect_observation` to assign each award to the window containing its first exact, linked receipt observation. An event can span a window boundary, so its start does not necessarily locate every award. Missing exact timing evidence fails the check instead of silently omitting the effect. References without this field retain the legacy `event_start` convention for reproducibility. Adopting observation timing requires a versioned reference with source-reviewed group bounds; diagnostic rescoring does not replace frozen results or establish improved recognition.

@@ -17,6 +17,11 @@ def evaluate(reference,report,root=None):
     timing_basis=reference.get('timing_basis','event_start')
     if timing_basis not in ('event_start','first_exact_effect_observation'):
         raise ValueError('Unknown effect timing basis.')
+    include_training=reference.get('include_training_results',False)
+    if type(include_training) is not bool:
+        raise ValueError('Training result inclusion must be a boolean.')
+    if include_training and timing_basis!='event_start':
+        raise ValueError('Typed training results require event-start timing; derived deltas are not exact receipt observations.')
     rows={r['evidence']:r for r in data.get('readings',[])}
     timing_errors=[]
     predictions=[]
@@ -43,6 +48,18 @@ def evaluate(reference,report,root=None):
                 if not start<=time<end:continue
             predictions.append(dict(event_id=event['id'],time=time,effect=effect,
                 conflicted=any(c.get('field')==key for c in event.get('conflicting_readings',[]))))
+        if include_training and event.get('kind')=='training':
+            for field_key,kind in (('deltas','stat_change'),('performance_deltas','performance_change')):
+                for field,amount in event.get(field_key,{}).items():
+                    if type(amount) is not int:continue
+                    effect=dict(kind=kind,field=field,amount=amount)
+                    if any(all(old.get(k)==v for k,v in effect.items()) for old in event.get('effects',[])):
+                        continue
+                    conflicts=event.get('conflicting_readings' if field_key=='deltas' else 'performance_reading_conflicts',{})
+                    conflicted=(field in conflicts if isinstance(conflicts,dict)
+                                else any(c.get('field')==field for c in conflicts))
+                    predictions.append(dict(event_id=event['id'],time=event['first_seen_ms'],
+                        effect=effect,conflicted=conflicted,report_field=field_key+'.'+field))
     used=set();missing=[];matched=0;onset_windows=0
     reviewed_times=[sample['source_timestamp_ms'] for sample in reference['reviewed_samples']]
     for group in reference['groups']:
@@ -104,6 +121,8 @@ def evaluate(reference,report,root=None):
         passed=reference_complete and not missing and not extras and not evidence_errors and not timing_errors,reviewed_samples=len(samples),
         reference_complete=reference_complete,
         timing_basis=timing_basis,timing_errors=timing_errors,
+        include_training_results=include_training,
+        typed_training_predictions=sum('report_field' in p for p in predictions),
         source_onset_windows=onset_windows,
         evidence_hashes_checked=root is not None,complete_video_frame_review=False,full_recording_effect_recall_measured=False,
         observability_exceptions=exceptions,
