@@ -43,6 +43,23 @@ OBSERVATION_DIRNAME = "observations"
 REJECTED_DIRNAME = "rejected"
 CAPTURE_MANIFEST_NAME = "capture.json"
 DETECTOR_PADDING = 2
+FALLBACK_INTERIOR_INSET = 3
+FALLBACK_FOREGROUND_RATIO = 0.04
+FALLBACK_LUMA_THRESHOLD = 225
+FALLBACK_SATURATION_THRESHOLD = 24
+FALLBACK_QUANTITY_TEXT_RELATIVE_BOX = (0.50, 0.10, 0.95, 1.00)
+
+# A detector-backed slot may be absent from the cached OCR even though its
+# badge is visible.  New artifacts record this policy so strict validation can
+# distinguish them from older artifacts, whose detector-missing slots were
+# intentionally left without observations.
+FIXED_SLOT_FALLBACK_POLICY = {
+    "detector_fallback": "fixed_slot_geometry",
+    "fallback_requires_layout_guard": True,
+    "fallback_requires_pixel_guard": True,
+    "fallback_quantity_crop": "lower_right_relative_box",
+    "fallback_quantity_crop_relative_box": list(FALLBACK_QUANTITY_TEXT_RELATIVE_BOX),
+}
 
 # This policy is repeated in every generated artifact so a later integration
 # cannot accidentally treat the exploratory 95-confidence probe as a
@@ -226,6 +243,77 @@ def _present_slots(row: Mapping[str, Any]) -> set[str]:
             if slot_id:
                 result.add(slot_id)
     return result
+
+
+def _valid_crop_box(box: Sequence[Any], width: int = 810, height: int = 1080) -> tuple[int, int, int, int] | None:
+    """Return a bounded integer crop box, or ``None`` for corrupt geometry."""
+
+    if isinstance(box, (str, bytes)) or not isinstance(box, Sequence) or len(box) != 4:
+        return None
+    try:
+        values = [float(value) for value in box]
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not all(math.isfinite(value) for value in values):
+        return None
+    left, top, right, bottom = (int(round(value)) for value in values)
+    if left < 0 or top < 0 or right > width or bottom > height or left >= right or top >= bottom:
+        return None
+    return left, top, right, bottom
+
+
+def _fixed_slot_pixel_guard(gameplay_path: Path, source_box: Sequence[Any]) -> bool:
+    """Require source pixels that look occupied before a fixed fallback crop.
+
+    The guard is deliberately content-only: it does not recognize a quantity
+    or compare against an expected item.  It rejects a fixed crop containing
+    only the pale result-panel background and leaves OCR plus the normal
+    confidence/timestamp consensus gate to decide the quantity.
+    """
+
+    box = _valid_crop_box(source_box)
+    if box is None or not gameplay_path.is_file():
+        return False
+    try:
+        with Image.open(gameplay_path) as image:
+            gameplay = image.convert("RGB")
+            if gameplay.size != (810, 1080):
+                return False
+            crop = gameplay.crop(box)
+            inset = FALLBACK_INTERIOR_INSET
+            if crop.width <= inset * 2 or crop.height <= inset * 2:
+                return False
+            pixels = crop.load()
+            foreground = 0
+            total = 0
+            for y in range(inset, crop.height - inset):
+                for x in range(inset, crop.width - inset):
+                    red, green, blue = pixels[x, y]
+                    luma = (red + green + blue) / 3
+                    saturation = max(red, green, blue) - min(red, green, blue)
+                    if luma < FALLBACK_LUMA_THRESHOLD or saturation > FALLBACK_SATURATION_THRESHOLD:
+                        foreground += 1
+                    total += 1
+            return total > 0 and foreground / total >= FALLBACK_FOREGROUND_RATIO
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _fallback_quantity_crop_box(source_box: Sequence[Any]) -> tuple[int, int, int, int] | None:
+    """Resolve the generic lower-right quantity crop inside a fixed slot."""
+
+    box = _valid_crop_box(source_box)
+    if box is None:
+        return None
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    x0, y0, x1, y1 = FALLBACK_QUANTITY_TEXT_RELATIVE_BOX
+    return _valid_crop_box((
+        left + round(width * x0),
+        top + round(height * y0),
+        left + round(width * x1),
+        top + round(height * y1),
+    ))
 
 
 def _same_position(first: Sequence[Any], second: Sequence[Any]) -> bool:
@@ -412,23 +500,64 @@ def _detector_line(raw: Mapping[str, Any], spec: Mapping[str, Any]) -> Mapping[s
     return max(candidates, key=lambda line: float(line.get("confidence", 0)), default=None)
 
 
-def _source_crop_box(raw: Mapping[str, Any], spec: Mapping[str, Any]) -> tuple[tuple[int, int, int, int] | None, Mapping[str, Any] | None]:
-    if spec["strategy"] != "detector_box_padding_2":
-        return tuple(spec["source_box"]), None
+def _detector_backed(spec: Mapping[str, Any]) -> bool:
+    """Whether a slot's primary crop is located from a detector box."""
+
+    return str(spec.get("strategy", "")).startswith("detector_box_padding")
+
+
+def _source_crop_box(
+    raw: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    *,
+    allow_fixed_fallback: bool = False,
+    gameplay_path: Path | None = None,
+) -> tuple[tuple[int, int, int, int] | None, Mapping[str, Any] | None]:
+    """Resolve a source crop, optionally using an occupied fixed slot box.
+
+    The default preserves the legacy behavior for existing artifacts: a
+    detector-backed slot with no detector line has no crop.  New generation
+    explicitly opts into the fixed geometry fallback and must provide the
+    gameplay pixels for the occupancy guard.
+    """
+
+    if not _detector_backed(spec):
+        box = _valid_crop_box(spec.get("source_box"))
+        return box, None
     detector = _detector_line(raw, spec)
     if detector is None:
+        fallback = _valid_crop_box(spec.get("source_box"))
+        if allow_fixed_fallback and fallback is not None and gameplay_path is not None and \
+                _fixed_slot_pixel_guard(gameplay_path, fallback):
+            return _fallback_quantity_crop_box(fallback), None
         return None, None
     box = detector.get("box")
-    if not isinstance(box, Sequence) or len(box) != 4:
+    if isinstance(box, (str, bytes)) or not isinstance(box, Sequence) or len(box) != 4:
         return None, None
-    left, top, right, bottom = (int(round(float(value))) for value in box)
-    source_box = (
+    try:
+        values = [float(value) for value in box]
+    except (TypeError, ValueError, OverflowError):
+        return None, None
+    if not all(math.isfinite(value) for value in values):
+        return None, None
+    left, top, right, bottom = (int(round(value)) for value in values)
+    source_box = _valid_crop_box((
         max(0, left - GAMEPLAY_X_OFFSET - DETECTOR_PADDING),
         max(0, top - DETECTOR_PADDING),
         min(810, right - GAMEPLAY_X_OFFSET + DETECTOR_PADDING),
         min(1080, bottom + DETECTOR_PADDING),
-    )
+    ))
+    if source_box is None:
+        return None, None
     return source_box, detector
+
+
+def _crop_resolution(spec: Mapping[str, Any], detector: Mapping[str, Any] | None) -> str:
+    """Name the geometry source recorded in a measurement."""
+
+    if not _detector_backed(spec):
+        return "fixed"
+    return "detector" if detector is not None else "fixed_fallback_quantity_text"
 
 
 def _scaled_crops(source_path: Path, box: Sequence[int]) -> dict[int, Image.Image]:
@@ -570,6 +699,7 @@ def _measurement(
     scale: int,
     crop: Image.Image,
     recognized: Mapping[str, Any],
+    crop_resolution: str,
 ) -> dict[str, Any]:
     frame_id = identity["frame_id"]
     crop_path = output_root / OBSERVATION_DIRNAME / frame_id / spec["slot_id"] / f"{frame_id}-scale-{scale}.png"
@@ -587,6 +717,7 @@ def _measurement(
         "group_index": spec["group_index"],
         "slot_id": spec["slot_id"],
         "strategy": spec["strategy"],
+        "crop_resolution": crop_resolution,
         "text": text,
         "quantity": _quantity(text),
         "confidence": confidence,
@@ -631,6 +762,7 @@ def _artifact_for_group(
     missing: Sequence[Mapping[str, Any]],
     *,
     base_item: Mapping[str, Any] | None = None,
+    allow_fixed_fallback: bool = False,
 ) -> dict[str, Any]:
     base = base_item or group[0]
     base_raw = base["raw"]
@@ -639,10 +771,15 @@ def _artifact_for_group(
     for spec in missing:
         inputs: list[tuple[Mapping[str, Any], Mapping[str, Any] | None, tuple[int, int, int, int], int, Image.Image]] = []
         for item in group:
-            source_box, detector = _source_crop_box(item["raw"], spec)
+            gameplay_path = Path(item["identity"]["gameplay_path"])
+            source_box, detector = _source_crop_box(
+                item["raw"], spec,
+                allow_fixed_fallback=allow_fixed_fallback,
+                gameplay_path=gameplay_path,
+            )
             if source_box is None:
                 continue
-            crops = _scaled_crops(Path(item["identity"]["gameplay_path"]), source_box)
+            crops = _scaled_crops(gameplay_path, source_box)
             for scale, crop in crops.items():
                 inputs.append((item, detector, source_box, scale, crop))
                 expected_keys_by_slot[spec["slot_id"]].append({
@@ -672,6 +809,7 @@ def _artifact_for_group(
                     scale,
                     crop,
                     recognized,
+                    _crop_resolution(spec, detector),
                 )
             )
 
@@ -719,6 +857,7 @@ def _artifact_for_group(
         "refinement_policy": copy.deepcopy(REFINEMENT_POLICY),
         "scale_factors": list(SCALE_FACTORS),
         "detector_padding": DETECTOR_PADDING,
+        "crop_resolution_policy": copy.deepcopy(FIXED_SLOT_FALLBACK_POLICY) if allow_fixed_fallback else None,
         "identity_verified": False,
         "list_complete": False,
         "item_identity_verified": False,
@@ -786,10 +925,16 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
     reader = None
     artifacts = []
     for group in _group_frames(eligible):
-        present: set[str] = set()
-        for item in group:
-            present.update(_present_slots(item["row"]))
-        missing = [spec for spec in SLOT_SPECS if spec["slot_id"] not in present]
+        # A slot may be present in one cached frame and absent in another due
+        # to animation, occlusion, or a weak detector result.  Use the union
+        # of *per-frame gaps* so the absent target frame still gets a chance
+        # to produce a source-bound observation.  Applying a consensus remains
+        # timestamp-gated below, so a support frame cannot manufacture a badge
+        # on a frame that has no accepted source observation.
+        missing = [
+            spec for spec in SLOT_SPECS
+            if any(spec["slot_id"] not in _present_slots(item["row"]) for item in group)
+        ]
         if not missing:
             continue
         if reader is None:
@@ -801,6 +946,7 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
             group_artifact = _artifact_for_group(
                 root, output_root, capture, capture_manifest_sha256, reader, group, missing,
                 base_item=group[0],
+                allow_fixed_fallback=True,
             )
         except (OSError, ValueError, KeyError, TypeError, Image.DecompressionBombError) as exc:
             frame_id = group[0]["identity"]["frame_id"]
@@ -955,6 +1101,8 @@ def _validate_raw_observation(
     capture: Mapping[str, Any],
     capture_rows: Mapping[str, Mapping[str, Any]],
     manifest_hash: str,
+    *,
+    allow_fixed_fallback: bool = False,
 ) -> Mapping[str, Any]:
     """Validate raw OCR, source pixels and the crop backing one measurement."""
 
@@ -1028,12 +1176,23 @@ def _validate_raw_observation(
     if not isinstance(observation.get("model_sha256"), Mapping) or not observation.get("model_sha256"):
         raise ValueError("Race quantity refinement model binding is missing.")
 
-    expected_crop_box, expected_detector = _source_crop_box(raw, spec)
+    expected_crop_box, expected_detector = _source_crop_box(
+        raw,
+        spec,
+        allow_fixed_fallback=allow_fixed_fallback,
+        gameplay_path=gameplay_path,
+    )
     if expected_crop_box is None or observation.get("source_crop_box") != list(expected_crop_box):
         raise ValueError("Race quantity refinement source crop geometry changed.")
     expected_detector_box = list(expected_detector["box"]) if expected_detector is not None else None
     if observation.get("detector_box") != expected_detector_box:
         raise ValueError("Race quantity refinement detector geometry changed.")
+    expected_resolution = _crop_resolution(spec, expected_detector)
+    if allow_fixed_fallback:
+        if observation.get("crop_resolution") != expected_resolution:
+            raise ValueError("Race quantity refinement crop resolution changed.")
+    elif "crop_resolution" in observation and observation.get("crop_resolution") != expected_resolution:
+        raise ValueError("Race quantity refinement crop resolution changed.")
     crop_path = _safe_path(root, observation.get("crop_evidence"))
     if crop_path is None or not crop_path.is_file() or observation.get("crop_sha256") != _sha256(crop_path):
         raise ValueError("Race quantity refinement crop proof hash mismatch.")
@@ -1060,6 +1219,13 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     minimum = artifact.get("minimum_confidence")
     if not _typed_confidence(minimum) or float(minimum) < MIN_CONFIDENCE:
         raise ValueError("Race quantity refinement lowers the production confidence threshold.")
+    fallback_policy = artifact.get("crop_resolution_policy")
+    if fallback_policy is None:
+        allow_fixed_fallback = False
+    elif not _mapping_equal(fallback_policy, FIXED_SLOT_FALLBACK_POLICY):
+        raise ValueError("Race quantity refinement fixed fallback policy changed.")
+    else:
+        allow_fixed_fallback = True
     if raw is None or root is None:
         return {}
     root = Path(root).resolve()
@@ -1118,7 +1284,13 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                 raise ValueError("Race quantity refinement source raw cache is unreadable.") from exc
             if not isinstance(frame_raw, Mapping) or frame_raw.get("source_timestamp_ms") != frame.get("source_timestamp_ms"):
                 raise ValueError("Race quantity refinement source raw cache identity changed.")
-            source_box, _ = _source_crop_box(frame_raw, spec)
+            gameplay_path = _safe_path(root, frame_raw.get("evidence"))
+            source_box, _ = _source_crop_box(
+                frame_raw,
+                spec,
+                allow_fixed_fallback=allow_fixed_fallback,
+                gameplay_path=gameplay_path,
+            )
             if source_box is None:
                 continue
             for scale in SCALE_FACTORS:
@@ -1159,7 +1331,15 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         for observation in observations:
             if not isinstance(observation, Mapping):
                 raise ValueError("Race quantity refinement observation is malformed.")
-            raw_observation = _validate_raw_observation(observation, spec, root, capture, capture_rows, manifest_hash)
+            raw_observation = _validate_raw_observation(
+                observation,
+                spec,
+                root,
+                capture,
+                capture_rows,
+                manifest_hash,
+                allow_fixed_fallback=allow_fixed_fallback,
+            )
             if observation.get("reader_fingerprint") != artifact.get("reader_fingerprint") or \
                     not _mapping_equal(observation.get("model_sha256"), artifact.get("model_sha256")):
                 raise ValueError("Race quantity refinement model binding changed.")

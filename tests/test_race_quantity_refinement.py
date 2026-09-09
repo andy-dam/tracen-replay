@@ -7,8 +7,12 @@ from pathlib import Path
 from PIL import Image
 
 from tracen_replay.race_quantity_refinement import (
+    FIXED_SLOT_FALLBACK_POLICY,
     MIN_CONFIDENCE,
     SLOT_BY_ID,
+    _fallback_quantity_crop_box,
+    _fixed_slot_pixel_guard,
+    _source_crop_box,
     aggregate_slot,
     apply,
     generate,
@@ -32,7 +36,7 @@ class FakeReader:
     def recognize_crops(self, crops):
         self.calls.append([crop.size for crop in crops])
         width = crops[0].width
-        if width == SLOT_BY_ID["items-0"]["source_box"][2] - SLOT_BY_ID["items-0"]["source_box"][0]:
+        if crops[0].height == SLOT_BY_ID["items-0"]["source_box"][3] - SLOT_BY_ID["items-0"]["source_box"][1]:
             text, confidence = "x1", 98.4
         elif width <= 40:
             text, confidence = "x1", 98.2
@@ -208,6 +212,52 @@ class RaceQuantityRefinementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "lowers the production confidence"):
             apply(self.fixture["row"], {"minimum_confidence": 95, "slots": []})
 
+    def test_detector_slot_can_use_occupied_fixed_geometry_only_when_enabled(self):
+        raw = {
+            "lines": [
+                {"text": "Items", "confidence": 99, "box": [278, 591, 328, 612]},
+                {"text": "Bonus", "confidence": 99, "box": [270, 750, 334, 778]},
+            ],
+        }
+        spec = SLOT_BY_ID["items-2"]
+
+        self.assertEqual(_source_crop_box(raw, spec), (None, None))
+        source_box, detector = _source_crop_box(
+            raw,
+            spec,
+            allow_fixed_fallback=True,
+            gameplay_path=SOURCE_FIXTURE,
+        )
+        self.assertEqual(source_box, _fallback_quantity_crop_box(spec["source_box"]))
+        self.assertEqual(source_box, (425, 699, 462, 734))
+        self.assertIsNone(detector)
+        self.assertTrue(_fixed_slot_pixel_guard(SOURCE_FIXTURE, spec["source_box"]))
+
+    def test_fixed_geometry_fallback_rejects_empty_background(self):
+        with workspace_temp() as root:
+            blank = Path(root) / "blank.png"
+            Image.new("RGB", (810, 1080), (245, 245, 245)).save(blank)
+            spec = SLOT_BY_ID["items-2"]
+            raw = {"lines": []}
+
+            self.assertFalse(_fixed_slot_pixel_guard(blank, spec["source_box"]))
+            self.assertEqual(
+                _source_crop_box(raw, spec, allow_fixed_fallback=True, gameplay_path=blank),
+                (None, None),
+            )
+
+    def test_fixed_geometry_fallback_rejects_corrupt_geometry_and_pixels(self):
+        spec = SLOT_BY_ID["items-2"]
+        raw = {"lines": []}
+        corrupt_spec = copy.deepcopy(spec)
+        corrupt_spec["source_box"] = (385, 695, 385, 734)
+
+        self.assertFalse(_fixed_slot_pixel_guard(SOURCE_FIXTURE, corrupt_spec["source_box"]))
+        self.assertEqual(
+            _source_crop_box(raw, corrupt_spec, allow_fixed_fallback=True, gameplay_path=SOURCE_FIXTURE),
+            (None, None),
+        )
+
     def test_generator_uses_stable_first_slot_and_detector_padding_for_third(self):
         with workspace_temp() as root:
             run = Path(root)
@@ -235,12 +285,15 @@ class RaceQuantityRefinementTests(unittest.TestCase):
                     "evidence": f"capture/{index:06d}.png",
                 }
                 rows.append(capture_row)
+                detector_lines = [] if index > 1 else [{
+                    "text": "x1", "confidence": 90, "box": [566, 705, 597, 725],
+                }]
                 raw = {
                     "lines": [
                         {"text": "Fans 12,882 (+11,638)", "confidence": 99, "box": [423, 539, 626, 566]},
                         {"text": "Items", "confidence": 99, "box": [278, 591, 328, 612]},
                         {"text": "x400", "confidence": 99, "box": [425, 699, 489, 727]},
-                        {"text": "x1", "confidence": 90, "box": [566, 705, 597, 725]},
+                        *detector_lines,
                         {"text": "Bonus", "confidence": 99, "box": [270, 750, 334, 778]},
                         {"text": "x400", "confidence": 99, "box": [310, 861, 378, 892]},
                     ],
@@ -271,6 +324,7 @@ class RaceQuantityRefinementTests(unittest.TestCase):
             self.assertEqual(slots["items-2"]["strategy"], "detector_box_padding_2")
             self.assertEqual(slots["items-2"]["status"], "accepted")
             self.assertEqual(slots["bonus-1"]["status"], "no_high_confidence_consensus")
+            self.assertEqual(artifact["crop_resolution_policy"], FIXED_SLOT_FALLBACK_POLICY)
             self.assertFalse(artifact["identity_verified"])
             self.assertFalse(artifact["list_complete"])
             self.assertEqual(artifact["source_sha256"], "f" * 64)
@@ -290,8 +344,16 @@ class RaceQuantityRefinementTests(unittest.TestCase):
                 for observation in artifact["all_observations"]
             ))
             third_observations = slots["items-2"]["observations"]
-            self.assertTrue(all(observation["detector_box"] == [566, 705, 597, 725] for observation in third_observations))
-            self.assertTrue(all(observation["source_crop_box"] == [416, 703, 451, 727] for observation in third_observations))
+            detector_observations = [observation for observation in third_observations if observation["detector_box"] is not None]
+            fallback_observations = [observation for observation in third_observations if observation["detector_box"] is None]
+            self.assertEqual(len(detector_observations), 3)
+            self.assertEqual(len(fallback_observations), 6)
+            self.assertTrue(all(observation["detector_box"] == [566, 705, 597, 725] for observation in detector_observations))
+            self.assertTrue(all(observation["source_crop_box"] == [416, 703, 451, 727] for observation in detector_observations))
+            self.assertTrue(all(observation["crop_resolution"] == "detector" for observation in detector_observations))
+            self.assertTrue(all(observation["source_crop_box"] == list(_fallback_quantity_crop_box(SLOT_BY_ID["items-2"]["source_box"]))
+                                for observation in fallback_observations))
+            self.assertTrue(all(observation["crop_resolution"] == "fixed_fallback_quantity_text" for observation in fallback_observations))
 
             for artifact_path in summary["artifacts"]:
                 artifact = json.loads(Path(artifact_path).read_text(encoding="utf-8"))
@@ -354,6 +416,13 @@ class RaceQuantityRefinementTests(unittest.TestCase):
             observation = next(slot for slot in mutated["slots"] if slot["slot_id"] == "items-0")["observations"][0]
             observation["reader_fingerprint"] = "different-reader"
             with self.assertRaisesRegex(ValueError, "model binding changed"):
+                apply(row, mutated, raw=raw, root=run)
+
+    def test_strict_apply_rejects_changed_fixed_fallback_policy(self):
+        with self._strict_generated_case() as (run, raw, row, artifact):
+            mutated = copy.deepcopy(artifact)
+            mutated["crop_resolution_policy"]["fallback_requires_pixel_guard"] = False
+            with self.assertRaisesRegex(ValueError, "fixed fallback policy changed"):
                 apply(row, mutated, raw=raw, root=run)
 
 
