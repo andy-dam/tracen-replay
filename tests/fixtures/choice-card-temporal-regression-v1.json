@@ -1,0 +1,717 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "scope": "Development source observations with exact-text card refinement and native selection marks; same-frame crops are correlated, labels never enter recognition.",
+  "cases": [
+    {
+      "name": "emotions",
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'd be glad to!",
+              "text_box": [
+                315,
+                627,
+                451,
+                658
+              ],
+              "confidence": 98.882,
+              "card_y": [
+                605,
+                681
+              ],
+              "text_basis": "same_frame_native_card_exact_text_agreement"
+            },
+            {
+              "text": "Sorry, I'm a little strapped for time...",
+              "text_box": [
+                317,
+                742,
+                645,
+                768
+              ],
+              "confidence": 97.307,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "offered_card_slots": [
+            {
+              "text": "I'd be glad to!",
+              "text_box": [
+                315,
+                627,
+                451,
+                658
+              ],
+              "confidence": 98.882,
+              "card_y": [
+                605,
+                681
+              ],
+              "text_basis": "same_frame_native_card_exact_text_agreement"
+            },
+            {
+              "text": "Sorry, I'm a little strapped for time...",
+              "text_box": [
+                317,
+                742,
+                645,
+                768
+              ],
+              "confidence": 97.307,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "source_timestamp_ms": 97500,
+          "evidence": "gameplay/part-000-frame-000391.png"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "I'd be glad to!",
+              "text_box": [
+                315,
+                627,
+                451,
+                658
+              ],
+              "confidence": 98.883,
+              "card_y": [
+                605,
+                681
+              ],
+              "text_basis": "same_frame_native_card_exact_text_agreement"
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "offered_card_slots": [
+            {
+              "text": "I'd be glad to!",
+              "text_box": [
+                315,
+                627,
+                451,
+                658
+              ],
+              "confidence": 98.883,
+              "card_y": [
+                605,
+                681
+              ],
+              "text_basis": "same_frame_native_card_exact_text_agreement"
+            },
+            {
+              "text": "Sorry, I'm a little strapped for time...",
+              "text_box": [
+                317,
+                742,
+                645,
+                768
+              ],
+              "confidence": 96.833,
+              "card_y": [
+                716,
+                791
+              ],
+              "focused_text_conflict": "Sorry, I'm a little strapped for time.."
+            }
+          ],
+          "source_timestamp_ms": 97750,
+          "evidence": "gameplay/part-000-frame-000392.png"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "Sorry, I'm a little strapped for time...",
+              "text_box": [
+                317,
+                742,
+                645,
+                768
+              ],
+              "confidence": 97.292,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "offered_card_slots": [
+            {
+              "text": "I'd be glad to!",
+              "text_box": [
+                315,
+                627,
+                451,
+                658
+              ],
+              "confidence": 94.142,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "Sorry, I'm a little strapped for time...",
+              "text_box": [
+                317,
+                742,
+                645,
+                768
+              ],
+              "confidence": 97.292,
+              "card_y": [
+                716,
+                791
+              ]
+            }
+          ],
+          "source_timestamp_ms": 98000,
+          "evidence": "gameplay/part-000-frame-000393.png"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  589,
+                  313,
+                  623
+                ],
+                "yellow_pixels": 475
+              },
+              "right": {
+                "box": [
+                  798,
+                  585,
+                  853,
+                  622
+                ],
+                "yellow_pixels": 579
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 98250,
+          "evidence": "gameplay/part-000-frame-000394.png"
+        }
+      ],
+      "source_proofs": [
+        {
+          "path": "gameplay/part-000-frame-000391.png",
+          "sha256": "1f638d4807ad61b2543288e367cd6952387fec58e743e5167b229f8d8195d013"
+        },
+        {
+          "path": "gameplay/part-000-frame-000392.png",
+          "sha256": "11f200ddaf89653f3348f8b08fa02444cff97984662eb0264543aa6005472b59"
+        },
+        {
+          "path": "gameplay/part-000-frame-000393.png",
+          "sha256": "8daf2b0b47d00bcd14293660f24af4195c6620ca58112fddf86676f58a1d54da"
+        },
+        {
+          "path": "gameplay/part-000-frame-000394.png",
+          "sha256": "a405f434023f9a25eec533cc07039680f8075b039cbe0bc8103dcb0b1c28edae"
+        }
+      ],
+      "source_reference_sha256": "3a4e21e0c2e5d7d37dec2794af4ffc9c1d37e88fcfbc60940cfaed6f2ba37eee",
+      "expected": [
+        {
+          "options": [
+            "I'd be glad to!",
+            "Sorry, I'm a little strapped for time..."
+          ],
+          "selected_index": 0,
+          "selected_text": "I'd be glad to!"
+        }
+      ]
+    },
+    {
+      "name": "three_options_collapse",
+      "observations": [
+        {
+          "offered_card_candidates": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                316,
+                515,
+                527,
+                547
+              ],
+              "confidence": 99.933,
+              "card_y": [
+                493,
+                569
+              ]
+            },
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                315,
+                627,
+                608,
+                659
+              ],
+              "confidence": 98.113,
+              "card_y": [
+                605,
+                681
+              ],
+              "text_basis": "same_frame_native_card_exact_text_agreement"
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.405,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "offered_card_slots": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                316,
+                515,
+                527,
+                547
+              ],
+              "confidence": 99.933,
+              "card_y": [
+                493,
+                569
+              ]
+            },
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                315,
+                627,
+                608,
+                659
+              ],
+              "confidence": 98.113,
+              "card_y": [
+                605,
+                681
+              ],
+              "text_basis": "same_frame_native_card_exact_text_agreement"
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.405,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "source_timestamp_ms": 143000,
+          "evidence": "gameplay/part-001-frame-000093.png"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                316,
+                515,
+                527,
+                547
+              ],
+              "confidence": 99.923,
+              "card_y": [
+                493,
+                569
+              ]
+            },
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                317,
+                629,
+                607,
+                656
+              ],
+              "confidence": 99.428,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.671,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "offered_card_slots": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                316,
+                515,
+                527,
+                547
+              ],
+              "confidence": 99.923,
+              "card_y": [
+                493,
+                569
+              ]
+            },
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                317,
+                629,
+                607,
+                656
+              ],
+              "confidence": 99.428,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.671,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "source_timestamp_ms": 143250,
+          "evidence": "gameplay/part-001-frame-000094.png"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                317,
+                629,
+                607,
+                656
+              ],
+              "confidence": 97.93,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.634,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                333,
+                521,
+                529,
+                548
+              ],
+              "confidence": 97.34,
+              "card_y": [
+                497,
+                571
+              ]
+            }
+          ],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 143433,
+          "evidence": "choice-inspection/143000-144000-60/frame-000027.png"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                317,
+                629,
+                607,
+                656
+              ],
+              "confidence": 99.428,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.671,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                332,
+                520,
+                528,
+                547
+              ],
+              "confidence": 99.994,
+              "card_y": [
+                497,
+                571
+              ]
+            }
+          ],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 143450,
+          "evidence": "choice-inspection/143000-144000-60/frame-000028.png"
+        },
+        {
+          "offered_card_candidates": [
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                317,
+                629,
+                607,
+                656
+              ],
+              "confidence": 99.418,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.622,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "selection_mark_pairs": [],
+          "menu_text_complete": true,
+          "selected_card_candidates": [
+            {
+              "text": "You did perfect today!",
+              "text_box": [
+                332,
+                520,
+                528,
+                547
+              ],
+              "confidence": 99.993,
+              "card_y": [
+                497,
+                571
+              ]
+            }
+          ],
+          "selected_option": null,
+          "selection_verified": false,
+          "offered_card_slots": [
+            {
+              "text": "It's easy to see your heart's in it.",
+              "text_box": [
+                317,
+                629,
+                607,
+                656
+              ],
+              "confidence": 99.418,
+              "card_y": [
+                605,
+                681
+              ]
+            },
+            {
+              "text": "I'm rooting for you.",
+              "text_box": [
+                316,
+                741,
+                494,
+                770
+              ],
+              "confidence": 97.622,
+              "card_y": [
+                715,
+                792
+              ]
+            }
+          ],
+          "source_timestamp_ms": 143500,
+          "evidence": "gameplay/part-001-frame-000095.png"
+        },
+        {
+          "offered_card_candidates": [],
+          "selection_mark_pairs": [
+            {
+              "left": {
+                "box": [
+                  258,
+                  489,
+                  313,
+                  517
+                ],
+                "yellow_pixels": 357
+              },
+              "right": {
+                "box": [
+                  798,
+                  486,
+                  853,
+                  517
+                ],
+                "yellow_pixels": 399
+              }
+            }
+          ],
+          "menu_text_complete": false,
+          "selected_card_candidates": [],
+          "selected_option": null,
+          "selection_verified": false,
+          "source_timestamp_ms": 143533,
+          "evidence": "choice-inspection/143000-144000-60/frame-000033.png"
+        }
+      ],
+      "source_proofs": [
+        {
+          "path": "gameplay/part-001-frame-000093.png",
+          "sha256": "c6ecfdef01287d49f2ef97955bb56a9e9d76449344f2e1bf2943d4f49cd5a35a"
+        },
+        {
+          "path": "gameplay/part-001-frame-000094.png",
+          "sha256": "70d0c0d0c63ea95860717cde777290809730cded0ad6acb08f22aa89be80c55d"
+        },
+        {
+          "path": "choice-inspection/143000-144000-60/frame-000027.png",
+          "sha256": "5cb31a44062b694e6c6579abab228183da1e893b6595532f0f35a997f2537aa5"
+        },
+        {
+          "path": "choice-inspection/143000-144000-60/frame-000028.png",
+          "sha256": "10ad50860ca0e24bbc5af919e2cc90f32cac2eb0de74fdec6bbb520c62f03185"
+        },
+        {
+          "path": "gameplay/part-001-frame-000095.png",
+          "sha256": "d4dd61f37e62cb49c6970cd62c23c643505158ea224c50031d7581231c3797a7"
+        },
+        {
+          "path": "choice-inspection/143000-144000-60/frame-000033.png",
+          "sha256": "b3755c27ddc3feebb02ecb9b35bb9788d5f5bea4497e0a7a26b4192381a295c4"
+        }
+      ],
+      "source_reference_sha256": "45ddcb00d0c799b4d7518ecbf09d95c1165bfabb9bf1073f2f8d60de1a2247b4",
+      "expected": [
+        {
+          "options": [
+            "You did perfect today!",
+            "It's easy to see your heart's in it.",
+            "I'm rooting for you."
+          ],
+          "selected_index": 0,
+          "selected_text": "You did perfect today!"
+        }
+      ]
+    }
+  ]
+}

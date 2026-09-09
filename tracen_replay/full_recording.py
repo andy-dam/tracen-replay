@@ -259,6 +259,10 @@ def cached_readings(report,root,allow_partial=False):
         if choice.exists():
             from .refine_choices import apply as apply_choice
             row=apply_choice(row,original,json.loads(choice.read_text(encoding='utf-8')),root/raw['evidence'])
+        choice_cards=root/'choice-card-refinement'/path.name
+        if choice_cards.exists():
+            from .choice_card_refinement import apply as apply_choice_cards
+            row=apply_choice_cards(row,original,json.loads(choice_cards.read_text(encoding='utf-8')),root/raw['evidence'])
         row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
     return readings
 

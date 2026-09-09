@@ -53,7 +53,7 @@ def verify(root,source):
             extras=[raw_path.with_suffix('.'+suffix+'.json') for suffix in ('totals','contrast','performance','awards','receipt')]
             extras.append(evidence.with_suffix('.overlay.json'))
             extras.append(evidence.with_suffix('.choice.json'))
-            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','song-symbols','inventory-refinement','concert-panel-refinement')]
+            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','choice-card-refinement','song-symbols','inventory-refinement','concert-panel-refinement')]
             for extra_path in extras:
                 if not extra_path.exists():continue
                 extra=json.loads(extra_path.read_text(encoding='utf-8'))
@@ -61,6 +61,9 @@ def verify(root,source):
                 if extra_path.parent.name=='concert-panel-refinement':
                     from .concert_panel_refinement import apply as apply_concert_panel
                     apply_concert_panel(raw,extra,evidence,observation_root=root)
+                if extra_path.parent.name=='choice-card-refinement':
+                    from .choice_card_refinement import apply as apply_choice_cards
+                    apply_choice_cards({'screen':'unknown'},raw,extra,evidence)
                 refinements+=1
             checked+=1
         except (ValueError,KeyError,OSError) as error:errors.append(dict(path=str(raw_path.relative_to(root)),reason=str(error)))
