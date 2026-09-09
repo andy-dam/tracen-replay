@@ -2,7 +2,8 @@
 import unittest
 import json
 from pathlib import Path
-from tracen_replay.receipt_names import collapse_punctuated_hint_variants, collapse_visual_hint_variants
+from tracen_replay.receipt_names import (collapse_punctuated_hint_variants,
+    collapse_separator_hint_variants, collapse_visual_hint_variants)
 
 
 def sample():
@@ -98,6 +99,149 @@ class HintReceiptIdentityTests(unittest.TestCase):
                 if case=='conflict':event['conflicting_readings']=[dict(field='skill_hint_change||An Invented Skill!')]
                 if case=='simultaneous':rows['frame-2']['source_timestamp_ms']=250
                 collapse_punctuated_hint_variants(event,rows)
+                self.assertEqual(len(event['effects']),2)
+
+    def test_separator_variant_merges_one_receipt_and_preserves_rank(self):
+        base=dict(kind='skill_hint_change',name='Right Handed ○',amount=1,
+                  raw_text='Gained 1 hint level(s) for Right Handed ○.')
+        strong=dict(kind='skill_hint_change',name='Right-Handed ○',amount=1,
+                    raw_text='Gained 1 hint level(s) for Right-Handed ○.')
+        other_rank=dict(kind='skill_hint_change',name='Right-Handed O',amount=1,
+                        raw_text='Gained 1 hint level(s) for Right-Handed O.')
+        event=dict(effects=[base,strong,other_rank],field_evidence={
+            'skill_hint_change||Right Handed ○':['weak'],
+            'skill_hint_change||Right-Handed ○':['strong-a','strong-b'],
+            'skill_hint_change||Right-Handed O':['other-a','other-b']},
+            conflicting_readings=[])
+        def row(time,text,box=[316,901,727,930]):
+            return dict(source_timestamp_ms=time,screen='event_outcome',
+                        context_title='Receipt',ocr={'neural':[
+                            dict(text=text,confidence=99,box=list(box))]})
+        rows={
+            'weak':row(1000,base['raw_text']),
+            'strong-a':row(1250,strong['raw_text']),
+            'strong-b':row(1500,strong['raw_text']),
+            'other-a':row(1000,other_rank['raw_text'],[500,901,800,930]),
+            'other-b':row(1250,other_rank['raw_text'],[500,901,800,930]),
+        }
+        collapse_separator_hint_variants(event,rows)
+        self.assertEqual(len(event['effects']),2)
+        merged=next(e for e in event['effects'] if e['name']=='Right-Handed ○')
+        self.assertEqual(merged['observed_name_candidates'],['Right-Handed ○','Right Handed ○'])
+        self.assertEqual(merged['name_resolution'],'same_receipt_separator_variant')
+        self.assertEqual(event['field_evidence']['skill_hint_change||Right-Handed ○'],
+                         ['strong-a','strong-b','weak'])
+        self.assertIn('Right-Handed O',[e['name'] for e in event['effects']])
+
+    def test_separator_variant_requires_distinct_adjacent_source_timestamps(self):
+        first=dict(kind='skill_hint_change',name='Example Name',amount=2,
+                   raw_text='Gained 2 hint level(s) for Example Name.')
+        second=dict(kind='skill_hint_change',name='Example-Name',amount=2,
+                    raw_text='Gained 2 hint level(s) for Example-Name.')
+        event=dict(effects=[first,second],field_evidence={
+            'skill_hint_change||Example Name':['a'],
+            'skill_hint_change||Example-Name':['b']},conflicting_readings=[])
+        rows={
+            'a':dict(source_timestamp_ms=100,screen='event_outcome',context_title='Receipt',
+                     ocr={'neural':[dict(text=first['raw_text'],confidence=99,box=[316,901,727,930])]}),
+            'b':dict(source_timestamp_ms=100,screen='event_outcome',context_title='Receipt',
+                     ocr={'neural':[dict(text=second['raw_text'],confidence=99,box=[316,901,727,930])]}),
+        }
+        collapse_separator_hint_variants(event,rows)
+        self.assertEqual(len(event['effects']),2)
+
+    def test_separator_variant_merges_all_compatible_spellings_transitively(self):
+        effects=[
+            dict(kind='skill_hint_change',name='Example Name',amount=2,
+                 raw_text='Gained 2 hint level(s) for Example Name.'),
+            dict(kind='skill_hint_change',name='Example-Name',amount=2,
+                 raw_text='Gained 2 hint level(s) for Example-Name.'),
+            dict(kind='skill_hint_change',name='Example\u2011Name',amount=2,
+                 raw_text='Gained 2 hint level(s) for Example\u2011Name.'),
+        ]
+        event=dict(effects=effects,field_evidence={
+            'skill_hint_change||Example Name':['a1','a2'],
+            'skill_hint_change||Example-Name':['b'],
+            'skill_hint_change||Example\u2011Name':['c1','c2','c3','c4']},conflicting_readings=[])
+        rows={}
+        for proof,time,effect in (
+            ('a1',100,effects[0]),('a2',350,effects[0]),
+            ('b',600,effects[1]),('c1',850,effects[2]),('c2',1100,effects[2]),
+            ('c3',1350,effects[2]),('c4',1600,effects[2])):
+            rows[proof]=dict(source_timestamp_ms=time,screen='event_outcome',context_title='Receipt',
+                             ocr={'neural':[dict(text=effect['raw_text'],confidence=99,
+                                                  box=[316,901,727,930])]})
+        collapse_separator_hint_variants(event,rows)
+        self.assertEqual(len(event['effects']),1)
+        winner=event['effects'][0]
+        self.assertEqual(winner['name'],'Example\u2011Name')
+        self.assertEqual(set(winner['observed_name_candidates']),
+                         {'Example Name','Example-Name','Example\u2011Name'})
+        self.assertEqual([item['name'] for item in winner['alternate_name_evidence']],
+                         ['Example-Name','Example Name'])
+
+    def test_separator_variant_rejects_different_ranks_and_separate_receipts(self):
+        first=dict(kind='skill_hint_change',name='Example Name',amount=2,
+                   raw_text='Gained 2 hint level(s) for Example Name.')
+        rank=dict(kind='skill_hint_change',name='Example Name O',amount=2,
+                  raw_text='Gained 2 hint level(s) for Example Name O.')
+        separate=dict(kind='skill_hint_change',name='Example-Name',amount=2,
+                      raw_text='Gained 2 hint level(s) for Example-Name.')
+        event=dict(effects=[first,rank,separate],field_evidence={
+            'skill_hint_change||Example Name':['first'],
+            'skill_hint_change||Example Name O':['rank'],
+            'skill_hint_change||Example-Name':['separate-a','separate-b']},conflicting_readings=[])
+        rows={
+            'first':dict(source_timestamp_ms=100,screen='event_outcome',context_title='Receipt',
+                         ocr={'neural':[dict(text=first['raw_text'],confidence=99,box=[316,901,727,930])]}),
+            'rank':dict(source_timestamp_ms=200,screen='event_outcome',context_title='Receipt',
+                        ocr={'neural':[dict(text=rank['raw_text'],confidence=99,box=[316,901,727,930])]}),
+            'separate-a':dict(source_timestamp_ms=1000,screen='event_outcome',context_title='Receipt',
+                            ocr={'neural':[dict(text=separate['raw_text'],confidence=99,box=[316,901,727,930])]}),
+            'separate-b':dict(source_timestamp_ms=1500,screen='event_outcome',context_title='Receipt',
+                              ocr={'neural':[dict(text=separate['raw_text'],confidence=99,box=[316,901,727,930])]}),
+        }
+        collapse_separator_hint_variants(event,rows)
+        self.assertEqual(len(event['effects']),3)
+
+    def test_separator_variant_rejects_untrusted_source_rows(self):
+        first=dict(kind='skill_hint_change',name='Example Name',amount=2,
+                   raw_text='Gained 2 hint level(s) for Example Name.')
+        second=dict(kind='skill_hint_change',name='Example-Name',amount=2,
+                    raw_text='Gained 2 hint level(s) for Example-Name.')
+        event=dict(effects=[first,second],field_evidence={
+            'skill_hint_change||Example Name':['a'],
+            'skill_hint_change||Example-Name':['b']},conflicting_readings=[])
+        rows={
+            'a':dict(source_timestamp_ms=100,screen='event_outcome',context_title='Receipt',
+                     ocr={'neural':[dict(text=first['raw_text'],confidence=94,box=[316,901,727,930])]}),
+            'b':dict(source_timestamp_ms=200,screen='event_outcome',context_title='Receipt',
+                     ocr={'neural':[dict(text=second['raw_text'],confidence=99,box=[316,901,727,930])]}),
+        }
+        collapse_separator_hint_variants(event,rows)
+        self.assertEqual(len(event['effects']),2)
+
+    def test_separator_variant_rejects_huge_numeric_fields_without_overflow(self):
+        first=dict(kind='skill_hint_change',name='Example Name',amount=2,
+                   raw_text='Gained 2 hint level(s) for Example Name.')
+        second=dict(kind='skill_hint_change',name='Example-Name',amount=2,
+                    raw_text='Gained 2 hint level(s) for Example-Name.')
+        for field in ('confidence','box'):
+            with self.subTest(field=field):
+                event=dict(effects=[first.copy(),second.copy()],field_evidence={
+                    'skill_hint_change||Example Name':['a'],
+                    'skill_hint_change||Example-Name':['b']},conflicting_readings=[])
+                first_line=dict(text=first['raw_text'],confidence=99,box=[316,901,727,930])
+                second_line=dict(text=second['raw_text'],confidence=99,box=[316,901,727,930])
+                if field=='confidence':first_line[field]=10**1000
+                else:first_line[field]=[10**1000,901,727,930]
+                rows={
+                    'a':dict(source_timestamp_ms=100,screen='event_outcome',context_title='Receipt',
+                             ocr={'neural':[first_line]}),
+                    'b':dict(source_timestamp_ms=200,screen='event_outcome',context_title='Receipt',
+                             ocr={'neural':[second_line]}),
+                }
+                collapse_separator_hint_variants(event,rows)
                 self.assertEqual(len(event['effects']),2)
 
 

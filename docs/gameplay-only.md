@@ -119,6 +119,14 @@ References may also attach `source_performance_balance` with complete five-curre
 
 ## Gates before the application
 
+Hint spellings that differ only in spaces or hyphens can represent one receipt.
+Merging requires matching amounts and receipt sentences in the same outcome,
+distinct source timestamps no more than 250 ms apart, and a stationary dialogue
+line. Letter case and rank suffixes stay distinct. The selected spelling,
+alternative spellings and their source evidence remain in the report; repeated
+crops from one timestamp do not receive extra temporal votes. This removes
+duplicate awards without claiming that an unreadable suffix was recovered.
+
 Action and effect references with unfinished labels must declare `reference_complete: false`.
 Their agreement counts remain available for debugging, but the evaluator cannot
 return a passing result even when every labeled effect matches. This also prevents

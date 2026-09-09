@@ -515,6 +515,167 @@ def collapse_punctuated_hint_variants(event,rows_by_evidence):
     event['effects']=[e for e in event['effects'] if e not in removed]
 
 
+_HINT_SEPARATOR_RE = re.compile(r"[\s\-\u2010-\u2015\u2212]+")
+
+
+def _separator_identity(value):
+    """Compare hint names while retaining every non-separator character.
+
+    Spaces and hyphen-like separators are the only characters normalized here.
+    In particular, trailing rank glyphs or OCR letters are retained as part of
+    the identity; ``Skill ○`` and ``Skill O`` therefore remain different.
+    """
+    if not isinstance(value,str):return None
+    return _HINT_SEPARATOR_RE.sub(' ',value.strip())
+
+
+def _separator_hint_observations(effect,event,rows_by_evidence):
+    """Return high-confidence source lines for one exact hint spelling."""
+    raw_text=effect.get('raw_text')
+    if not isinstance(raw_text,str) or not raw_text.strip():return []
+    key='skill_hint_change||'+effect.get('name','')
+    proofs=event.get('field_evidence',{}).get(key,[])
+    if not isinstance(proofs,list):return []
+    result=[]
+    for proof in dict.fromkeys(item for item in proofs if isinstance(item,str)):
+        row=rows_by_evidence.get(proof)
+        if not isinstance(row,dict) or type(row.get('source_timestamp_ms')) is not int:continue
+        ocr=row.get('ocr',{})
+        if not isinstance(ocr,dict) or not isinstance(ocr.get('neural'),list):continue
+        lines=[]
+        for line in ocr['neural']:
+            if not isinstance(line,dict):continue
+            box=line.get('box',[])
+            confidence=line.get('confidence')
+            line_text=line.get('text')
+            if (not isinstance(line_text,str)
+                    or (_separator_identity(line_text)!=_separator_identity(raw_text)
+                        and line_text!=raw_text)
+                    or line.get('overlay_occluded') is True
+                    or type(confidence) not in (int,float) or not 0<=confidence<=100
+                    or not math.isfinite(confidence)
+                    or confidence<95 or not isinstance(box,(list,tuple)) or len(box)!=4
+                    or not all(type(value) in (int,float) and -10000<=value<=10000
+                               and math.isfinite(value) for value in box)
+                    or not 148<=box[0]<box[2]<=958 or not 0<=box[1]<box[3]<=1080
+                    or not 780<=(box[1]+box[3])/2<=960):continue
+            lines.append(line)
+        if len(lines)==1:
+            result.append(dict(timestamp=row['source_timestamp_ms'],evidence=proof,
+                               row=row,line=lines[0]))
+    return result
+
+
+def _separator_hint_line_compatible(first,second):
+    """Require one stationary receipt slot for two separator spellings."""
+    if not isinstance(first,dict) or not isinstance(second,dict):return False
+    a,b=first.get('box',[]),second.get('box',[])
+    if not isinstance(a,(list,tuple)) or not isinstance(b,(list,tuple)) or len(a)!=4 or len(b)!=4:return False
+    if not all(type(value) in (int,float) and -10000<=value<=10000 and math.isfinite(value)
+               for value in (*a,*b)):return False
+    return (abs(a[0]-b[0])<=5 and abs(a[2]-b[2])<=8
+            and abs((a[1]+a[3])-(b[1]+b[3]))/2<=10
+            and abs((a[3]-a[1])-(b[3]-b[1]))<=8)
+
+
+def _separator_hint_pair_compatible(first,second):
+    """Require adjacent, same-context source observations for one receipt."""
+    if first['timestamp']==second['timestamp'] or abs(first['timestamp']-second['timestamp'])>250:return False
+    left,right=first['row'],second['row']
+    if left.get('screen')!='event_outcome' or right.get('screen')!='event_outcome':
+        return False
+    left_title=left.get('context_title') or left.get('context_title_candidate')
+    right_title=right.get('context_title') or right.get('context_title_candidate')
+    if left_title and right_title and left_title!=right_title:return False
+    return _separator_hint_line_compatible(first['line'],second['line'])
+
+
+def collapse_separator_hint_variants(event,rows_by_evidence):
+    """Collapse a same-receipt hint spelling that only changes separators.
+
+    The helper preserves the selected OCR spelling and records the alternate
+    evidence. It never strips or rewrites rank symbols, and it requires a
+    same-amount, same-sentence, adjacent source line in one receipt slot.
+    Separate events, differing amounts, differing suffixes, context changes,
+    and moving line geometry remain separate or unresolved.
+    """
+    if not isinstance(event,dict) or not isinstance(rows_by_evidence,dict):return
+    effects=[e for e in event.get('effects',[]) if isinstance(e,dict)
+             and e.get('kind')=='skill_hint_change' and isinstance(e.get('name'),str)
+             and e.get('name')]
+    if len(effects)<2:return
+    field_evidence=event.get('field_evidence',{})
+    if not isinstance(field_evidence,dict):return
+
+    def key(effect):return 'skill_hint_change||'+effect['name']
+    def conflicts(effect):
+        items=event.get('conflicting_readings',[])
+        if not isinstance(items,list):return True
+        return any(item.get('field')==key(effect)
+                   for item in items if isinstance(item,dict))
+    def score(effect,observations):
+        by_timestamp={}
+        for item in observations:
+            timestamp=item['timestamp']
+            by_timestamp[timestamp]=max(by_timestamp.get(timestamp,0),item['line'].get('confidence',0))
+        confidences=list(by_timestamp.values())
+        return (len(confidences),sum(confidences),max(confidences,default=0),effect['name'])
+
+    removed=[]
+    while True:
+        merged_one=False
+        active=[effect for effect in effects if effect not in removed]
+        for index,left in enumerate(active):
+            if conflicts(left):continue
+            left_identity=_separator_identity(left['name'])
+            if left_identity is None:continue
+            for right in active[index+1:]:
+                if conflicts(right) or left.get('name')==right.get('name'):continue
+                if any(left.get(field)!=right.get(field) for field in ('field','amount','direction','value')):continue
+                if _separator_identity(right['name'])!=left_identity:continue
+                left_raw,right_raw=left.get('raw_text'),right.get('raw_text')
+                if (not isinstance(left_raw,str) or not isinstance(right_raw,str)
+                        or _separator_identity(left_raw)!=_separator_identity(right_raw)):continue
+                left_observations=_separator_hint_observations(left,event,rows_by_evidence)
+                right_observations=_separator_hint_observations(right,event,rows_by_evidence)
+                pairs=[(a,b) for a in left_observations for b in right_observations
+                       if _separator_hint_pair_compatible(a,b)]
+                if not pairs:continue
+                # Prefer the spelling backed by more source observations. This is
+                # an evidence tie-breaker, not a canonical name or skill catalog.
+                target,alternate=(left,right) if score(left,left_observations)>=score(right,right_observations) else (right,left)
+                target_key=key(target);alternate_key=key(alternate)
+                target.setdefault('observed_name_candidates',[target['name']])
+                for candidate in alternate.get('observed_name_candidates',[]):
+                    if candidate not in target['observed_name_candidates']:
+                        target['observed_name_candidates'].append(candidate)
+                if alternate['name'] not in target['observed_name_candidates']:
+                    target['observed_name_candidates'].append(alternate['name'])
+                prior_evidence=alternate.get('alternate_name_evidence',[])
+                if isinstance(prior_evidence,list):
+                    target.setdefault('alternate_name_evidence',[])
+                    for item in prior_evidence:
+                        if item not in target['alternate_name_evidence']:
+                            target['alternate_name_evidence'].append(deepcopy(item))
+                target.setdefault('alternate_name_evidence',[]).append(dict(
+                    name=alternate['name'],evidence=[item['evidence'] for item in
+                    _separator_hint_observations(alternate,event,rows_by_evidence)],
+                    evidence_pairs=[[a['evidence'],b['evidence']] for a,b in pairs],
+                    source_timestamps_ms=sorted({item['timestamp'] for pair in pairs for item in pair}),
+                    basis='same_amount_sentence_and_adjacent_stationary_receipt_slot'))
+                target['name_resolution']='same_receipt_separator_variant'
+                merged=list(field_evidence.get(target_key,[]))
+                for proof in field_evidence.get(alternate_key,[]):
+                    if proof not in merged:merged.append(proof)
+                field_evidence[target_key]=merged
+                removed.append(alternate)
+                merged_one=True
+                break
+            if merged_one:break
+        if not merged_one:break
+    event['effects']=[effect for effect in event['effects'] if effect not in removed]
+
+
 def collapse_song_variants(event,timestamps):
     songs=[e for e in event['effects'] if e['kind']=='song_learned']
     removed=[]
