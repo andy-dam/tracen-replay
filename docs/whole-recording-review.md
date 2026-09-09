@@ -12,7 +12,19 @@ The command reruns recording verification, then collects nonzero stat/performanc
 
 Overlapping windows are merged with 1.5 seconds of context on each side. Every finding remains attached, including repeated observations. An obscured or unparsed reading may already be recovered elsewhere; these are review candidates, not asserted missed effects. The queue does not automatically dismiss them or count them as resolved. Evidence links point to existing files inside the run directory; missing direct evidence falls back to nearby source observations and does not establish the finding's truth.
 
-Review the underlying event and adjacent readable frames, record a disposition with supporting evidence, and investigate unresolved transitions at native frame rate only when necessary. Do not rerun the same unsuccessful OCR probe without a materially different evidence method. A future persisted disposition workflow must bind decisions to the report/evidence version so stale approvals cannot hide changed findings.
+Review the underlying event and adjacent readable frames, record a disposition with supporting evidence, and investigate unresolved transitions at native frame rate only when necessary. Do not rerun the same unsuccessful OCR probe without a materially different evidence method.
+
+## Saved review decisions
+
+```powershell
+python -m tracen_replay.review_decisions RUN_DIRECTORY --finding finding-00001 --status recovered --rationale "Explain the reviewed evidence and exact recovered effect" --evidence gameplay/PROOF.png
+```
+
+The command appends to `review-decisions.json`; regenerate the queue afterward. Decisions bind the source and report hashes, finding content, original finding proofs, and supporting proof hashes. Changed or missing evidence and report changes make the decision stale and reopen the finding. Duplicate decisions are not silently overwritten; replacement/history adjudication is not yet automated.
+
+Only `recovered` leaves the pending queue. `confirmed_issue` and `unobservable` remain visible. Recovered findings stay in the JSON and the HTML's saved-recoveries section. Pending footage is recomputed from individual findings so resolving one warning cannot hide its unresolved neighbor. Source-review coverage and readiness are never changed by dispositions. Hash validity establishes that the decision still refers to the same artifacts, not that the reviewer's interpretation was correct.
+
+Nine fragments from the source-reviewed 94-second friendship receipt were explicitly marked recovered using the later readable native frame and the passing effect reference. The separate recording now has 338 pending findings across 76 windows, totaling 309.264 seconds of footage. This is an initial real-data check of persistence, not automatic adjudication of the whole recording. Evidence-based recovery suggestions and replacement decision history remain future work.
 
 ## Source review remains separate
 

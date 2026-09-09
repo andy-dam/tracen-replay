@@ -78,7 +78,7 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
     sweep=[]
     for start,end in gaps:
         for t in range(start,end,sweep_ms):sweep.append(dict(start_ms=t,end_ms=min(t+sweep_ms,end),reviewed=False))
-    return dict(source_sha256=report['source']['sha256'],source_duration_ms=duration,
+    return dict(source_sha256=report['source']['sha256'],source_duration_ms=duration,context_ms=context_ms,
         findings=findings,triage_windows=windows,source_sweep=sweep,
         summary=dict(findings=len(findings),findings_by_reason=dict(Counter(f['reason'] for f in findings)),
             triage_windows=len(windows),triage_footage_ms=sum(w['end_ms']-w['start_ms'] for w in windows),
@@ -98,16 +98,20 @@ def render(queue,root):
     stamp=lambda t:f'{t/1000:.3f}s'
     for w in queue['source_sweep']:parts.append(f'<li>{stamp(w["start_ms"])}–{stamp(w["end_ms"])}</li>')
     parts.append('</ul><h2>Targeted triage</h2>');by_id={f['id']:f for f in queue['findings']}
-    for w in queue['triage_windows']:
+    for w in queue.get('pending_triage_windows',queue['triage_windows']):
         parts.append(f'<article><h3>{stamp(w["start_ms"])}–{stamp(w["end_ms"])}</h3>')
         for fid in w['finding_ids']:
-            f=by_id[fid];parts.append('<details><summary>'+html.escape(fid+' '+f['reason'])+'</summary><pre>'+html.escape(json.dumps(f['details'],ensure_ascii=False))+'</pre>')
+            f=by_id[fid];parts.append('<details><summary>'+html.escape(fid+' '+f['reason']+' ['+f['disposition']+']')+'</summary><pre>'+html.escape(json.dumps(f['details'],ensure_ascii=False))+'</pre>')
+            if f.get('review_error'):parts.append('<p>'+html.escape(f['review_error'])+'</p>')
             for relative in dict.fromkeys(f['evidence']):
                 path=(root/relative).resolve()
                 if path.is_relative_to(root) and path.is_file():
                     parts.append('<a target="_blank" href="'+html.escape(quote(path.relative_to(root).as_posix(),safe='/'))+'">'+html.escape(relative)+'</a>')
             parts.append('</details>')
         parts.append('</article>')
+    parts.append('<h2>Saved recoveries</h2><p>Explicit review decisions; not automatic semantic verification.</p>')
+    for f in queue['findings']:
+        if f['disposition']=='recovered':parts.append('<p>'+html.escape(f['id']+': '+f['review_decision']['rationale'])+'</p>')
     return '\n'.join(parts)
 
 
@@ -126,6 +130,9 @@ def main():
     report['verification']=audit(report)
     queue=build(report,intervals,sweep_ms=args.sweep_seconds*1000)
     queue['report_sha256']=hashlib.sha256(raw).hexdigest()
+    from .review_decisions import apply
+    path=root/'review-decisions.json'
+    apply(queue,json.loads(path.read_text(encoding='utf-8')) if path.exists() else [],root)
     (root/'review-queue.json').write_text(json.dumps(queue,indent=2),encoding='utf-8')
     (root/'review-queue.html').write_text(render(queue,root),encoding='utf-8')
     print(json.dumps(queue['summary']))
