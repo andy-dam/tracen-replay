@@ -6,6 +6,14 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 The race-day totals layout supplies eight additional stable checkpoints across the two recordings. The current reports contain 143 balanced six-field intervals in the original recording and 130 in the second. This measures agreement between observed states and recognized numeric effects, not complete event recall.
 
+Hint identity recovery now preserves intrinsic punctuation, reads omitted or wrapped circle suffixes from source pixels, and retains receipt continuity across one explicitly observed cursor occlusion. Both report comparisons preserve numeric checkpoints and interval balances. The final continuity rebuild changes only one event, removing a duplicate hint spelling while retaining the obscured frame as continuity evidence. All 473 automated tests and all 12 preserved initial-reference regression checks pass.
+
+The source-review manifest covers 1,445 seconds (81.33%) of the second recording, continuously from its beginning through 24:05. This is sampled review coverage, not accuracy or native-frame recall. Corrected reference boundaries and counts remain separately versioned and disclose prediction exposure. In particular, a training receipt and a later support-event receipt may each report the same maximum friendship status; neither asserts an additional numeric gain.
+
+These report snapshots have SHA-256 values `95db47ff81e504c2936007e52e0f32c84365e3faf9a8d5707c1211d62a4c3da5` (original) and `536b279281740be4ebe19ff87467b95f99023c27266a5b1e689d9ee7ce8a45e3` (second). Full-recording semantic recall and Go readiness remain unproven.
+
+## Earlier regression comparison
+
 The subsequent friendship-status identity check preserves these checkpoints and numeric intervals. It reports conflicting names as uncertain and distinguishes them from different recipients passing through the same row as dialogue scrolls. All 442 automated tests and all 12 checks against the preserved initial evaluation references pass.
 
 A broader before/after regression checks all 29 registered sampled effect references for the second recording. Only the 13:10–14:10 reference changes: matched effects fall from 28/29 to 27/29 because one previously accepted recipient is now unresolved; its false extra spelling is also removed. This remains a recognition gap. The declared reviewed duration is 985 seconds (55.439%), including overlapping references counted once. These are development measurements; neither full-recording effect recall nor Go readiness is established.
