@@ -5,9 +5,10 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest committed code passes 645 automated
-tests. All 12 preserved-reference checks in `regression-63` pass against the
-unchanged report. These are development regressions; the original
+recording and 130 in the second. The latest test run passes 669 automated tests.
+All 12 preserved-reference checks in
+`choice-integration-v2/preserved-reference-regression.json` pass against the
+published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
 
 The second recording's `action-corpus-v6` selects 50 reference entries with
@@ -27,8 +28,13 @@ their undeclared completeness separately; that field is not a completeness gate.
 
 Race references match all twelve results and all 118 labeled identity, course,
 placing and fan fields, but only eight of twelve exact-frame item-quantity
-comparisons pass. Three existing doctor-event choice references pass; additional
-source review matches one of three choices and exposes two recognition gaps.
+comparisons pass. All six bounded choice labels now match: three doctor-event
+choices and three additional source-reviewed choices. Two missing selections
+were recovered through exact-text native card rereads and native-frame selection
+marks. Shrinking cards retain the established option list, unreadable menus
+invalidate identity, and conflicting text or geometry clears tentative history.
+Every card still requires support from distinct source timestamps. Correlated
+crop provenance is retained in the report. This is not full-recording choice recall.
 All 48 reviewed concert panels match their references. Unseen owned-skill pages
 and unexposed concert values remain unknown.
 
@@ -38,18 +44,20 @@ missing or extra effect issues. These counts are diagnostic, not a disjoint
 whole-recording accuracy score. Incomplete labels and recognition failures still
 need resolution. Neither full semantic recall nor Go readiness is established.
 
-Full-recording reports now have a versioned, validated producer/consumer contract.
-Both existing captures and report shapes passed the contract audit without
-changing their saved bytes. Legacy unversioned capture adaptation is restricted
-to the producer; generic consumers require an explicit supported schema.
+Both published reports now carry the validated producer/consumer schema version.
+The original report's gameplay data is unchanged. The second report retains all
+seven earlier choice identities and adds two, with all non-choice gameplay data
+unchanged. Previous report bytes and the initial separate-recording evaluation
+remain preserved. Legacy unversioned capture adaptation is restricted to the
+producer; generic consumers require an explicit supported schema.
 
 Current report SHA-256 values are
-`f2f0bfdee9bce50aae13000f74afbef49538b3590c1b8e9c1f7868965ad5e4b9`
+`afa1f4ea32e7bf1c199d8f80e928db7a7490bb25efcf0d5fbc61745a3b368c5d`
 (original) and
-`d81d217ff8dd77c5fd3ba2c7be3d9c747dcddc4f085f5cc752a930a916041068`
+`e60b6a5117a8f8a5a73142453fb7754d7ddde15c44588298d456e4503ad5b5ef`
 (second). The local corpus index and score hashes are
 `8189172fb21291b1cc5761a4a6e17239f3985ad5b42db3f1bd68b3d137be25c5`
-and `704d27e9a757f700d9b72f834d79d75fe3b202c0cc12c3264b64a4bad8ac288c`.
+and `2432b14fdbee13033257fb2b4fde92995a6f9944985e6d0ac6048c40feec63bd`.
 
 ## Earlier 473-test snapshot
 
