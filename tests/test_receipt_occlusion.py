@@ -125,10 +125,13 @@ class ReceiptOcclusionTests(unittest.TestCase):
         reading=parse(annotate(source,pane))
         self.assertTrue(any(e.get('field')=='skill_points' and e['amount']==7 for e in reading['effects']))
 
-    def test_numeric_rule_does_not_suppress_nonnumeric_friendship_status(self):
+    def test_cursor_over_nonnumeric_friendship_status_abstains_on_full_line(self):
         source,pane=self.sample()
         source['lines'][0]['text']="Friendship with Agnes Digital didn't go up."
-        self.assertTrue(any(e['kind']=='friendship_status' for e in parse(annotate(source,pane))['effects']))
+        marked=annotate(source,pane)
+        self.assertFalse(any(e['kind']=='friendship_status' for e in parse(marked)['effects']))
+        self.assertTrue(marked['lines'][0]['overlay_occluded'])
+        self.assertFalse(marked['occluded_receipt_lines'][0]['recipient_name_occluded'])
 
     def test_padded_views_can_recover_a_covered_leading_digit(self):
         source,pane=self.sample();l=source['lines'][0];l['text']='Energy went down by18.'

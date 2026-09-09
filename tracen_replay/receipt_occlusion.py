@@ -12,6 +12,30 @@ def numeric_line(line):
     return 770<=line['box'][1]<1000 and bool(re.search(r'went|recover|Gained|Friendship',line['text']) and re.search(r'\d',line['text']))
 
 
+def friendship_status_line(line):
+    """Recognize complete nonnumeric friendship-status receipt sentences.
+
+    This is deliberately a receipt-shape check only. It does not repair OCR
+    spelling or turn a status into an effect; ``vision.parse`` remains the
+    authority for semantic parsing. The raw ``mad``/``maed`` forms are kept
+    here so a cursor over their fixed grammar still causes a conservative
+    abstention without normalizing them.
+    """
+    if not 770<=line['box'][1]<1000:
+        return False
+    text=line.get('text','').strip()
+    return bool(re.fullmatch(
+        r"(?:Friendship|Friewdship|Frendship) with .+? "
+        r"(?:didn['’]t go up|is (?:maxed|mad|maed) out)[.!]?",
+        text,
+        re.I,
+    ))
+
+
+def receipt_line(line):
+    return numeric_line(line) or friendship_status_line(line)
+
+
 def recovered_leading_digit(line,alignments):
     """Padded OCR views can expose a digit missed by the tight alignment crop."""
     from .refine_receipts import consensus
@@ -51,8 +75,17 @@ def friendship_name_bounds(box,words,columns,line_length):
     """A readable amount cannot establish a cursor-covered recipient name."""
     if line_length<=0 or len(words)!=len(columns) or any(not c for c in columns):return None
     if any(v<0 or v>=line_length for c in columns for v in c):return None
-    if len(words)<2 or words[0] not in ('Friendship','Friewdship','Frendship') or words[1]!='with' or 'went' not in words[2:]:return None
-    end=words.index('went',2)
+    if len(words)<2 or words[0].lower() not in ('friendship','friewdship','frendship') or words[1].lower()!='with':return None
+    normalized=[re.sub(r'[.!?]+$','',word).lower() for word in words]
+    end=None
+    for index in range(2,len(words)):
+        if normalized[index] in ('went','wert') and normalized[index+1:index+3]==['up','by']:
+            end=index;break
+        if normalized[index] in ("didn't","didn’t") and normalized[index+1:index+3]==['go','up']:
+            end=index;break
+        if normalized[index]=='is' and normalized[index+1:index+3] in (['maxed','out'],['mad','out'],['maed','out']):
+            end=index;break
+    if end is None:return None
     if end<=2:return None
     a,b,c,d=box;scale=(c-a)/line_length
     # An obscured first/last letter has no OCR column. Protect the gaps
@@ -87,7 +120,7 @@ def overlay_boxes(pane):
 
 
 def annotate(raw,pane):
-    candidates=[i for i,line in enumerate(raw['lines']) if numeric_line(line)]
+    candidates=[i for i,line in enumerate(raw['lines']) if receipt_line(line)]
     if not candidates:return raw
     if raw.get('gameplay_sha256')!=hashlib.sha256(pane.convert('RGB').tobytes()).hexdigest():
         raise ValueError('Receipt overlay proof differs from original OCR pixels.')
@@ -125,7 +158,7 @@ def annotate(raw,pane):
 
 
 def annotate_path(raw,path,original=None):
-    if not any(numeric_line(l) for l in raw['lines']):return raw
+    if not any(receipt_line(l) for l in raw['lines']):return raw
     from PIL import Image
     from .refine_contrast import fingerprint
     extra_path=path.with_suffix('.overlay.json')
