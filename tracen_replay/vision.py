@@ -221,16 +221,21 @@ def parse(raw):
         facts['resolved_receipt_occlusions']=raw['resolved_receipt_occlusions']
     if screen=='concert_bonus_update':facts['bonus_update_receipt']=True
     if screen=='concert_info':
-        current={};planned={}
+        current={};planned={};bonus_evidence={}
         for i,field in enumerate(('friendship_training_effectiveness','specialty_priority','support_chain_event_frequency')):
             observations=[l for l in lines if l['confidence']>=90 and within(l,((270,460,650)[i],380,(460,650,840)[i],425))]
             for observation in observations:
                 value=re.sub(r'\s+','',observation['text'])
+                # The level slot is numeric. Preserve this constrained OCR
+                # normalization rather than treating a missing field as zero.
+                if i==2:value=re.sub(r'(?<=Lvl)O(?=Lvl|[>▶→]|$)','0',value)
                 pair=re.fullmatch(r'\+(\d+)%?[>▶→]?\+(\d+)%?',value) if i<2 else re.fullmatch(r'Lvl(\d+)[>▶→]?Lvl(\d+)',value)
                 single=re.fullmatch(r'\+(\d+)%?',value) if i<2 else re.fullmatch(r'Lvl(\d+)',value)
                 if pair:current[field]=int(pair[1]);planned[field]=int(pair[2])
                 elif single:current[field]=int(single[1]);planned[field]=int(single[1])
+                if pair or single:bonus_evidence[field]=dict(observation,normalized_text=value)
         facts.update(current_concert_bonuses=current,planned_concert_bonuses=planned,
+                     concert_bonus_evidence=bonus_evidence,
                      bonus_snapshot_is_not_activation=True)
     if pending_effects:facts['effect_candidates']=pending_effects
     from .animated_performance import candidates
