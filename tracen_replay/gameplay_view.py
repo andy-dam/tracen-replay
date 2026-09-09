@@ -74,4 +74,18 @@ def render_gameplay(report):
     pending=data.get('unparsed_receipt_candidates',[])
     review='<details><summary>Unparsed receipt candidates ('+str(len(pending))+')</summary><p>These may be partial OCR or missed effects. Their numbers are not added to any ledger.</p><ul>'+''.join(
         f'<li>{p["first_seen_ms"]/1000:.3f}s · {escape(p["raw_text"])} · {proof(p["evidence"],"View")}</li>' for p in pending)+'</ul></details>'
+    identities=[]
+    for event in data.get('events',[]):
+        candidates=event.get('ambiguous_effect_candidates',[])
+        if not candidates:continue
+        alternatives=[]
+        for candidate in candidates:
+            effect=candidate['effect']
+            label=effect.get('raw_text') or effect.get('name') or effect['kind']
+            alternatives.append(f'<li>{escape(label)} · {proof(candidate.get("evidence",[]),"Source")}</li>')
+        identities.append(f'<details><summary>{event["first_seen_ms"]/1000:.3f}s · unresolved receipt identity</summary>'
+                          '<p>These are conflicting readings, not separate confirmed awards. No recipient has been selected.</p><ul>'
+                          +''.join(alternatives)+'</ul></details>')
+    if identities:
+        review+='<h3>Unresolved receipt identities</h3>'+''.join(identities)
     return heading+coverage+review+accounting+'<h3>Supported lesson transitions</h3><ul>'+''.join(purchases)+'</ul>'+skills+screen_table+'<h3>Mechanics observations</h3>'+''.join(facts)
