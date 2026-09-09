@@ -65,11 +65,22 @@ def verify(root,source):
             checked+=1
         except (ValueError,KeyError,OSError) as error:errors.append(dict(path=str(raw_path.relative_to(root)),reason=str(error)))
         if (checked+len(errors))%1000==0:print(json.dumps(dict(stage='verify_evidence',checked=checked,total=len(records),errors=len(errors))),flush=True)
+    race_reward_frames=0
+    race_manifest=root/'race-reward-inspection.json'
+    if race_manifest.exists():
+        inspection_hashes[race_manifest.name]=hashlib.sha256(race_manifest.read_bytes()).hexdigest()
+        try:
+            from .race_reward_inspection import load as load_race_rewards
+            metadata,_=load_race_rewards(root,digest)
+            race_reward_frames=metadata['verified_frames']
+        except (ValueError,KeyError,OSError) as error:
+            errors.append(dict(path=race_manifest.name,reason=str(error)))
     result=dict(source_sha256=digest,source_duration_ms=capture['source']['duration_ms'],base_frames=len(capture['frames']),
                 expected_observations=len(records),verified_observations=checked,verified_refinements=refinements,
                 capture_manifest_sha256=hashlib.sha256((root/'capture.json').read_bytes()).hexdigest(),
                 inspection_manifest_sha256=inspection_hashes,
                 evidence_integrity_verified=not errors and checked==len(records),errors=errors,
+                verified_race_reward_inspection_frames=race_reward_frames,
                 scope='Source file, sampled PTS manifests, decoded frame hashes, exact gameplay crop pixels, original OCR pixel hashes and refinement source/proof hashes. This is not semantic effect-recall verification.')
     save_json(root/'evidence-audit.json',result);print(json.dumps(result),flush=True)
     return result

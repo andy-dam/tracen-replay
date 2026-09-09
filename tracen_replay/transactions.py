@@ -562,7 +562,7 @@ def reconcile_visible_training_candidates(before,after,events,readings):
     return resolutions
 
 
-def reconstruct(readings,choice_observations=()):
+def reconstruct(readings,choice_observations=(),race_reward_observations=()):
     states=checkpoints(readings);events=training_events(readings,states)+outcome_events(readings)
     skills=skill_transactions(readings,states);events+=skills
     events.sort(key=lambda e:e['first_seen_ms'])
@@ -583,7 +583,7 @@ def reconstruct(readings,choice_observations=()):
         if confirmations and any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):
             actions.append(dict(kind='rest',source_timestamp_ms=event['first_seen_ms'],evidence=[confirmations[-1]['evidence'],event['evidence']],event_id=event['id'],click_timestamp_ms=None))
     actions+=outing_actions(readings,events)
-    race_results=races(readings)
+    race_results=races(readings,race_reward_observations)
     actions += [dict(kind='race',source_timestamp_ms=r['first_seen_ms'],evidence=r['evidence'],race_id=r['id'],click_timestamp_ms=None) for r in race_results]
     actions.sort(key=lambda a:a['source_timestamp_ms'])
     from .mechanics_audit import fan_accounting,song_acquisitions,unparsed_receipt_candidates
@@ -697,7 +697,7 @@ def performance_accounting(readings,events,lessons):
     return dict(checkpoints=states,intervals=intervals)
 
 
-def races(readings):
+def races(readings,reward_observations=()):
     from .race_reward_sections import annotate as annotate_reward_sections
     groups=[]
     for row in readings:
@@ -719,16 +719,31 @@ def races(readings):
         # Preserve stable visible snapshots; scrolling cannot establish item identity
         # or authorize summing repeated quantities into an inventory transaction.
         snapshots=[];pending=[]
+        reward_rows=rows
+        if reward_observations:
+            from .race_reward_inspection import merge_reward_rows
+            extras=[]
+            for observation in reward_observations:
+                if not group['first_seen_ms']<=observation['source_timestamp_ms']<=group['last_seen_ms']:continue
+                facts=observation.get('facts',{})
+                if observation['screen']=='race_result' and (facts.get('fans'),facts.get('fans_gained'))==(group['fans'],group['fans_gained']):
+                    extras.append(observation)
+                else:
+                    # A non-result or different race interrupts quantity continuity.
+                    extras.append(dict(observation,facts=dict(facts,visible_item_quantities=[])))
+            reward_rows=merge_reward_rows(rows,extras)
         def finish_items():
             if len({r['source_timestamp_ms'] for r in pending})<2:return
             snapshots.append(dict(first_seen_ms=pending[0]['source_timestamp_ms'],
                 last_seen_ms=pending[-1]['source_timestamp_ms'],
                 items=[dict(quantity=x['quantity'],name=None,section=x['section']) for x in annotate_reward_sections(pending[0])],
                 item_observations=[dict(source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence'],
-                    items=annotate_reward_sections(r)) for r in pending],
+                    items=annotate_reward_sections(r),
+                    **({'inspection_evidence':list(dict.fromkeys(r['quantity_inspection_evidence']))}
+                       if r.get('quantity_inspection_evidence') else {})) for r in pending],
                 evidence=list(dict.fromkeys(r['evidence'] for r in pending)),
                 identity_verified=False,list_complete=False))
-        for row in sorted(rows,key=lambda r:r['source_timestamp_ms']):
+        for row in sorted(reward_rows,key=lambda r:r['source_timestamp_ms']):
             items=annotate_reward_sections(row)
             previous=annotate_reward_sections(pending[-1]) if pending else []
             same=(len(items)==len(previous) and all(a['quantity']==b['quantity'] and

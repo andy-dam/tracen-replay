@@ -122,12 +122,17 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr'):
     return readings
 
 
-def assemble(report,readings,choice_observations=()):
+def assemble(report,readings,choice_observations=(),race_reward_observations=()):
     from .inventory import summarize as inventory_summary
+    if race_reward_observations:
+        from .race_reward_inspection import refine_base_rows
+        readings=refine_base_rows(readings,race_reward_observations)
     stat_rows=[dict(r['stats'],source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence']) for r in readings]
     spans=screen_summary(readings)
     report['gameplay_tracking']=dict(method='neural_gameplay_v1',auxiliary_log_used=False,input_region=[148,0,958,1080],readings=readings,
-        **reconstruct(readings,choice_observations),screens=spans,training_previews=preview_segments(stat_rows),skill_receipts=[s for s in spans if s['screen']=='skill_receipt'])
+        **reconstruct(readings,choice_observations,race_reward_observations),screens=spans,training_previews=preview_segments(stat_rows),skill_receipts=[s for s in spans if s['screen']=='skill_receipt'])
+    if race_reward_observations:
+        report['gameplay_tracking']['race_reward_observations']=race_reward_observations
     report['recognition']=dict(enabled=True,model='RapidOCR 3.9.2 / PP-OCRv6 detection + English PP-OCRv5 recognition')
     report['gameplay_tracking']['owned_skill_inventory']=inventory_summary(readings)
     report['verification']=audit(report)
@@ -258,12 +263,15 @@ def main():
     from .inspect_choices import load as load_choices
     choice_metadata,choice_observations=load_choices(args.output,report['source']['sha256'])
     if choice_metadata:report['choice_inspection']=choice_metadata
-    report=assemble(report,readings,choice_observations)
+    from .race_reward_inspection import load as load_race_rewards
+    reward_metadata,reward_observations=load_race_rewards(args.output,report['source']['sha256'])
+    if reward_metadata:report['race_reward_inspection']=reward_metadata
+    report=assemble(report,readings,choice_observations,reward_observations)
     evidence_audit=args.output/'evidence-audit.json'
     if evidence_audit.exists():
         snapshot=json.loads(evidence_audit.read_text(encoding='utf-8'))
         manifest_hash=hashlib.sha256((args.output/'capture.json').read_bytes()).hexdigest()
-        manifests={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in (supplemental,native,receipts,args.output/'choice-inspection.json') if p.exists()}
+        manifests={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in (supplemental,native,receipts,args.output/'choice-inspection.json',args.output/'race-reward-inspection.json') if p.exists()}
         if snapshot.get('source_sha256')==report['source']['sha256'] and snapshot.get('capture_manifest_sha256')==manifest_hash and snapshot.get('inspection_manifest_sha256')==manifests:
             report['evidence_integrity_snapshot']=snapshot
     save_json(args.output/'report.json',report)

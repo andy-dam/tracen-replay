@@ -31,6 +31,23 @@ sample to be used. Generation then limits both target frames and supporting
 observations to that selection while preserving the complete capture manifest.
 One selected frame cannot meet the two-timestamp agreement requirement.
 
+When a reward screen is too brief for the base samples, inspect a source window
+of at most five seconds at up to 60 FPS, then rebuild the cached report:
+
+```powershell
+python -m tracen_replay.race_reward_inspection RECORDING --output RUN_DIRECTORY --start-ms START --end-ms END
+```
+
+The bounded capture keeps its own manifest and OCR cache. Registration pins every
+original OCR JSON file by hash. Loading checks these hashes, the recording identity,
+source PTS, decoded-frame hashes, exact gameplay pixels and quantity-refinement
+proofs. Its samples can confirm quantities only within an
+already detected race with matching fan totals. They cannot create another race
+or alter its identity, timestamps, actions or other gameplay accounting. Duplicate
+timestamps count once; conflicting same-position quantities abstain. Intervening
+screens interrupt quantity continuity. Supplemental proof paths remain attached
+to the observations. Item names and inventory completeness remain unknown.
+
 The refinement reads gameplay badge crops at three scales. Acceptance requires agreement at confidence 97 or higher at two distinct source timestamps; multiple scales of one frame count only once. The cached pipeline validates the capture manifest, source frames and timestamps, OCR/model bindings, and exact crop pixels, then recomputes agreement from the observations. A recovered badge is added only to frames that supported its reading. Conflicts remain explicit, and item identities and list completeness remain unknown.
 
 On the separate recording, the source-reviewed snapshot at 591 seconds now matches all four quantities, alongside all nine labeled race fields. The snapshot at 331.5 seconds recovers both missed `×1` badges but still misses `×20`, so its quantity check continues to fail while its ten labeled race fields pass. All 124 numeric intervals are unchanged, and the 12 preserved regression checks pass. These are development results after source-driven changes, not a new independent evaluation.
