@@ -35,3 +35,9 @@ That initial detail evaluation matched 4/5 explicitly labeled fields in the orig
 The integrated `inventory_suffix.detect` now uses separated-ring geometry, inner-opening shape, and agreement across correlated threshold views. It recovers both missing markers while rejecting ordinary terminal O/o letters. Portable saved negative controls cover GO, Hello, Tokyo, and No at several font sizes; tests also cover real single/double circles, clipped markers, and ambiguous multiple candidates.
 
 After rebuilding both recordings, the detail evaluation matches 5/5 and 7/7 fields respectively: ten circle suffixes and two levels, with no extra variants. The full suite passed 290 tests at integration, and frozen `regression-27` checks pass. This closes the labeled first-page detail gaps; off-screen ownership and complete inventory remain unverified.
+
+## Availability in reviewed footage
+
+A bounded availability audit inspected and hash-validated 77 retained summary and completion-hub frames across both recordings. Each run exposes the same first inventory page with 14 cards and a scrollbar extending below it; no reviewed frame exposes a lower page or changed scroll offset. These observations support the visible page, not a complete ownership list. The audit uses existing detected screen spans, so it does not rule out an undetected inventory view elsewhere in the video.
+
+The two original-run purchase receipts and three separate-run receipts likewise do not establish all final ownership. Their charged SP and visible acquisitions remain useful transaction evidence, but the purchased lists are not verified complete and do not account for every already-owned skill. Closing inventory completeness requires source evidence through the end of the list, including readable page states after scrolling; it cannot be obtained by filling in unseen names from those receipts.
