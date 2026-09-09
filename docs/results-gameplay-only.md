@@ -4,6 +4,37 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
+The current reports retain 143 balanced six-field intervals in the original
+recording and 130 in the second. The latest validation changes reject unsupported
+action-reference scopes and malformed predicted action timestamps; they do not
+change either report. All 616 automated tests and all 12 preserved-reference
+checks in `regression-63` pass. These are development regressions; the original
+separate-recording evaluation remains preserved.
+
+The second recording's `action-corpus-v3` selects 38 non-overlapping reference
+intervals, retaining 11 duplicate or superseded artifacts separately. Documented
+source corrections determine revision selection. Training reference windows now
+cover the full 1,776.717 seconds, and all 60 labeled training actions match with
+no extra training predictions. Training previews remain excluded.
+
+Other action types still have gaps in their declared evaluation scopes. Within
+those scopes, one rest, one outing and five races match their labels. Four outing
+and seven race predictions remain outside these scopes and are unassessed by
+this combined comparison. Reference-label agreement does not establish missing
+action recall in those gaps. Legacy completeness declarations, effect-reference
+overlaps and source visibility limits also remain unresolved; neither full
+semantic recall nor Go readiness is established.
+
+Current report SHA-256 values are
+`f2f0bfdee9bce50aae13000f74afbef49538b3590c1b8e9c1f7868965ad5e4b9`
+(original) and
+`d81d217ff8dd77c5fd3ba2c7be3d9c747dcddc4f085f5cc752a930a916041068`
+(second). The local corpus index and score hashes are
+`f7a6ec11e2eb607e4aa190148ee0197ed2037bd5547bb9bce87018ef09a429a3`
+and `d894ea54357728a97f95604703573bcb8abf2d2b727f3684a8a791c8ea0af9d3`.
+
+## Earlier 473-test snapshot
+
 The race-day totals layout supplies eight additional stable checkpoints across the two recordings. The current reports contain 143 balanced six-field intervals in the original recording and 130 in the second. This measures agreement between observed states and recognized numeric effects, not complete event recall.
 
 Hint identity recovery now preserves intrinsic punctuation, reads omitted or wrapped circle suffixes from source pixels, and retains receipt continuity across one explicitly observed cursor occlusion. Both report comparisons preserve numeric checkpoints and interval balances. The final continuity rebuild changes only one event, removing a duplicate hint spelling while retaining the obscured frame as continuity evidence. All 473 automated tests and all 12 preserved initial-reference regression checks pass.
