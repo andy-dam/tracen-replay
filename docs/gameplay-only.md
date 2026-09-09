@@ -25,6 +25,8 @@ The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080
 
 `verification` checks source endpoints, sampling continuity, PTS, processed frames per minute, discrepancies, calendar/action coverage and final-state agreement. Separate `evidence-audit.json` validates source hashes and crop pixels. Neither automatically certifies semantic correctness.
 
+When final-state cross-checking lacks a required observation, `verification.final_state` retains separately observed summary attributes and completion-hub skill points with timestamps and evidence. It lists the missing observations and leaves agreement unknown. A hub showing stat ranks cannot corroborate exact numeric attributes; ranks are never converted into numbers. These partial observations do not establish complete final verification or inventory ownership.
+
 ## Counting rules
 
 | Mechanic | Count from | Keep separate or unknown |

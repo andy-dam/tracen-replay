@@ -9,7 +9,27 @@ def final_crosscheck(data):
     summaries=[r for r in rows if r['screen']=='career_summary' and all(type(r['facts'].get('final_attributes',{}).get(f)) is int for f in FIELDS[:5])]
     hubs=[r for r in rows if r['screen']=='career_completion_hub' and all(type(r['facts'].get('final_attributes',{}).get(f)) is int for f in FIELDS[:5])]
     points=[r for r in rows if r['screen']=='career_completion_hub' and type(r['facts'].get('current_skill_points')) is int]
-    if not summaries or not hubs or not points:return dict(complete_final_observations=False)
+    if not summaries or not hubs or not points:
+        # Missing corroboration must not erase separately observed values.
+        # Ranks on the completion hub cannot supply numeric attributes.
+        values={};evidence=[];timestamps={}
+        if summaries:
+            summary=max(summaries,key=lambda r:r['source_timestamp_ms'])
+            values.update({f:summary['facts']['final_attributes'][f] for f in FIELDS[:5]})
+            evidence.append(summary['evidence']);timestamps['attributes']=summary['source_timestamp_ms']
+        if points:
+            point=max(points,key=lambda r:r['source_timestamp_ms'])
+            values['skill_points']=point['facts']['current_skill_points']
+            evidence.append(point['evidence']);timestamps['skill_points']=point['source_timestamp_ms']
+        missing=[name for name,available in (
+            ('numeric_summary_attributes',summaries),
+            ('numeric_completion_hub_attributes',hubs),
+            ('completion_hub_skill_points',points)) if not available]
+        return dict(complete_final_observations=False,observed_values=values,
+                    observation_timestamps_ms=timestamps,evidence=list(dict.fromkeys(evidence)),
+                    missing_observations=missing,attributes_agree_between_hub_and_summary=None,
+                    inventory_complete=False,fully_verified=False,
+                    scope='Separately observed final-screen values; the required numeric cross-check is unavailable. Missing numeric observations may be unreadable or not displayed; ranks are not converted to numbers.')
     final=summaries[-1];hub=hubs[-1];point=points[-1]
     attributes=final['facts']['final_attributes'];values={f:attributes[f] for f in FIELDS[:5]};values['skill_points']=point['facts']['current_skill_points']
     agree=all(attributes[f]==hub['facts']['final_attributes'][f] for f in FIELDS[:5])
