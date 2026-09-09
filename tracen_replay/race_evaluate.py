@@ -76,6 +76,7 @@ _COURSE_FIELDS = (
     "distance_category",
     "direction",
     "variant",
+    "condition",
 )
 
 

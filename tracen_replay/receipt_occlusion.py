@@ -9,7 +9,9 @@ import re
 
 
 def numeric_line(line):
-    return 770<=line['box'][1]<1000 and bool(re.search(r'went|recover|Gained|Friendship',line['text']) and re.search(r'\d',line['text']))
+    return 770<=line['box'][1]<1000 and bool(re.search(
+        r'went|recover|Gained|Friendship|Frienlship|Friewdship|Frendship',
+        line['text']) and re.search(r'\d',line['text']))
 
 
 def friendship_status_line(line):
@@ -25,7 +27,7 @@ def friendship_status_line(line):
         return False
     text=line.get('text','').strip()
     return bool(re.fullmatch(
-        r"(?:Friendship|Friewdship|Frendship) with .+? "
+        r"(?:Friendship|Frienlship|Friewdship|Frendship) with .+? "
         r"(?:didn['’]t go up|is (?:maxed|mad|maed) out)[.!]?",
         text,
         re.I,
@@ -75,11 +77,11 @@ def friendship_name_bounds(box,words,columns,line_length):
     """A readable amount cannot establish a cursor-covered recipient name."""
     if line_length<=0 or len(words)!=len(columns) or any(not c for c in columns):return None
     if any(v<0 or v>=line_length for c in columns for v in c):return None
-    if len(words)<2 or words[0].lower() not in ('friendship','friewdship','frendship') or words[1].lower() not in ('with','wh'):return None
+    if len(words)<2 or words[0].lower() not in ('friendship','frienlship','friewdship','frendship') or words[1].lower() not in ('with','wh'):return None
     normalized=[re.sub(r'[.!?]+$','',word).lower() for word in words]
     end=None
     for index in range(2,len(words)):
-        if normalized[index] in ('went','wert') and normalized[index+1:index+3]==['up','by']:
+        if normalized[index] in ('went','wert','ent') and normalized[index+1:index+3]==['up','by']:
             end=index;break
         if normalized[index] in ("didn't","didn’t") and normalized[index+1:index+3]==['go','up']:
             end=index;break

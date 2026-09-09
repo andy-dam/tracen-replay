@@ -188,8 +188,8 @@ def parse(raw):
         fixed=re.sub(r'^(Friendship with .+? is)maxed out([.!]?)$',r'\1 maxed out\2',fixed)
         # Repair only the fixed receipt keyword. Recipient spelling, amount,
         # confidence and the complete past-tense sentence remain untouched.
-        fixed=re.sub(r'^(?:Friewdship|Frendship)( with .+? went up by \d+[.!])$',r'Friendship\1',fixed)
-        fixed=re.sub(r'^(Friendship with .+?) wert (up by \d+[.!])$',r'\1 went \2',fixed)
+        fixed=re.sub(r'^(?:Friewdship|Frendship|Frienlship)( with .+? went up by \d+[.!])$',r'Friendship\1',fixed)
+        fixed=re.sub(r'^(Friendship with .+?) (?:wert|ent) (up by \d+[.!])$',r'\1 went \2',fixed)
         fixed=re.sub(r'^Friendship wh (.+? went up by \d+[.!])$',r'Friendship with \1',fixed)
         if fixed!=line['text']:
             repairs[fixed]=line['text'];joined[i]=dict(line,text=fixed)
@@ -462,8 +462,12 @@ def parse(raw):
         places={int(m[1]) for m in places if m}
         descriptions=[l['text'] for l in lines if l['confidence']>=97 and within(l,(260,457,810,495)) and re.search(r'\b(?:Turf|Dirt)\b',l['text'])]
         course=re.search(r'^(.+?)\s+(Turf|Dirt)\s+(\d+)m\s+\(([^)]+)\)\s+(Right|Left|Straight)(?:\s*/\s*(Outer|Inner))?',' '.join(descriptions),re.I)
+        conditions=[l['text'].lower() for l in lines if l['confidence']>=97
+                    and within(l,(690,457,810,495))
+                    and re.fullmatch(r'Firm|Good|Heavy',l['text'],re.I)]
         facts.update(race_name=names[0] if len(names)==1 else None,placing=places.pop() if len(places)==1 else None,
             course=dict(venue=course[1],surface=course[2].lower(),distance_m=int(course[3]),distance_category=course[4].lower(),direction=course[5].lower(),variant=course[6].lower() if course[6] else None) if course else None,
+            course_condition=conditions[0] if course and len(conditions)==1 else None,
             item_rewards_complete=False)
     titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=95 and l['box'][3]<=250 and l['text']!='MAX']
     candidate_titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=90 and l['box'][3]<=250 and l['text']!='MAX']

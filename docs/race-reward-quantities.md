@@ -58,6 +58,14 @@ The preserved source-selected 150–160 second debut reference in the separate r
 
 The reusable race-reference evaluator separates typed result fields from per-frame item observations:
 
+The supported result header also retains a readable `Firm`, `Good` or `Heavy`
+condition as `course.condition`. Recognition requires a parsed course header and
+one high-confidence label in its condition position. Other or unreadable labels
+remain unknown. Missing observations do not contradict a readable label; different
+readable conditions make that field unresolved and retain the conflict. References
+must explicitly include `course.condition` to score it. Weather icons remain
+uninterpreted by this text check.
+
 ```powershell
 python -m tracen_replay.race_evaluate REFERENCE REPORT --evidence-root RUN_DIRECTORY --output SCORE_FILE
 ```

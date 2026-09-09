@@ -715,6 +715,10 @@ def races(readings,reward_observations=()):
                 if value not in unique:unique.append(value)
             fields[field]=unique[0] if len(unique)==1 else None
             if len(unique)>1:conflicts[field]=unique
+        conditions=list(dict.fromkeys(r['facts']['course_condition'] for r in rows if r['facts'].get('course_condition')))
+        if fields['course'] is not None:
+            fields['course']=dict(fields['course'],condition=conditions[0] if len(conditions)==1 else None)
+        if len(conditions)>1:conflicts['course.condition']=conditions
         group.update(fields,evidence=[r['evidence'] for r in rows],conflicting_readings=conflicts,completed_action='race',item_rewards_complete=False,verified=False)
         # Preserve stable visible snapshots; scrolling cannot establish item identity
         # or authorize summing repeated quantities into an inventory transaction.
