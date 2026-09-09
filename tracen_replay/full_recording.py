@@ -1,5 +1,6 @@
 """Resumable full-recording capture and local neural OCR. Processing is not verification."""
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -13,12 +14,48 @@ from .gameplay import screen_summary
 from .viewer import render
 from .transactions import reconstruct
 from .recording_verification import audit
+from .report_contract import FULL_RECORDING_SCHEMA, ReportContractError, validate as validate_report
 
 
 def save_json(path,value):
     temporary=path.with_suffix(path.suffix+'.tmp')
     temporary.write_text(json.dumps(value,ensure_ascii=False),encoding='utf-8')
     temporary.replace(path)
+
+
+def validate_output(report, *, require_gameplay=False):
+    """Convert contract failures into the pipeline's public error type."""
+    try:
+        return validate_report(report, require_gameplay=require_gameplay)
+    except ReportContractError as exc:
+        raise PipelineError(f'Full-recording report contract invalid: {exc}') from exc
+
+
+def _load_cached_capture(path, source_sha256, fps):
+    """Load a cache without rewriting it, adapting only unversioned captures."""
+    try:
+        raw = path.read_bytes()
+        cached = json.loads(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PipelineError('Cached capture is not valid JSON.') from exc
+    if not isinstance(cached, dict):
+        raise PipelineError('Cached capture must be a JSON object.')
+
+    # Older full-recording captures predate the contract and have no schema
+    # field. They are safe to reuse only after adding the current schema to a
+    # deep copy and validating the complete envelope. An explicit schema is
+    # never relabeled: the generic validator must reject unknown producers.
+    if 'schema_version' not in cached:
+        report = copy.deepcopy(cached)
+        report['schema_version'] = FULL_RECORDING_SCHEMA
+    else:
+        report = cached
+    validate_output(report)
+    if report['source']['sha256'] != source_sha256 or report['sampling']['requested_fps'] != fps:
+        raise PipelineError('Capture does not match requested source.')
+    if not all((path.parent / frame['evidence']).is_file() for frame in report['frames']):
+        raise PipelineError('Captured source frames are missing.')
+    return report
 
 
 def parse_receipt_pixels(raw,root,frame,original=None,*,source_sha256=None):
@@ -66,10 +103,7 @@ def capture(source,root,fps):
     if identity_path.exists() and json.loads(identity_path.read_text(encoding='utf-8'))!=identity:raise PipelineError('Existing output belongs to a different source or sampling configuration.')
     save_json(identity_path,identity)
     if (root/'capture.json').exists():
-        report=json.loads((root/'capture.json').read_text(encoding='utf-8'))
-        if report['source']['sha256']!=digest or report['sampling']['requested_fps']!=fps:raise PipelineError('Capture does not match requested source.')
-        if not all((root/f['evidence']).is_file() for f in report['frames']):raise PipelineError('Captured source frames are missing.')
-        return report
+        return _load_cached_capture(root/'capture.json', digest, fps)
     frames=[]
     for index,start in enumerate(range(0,int(duration)+1,120)):
         length=min(120,duration-start)
@@ -85,8 +119,9 @@ def capture(source,root,fps):
             save_json(manifest,rows)
         frames.extend(rows)
         print(json.dumps(dict(stage='capture',part=index,through_seconds=start+length,frames=len(frames))),flush=True)
-    report=dict(source=dict(name=source.name,sha256=digest,size_bytes=source.stat().st_size,duration_ms=round(duration*1000),timeline_origin_seconds=origin,width=1920,height=1080,codec=video['codec_name']),frames=frames,
+    report=dict(schema_version=FULL_RECORDING_SCHEMA,source=dict(name=source.name,sha256=digest,size_bytes=source.stat().st_size,duration_ms=round(duration*1000),timeline_origin_seconds=origin,width=1920,height=1080,codec=video['codec_name']),frames=frames,
                 clip=dict(source_start_ms=0,duration_ms=round(duration*1000)),sampling=dict(requested_fps=fps,frame_count=len(frames),method='minimum_interval_on_decoded_pts',guarantees_all_events=False),observations=[],limitations=['Entire source sampled; sampling alone does not establish verification.'])
+    validate_output(report)
     save_json(root/'capture.json',report)
     return report
 
@@ -267,6 +302,7 @@ def main():
     reward_metadata,reward_observations=load_race_rewards(args.output,report['source']['sha256'])
     if reward_metadata:report['race_reward_inspection']=reward_metadata
     report=assemble(report,readings,choice_observations,reward_observations)
+    validate_output(report,require_gameplay=True)
     evidence_audit=args.output/'evidence-audit.json'
     if evidence_audit.exists():
         snapshot=json.loads(evidence_audit.read_text(encoding='utf-8'))

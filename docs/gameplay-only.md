@@ -8,6 +8,18 @@ The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080
 
 ## Report contract
 
+The full-recording producer emits `schema_version` with the value
+`tracen-replay/full-recording-v1`. `tracen_replay.report_contract.validate`
+checks the capture envelope; `require_gameplay=True` additionally checks the
+analyzed collections. This version is distinct from the older clip-report
+format. Structural validity does not imply semantic completeness: unknown
+readings, partial inventory and unresolved mechanics remain valid values.
+
+Generic consumers reject missing or unsupported versions. The full-recording
+producer can reuse a historical unversioned capture after validating a versioned
+copy in memory. It preserves the original capture file and emits the version on
+subsequent output; explicitly different versions are never relabeled.
+
 `gameplay_tracking` includes:
 
 - `readings` and `screens`: source-timestamped observations and visibility spans, not action counts.
