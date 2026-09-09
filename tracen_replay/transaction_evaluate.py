@@ -6,6 +6,13 @@ from .gameplay import CURRENCIES
 from .reconcile import FIELDS
 
 
+def numeric_valid(value,key):
+    if key=='fans':return type(value) is int
+    fields=CURRENCIES if key=='performance_cost' else FIELDS
+    return (isinstance(value,dict) and not set(value)-set(fields)
+            and all(type(v) is int and (key!='performance_cost' or v>=0) for v in value.values()))
+
+
 def evaluate(reference,report):
     if reference['source_sha256']!=report['source']['sha256']:raise ValueError('Reference belongs to a different recording.')
     if not isinstance(reference.get('transactions'),list):raise ValueError('Explicit transaction labels are required.')
@@ -29,14 +36,21 @@ def evaluate(reference,report):
                                 receipt_name=purchase.get('receipt_name')))
     for concert in data.get('concerts',[]):
         effects=[e for group in concert['observed_rewards'] for e in group]
+        stat_effects=[e for e in effects if e['kind']=='stat_change']
+        fan_effects=[e for e in effects if e['kind']=='fan_change']
         predictions.append(dict(kind='concert',timestamp_ms=concert['first_seen_ms'],id=concert['id'],
-                                stats={f:sum(e['amount'] for e in effects if e['kind']=='stat_change' and e['field']==f) for f in FIELDS},
-                                fans=sum(e['amount'] for e in effects if e['kind']=='fan_change')))
+                                stats={f:sum(e['amount'] for e in stat_effects if e['field']==f) for f in FIELDS}
+                                    if all(e.get('field') in FIELDS and type(e.get('amount')) is int for e in stat_effects) else None,
+                                fans=sum(e['amount'] for e in fan_effects)
+                                    if all(type(e.get('amount')) is int for e in fan_effects) else None))
     predictions=[p for p in predictions if start<=p['timestamp_ms']<end and p['kind'] in reference['kinds']]
     used=set();matches=[];missing=[];field_errors=[]
     for expected in reference['transactions']:
         if expected['kind'] not in reference['kinds']:raise ValueError('Expected transaction outside declared kinds.')
         if not start<=expected['start_ms']<=expected['end_ms']<end:raise ValueError('Expected transaction outside reference scope.')
+        for key in ('performance_cost','stats','fans'):
+            if key in expected and not numeric_valid(expected[key],key):
+                raise ValueError('Numeric labels require known fields and integer values; omit unobserved fields.')
         for key in ('name','requested_name','receipt_name'):
             if key in expected and (expected['kind']!='lesson' or not isinstance(expected[key],str) or not expected[key].strip()):
                 raise ValueError('Identity labels require a nonempty source-observed lesson name.')
@@ -46,6 +60,10 @@ def evaluate(reference,report):
         for key in ('performance_cost','stats','fans','name','requested_name','receipt_name'):
             if key not in expected:continue
             actual=prediction.get(key);wanted=expected[key]
+            if key in ('performance_cost','stats','fans') and not numeric_valid(actual,key):
+                field_errors.append(dict(transaction=prediction['id'],field=key,expected=wanted,actual=actual,
+                                         reason='unknown_or_malformed_numeric_prediction'))
+                continue
             if key in ('performance_cost','stats') and actual is not None:
                 fields=CURRENCIES if key=='performance_cost' else FIELDS
                 actual={f:actual.get(f,0) for f in fields};wanted={f:wanted.get(f,0) for f in fields}
