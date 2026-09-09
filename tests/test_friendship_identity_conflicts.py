@@ -7,6 +7,40 @@ from tracen_replay.transactions import outcome_events
 
 
 class FriendshipIdentityConflictsTests(unittest.TestCase):
+    def test_scrolling_source_dialogue_does_not_make_distinct_people_ambiguous(self):
+        from tracen_replay.receipt_names import flag_friendship_identity_conflicts
+        fixture=json.loads(Path('tests/fixtures/friendship-status-scroll-1447750.json').read_text(encoding='utf-8'))
+        before=copy.deepcopy(fixture['event'])
+        flag_friendship_identity_conflicts(fixture['event'],fixture['rows_by_evidence'])
+        self.assertEqual(fixture['event'],before)
+
+    def status_fixture(self):
+        return json.loads(Path('tests/fixtures/friendship-status-slot-796000.json').read_text(encoding='utf-8'))
+
+    def test_source_status_spellings_do_not_become_two_people(self):
+        from tracen_replay.receipt_names import flag_friendship_identity_conflicts
+        fixture=self.status_fixture();event=fixture['event']
+        flag_friendship_identity_conflicts(event,fixture['rows_by_evidence'])
+        self.assertEqual([e['kind'] for e in event['effects']],['skill_hint_change'])
+        self.assertEqual({c['effect']['name'] for c in event['ambiguous_effect_candidates']},
+                         {'Nishino Flower','Nishino Fl5wer'})
+        self.assertTrue(all(c['evidence'] for c in event['ambiguous_effect_candidates']))
+        self.assertTrue(all(c['field'].startswith('friendship_status||') for c in event['conflicting_readings']))
+
+    def test_different_statuses_and_separate_receipt_kinds_are_not_identity_conflicts(self):
+        from tracen_replay.receipt_names import flag_friendship_identity_conflicts
+        for change in ('value','kind'):
+            fixture=self.status_fixture();event=fixture['event']
+            last=event['effects'][-1]
+            if change=='value':last['value']='unchanged'
+            else:
+                old_key=last['kind']+'||'+last['name'];last['kind']='friendship_change'
+                event['field_evidence'][last['kind']+'||'+last['name']]=event['field_evidence'].pop(old_key)
+            flag_friendship_identity_conflicts(event,fixture['rows_by_evidence'])
+            with self.subTest(change=change):
+                self.assertEqual(len(event['effects']),3)
+                self.assertFalse(event['conflicting_readings'])
+
     def test_severely_corrupted_source_names_remain_candidates_not_people(self):
         from tracen_replay.receipt_names import flag_friendship_identity_conflicts
         fixture=json.loads(Path('tests/fixtures/friendship-slot-894250.json').read_text(encoding='utf-8'))

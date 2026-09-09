@@ -1,0 +1,698 @@
+{
+  "event": {
+    "id": "outcome-0223",
+    "kind": "outcome",
+    "first_seen_ms": 1447750,
+    "last_seen_ms": 1448000,
+    "evidence": "gameplay/part-012-frame-000032.png",
+    "context_title": "Squats",
+    "effects": [
+      {
+        "kind": "energy_change",
+        "amount": -21,
+        "raw_text": "Energy went down by 21.",
+        "confidence": 98.858
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Etsuko Otonashi",
+        "amount": 2,
+        "raw_text": "Friendship with Etsuko Otonashi went up by 2.",
+        "confidence": 98.459
+      },
+      {
+        "kind": "friendship_status",
+        "name": "Fine Motion",
+        "value": "maximum",
+        "amount": null,
+        "raw_text": "Friendship with Fine Motion is maxed out.",
+        "confidence": 99.574
+      },
+      {
+        "kind": "friendship_status",
+        "name": "Kitasan Black",
+        "value": "maximum",
+        "amount": null,
+        "raw_text": "Friendship with Kitasan Black is maxed out.",
+        "confidence": 98.677
+      },
+      {
+        "kind": "friendship_status",
+        "name": "Super Creek",
+        "value": "maximum",
+        "amount": null,
+        "raw_text": "Friendship with Super Creek is maxed out.",
+        "confidence": 98.574
+      },
+      {
+        "kind": "friendship_status",
+        "name": "Nishino Flower",
+        "value": "maximum",
+        "amount": null,
+        "raw_text": "Friendship with Nishino Flower is maxed out.",
+        "confidence": 99.543
+      }
+    ],
+    "field_evidence": {
+      "energy_change||": [
+        "gameplay/part-012-frame-000032.png"
+      ],
+      "friendship_change||Etsuko Otonashi": [
+        "gameplay/part-012-frame-000032.png",
+        "gameplay/part-012-frame-000033.png"
+      ],
+      "friendship_status||Fine Motion": [
+        "gameplay/part-012-frame-000032.png"
+      ],
+      "friendship_status||Kitasan Black": [
+        "gameplay/part-012-frame-000033.png"
+      ],
+      "friendship_status||Super Creek": [
+        "gameplay/part-012-frame-000033.png"
+      ],
+      "friendship_status||Nishino Flower": [
+        "gameplay/part-012-frame-000033.png"
+      ]
+    },
+    "conflicting_readings": [],
+    "action_time_ms": null,
+    "context_title_candidate": "Squats",
+    "deltas": {}
+  },
+  "rows_by_evidence": {
+    "gameplay/part-012-frame-000032.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Nov"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "energy_change",
+          "amount": -21,
+          "raw_text": "Energy went down by 21.",
+          "confidence": 98.858
+        },
+        {
+          "kind": "friendship_change",
+          "name": "Etsuko Otonashi",
+          "amount": 2,
+          "raw_text": "Friendship with Etsuko Otonashi went up by 2.",
+          "confidence": 98.772
+        },
+        {
+          "kind": "friendship_status",
+          "name": "Fine Motion",
+          "value": "maximum",
+          "amount": null,
+          "raw_text": "Friendship with Fine Motion is maxed out.",
+          "confidence": 99.574
+        }
+      ],
+      "facts": {
+        "occluded_receipt_lines": [
+          {
+            "text": "Friendship with Kitasan Bla is maxed out.",
+            "box": [
+              317,
+              856,
+              728,
+              881
+            ],
+            "confidence": 97.506,
+            "overlay_boxes": [
+              [
+                575,
+                858,
+                588,
+                875
+              ]
+            ],
+            "recipient_name_occluded": false
+          }
+        ]
+      },
+      "completed_action": null,
+      "context_title": "Squats",
+      "context_title_candidate": "Squats",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.984,
+            "box": [
+              150,
+              1,
+              227,
+              32
+            ]
+          },
+          {
+            "text": "Senior Year Late Nov",
+            "confidence": 99.092,
+            "box": [
+              389,
+              35,
+              533,
+              55
+            ]
+          },
+          {
+            "text": "2",
+            "confidence": 99.947,
+            "box": [
+              266,
+              54,
+              314,
+              103
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.829,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place 1st in Arima Kinen",
+            "confidence": 98.057,
+            "box": [
+              445,
+              61,
+              656,
+              87
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.192,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 88.313,
+            "box": [
+              377,
+              73,
+              444,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 96.149,
+            "box": [
+              773,
+              74,
+              835,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 99.946,
+            "box": [
+              447,
+              88,
+              602,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 97.022,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "2 turn(s)",
+            "confidence": 95.967,
+            "box": [
+              282,
+              125,
+              368,
+              152
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.752,
+            "box": [
+              381,
+              120,
+              441,
+              154
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.841,
+            "box": [
+              743,
+              121,
+              812,
+              149
+            ]
+          },
+          {
+            "text": "Power Lvl 2",
+            "confidence": 97.937,
+            "box": [
+              228,
+              168,
+              331,
+              194
+            ]
+          },
+          {
+            "text": "Squats",
+            "confidence": 99.975,
+            "box": [
+              225,
+              198,
+              298,
+              233
+            ]
+          },
+          {
+            "text": "TUP",
+            "confidence": 83.131,
+            "box": [
+              871,
+              230,
+              912,
+              252
+            ]
+          },
+          {
+            "text": "MAX",
+            "confidence": 99.304,
+            "box": [
+              862,
+              319,
+              923,
+              348
+            ]
+          },
+          {
+            "text": "CMAXO",
+            "confidence": 86.127,
+            "box": [
+              854,
+              516,
+              928,
+              540
+            ]
+          },
+          {
+            "text": "CMAXS",
+            "confidence": 90.091,
+            "box": [
+              854,
+              609,
+              929,
+              637
+            ]
+          },
+          {
+            "text": "Energy went down by 21.",
+            "confidence": 98.858,
+            "box": [
+              317,
+              808,
+              560,
+              835
+            ]
+          },
+          {
+            "text": "Friendship with Etsuko Otonashi went up by 2.",
+            "confidence": 98.772,
+            "box": [
+              315,
+              829,
+              758,
+              860
+            ]
+          },
+          {
+            "text": "Friendship with Kitasan Bla is maxed out.",
+            "confidence": 0,
+            "box": [
+              317,
+              856,
+              728,
+              881
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 97.506
+          },
+          {
+            "text": "Friendship with Fine Motion is maxed out.",
+            "confidence": 99.574,
+            "box": [
+              317,
+              879,
+              715,
+              905
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.911,
+            "box": [
+              519,
+              1034,
+              611,
+              1074
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.98,
+            "box": [
+              671,
+              1038,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1447750,
+      "evidence": "gameplay/part-012-frame-000032.png"
+    },
+    "gameplay/part-012-frame-000033.png": {
+      "screen": "event_outcome",
+      "stats": {
+        "values": null,
+        "training_preview": false,
+        "preview_option": null,
+        "completed_action": null,
+        "turns_remaining_to_goal": null,
+        "calendar_text": "Senior Year Late Nov"
+      },
+      "training_option": null,
+      "effects": [
+        {
+          "kind": "friendship_change",
+          "name": "Etsuko Otonashi",
+          "amount": 2,
+          "raw_text": "Friendship with Etsuko Otonashi went up by 2.",
+          "confidence": 98.459
+        },
+        {
+          "kind": "friendship_status",
+          "name": "Kitasan Black",
+          "value": "maximum",
+          "amount": null,
+          "raw_text": "Friendship with Kitasan Black is maxed out.",
+          "confidence": 98.677
+        },
+        {
+          "kind": "friendship_status",
+          "name": "Super Creek",
+          "value": "maximum",
+          "amount": null,
+          "raw_text": "Friendship with Super Creek is maxed out.",
+          "confidence": 98.574
+        },
+        {
+          "kind": "friendship_status",
+          "name": "Nishino Flower",
+          "value": "maximum",
+          "amount": null,
+          "raw_text": "Friendship with Nishino Flower is maxed out.",
+          "confidence": 99.543
+        }
+      ],
+      "facts": {},
+      "completed_action": null,
+      "context_title": "Squats",
+      "context_title_candidate": "Squats",
+      "ocr": {
+        "neural": [
+          {
+            "text": "Training",
+            "confidence": 99.984,
+            "box": [
+              150,
+              1,
+              227,
+              32
+            ]
+          },
+          {
+            "text": "Senior Year Late Nov",
+            "confidence": 97.383,
+            "box": [
+              389,
+              35,
+              534,
+              55
+            ]
+          },
+          {
+            "text": "2",
+            "confidence": 99.97,
+            "box": [
+              267,
+              56,
+              313,
+              102
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.829,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place 1st in Arima Kinen",
+            "confidence": 98.066,
+            "box": [
+              445,
+              61,
+              656,
+              87
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.192,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 85.55,
+            "box": [
+              378,
+              73,
+              444,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 94.211,
+            "box": [
+              772,
+              74,
+              835,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 97.892,
+            "box": [
+              447,
+              88,
+              602,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 96.951,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "2 turn(s)",
+            "confidence": 93.02,
+            "box": [
+              283,
+              125,
+              368,
+              152
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.429,
+            "box": [
+              382,
+              120,
+              440,
+              154
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.843,
+            "box": [
+              743,
+              121,
+              812,
+              149
+            ]
+          },
+          {
+            "text": "Power Lvl 2",
+            "confidence": 97.982,
+            "box": [
+              228,
+              168,
+              331,
+              194
+            ]
+          },
+          {
+            "text": "Squats",
+            "confidence": 99.975,
+            "box": [
+              225,
+              198,
+              298,
+              233
+            ]
+          },
+          {
+            "text": "MAXE",
+            "confidence": 81.919,
+            "box": [
+              869,
+              323,
+              919,
+              344
+            ]
+          },
+          {
+            "text": "CMAXO",
+            "confidence": 85.565,
+            "box": [
+              855,
+              516,
+              928,
+              540
+            ]
+          },
+          {
+            "text": "CMAXB",
+            "confidence": 87.791,
+            "box": [
+              856,
+              610,
+              927,
+              635
+            ]
+          },
+          {
+            "text": "Friendship with Etsuko Otonashi went up by 2.",
+            "confidence": 98.459,
+            "box": [
+              317,
+              806,
+              758,
+              835
+            ]
+          },
+          {
+            "text": "Friendship with Kitasan Black is maxed out.",
+            "confidence": 98.677,
+            "box": [
+              317,
+              832,
+              728,
+              858
+            ]
+          },
+          {
+            "text": "Friendship with Fine Motiolis maxed out.",
+            "confidence": 99.322,
+            "box": [
+              316,
+              854,
+              717,
+              882
+            ]
+          },
+          {
+            "text": "Friendship with Super Creek is maxed out.",
+            "confidence": 98.574,
+            "box": [
+              317,
+              879,
+              716,
+              905
+            ]
+          },
+          {
+            "text": "Friendship with Nishino Flower is maxed out.",
+            "confidence": 99.543,
+            "box": [
+              316,
+              902,
+              741,
+              931
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.98,
+            "box": [
+              671,
+              1038,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "source_timestamp_ms": 1448000,
+      "evidence": "gameplay/part-012-frame-000033.png"
+    }
+  }
+}

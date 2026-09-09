@@ -1,4 +1,28 @@
-"""Resolve narrowly supported missing-character variants inside one song receipt."""
+"""Retain receipt identity uncertainty and resolve evidence-backed variants."""
+
+
+def _dialogue_text_moved(first,second):
+    """A shared line changing row disproves a stationary receipt-slot match.
+
+    This only vetoes identity inference. It does not accept either recipient
+    or promote an OCR reading, and it does not need a character-name catalog.
+    """
+    def lines(row):
+        found={}
+        for line in row.get('ocr',{}).get('neural',[]):
+            box=line.get('box',[])
+            if len(box)!=4 or line.get('confidence',0)<95:continue
+            if not 780<=(box[1]+box[3])/2<=960:continue
+            found.setdefault(line.get('text'),[]).append(box)
+        return found
+    a,b=lines(first),lines(second)
+    for text in a.keys()&b.keys():
+        if not text or len(a[text])!=1 or len(b[text])!=1:continue
+        left,right=a[text][0],b[text][0]
+        dy=(right[1]+right[3]-left[1]-left[3])/2
+        if 8<=abs(dy)<=80 and abs(left[0]-right[0])<=5 and abs(left[2]-right[2])<=5:
+            return True
+    return False
 
 
 def flag_friendship_identity_conflicts(event,rows_by_evidence):
@@ -7,9 +31,11 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
     No spelling is selected. Simultaneous recipients and separate receipt
     positions remain distinct, even when their names and gains are similar.
     """
-    effects=[e for e in event['effects'] if e['kind']=='friendship_change']
+    effects=[e for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')]
+    def identity(effect):return (effect['kind'],effect['name'])
+    def field(effect):return effect['kind']+'||'+effect['name']
     def observations(effect):
-        key='friendship_change||'+effect['name'];result=[]
+        key=field(effect);result=[]
         for proof in event['field_evidence'].get(key,[]):
             row=rows_by_evidence.get(proof)
             if row is None:continue
@@ -19,7 +45,7 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             if len(lines)==1:
                 result.append((row['source_timestamp_ms'],proof,lines[0]['box']))
         return result
-    observed={e['name']:observations(e) for e in effects}
+    observed={identity(e):observations(e) for e in effects}
     disputed=set()
     for index,left in enumerate(effects):
         for right in effects[index+1:]:
@@ -27,13 +53,15 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             # Geometry and time identify the disputed slot. OCR can lose many
             # characters under an overlay; edit distance cannot establish that
             # the changing text describes separate people.
-            if left.get('amount')!=right.get('amount'):continue
-            first,second=observed[a],observed[b]
+            if left['kind']!=right['kind'] or a==b:continue
+            if left.get('amount')!=right.get('amount') or left.get('value')!=right.get('value'):continue
+            first,second=observed[identity(left)],observed[identity(right)]
             if {x[0] for x in first}&{x[0] for x in second}:continue
             pairs=[]
             for ta,pa,ba in first:
                 for tb,pb,bb in second:
                     if not 0<abs(ta-tb)<=250:continue
+                    if _dialogue_text_moved(rows_by_evidence[pa],rows_by_evidence[pb]):continue
                     if len(ba)!=4 or len(bb)!=4:continue
                     width=max(0,min(ba[2],bb[2])-max(ba[0],bb[0]))
                     height=max(0,min(ba[3],bb[3])-max(ba[1],bb[1]))
@@ -42,18 +70,18 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
                     if union>0 and intersection/union>=.8 and abs((ba[1]+ba[3]-bb[1]-bb[3])/2)<=3:
                         pairs.append([pa,pb])
             if not pairs:continue
-            disputed.update((a,b))
-            for name in (a,b):
-                event['conflicting_readings'].append(dict(field='friendship_change||'+name,
+            disputed.update((identity(left),identity(right)))
+            for effect in (left,right):
+                event['conflicting_readings'].append(dict(field=field(effect),
                     reason='recipient_name_changes_in_adjacent_same_slot_receipt',
                     name_candidates=[a,b],evidence_pairs=pairs))
     if disputed:
         event.setdefault('ambiguous_effect_candidates',[]).extend(
             dict(effect=e,reason='unresolved_recipient_identity',
-                 evidence=event['field_evidence'].get('friendship_change||'+e['name'],[]))
-            for e in effects if e['name'] in disputed)
+                 evidence=event['field_evidence'].get(field(e),[]))
+            for e in effects if identity(e) in disputed)
         event['effects']=[e for e in event['effects'] if not
-            (e['kind']=='friendship_change' and e['name'] in disputed)]
+            (e.get('name') and identity(e) in disputed)]
 
 
 def collapse_visual_hint_variants(event,timestamps):
