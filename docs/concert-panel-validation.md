@@ -32,7 +32,9 @@ The refinement uses three distinct base frames at 662000, 662250, and 662500 ms.
 
 Run-local artifacts under `concert-panel-refinement` are applied during cached reparsing and checked by the evidence auditor, including their supporting files. The original run's stat, performance, and fan ledgers remain balanced after integration. No later active value is inferred from a pre-concert plan.
 
-Automatic generation is still under validation. An isolated replay of all 16 base frames recognized as Concert Info panels reproduced the support-level text, but only two supporting crops cleared the unchanged confidence threshold. It correctly emitted no refinement. The 48/48 score therefore describes the current evidence-backed reports; it does not yet prove that a fresh automatic run reproduces the recovery. The difference between the original batched OCR probe and the generator must be resolved before claiming that capability.
+Automatic generation now reproduces this recovery. An initial contrast-only replay emitted no refinement because only two frames cleared the unchanged threshold. Investigation showed that the third accepted observation in the earlier probe used grayscale/autocontrast without added contrast; its preprocessing annotation has been corrected, with the original artifact archived. The generator now produces both views for every eligible frame and submits them together to consensus. Views from one timestamp count once, and conflicting accepted values cause abstention.
+
+An isolated replay of all 16 base frames recognized as Concert Info panels generated one refinement and retained two later rejections. It recovered the same three supporting observations without receiving reference labels. Both the failed and successful reproduction artifacts remain preserved. Run `python -m tracen_replay.refine_concert_panels RUN_DIRECTORY` before cached reparsing. This verifies reproduction of the reviewed case, not general panel recall.
 
 ## Scope and remaining work
 
