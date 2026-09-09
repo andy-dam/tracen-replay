@@ -4,12 +4,18 @@ The game renders a small ``○`` after some skill names.  The compact dialogue
 font can make that glyph look like a terminal ``O`` to OCR.  This module is
 intentionally limited to the evidence shape that supports that correction:
 
-* the target line is a confident, complete hint receipt ending in a standalone
-  uppercase ``O``;
+* the target is a confident, complete hint receipt whose OCR either emits a
+  standalone uppercase ``O`` or leaves the suffix as whitespace before the
+  sentence period;
 * a confident same-frame label above it contains the exact name without that
   suffix; and
 * source gameplay pixels contain one stable circular ring immediately before
   the receipt's final punctuation.
+
+The same checks also cover a receipt whose name wraps onto a second OCR line.
+The accepted representation joins those two source lines and retains the
+original parts in provenance metadata so the downstream parser can see one
+receipt without guessing a name.
 
 The detector does not consult a skill catalog, expected text, or another
 receipt.  ``annotate`` binds the decision to the original gameplay-pixel hash
@@ -29,10 +35,13 @@ from typing import Any, Mapping, Sequence
 GAMEPLAY_X_OFFSET = 148
 SINGLE_CIRCLE = "○"
 DOUBLE_CIRCLE = "◎"
-_THRESHOLDS = (165, 185, 205, 225)
-_MIN_VOTES = 3
+_THRESHOLDS = (175, 185, 195, 205, 215, 225)
+_MIN_VOTES = 5
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
-_HINT_RECEIPT = re.compile(r"^Gained (\d+) hint level\(s\) for (.+) O\.$")
+# Keep the omitted-glyph form explicit: the OCR must leave a separator before
+# the period. A no-space ``Name.`` is a different receipt shape and abstains.
+_HINT_RECEIPT = re.compile(r"^Gained (\d+) hint level\(s\) for (.+?)(?: O| )\.$")
+_HINT_PREFIX = re.compile(r"^Gained \d+ hint level\(s\) for .+$")
 
 
 def _box(box: Sequence[Any]) -> tuple[int, int, int, int] | None:
@@ -259,6 +268,92 @@ def _matching_companions(lines: Sequence[Mapping[str, Any]], base: str, target: 
     return matches
 
 
+def _hint_match(text: Any):
+    return _HINT_RECEIPT.fullmatch(_clean(text))
+
+
+def _hint_text(match: re.Match[str], symbol: Mapping[str, Any]) -> str:
+    return f"Gained {match.group(1)} hint level(s) for {_clean(match.group(2))} {symbol['symbol']}."
+
+
+def _symbol_observation(raw: Mapping[str, Any], proof: Mapping[str, Any], symbol: Mapping[str, Any]) -> dict[str, Any]:
+    observation = dict(
+        symbol,
+        source_timestamp_ms=raw["source_timestamp_ms"],
+        evidence=raw["evidence"],
+        gameplay_sha256=raw["gameplay_sha256"],
+        source_frame_sha256=raw["source_frame_sha256"],
+        evidence_sha256=proof["evidence_sha256"],
+    )
+    if raw.get("source_sha256") is not None:
+        observation["source_sha256"] = raw["source_sha256"]
+    return observation
+
+
+def _line_box_union(first: Mapping[str, Any], second: Mapping[str, Any]) -> list[int] | None:
+    first_box = _box(first.get("box", ()))
+    second_box = _box(second.get("box", ()))
+    if first_box is None or second_box is None:
+        return None
+    return [
+        min(first_box[0], second_box[0]),
+        min(first_box[1], second_box[1]),
+        max(first_box[2], second_box[2]),
+        max(first_box[3], second_box[3]),
+    ]
+
+
+def _is_hint_continuation(first: Mapping[str, Any], second: Mapping[str, Any]) -> bool:
+    """Match the narrow two-line layout used by ``vision.parse``."""
+
+    if first.get("confidence", 0) < 95 or second.get("confidence", 0) < 95:
+        return False
+    first_text = _clean(first.get("text"))
+    second_text = _clean(second.get("text"))
+    if not _HINT_PREFIX.fullmatch(first_text) or re.search(r"[.!?]$", first_text):
+        return False
+    first_box = _box(first.get("box", ()))
+    second_box = _box(second.get("box", ()))
+    if first_box is None or second_box is None:
+        return False
+    if not 0 < second_box[1] - first_box[1] < 40:
+        return False
+    if abs(second_box[0] - first_box[0]) > 15:
+        return False
+    if len(second_text.split()) > 4 or not re.search(r"[.!]$", second_text):
+        return False
+    # Keep the same guard as the parser: a complete second-line receipt must
+    # never be treated as a name continuation.
+    from .gameplay import effects_from_lines
+
+    return not effects_from_lines([dict(second, text=second_text)])
+
+
+def has_eligible_receipt(lines: Sequence[Mapping[str, Any]]) -> bool:
+    """Return whether OCR has a receipt shape worth opening source pixels for.
+
+    This is only a cheap shape gate. It deliberately does not inspect pixels,
+    companion labels, or confidence beyond the same minimum used by
+    ``annotate``. Keeping it here prevents callers from drifting away from
+    the accepted single-line and wrapped forms; ``annotate`` remains the
+    authority that can actually accept a correction.
+    """
+
+    materialized = [line for line in lines if isinstance(line, Mapping)]
+    for line in materialized:
+        if line.get("confidence", 0) < 95 or not isinstance(line.get("text"), str):
+            continue
+        if _hint_match(line["text"]):
+            return True
+    for first, second in zip(materialized, materialized[1:]):
+        if not _is_hint_continuation(first, second):
+            continue
+        combined = f"{first['text'].strip()} {second['text'].strip()}"
+        if _hint_match(combined):
+            return True
+    return False
+
+
 def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dict[str, Any]:
     """Apply the proven terminal ``○`` correction to one OCR observation.
 
@@ -276,7 +371,7 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
     for index, line in enumerate(lines):
         if line.get("confidence", 0) < 95 or not isinstance(line.get("text"), str):
             continue
-        match = _HINT_RECEIPT.fullmatch(line["text"].strip())
+        match = _hint_match(line["text"])
         if not match:
             continue
         base = _clean(match.group(2))
@@ -287,15 +382,8 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
         if symbol is None:
             continue
         original = line["text"]
-        fixed = re.sub(r" O\.$", f" {symbol['symbol']}.", original)
-        observation = dict(symbol,
-                           source_timestamp_ms=raw["source_timestamp_ms"],
-                           evidence=raw["evidence"],
-                           gameplay_sha256=raw["gameplay_sha256"],
-                           source_frame_sha256=raw["source_frame_sha256"],
-                           evidence_sha256=proof["evidence_sha256"])
-        if raw.get("source_sha256") is not None:
-            observation["source_sha256"] = raw["source_sha256"]
+        fixed = _hint_text(match, symbol)
+        observation = _symbol_observation(raw, proof, symbol)
         lines[index] = dict(line,
                             text=fixed,
                             original_text=original,
@@ -309,7 +397,55 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
                             visual_symbol_observation=observation,
                             text_normalization="receipt_circle_suffix")
         changed = True
+
+    # OCR sometimes wraps a long skill name.  Normalize the two source lines
+    # into one parser-visible line only after the continuation, exact heading,
+    # and terminal ring have all passed the same evidence gates.  The source
+    # line dictionaries remain available under ``wrapped_receipt_parts``.
+    index = 0
+    while index + 1 < len(lines):
+        first, second = lines[index], lines[index + 1]
+        if not _is_hint_continuation(first, second):
+            index += 1
+            continue
+        original_text = f"{first['text'].strip()} {second['text'].strip()}"
+        match = _hint_match(original_text)
+        if not match:
+            index += 1
+            continue
+        merged_box = _line_box_union(first, second)
+        if merged_box is None:
+            index += 1
+            continue
+        base = _clean(match.group(2))
+        target = {"box": merged_box}
+        companions = _matching_companions(lines, base, target)
+        if len(companions) != 1:
+            index += 1
+            continue
+        symbol = detect_circle_marker(pane, second.get("box", ()))
+        if symbol is None:
+            index += 1
+            continue
+        observation = _symbol_observation(raw, proof, symbol)
+        merged = dict(
+            first,
+            text=_hint_text(match, symbol),
+            box=merged_box,
+            # The merged receipt is supported by both OCR lines. Preserve the
+            # weaker confidence so joining a clean suffix cannot overstate
+            # the observation's certainty.
+            confidence=min(first["confidence"], second["confidence"]),
+            original_text=original_text,
+            original_symbol_text=original_text,
+            visual_symbol_observation=observation,
+            text_normalization="receipt_circle_suffix_wrapped",
+            wrapped_receipt_parts=[dict(first), dict(second)],
+        )
+        lines[index : index + 2] = [merged]
+        changed = True
+        index += 1
     return dict(raw, lines=lines) if changed else dict(raw, lines=lines)
 
 
-__all__ = ["annotate", "detect_circle_marker"]
+__all__ = ["annotate", "detect_circle_marker", "has_eligible_receipt"]

@@ -38,10 +38,9 @@ def parse_receipt_pixels(raw,root,frame,original=None):
                 if pixel_layout(pane):checked=dict(checked,race_hub_grid_verified=True)
     # Open pixels for suffix recovery only when an eligible receipt exists.
     # Occlusion runs first: a blocked line must not regain confidence here.
-    if any(line.get('confidence',0)>=95 and line.get('text','').startswith('Gained ')
-           and line.get('text','').endswith(' O.') for line in checked['lines']):
+    from .receipt_symbols import annotate, has_eligible_receipt
+    if has_eligible_receipt(checked['lines']):
         from PIL import Image
-        from .receipt_symbols import annotate
         if checked['source_timestamp_ms']!=frame['source_timestamp_ms']:
             raise PipelineError('Receipt-symbol timestamp differs from capture.')
         proof=dict(source_timestamp_ms=frame['source_timestamp_ms'],evidence=checked['evidence'],

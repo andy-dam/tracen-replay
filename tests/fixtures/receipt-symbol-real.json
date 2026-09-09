@@ -1,0 +1,58 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "cases": [
+    {
+      "name": "fall-runner-single-line",
+      "fixture": "receipt-symbol-source-1148750.png",
+      "fixture_sha256": "8a9c68166d8d52aea03f804e0afb11e33a5543abbf8b53e716f05dfe68f0c83c",
+      "pane_size": [810, 1080],
+      "pane_gameplay_sha256": "bf5463d29f47bfd7540663cfd7af1ab9bb640fe4a54d5b910981255d2a683a3b",
+      "source_timestamp_ms": 1148750,
+      "source_frame": "part-009/frames/000276.jpg",
+      "source_frame_fixture": "receipt-symbol-source-1148750-full.jpg",
+      "source_frame_sha256": "e1a84b18e5b77985dc23e7605bd7b0f0cc834210a8fe794c2cbd0220ce0c2e09",
+      "receipt_box": [318, 807, 699, 833],
+      "companion_line": {
+        "text": "Fall Runner",
+        "confidence": 99.648,
+        "box": [402, 679, 537, 703]
+      },
+      "receipt_lines": [
+        {
+          "text": "Gained 1 hint level(s) for Fall Runner .",
+          "confidence": 97.405,
+          "box": [318, 807, 699, 833]
+        }
+      ]
+    },
+    {
+      "name": "front-runner-straightaways-wrapped",
+      "fixture": "receipt-symbol-source-1350750.png",
+      "fixture_sha256": "4ee48b4307ea0fce1f3495963bf2ccaeb2679b646250e7b0d1aea3efaa582b8c",
+      "pane_size": [810, 1080],
+      "pane_gameplay_sha256": "036f1d618b25c2bde8b38fbd224472a4469b9c7d06659a625563cdfe425b445b",
+      "source_timestamp_ms": 1350750,
+      "source_frame": "part-011/frames/000124.jpg",
+      "source_frame_fixture": "receipt-symbol-source-1350750-full.jpg",
+      "source_frame_sha256": "b369f2e89b65e7bc0145b2a0471bf922ca1e3ea85903a298f3794606f8a4bc78",
+      "receipt_box": [318, 832, 484, 859],
+      "companion_line": {
+        "text": "Front Runner Straightaways",
+        "confidence": 99.666,
+        "box": [401, 677, 692, 707]
+      },
+      "receipt_lines": [
+        {
+          "text": "Gained 3 hint level(s) for Front Runner",
+          "confidence": 98.511,
+          "box": [317, 807, 687, 833]
+        },
+        {
+          "text": "Straightaways .",
+          "confidence": 99.681,
+          "box": [318, 832, 484, 859]
+        }
+      ]
+    }
+  ]
+}

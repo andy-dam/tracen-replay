@@ -15,6 +15,7 @@ from tracen_replay.vision import parse
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures"
 SOURCE_MANIFEST = FIXTURE_ROOT / "receipt-symbol-source-221250.json"
+REAL_MANIFEST = FIXTURE_ROOT / "receipt-symbol-real.json"
 TERMINAL_CONTROLS = FIXTURE_ROOT / "inventory-suffix-terminal-controls.json"
 NORMAL_O_MANIFEST = FIXTURE_ROOT / "receipt-symbol-terminal-o-negative.json"
 
@@ -25,6 +26,7 @@ class ReceiptSymbolTests(unittest.TestCase):
         cls.manifest = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
         cls.fixture_path = FIXTURE_ROOT / cls.manifest["fixture"]
         cls.pane = Image.open(cls.fixture_path).convert("RGB")
+        cls.real_manifest = json.loads(REAL_MANIFEST.read_text(encoding="utf-8"))
 
     def raw_observation(self, companion="Firm Conditions"):
         companion_line = dict(self.manifest["companion_line"], text=companion)
@@ -54,6 +56,53 @@ class ReceiptSymbolTests(unittest.TestCase):
         }
         proof.update(changes)
         return proof
+
+    def real_case(self, name):
+        case = next(item for item in self.real_manifest["cases"] if item["name"] == name)
+        fixture = FIXTURE_ROOT / case["fixture"]
+        pane = Image.open(fixture).convert("RGB")
+        lines = [dict(case["companion_line"])] + [dict(line) for line in case["receipt_lines"]]
+        raw = {
+            "lines": lines,
+            "regions": {},
+            "header": "Career",
+            "result_grid": False,
+            "current_grid": False,
+            "source_timestamp_ms": case["source_timestamp_ms"],
+            "evidence": case["fixture"],
+            "source_sha256": self.real_manifest["source_sha256"],
+            "source_frame_sha256": case["source_frame_sha256"],
+            "gameplay_sha256": case["pane_gameplay_sha256"],
+        }
+        proof = {
+            "source_timestamp_ms": case["source_timestamp_ms"],
+            "evidence": case["fixture"],
+            "source_sha256": self.real_manifest["source_sha256"],
+            "source_frame_sha256": case["source_frame_sha256"],
+            "gameplay_sha256": case["pane_gameplay_sha256"],
+            "evidence_sha256": case["fixture_sha256"],
+            "evidence_path": str(fixture),
+        }
+        return case, pane, raw, proof
+
+    def run_real_hook(self, name, mutate=None):
+        case, _pane, raw, _proof = self.real_case(name)
+        if mutate:
+            mutate(raw)
+        with workspace_temp() as root:
+            root = Path(root)
+            evidence_rel = Path("gameplay") / case["fixture"]
+            source_rel = Path(case["source_frame"])
+            (root / evidence_rel).parent.mkdir(parents=True)
+            (root / source_rel).parent.mkdir(parents=True)
+            shutil.copyfile(FIXTURE_ROOT / case["fixture"], root / evidence_rel)
+            shutil.copyfile(FIXTURE_ROOT / case["source_frame_fixture"], root / source_rel)
+            raw["evidence"] = evidence_rel.as_posix()
+            frame = {
+                "source_timestamp_ms": case["source_timestamp_ms"],
+                "evidence": source_rel.as_posix(),
+            }
+            return raw, parse_receipt_pixels(raw, root, frame)
 
     def test_source_pixels_recover_single_circle_from_same_receipt(self):
         result = detect_circle_marker(self.pane, self.manifest["receipt_box"])
@@ -94,6 +143,57 @@ class ReceiptSymbolTests(unittest.TestCase):
         self.assertEqual(effects[0]["original_text"], self.manifest["receipt_line"]["text"])
         self.assertEqual(effects[0]["visual_symbol_observation"]["symbol"], "\u25cb")
 
+    def test_real_single_line_suffix_recovery_uses_midrange_votes(self):
+        case, pane, raw, proof = self.real_case("fall-runner-single-line")
+        original = copy.deepcopy(raw)
+        result = annotate(raw, pane, proof)
+        line = result["lines"][1]
+        self.assertEqual(line["text"], "Gained 1 hint level(s) for Fall Runner \u25cb.")
+        self.assertEqual(line["original_text"], original["lines"][1]["text"])
+        self.assertEqual(line["confidence"], original["lines"][1]["confidence"])
+        self.assertEqual(line["text_normalization"], "receipt_circle_suffix")
+        self.assertGreaterEqual(line["visual_symbol_observation"]["votes"], 5)
+        self.assertEqual(line["visual_symbol_observation"]["source_timestamp_ms"], case["source_timestamp_ms"])
+        effects = [effect for effect in parse(result)["effects"] if effect["kind"] == "skill_hint_change"]
+        self.assertEqual([(effect["name"], effect["amount"]) for effect in effects], [("Fall Runner \u25cb", 1)])
+
+    def test_real_wrapped_suffix_recovery_merges_only_the_receipt_parts(self):
+        case, pane, raw, proof = self.real_case("front-runner-straightaways-wrapped")
+        original = copy.deepcopy(raw)
+        result = annotate(raw, pane, proof)
+        self.assertEqual(len(result["lines"]), 2)
+        line = result["lines"][1]
+        self.assertEqual(line["text"], "Gained 3 hint level(s) for Front Runner Straightaways \u25cb.")
+        self.assertEqual(line["original_text"], "Gained 3 hint level(s) for Front Runner Straightaways .")
+        self.assertEqual(line["confidence"], min(original["lines"][1]["confidence"], original["lines"][2]["confidence"]))
+        self.assertEqual(line["text_normalization"], "receipt_circle_suffix_wrapped")
+        self.assertEqual([part["text"] for part in line["wrapped_receipt_parts"]],
+                         [part["text"] for part in original["lines"][1:]])
+        self.assertGreaterEqual(line["visual_symbol_observation"]["votes"], 5)
+        effects = [effect for effect in parse(result)["effects"] if effect["kind"] == "skill_hint_change"]
+        self.assertEqual([(effect["name"], effect["amount"]) for effect in effects],
+                         [("Front Runner Straightaways \u25cb", 3)])
+        self.assertEqual(effects[0]["original_text"], "Gained 3 hint level(s) for Front Runner Straightaways .")
+        self.assertEqual(effects[0]["visual_symbol_observation"]["source_timestamp_ms"], case["source_timestamp_ms"])
+
+    def test_real_wrapped_suffix_requires_exact_layout_and_heading(self):
+        _case, pane, raw, proof = self.real_case("front-runner-straightaways-wrapped")
+        missing_continuation = copy.deepcopy(raw)
+        missing_continuation["lines"].pop()
+        self.assertEqual(annotate(missing_continuation, pane, proof)["lines"], missing_continuation["lines"])
+
+        wrong_heading = copy.deepcopy(raw)
+        wrong_heading["lines"][0]["text"] = "Front Runner Straightawayss"
+        self.assertEqual(annotate(wrong_heading, pane, proof)["lines"], wrong_heading["lines"])
+
+        no_separator = copy.deepcopy(raw)
+        no_separator["lines"][2]["text"] = "Straightaways."
+        self.assertEqual(annotate(no_separator, pane, proof)["lines"], no_separator["lines"])
+
+        low_confidence = copy.deepcopy(raw)
+        low_confidence["lines"][2]["confidence"] = 94.99
+        self.assertEqual(annotate(low_confidence, pane, proof)["lines"], low_confidence["lines"])
+
     def test_full_recording_hook_uses_cached_source_proof(self):
         neural_path = FIXTURE_ROOT / self.manifest["neural_fixture"]
         raw = json.loads(neural_path.read_text(encoding="utf-8"))
@@ -112,6 +212,35 @@ class ReceiptSymbolTests(unittest.TestCase):
         self.assertEqual(len(effects), 1)
         self.assertEqual(effects[0]["original_text"], self.manifest["receipt_line"]["text"])
         self.assertEqual(effects[0]["visual_symbol_observation"]["coordinate_space"], "gameplay_crop")
+
+    def test_full_recording_hook_recovers_real_single_and_wrapped_receipts(self):
+        expected = {
+            "fall-runner-single-line": ("Fall Runner ○", 1),
+            "front-runner-straightaways-wrapped": ("Front Runner Straightaways ○", 3),
+        }
+        for name, expected_effect in expected.items():
+            with self.subTest(case=name):
+                _raw, row = self.run_real_hook(name)
+                effects = [effect for effect in row["effects"] if effect["kind"] == "skill_hint_change"]
+                self.assertEqual([(effect["name"], effect["amount"]) for effect in effects], [expected_effect])
+                self.assertEqual(effects[0]["visual_symbol_observation"]["symbol"], "○")
+
+    def test_full_recording_hook_skips_unaccepted_shape_after_occlusion_stage(self):
+        def reject_shape(raw):
+            raw["lines"][1]["text"] = "Gained 1 hint level(s) for Fall Runner."
+
+        _raw, row = self.run_real_hook("fall-runner-single-line", reject_shape)
+        effects = [effect for effect in row["effects"] if effect["kind"] == "skill_hint_change"]
+        self.assertEqual([(effect["name"], effect["amount"]) for effect in effects], [("Fall Runner", 1)])
+        self.assertNotIn("visual_symbol_observation", effects[0])
+
+        def blocked_line(raw):
+            raw["lines"][1]["confidence"] = 0
+            raw["lines"][1]["overlay_occluded"] = True
+
+        _raw, row = self.run_real_hook("fall-runner-single-line", blocked_line)
+        effects = [effect for effect in row["effects"] if effect["kind"] == "skill_hint_change"]
+        self.assertEqual(effects, [])
 
     def test_ordinary_terminal_letters_do_not_become_receipt_circles(self):
         controls = json.loads(TERMINAL_CONTROLS.read_text(encoding="utf-8"))
