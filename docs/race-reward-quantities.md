@@ -31,6 +31,16 @@ sample to be used. Generation then limits both target frames and supporting
 observations to that selection while preserving the complete capture manifest.
 One selected frame cannot meet the two-timestamp agreement requirement.
 
+The optional `--fixed-quantity-windows` policy adds whole-badge and offset
+quantity crops, including a declared contrast transform. It records which
+views can preserve leading digits. A detector crop cannot prove its own
+completeness; a focused crop needs corroboration from a broader source view
+before a multi-digit reading can be accepted. Even malformed quantity text
+constrains crop coverage through its original bounding box. Conflicting views
+abstain, and multiple scales or transforms still count as one source timestamp.
+Use a fresh staging directory when comparing this policy with existing artifacts;
+generation refuses to overwrite previously recorded frame artifacts.
+
 When a reward screen is too brief for the base samples, inspect a source window
 of at most five seconds at up to 60 FPS, then rebuild the cached report:
 

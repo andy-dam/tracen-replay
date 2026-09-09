@@ -26,7 +26,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 from .refine_contrast import fingerprint
 from .race_section_layout import (
@@ -110,6 +110,92 @@ QUANTITY_CROP_VARIANT_POLICY = {
     "scaled_views_count_as_independent_frames": False,
 }
 QUANTITY_FOCUS_RELATIVE_BOX = (0.39, 0.09, 0.89, 1.0)
+
+# Fixed-layout source runs historically produced one broad crop per scale.
+# The four source-reviewed misses showed a repeatable, source-visible OCR
+# problem: the artwork/background in the full badge lowers recognition of the
+# quantity.  The early window keeps the leading side of the known badge and is
+# a broad, layout-proven view; the middle and lower-right windows remain
+# focused views and can never establish a multi-digit value by themselves.
+# Contrast is an opt-in preprocessing view of the same raw crop, with its own
+# OCR-input proof.  A second fallback window is retained beside the historical
+# detector fallback; both are focused because their left edge can clip digits.
+# This is a separate policy version so existing artifacts keep their original
+# crop key set and remain strictly reproducible.
+FIXED_QUANTITY_CROP_VARIANT_POLICY = {
+    "name": "fixed_badge_quantity_windows_v2",
+    "version": 2,
+    "variants": {
+        "badge": {
+            "role": "broad",
+            "relative_box": [0.0, 0.0, 1.0, 1.0],
+            "quantity_coverage": "whole_badge",
+            "leading_digit_safe": True,
+        },
+        "badge_contrast20": {
+            "role": "broad",
+            "relative_box": [0.0, 0.0, 1.0, 1.0],
+            "quantity_coverage": "whole_badge",
+            "leading_digit_safe": True,
+            "preprocessing": {"name": "contrast", "factor": 2.0},
+        },
+        "quantity_window_early": {
+            "role": "broad",
+            "relative_box": [0.05, 0.05, 1.0, 1.0],
+            "quantity_coverage": "fixed_layout_leading_digit_safe",
+            "leading_digit_safe": True,
+        },
+        "quantity_window_early_contrast20": {
+            "role": "broad",
+            "relative_box": [0.05, 0.05, 1.0, 1.0],
+            "quantity_coverage": "fixed_layout_leading_digit_safe",
+            "leading_digit_safe": True,
+            "preprocessing": {"name": "contrast", "factor": 2.0},
+        },
+        "quantity_window_mid": {
+            "role": "focused",
+            "relative_box": [0.25, 0.10, 1.0, 1.0],
+            "quantity_coverage": "focused_may_clip_leading_digit",
+            "leading_digit_safe": False,
+        },
+        "fallback": {
+            "role": "focused",
+            "relative_box": list(FALLBACK_QUANTITY_TEXT_RELATIVE_BOX),
+            "quantity_coverage": "focused_may_clip_leading_digit",
+            "leading_digit_safe": False,
+        },
+        "fallback_quantity_window": {
+            "role": "focused",
+            "relative_box": [0.20, 0.10, 1.0, 1.0],
+            "quantity_coverage": "focused_may_clip_leading_digit",
+            "leading_digit_safe": False,
+        },
+        "detector": {
+            # A detector box describes what the detector saw.  It cannot
+            # independently prove that a clipped multi-digit quantity was
+            # fully visible, so it remains focused until a fixed-slot broad
+            # crop corroborates it.
+            "role": "focused",
+            "source": "detector_box_with_padding",
+            "quantity_coverage": "detector_line_observed",
+            "leading_digit_safe": False,
+        },
+    },
+    "stable_badge_variants": [
+        "badge", "badge_contrast20", "quantity_window_early",
+        "quantity_window_early_contrast20", "quantity_window_mid",
+    ],
+    "fallback_variants": ["fallback", "fallback_quantity_window"],
+    "multi_digit_requires_broad_support": True,
+    "scaled_views_count_as_independent_frames": False,
+}
+FIXED_QUANTITY_WINDOW_EARLY_RELATIVE_BOX = (0.05, 0.05, 1.0, 1.0)
+FIXED_QUANTITY_WINDOW_MID_RELATIVE_BOX = (0.25, 0.10, 1.0, 1.0)
+FALLBACK_QUANTITY_WINDOW_RELATIVE_BOX = (0.20, 0.10, 1.0, 1.0)
+FIXED_QUANTITY_CONTRAST_FACTOR = 2.0
+FIXED_BROAD_QUANTITY_COVERAGES = frozenset({
+    "whole_badge", "fixed_layout_leading_digit_safe",
+})
 
 # Boxes in the source gameplay PNG (810x1080).  ``full_box`` is the same
 # location in the original 1920x1080 coordinate system used by neural.py and
@@ -474,6 +560,168 @@ def _quantity_focus_crop_box(source_box: Sequence[Any]) -> tuple[int, int, int, 
     return _relative_crop_box(source_box, QUANTITY_FOCUS_RELATIVE_BOX)
 
 
+def _fixed_quantity_window_crop_box(
+    source_box: Sequence[Any],
+    relative_box: Sequence[Any],
+) -> tuple[int, int, int, int] | None:
+    """Resolve one fixed-layout quantity window inside a source badge."""
+
+    return _relative_crop_box(source_box, relative_box)
+
+
+def _source_quantity_line_proof(
+    raw: Mapping[str, Any],
+    canonical_source_box: Sequence[Any],
+    crop_box: Sequence[Any],
+    *,
+    detector: Mapping[str, Any] | None = None,
+    declared_safe: bool,
+    coverage: str,
+) -> dict[str, Any]:
+    """Record why a crop can support a complete quantity reading.
+
+    The proof never uses an expected quantity.  When the cached reader has a
+    quantity-like line in the canonical slot, its source bounding box must fit
+    inside the candidate crop.  This includes malformed readings such as
+    ``400`` or ``x4O``: their geometry still constrains a broad crop even when
+    no integer can be parsed.  If no such line was cached, the fixed-layout
+    policy remains the only proof and its geometry is recorded verbatim.
+    Focused windows declare themselves unsafe for a leading digit even when
+    their OCR happens to return a plausible suffix.
+    """
+
+    canonical = _valid_crop_box(canonical_source_box)
+    crop = _valid_crop_box(crop_box)
+    if canonical is None or crop is None:
+        raise ValueError("Race quantity refinement quantity coverage geometry is invalid.")
+
+    def source_line_box(line: Mapping[str, Any]) -> tuple[int, int, int, int] | None:
+        box = line.get("box")
+        if isinstance(box, (str, bytes)) or not isinstance(box, Sequence) or len(box) != 4:
+            return None
+        try:
+            values = [float(value) for value in box]
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not all(math.isfinite(value) for value in values):
+            return None
+        return _valid_crop_box((
+            values[0] - GAMEPLAY_X_OFFSET,
+            values[1],
+            values[2] - GAMEPLAY_X_OFFSET,
+            values[3],
+        ))
+
+    line_observations: list[dict[str, Any]] = []
+    for line in _lines(raw):
+        text = str(line.get("text", ""))
+        # Keep geometry for malformed quantity readings.  Restricting this to
+        # quantity-like text avoids treating the item-name OCR in the same
+        # badge as a quantity coverage signal.
+        quantity_like = bool(re.search(r"[x×]", text, re.IGNORECASE) or re.search(r"\d", text))
+        quantity = _quantity(text)
+        line_box = source_line_box(line) if quantity_like else None
+        if line_box is None or not _within_box(line_box, canonical):
+            continue
+        contained = (
+            crop[0] <= line_box[0]
+            and crop[1] <= line_box[1]
+            and crop[2] >= line_box[2]
+            and crop[3] >= line_box[3]
+        )
+        line_observations.append({
+            "text": text,
+            "quantity": quantity,
+            "quantity_like": quantity_like,
+            "parseable": quantity is not None,
+            "confidence": round(float(line.get("confidence", 0)), 4),
+            "source_box": list(line_box),
+            "contained": contained,
+        })
+
+    detector_observation = None
+    if detector is not None:
+        detector_box = source_line_box(detector)
+        detector_observation = {
+            "box": list(detector_box) if detector_box is not None else None,
+            "contained": bool(
+                detector_box is not None
+                and crop[0] <= detector_box[0]
+                and crop[1] <= detector_box[1]
+                and crop[2] >= detector_box[2]
+                and crop[3] >= detector_box[3]
+            ),
+        }
+
+    line_safe = all(item["contained"] for item in line_observations)
+    if detector_observation is not None:
+        line_safe = line_safe and detector_observation["contained"]
+    return {
+        "method": "source_quantity_line_containment_or_fixed_layout",
+        "coverage": coverage,
+        "canonical_source_box": list(canonical),
+        "resolved_crop_box": list(crop),
+        "declared_leading_digit_safe": bool(declared_safe),
+        "source_quantity_lines": line_observations,
+        "detector_quantity_line": detector_observation,
+        "source_line_status": "observed" if line_observations else "not_cached",
+        "leading_digit_safe": bool(declared_safe and line_safe),
+    }
+
+
+def _fixed_quantity_variant(
+    raw: Mapping[str, Any],
+    spec: Mapping[str, Any],
+    name: str,
+    source_box: Sequence[Any],
+    *,
+    detector: Mapping[str, Any] | None = None,
+    canonical_source_box: Sequence[Any] | None = None,
+) -> dict[str, Any]:
+    """Build one fixed-policy variant with immutable coverage metadata."""
+
+    metadata = FIXED_QUANTITY_CROP_VARIANT_POLICY["variants"].get(name)
+    if not isinstance(metadata, Mapping):
+        raise ValueError("Race quantity refinement fixed quantity variant is unknown.")
+    coverage = metadata.get("quantity_coverage")
+    if not isinstance(coverage, str) or not coverage:
+        raise ValueError("Race quantity refinement fixed quantity coverage is missing.")
+    crop = _valid_crop_box(source_box)
+    canonical = _valid_crop_box(canonical_source_box or source_box)
+    if crop is None or canonical is None:
+        raise ValueError("Race quantity refinement fixed quantity variant geometry is invalid.")
+    proof = _source_quantity_line_proof(
+        raw,
+        canonical,
+        crop,
+        detector=detector,
+        declared_safe=metadata.get("leading_digit_safe") is True,
+        coverage=coverage,
+    )
+    variant = {
+        "variant": name,
+        "role": metadata.get("role"),
+        "source_box": crop,
+        "detector": detector,
+        "quantity_coverage": coverage,
+        "quantity_coverage_proof": proof,
+    }
+    if metadata.get("preprocessing") is not None:
+        variant["preprocessing"] = copy.deepcopy(metadata["preprocessing"])
+    return variant
+
+
+def _quantity_preprocessed_crop(crop: Image.Image, preprocessing: Mapping[str, Any] | None) -> Image.Image:
+    """Apply a declared deterministic OCR transform to one resized crop."""
+
+    result = crop.convert("RGB")
+    if preprocessing is None:
+        return result
+    if not _mapping_equal(preprocessing, {"name": "contrast", "factor": FIXED_QUANTITY_CONTRAST_FACTOR}):
+        raise ValueError("Race quantity refinement OCR preprocessing changed.")
+    return ImageEnhance.Contrast(result).enhance(FIXED_QUANTITY_CONTRAST_FACTOR).convert("RGB")
+
+
 def _same_position(first: Sequence[Any], second: Sequence[Any]) -> bool:
     try:
         first_center = _center(first)
@@ -754,6 +1002,13 @@ def _source_crop_variants(
     view only for a detectorless stable badge, while retaining the complete
     badge as the broad view.  Detector-backed and fallback crops already have
     quantity-specific geometry and therefore keep one broad view.
+
+    The fixed-layout quantity-window policy is opt-in.  It adds source-relative
+    windows for stable slots and one alternate window beside the historical
+    detector fallback.  The same relative policy can be applied to a resolved
+    section row because its source box is supplied by the section-layout
+    anchor.  The old policy and the no-policy path remain byte-for-byte
+    compatible with existing artifacts.
     """
 
     source_box, detector = _source_crop_box(
@@ -767,8 +1022,99 @@ def _source_crop_variants(
         return []
     if quantity_policy is None:
         return [{"variant": None, "role": "broad", "source_box": source_box, "detector": detector}]
-    if not _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY):
+    legacy_policy = _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY)
+    fixed_policy = _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY)
+    if not legacy_policy and not fixed_policy:
         raise ValueError("Race quantity refinement quantity crop policy changed.")
+
+    if fixed_policy:
+        # The relative windows are safe for either the historical fixed row or
+        # a section-resolved row.  In the latter case the resolved slot box is
+        # the immutable per-frame anchor result, so no fixed y-coordinate is
+        # reintroduced.  Detector boxes are retained as focused observations;
+        # fixed-slot broad crops are emitted beside them so a detector cannot
+        # establish complete multi-digit coverage from its own clipped box.
+        resolved_slot = section_layout_slot(section_layout, str(spec.get("slot_id"))) \
+            if section_layout is not None else None
+        canonical_box = _valid_crop_box(
+            resolved_slot.get("resolved_source_box")
+            if isinstance(resolved_slot, Mapping)
+            else spec.get("source_box")
+        )
+        if canonical_box is None:
+            raise ValueError("Race quantity refinement fixed quantity canonical geometry is invalid.")
+
+        def fixed_slot_variants() -> list[dict[str, Any]]:
+            variants = [
+                ("badge", canonical_box),
+                ("badge_contrast20", canonical_box),
+                ("quantity_window_early", _fixed_quantity_window_crop_box(
+                    canonical_box, FIXED_QUANTITY_WINDOW_EARLY_RELATIVE_BOX,
+                )),
+                ("quantity_window_early_contrast20", _fixed_quantity_window_crop_box(
+                    canonical_box, FIXED_QUANTITY_WINDOW_EARLY_RELATIVE_BOX,
+                )),
+                ("quantity_window_mid", _fixed_quantity_window_crop_box(
+                    canonical_box, FIXED_QUANTITY_WINDOW_MID_RELATIVE_BOX,
+                )),
+            ]
+            if any(box is None for _, box in variants):
+                raise ValueError("Race quantity refinement fixed quantity window geometry is invalid.")
+            return [
+                _fixed_quantity_variant(
+                    raw,
+                    spec,
+                    name,
+                    box,
+                    canonical_source_box=canonical_box,
+                )
+                for name, box in variants
+            ]
+
+        if detector is not None:
+            detector_variant = _fixed_quantity_variant(
+                raw,
+                spec,
+                "detector",
+                source_box,
+                detector=detector,
+                canonical_source_box=canonical_box,
+            )
+            return [detector_variant, *fixed_slot_variants()]
+        if _detector_backed(spec):
+            # ``source_box`` is already the historical fallback crop.  Derive
+            # the alternate view from the canonical slot so the two fallback
+            # geometries remain stable even when the old crop is narrower.
+            alternate = _fixed_quantity_window_crop_box(
+                canonical_box,
+                FALLBACK_QUANTITY_WINDOW_RELATIVE_BOX,
+            )
+            if alternate is None:
+                raise ValueError("Race quantity refinement fallback quantity window geometry is invalid.")
+            return [
+                _fixed_quantity_variant(
+                    raw,
+                    spec,
+                    "fallback",
+                    source_box,
+                    canonical_source_box=canonical_box,
+                ),
+                _fixed_quantity_variant(
+                    raw,
+                    spec,
+                    "fallback_quantity_window",
+                    alternate,
+                    canonical_source_box=canonical_box,
+                ),
+                *fixed_slot_variants(),
+            ]
+
+        # Stable slots retain the full badge as a broad proof, add a contrast
+        # view of that badge, and add an early broad window plus its contrast
+        # view.  The middle window remains focused.  Every view is still
+        # correlated to the same source timestamp; aggregate_slot keeps the
+        # production confidence and distinct-timestamp gates.
+        return fixed_slot_variants()
 
     # The policy is scoped to section-relative generation.  Keeping a legacy
     # artifact's single crop here is necessary for backwards-compatible
@@ -845,10 +1191,26 @@ def _variant_role(observation: Mapping[str, Any]) -> str:
 
     Old observations have no variant metadata and are treated as broad views
     for backwards-compatible aggregation.  New artifacts validate this field
-    against the immutable crop policy before aggregation.
+    against the immutable crop policy before aggregation.  A fixed-policy
+    broad view also needs a positive source-coverage proof; a missing or
+    negative proof is treated as focused so it cannot authorize a clipped
+    multi-digit suffix.
     """
 
-    return "focused" if observation.get("crop_variant_role") == "focused" else "broad"
+    if observation.get("crop_variant_role") == "focused":
+        return "focused"
+    if "crop_variant" in observation:
+        proof = observation.get("quantity_coverage_proof")
+        if "quantity_coverage" in observation:
+            if not isinstance(proof, Mapping) or \
+                    proof.get("method") != "source_quantity_line_containment_or_fixed_layout" or \
+                    proof.get("coverage") != observation.get("quantity_coverage") or \
+                    proof.get("coverage") not in FIXED_BROAD_QUANTITY_COVERAGES or \
+                    proof.get("leading_digit_safe") is not True:
+                return "focused"
+        elif isinstance(proof, Mapping) and proof.get("leading_digit_safe") is not True:
+            return "focused"
+    return "broad"
 
 
 def _frame_summary(observations: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -995,6 +1357,9 @@ def _measurement(
     resolved_full_box: Sequence[Any] | None = None,
     crop_variant: str | None = None,
     crop_variant_role: str | None = None,
+    quantity_coverage: str | None = None,
+    quantity_coverage_proof: Mapping[str, Any] | None = None,
+    variant_preprocessing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     frame_id = identity["frame_id"]
     suffix = f"-scale-{scale}"
@@ -1003,6 +1368,7 @@ def _measurement(
     crop_path = output_root / OBSERVATION_DIRNAME / frame_id / spec["slot_id"] / f"{frame_id}{suffix}.png"
     crop_path.parent.mkdir(parents=True, exist_ok=True)
     crop.save(crop_path, format="PNG")
+    ocr_crop = _quantity_preprocessed_crop(crop, variant_preprocessing)
     source_path = Path(identity["source_path"])
     gameplay_path = Path(identity["gameplay_path"])
     text = str(recognized.get("text", ""))
@@ -1047,11 +1413,21 @@ def _measurement(
             "resize_scale": scale,
             "resize_resample": RESAMPLE_NAME,
             "output_mode": "RGB",
+            **copy.deepcopy(dict(variant_preprocessing or {})),
         },
     }
     if crop_variant is not None:
         measurement["crop_variant"] = crop_variant
         measurement["crop_variant_role"] = crop_variant_role
+    if quantity_coverage is not None:
+        measurement["quantity_coverage"] = quantity_coverage
+    if quantity_coverage_proof is not None:
+        measurement["quantity_coverage_proof"] = copy.deepcopy(quantity_coverage_proof)
+    if variant_preprocessing is not None:
+        ocr_path = crop_path.with_name(f"{crop_path.stem}-ocr{crop_path.suffix}")
+        ocr_crop.save(ocr_path, format="PNG")
+        measurement["ocr_input_evidence"] = ocr_path.relative_to(root).as_posix()
+        measurement["ocr_input_sha256"] = _sha256(ocr_path)
     return measurement
 
 
@@ -1066,6 +1442,7 @@ def _artifact_for_group(
     *,
     base_item: Mapping[str, Any] | None = None,
     allow_fixed_fallback: bool = False,
+    fixed_quantity_windows: bool = False,
 ) -> dict[str, Any]:
     base = base_item or group[0]
     base_raw = base["raw"]
@@ -1084,7 +1461,11 @@ def _artifact_for_group(
             raise ValueError("Race quantity refinement section layout policy differs within group.")
     observations_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     expected_keys_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    quantity_policy = QUANTITY_CROP_VARIANT_POLICY if dynamic_enabled else None
+    quantity_policy = (
+        FIXED_QUANTITY_CROP_VARIANT_POLICY
+        if fixed_quantity_windows
+        else QUANTITY_CROP_VARIANT_POLICY if dynamic_enabled else None
+    )
     for spec in missing:
         inputs: list[
             tuple[
@@ -1093,8 +1474,12 @@ def _artifact_for_group(
                 tuple[int, int, int, int],
                 int,
                 Image.Image,
+                Image.Image,
                 str | None,
                 str,
+                str | None,
+                Mapping[str, Any] | None,
+                Mapping[str, Any] | None,
             ]
         ] = []
         for item in group:
@@ -1112,14 +1497,20 @@ def _artifact_for_group(
                 detector = variant["detector"]
                 crops = _scaled_crops(gameplay_path, source_box)
                 for scale, crop in crops.items():
+                    variant_preprocessing = variant.get("preprocessing")
+                    ocr_crop = _quantity_preprocessed_crop(crop, variant_preprocessing)
                     inputs.append((
                         item,
                         detector,
                         source_box,
                         scale,
                         crop,
+                        ocr_crop,
                         variant["variant"],
                         variant["role"],
+                        variant.get("quantity_coverage"),
+                        variant.get("quantity_coverage_proof"),
+                        variant_preprocessing,
                     ))
                     key = {
                         "frame_id": item["identity"]["frame_id"],
@@ -1132,10 +1523,22 @@ def _artifact_for_group(
                     expected_keys_by_slot[spec["slot_id"]].append(key)
         if not inputs:
             continue
-        recognitions = _recognize_crops(reader, [item[4] for item in inputs])
+        recognitions = _recognize_crops(reader, [item[5] for item in inputs])
         if len(recognitions) != len(inputs):
             raise ValueError("OCR returned a different number of results than crops.")
-        for (item, detector, source_box, scale, crop, crop_variant, crop_variant_role), recognized in zip(inputs, recognitions):
+        for (
+            item,
+            detector,
+            source_box,
+            scale,
+            crop,
+            _ocr_crop,
+            crop_variant,
+            crop_variant_role,
+            quantity_coverage,
+            quantity_coverage_proof,
+            variant_preprocessing,
+        ), recognized in zip(inputs, recognitions):
             item_layout = item.get("section_layout") if dynamic_enabled else None
             resolved = section_layout_slot(item_layout, spec["slot_id"]) if item_layout is not None else None
             resolved_full_box = None
@@ -1164,6 +1567,9 @@ def _artifact_for_group(
                     resolved_full_box=resolved_full_box,
                     crop_variant=crop_variant,
                     crop_variant_role=crop_variant_role if crop_variant is not None else None,
+                    quantity_coverage=quantity_coverage,
+                    quantity_coverage_proof=quantity_coverage_proof,
+                    variant_preprocessing=variant_preprocessing,
                 )
             )
 
@@ -1230,10 +1636,12 @@ def _artifact_for_group(
         "slots": slots,
         "all_observations": [observation for slot in slots for observation in slot["observations"]],
     }
+    if quantity_policy is not None:
+        artifact["quantity_crop_policy"] = copy.deepcopy(quantity_policy)
     if dynamic_enabled:
         artifact.update({
             "section_anchor_policy": copy.deepcopy(SECTION_LAYOUT_POLICY),
-            "quantity_crop_policy": copy.deepcopy(QUANTITY_CROP_VARIANT_POLICY),
+            "quantity_crop_policy": copy.deepcopy(quantity_policy),
             "base_section_layout": copy.deepcopy(base["section_layout"]),
             "source_frame_layouts": {
                 item["identity"]["frame_id"]: copy.deepcopy(item["section_layout"])
@@ -1252,8 +1660,20 @@ def _rejection(output_root: Path, frame_id: str, reason: str, details: Mapping[s
     return path
 
 
-def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | Path = ".local/models/rapidocr", frame_ids: Sequence[str] | None = None) -> dict[str, Any]:
-    """Generate refinement artifacts for race-result groups with missing slots."""
+def generate(
+    root: str | Path,
+    *,
+    reader_factory=NeuralReader,
+    model_dir: str | Path = ".local/models/rapidocr",
+    frame_ids: Sequence[str] | None = None,
+    fixed_quantity_windows: bool = False,
+) -> dict[str, Any]:
+    """Generate refinement artifacts for race-result groups with missing slots.
+
+    ``fixed_quantity_windows`` opts a new run into the source-reviewed
+    fixed-layout crop policy.  The default remains the legacy policy so
+    existing artifacts and callers retain their original observation key set.
+    """
 
     root = Path(root).resolve()
     if frame_ids is not None and (isinstance(frame_ids, (str, bytes)) or not frame_ids
@@ -1352,6 +1772,7 @@ def generate(root: str | Path, *, reader_factory=NeuralReader, model_dir: str | 
                 root, output_root, capture, capture_manifest_sha256, reader, group, missing,
                 base_item=group[0],
                 allow_fixed_fallback=True,
+                fixed_quantity_windows=fixed_quantity_windows,
             )
         except (OSError, ValueError, KeyError, TypeError, Image.DecompressionBombError) as exc:
             frame_id = group[0]["identity"]["frame_id"]
@@ -1526,8 +1947,11 @@ def _validate_raw_observation(
         "source_manifest_row_id", "source_recording_sha256", "reader_fingerprint",
         "model_sha256", "preprocessing",
     )
+    fixed_quantity_policy = _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY)
     if quantity_policy is not None:
         required += ("crop_variant", "crop_variant_role")
+    if fixed_quantity_policy:
+        required += ("quantity_coverage", "quantity_coverage_proof")
     if any(key not in observation for key in required):
         raise ValueError("Incomplete race quantity refinement observation provenance.")
     if observation.get("slot_id") != spec["slot_id"]:
@@ -1613,6 +2037,22 @@ def _validate_raw_observation(
         raise ValueError("Race quantity refinement detector geometry changed.")
     if quantity_policy is not None and observation.get("crop_variant_role") != selected_variant.get("role"):
         raise ValueError("Race quantity refinement crop variant role changed.")
+    expected_variant_preprocessing = selected_variant.get("preprocessing")
+    expected_preprocessing = {
+        "resize_scale": scale,
+        "resize_resample": RESAMPLE_NAME,
+        "output_mode": "RGB",
+        **copy.deepcopy(dict(expected_variant_preprocessing or {})),
+    }
+    if not _mapping_equal(preprocessing, expected_preprocessing):
+        raise ValueError("Race quantity refinement observation preprocessing changed.")
+    if fixed_quantity_policy:
+        if observation.get("quantity_coverage") != selected_variant.get("quantity_coverage") or \
+                not _mapping_equal(
+                    observation.get("quantity_coverage_proof"),
+                    selected_variant.get("quantity_coverage_proof"),
+                ):
+            raise ValueError("Race quantity refinement quantity coverage proof changed.")
     expected_resolution = _crop_resolution(spec, expected_detector, section_layout=section_layout)
     if allow_fixed_fallback:
         if observation.get("crop_resolution") != expected_resolution:
@@ -1641,8 +2081,26 @@ def _validate_raw_observation(
                 expected = expected.resize((expected.width * scale, expected.height * scale), Image.Resampling.LANCZOS)
             if crop.size != expected.size or crop.tobytes() != expected.tobytes():
                 raise ValueError("Race quantity refinement crop pixels changed.")
+            if expected_variant_preprocessing is None:
+                if "ocr_input_evidence" in observation or "ocr_input_sha256" in observation:
+                    raise ValueError("Race quantity refinement unexpected OCR input proof.")
+            else:
+                ocr_path = _safe_path(root, observation.get("ocr_input_evidence"))
+                if ocr_path is None or not ocr_path.is_file() or \
+                        observation.get("ocr_input_sha256") != _sha256(ocr_path):
+                    raise ValueError("Race quantity refinement OCR input proof hash mismatch.")
+                expected_ocr = _quantity_preprocessed_crop(crop, expected_variant_preprocessing)
+                with Image.open(ocr_path) as ocr_image:
+                    ocr = ocr_image.convert("RGB")
+                    if ocr.size != expected_ocr.size or ocr.tobytes() != expected_ocr.tobytes():
+                        raise ValueError("Race quantity refinement OCR input pixels changed.")
     except (OSError, ValueError) as exc:
-        if isinstance(exc, ValueError) and str(exc) == "Race quantity refinement crop pixels changed.":
+        if isinstance(exc, ValueError) and str(exc) in {
+            "Race quantity refinement crop pixels changed.",
+            "Race quantity refinement unexpected OCR input proof.",
+            "Race quantity refinement OCR input proof hash mismatch.",
+            "Race quantity refinement OCR input pixels changed.",
+        }:
             raise
         raise ValueError("Race quantity refinement crop proof is unreadable.") from exc
     return raw
@@ -1662,7 +2120,10 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     else:
         allow_fixed_fallback = True
     quantity_policy = artifact.get("quantity_crop_policy")
-    if quantity_policy is not None and not _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY):
+    if quantity_policy is not None and not (
+        _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY)
+        or _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY)
+    ):
         raise ValueError("Race quantity refinement quantity crop policy changed.")
     section_anchor_metadata = artifact.get("section_anchor_policy")
     dynamic_section_policy = section_anchor_metadata is not None
@@ -2007,8 +2468,18 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("root", type=Path, help="full-recording run root containing capture.json, neural/, and gameplay/")
     parser.add_argument("--model-dir", type=Path, default=Path(".local/models/rapidocr"))
     parser.add_argument("--frame-id", action="append", dest="frame_ids", help="Limit OCR and support evidence to these frames; repeat for all desired adjacent samples.")
+    parser.add_argument(
+        "--fixed-quantity-windows",
+        action="store_true",
+        help="Use the source-reviewed fixed-layout quantity-window policy for a new artifact run.",
+    )
     args = parser.parse_args(argv)
-    print(json.dumps(generate(args.root, model_dir=args.model_dir, frame_ids=args.frame_ids), ensure_ascii=False))
+    print(json.dumps(generate(
+        args.root,
+        model_dir=args.model_dir,
+        frame_ids=args.frame_ids,
+        fixed_quantity_windows=args.fixed_quantity_windows,
+    ), ensure_ascii=False))
 
 
 if __name__ == "__main__":
