@@ -1,5 +1,6 @@
 """Evidence-linked transactions and state transitions; no balancing by invented deltas."""
 from collections import Counter
+from copy import deepcopy
 import re
 from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, screen_summary
@@ -425,7 +426,9 @@ def outcome_events(readings):
     events=[];current=None
     rows_by_evidence={r['evidence']:r for r in readings}
     for row in readings:
-        time=row['source_timestamp_ms'];effects=row.get('effects',[]);pending=row.get('facts',{}).get('effect_candidates',[])
+        # Event reconciliation annotates accepted alternatives. Keep those
+        # annotations separate from the original parsed observations.
+        time=row['source_timestamp_ms'];effects=deepcopy(row.get('effects',[]));pending=deepcopy(row.get('facts',{}).get('effect_candidates',[]))
         if not effects and not pending:
             # Recognized dialogue or a different screen is evidence of a boundary.
             lines=row.get('ocr',{}).get('neural',[])
