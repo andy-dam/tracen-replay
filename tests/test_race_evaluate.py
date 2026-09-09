@@ -101,6 +101,48 @@ class RaceEvaluationTests(unittest.TestCase):
             self.assertFalse(result["full_recording_race_recall_measured"])
             self.assertFalse(result["complete_race_validation"])
 
+    def test_reward_sections_require_exact_frame_observations(self):
+        with workspace_temp() as root:
+            reference, report, _ = self.pair(root)
+            item = reference['races'][0]['item_snapshots'][0]
+            item['quantities'] = [1, 200, 200]
+            item['sections'] = {'items': [1, 200], 'bonus': [200]}
+            row = report['gameplay_tracking']['readings'][0]
+            visible = [dict(quantity=q, box=[320+i*100,700,360+i*100,730])
+                       for i,q in enumerate(item['quantities'])]
+            row['facts']['visible_item_quantities'] = copy.deepcopy(visible)
+            candidate = report['gameplay_tracking']['races'][0]
+            observed = [dict(v, section=s) for v,s in zip(visible,['items','items','bonus'])]
+            observation = dict(source_timestamp_ms=500,evidence='race.png',items=observed)
+            candidate['visible_item_reward_snapshots'] = [dict(item_observations=[observation])]
+            self.assertTrue(evaluate(reference,report,root)['passed'])
+            for case in ('wrong_section','unknown','different_time','different_proof','different_position','missing_position','conflict'):
+                with self.subTest(case=case):
+                    changed=copy.deepcopy(report)
+                    snap=changed['gameplay_tracking']['races'][0]['visible_item_reward_snapshots'][0]
+                    obs=snap['item_observations'][0]
+                    if case=='wrong_section': obs['items'][0]['section']='bonus'
+                    if case=='unknown': obs['items'][0]['section']=None
+                    if case=='different_time': obs['source_timestamp_ms']=750
+                    if case=='different_proof': obs['evidence']='another.png'
+                    if case=='different_position': obs['items'][0]['box'][0]+=5
+                    if case=='missing_position':
+                        obs['items'][0].pop('box')
+                        changed['gameplay_tracking']['readings'][0]['facts']['visible_item_quantities'][0].pop('box')
+                    if case=='conflict':
+                        other=copy.deepcopy(obs); other['items'][0]['section']='bonus'
+                        snap['item_observations'].append(other)
+                    self.assertFalse(evaluate(reference,changed,root)['passed'])
+
+    def test_reference_sections_must_cover_all_quantities(self):
+        with workspace_temp() as root:
+            reference,report,_=self.pair(root)
+            for sections in (None,{}, {'items':[1]}, {'other':[200]}, {'items':['200']}):
+                with self.subTest(sections=sections):
+                    reference['races'][0]['item_snapshots'][0]['sections']=sections
+                    with self.assertRaisesRegex(ValueError,'partition'):
+                        evaluate(reference,report,root)
+
     def test_missing_and_incorrect_fields_do_not_equal_unknown_or_zero(self):
         with workspace_temp() as root:
             reference, report, _ = self.pair(root)

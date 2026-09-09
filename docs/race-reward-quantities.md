@@ -4,11 +4,32 @@ Race result parsing retains high-confidence `xN` or `×N` text beneath a visible
 
 Each snapshot carries frame evidence and unknown item names. Several visible quantities can coexist. Snapshots are observations, not inventory additions: repeated or scrolling views cannot be summed, and neither item identity nor list completeness is certified.
 
+Snapshot items also retain `section`: `items`, `bonus`, or `null` when unresolved.
+Section assignment requires a visible high-confidence heading and a single nearby
+quantity row that does not cross the next heading. Duplicate, reversed or weak
+headings do not establish a section. Each supporting observation retains the
+heading text and box; missing section evidence breaks snapshot agreement.
+Identical quantities in Items and Bonus remain separate observations. This does
+not identify the reward icon or establish inventory changes.
+
+Race-reference item snapshots may add `sections`, for example
+`{"items": [1, 600], "bonus": [600]}`, alongside the complete flattened
+`quantities: [1, 600, 600]`. The section lists must partition those quantities.
+The evaluator checks section labels in the report's per-frame reward observations
+against the exact referenced timestamp, evidence path, quantity and box. Unknown
+or conflicting sections fail that check. References without `sections` retain
+their older quantity-only comparison and do not validate section identity.
+
 For missed quantity badges in the supported result layout, generate targeted recognition artifacts before rebuilding the cached report:
 
 ```powershell
 python -m tracen_replay.race_quantity_refinement RUN_DIRECTORY
 ```
+
+For a bounded investigation, repeat `--frame-id FRAME_ID` for every adjacent
+sample to be used. Generation then limits both target frames and supporting
+observations to that selection while preserving the complete capture manifest.
+One selected frame cannot meet the two-timestamp agreement requirement.
 
 The refinement reads gameplay badge crops at three scales. Acceptance requires agreement at confidence 97 or higher at two distinct source timestamps; multiple scales of one frame count only once. The cached pipeline validates the capture manifest, source frames and timestamps, OCR/model bindings, and exact crop pixels, then recomputes agreement from the observations. A recovered badge is added only to frames that supported its reading. Conflicts remain explicit, and item identities and list completeness remain unknown.
 

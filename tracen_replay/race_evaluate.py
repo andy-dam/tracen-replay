@@ -228,6 +228,14 @@ def _validate_reference(reference: Mapping[str, Any]) -> tuple[tuple[int, int], 
                 not _integer(quantity) or quantity < 0 for quantity in quantities
             ):
                 raise ValueError(f"Item snapshot {index}/{item_index} requires typed quantities.")
+            sections = item.get("sections")
+            if "sections" in item:
+                if (not isinstance(sections, dict) or not sections
+                    or any(key not in ("items", "bonus") for key in sections)
+                    or any(not isinstance(values, list) or any(not _integer(v) or v < 0 for v in values)
+                           for values in sections.values())
+                    or sorted(v for values in sections.values() for v in values) != sorted(quantities)):
+                    raise ValueError("Reward sections must partition the typed snapshot quantities.")
             _proofs(item.get("proofs"), f"Item snapshot {index}/{item_index}", outer, (timestamp, timestamp + 1))
             if any(proof["source_timestamp_ms"] != timestamp for proof in item["proofs"]):
                 raise ValueError(f"Item snapshot {index}/{item_index} proofs must use its timestamp.")
@@ -329,6 +337,7 @@ def _check_items(
     readings: Mapping[int, list[Mapping[str, Any]]],
     root: Path | None,
     race_index: int,
+    candidate: Mapping[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     results: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -360,6 +369,44 @@ def _check_items(
         else:
             status = "incorrect"
             item_errors.append(f"incorrect item quantities at {timestamp}")
+        section_result = {}
+        if "sections" in item:
+            from .race_section_layout import _box as valid_reward_box
+            wanted_sections = {k: sorted(v) for k, v in item["sections"].items()}
+            observations = []
+            if len(rows) == 1 and actual_quantities is not None:
+                for snapshot in (candidate or {}).get("visible_item_reward_snapshots", []):
+                    for observation in snapshot.get("item_observations", []):
+                        if (observation.get("source_timestamp_ms") == timestamp
+                            and observation.get("evidence") == rows[0].get("evidence")):
+                            observations.append(observation)
+            actual_sections = None
+            distributions = []
+            for observation in observations:
+                entries = observation.get("items", [])
+                visible = rows[0].get("facts", {}).get("visible_item_quantities", [])
+                # A section label must belong to the same observed quantity
+                # and position, not merely another frame with the same total.
+                if (not isinstance(entries, list) or len(entries) != len(visible)
+                    or any(not isinstance(a, Mapping) or valid_reward_box(a.get("box")) is None
+                           or a.get("quantity") != b.get("quantity")
+                           or a.get("box") != b.get("box") for a, b in zip(entries, visible))):
+                    continue
+                distribution = {}
+                for entry in entries:
+                    section = entry.get("section")
+                    if section not in ("items", "bonus"):
+                        section = "unresolved"
+                    distribution.setdefault(section, []).append(entry["quantity"])
+                distribution = {k: sorted(v) for k, v in distribution.items()}
+                if distribution not in distributions:
+                    distributions.append(distribution)
+            if len(distributions) == 1:
+                actual_sections = distributions[0]
+            if actual_sections != wanted_sections:
+                item_errors.append(f"incorrect or unresolved reward sections at {timestamp}")
+                status = "incorrect"
+            section_result = dict(expected_sections=wanted_sections, actual_sections=actual_sections)
         errors.extend(item_errors)
         results.append(
             {
@@ -369,6 +416,7 @@ def _check_items(
                 "status": status,
                 "passed": not item_errors and status == "matched",
                 "errors": item_errors,
+                **section_result,
             }
         )
     return results, errors
@@ -506,7 +554,7 @@ def evaluate(reference: Mapping[str, Any], report: Mapping[str, Any], root: str 
                 base,
                 f"race {expected_index}",
             )
-            item_results, item_errors = _check_items(expected.get("item_snapshots", []), readings, base, expected_index)
+            item_results, item_errors = _check_items(expected.get("item_snapshots", []), readings, base, expected_index, candidate)
             errors = field_errors + proof_errors + item_errors
             if candidate.get("conflicting_readings"):
                 errors.append("candidate has conflicting readings")

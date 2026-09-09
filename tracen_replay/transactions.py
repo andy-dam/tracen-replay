@@ -693,6 +693,7 @@ def performance_accounting(readings,events,lessons):
 
 
 def races(readings):
+    from .race_reward_sections import annotate as annotate_reward_sections
     groups=[]
     for row in readings:
         if row['screen']!='race_result':continue
@@ -717,15 +718,16 @@ def races(readings):
             if len({r['source_timestamp_ms'] for r in pending})<2:return
             snapshots.append(dict(first_seen_ms=pending[0]['source_timestamp_ms'],
                 last_seen_ms=pending[-1]['source_timestamp_ms'],
-                items=[dict(quantity=x['quantity'],name=None) for x in pending[0]['facts']['visible_item_quantities']],
+                items=[dict(quantity=x['quantity'],name=None,section=x['section']) for x in annotate_reward_sections(pending[0])],
                 item_observations=[dict(source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence'],
-                    items=[dict(x) for x in r['facts']['visible_item_quantities']]) for r in pending],
+                    items=annotate_reward_sections(r)) for r in pending],
                 evidence=list(dict.fromkeys(r['evidence'] for r in pending)),
                 identity_verified=False,list_complete=False))
         for row in sorted(rows,key=lambda r:r['source_timestamp_ms']):
-            items=row['facts'].get('visible_item_quantities',[])
-            previous=pending[-1]['facts']['visible_item_quantities'] if pending else []
+            items=annotate_reward_sections(row)
+            previous=annotate_reward_sections(pending[-1]) if pending else []
             same=(len(items)==len(previous) and all(a['quantity']==b['quantity'] and
+                a['section']==b['section'] and
                 all(abs(x-y)<=8 for x,y in zip(a['box'],b['box'])) for a,b in zip(items,previous)))
             if pending and (not same or row['source_timestamp_ms']-pending[-1]['source_timestamp_ms']>500):
                 finish_items();pending=[]

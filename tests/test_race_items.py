@@ -36,7 +36,7 @@ class RaceItemsTests(unittest.TestCase):
         result=races([self.row(0),self.row(250),self.row(500)])[0]
         snapshots=result['visible_item_reward_snapshots']
         self.assertEqual(len(snapshots),1)
-        self.assertEqual(snapshots[0]['items'],[dict(quantity=200,name=None)])
+        self.assertEqual(snapshots[0]['items'],[dict(quantity=200,name=None,section=None)])
         self.assertEqual(len(snapshots[0]['evidence']),3)
         self.assertFalse(result['item_rewards_complete'])
         for rows in ([self.row(0)], [self.row(0),self.row(0)],
