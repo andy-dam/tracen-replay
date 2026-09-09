@@ -40,11 +40,35 @@ def evaluate(reference,report,root=None):
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=sample['sha256']:
                 evidence_errors.append(sample['evidence'])
     expected=sum(len(g['effects']) for g in reference['groups'])
+    # Preserve the original denominator when source adjudication finds hidden
+    # fields. These annotations explain reference limitations; they do not
+    # excuse a prediction, remove a missing effect, or certify an identity.
+    exceptions=reference.get('observability_exceptions',[])
+    if not isinstance(exceptions,list):raise ValueError('Invalid observability exceptions.')
+    for item in exceptions:
+        if not isinstance(item,dict):raise ValueError('Invalid observability exception.')
+        group_index,effect_index=item.get('group_index'),item.get('effect_index')
+        if type(group_index) is not int or not 0<=group_index<len(reference['groups']):
+            raise ValueError('Observability exception has no reference group.')
+        group=reference['groups'][group_index]
+        if type(effect_index) is not int or not 0<=effect_index<len(group['effects']):
+            raise ValueError('Observability exception has no reference effect.')
+        fields=item.get('fields')
+        if not isinstance(fields,list) or not fields or any(not isinstance(f,str) or f not in group['effects'][effect_index] for f in fields):
+            raise ValueError('Observability exception must identify expected fields.')
+        if not isinstance(item.get('reason'),str) or not item['reason'].strip():
+            raise ValueError('Observability exception requires a reason.')
+        proof_times=item.get('source_timestamps_ms')
+        if not isinstance(proof_times,list) or not proof_times or any(type(t) is not int or t not in times or not group['start_ms']<=t<=group['end_ms'] for t in proof_times):
+            raise ValueError('Observability exception requires reviewed same-group samples.')
     return dict(scope=reference['scope'],source_sha256=reference['source_sha256'],start_ms=start,end_ms=end,
         expected=expected,predicted=len(predictions),matched=matched,precision=matched/len(predictions) if predictions else None,
         recall=matched/expected if expected else None,missing=missing,extra_predictions=extras,evidence_errors=evidence_errors,
         passed=not missing and not extras and not evidence_errors,reviewed_samples=len(samples),
         evidence_hashes_checked=root is not None,complete_video_frame_review=False,full_recording_effect_recall_measured=False,
+        observability_exceptions=exceptions,
+        reference_observability='known_exceptions' if exceptions else 'not_adjudicated',
+        scoring_basis='agreement_with_preserved_reference',
         independent_recording=False)
 
 

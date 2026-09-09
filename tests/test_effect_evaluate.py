@@ -31,6 +31,31 @@ class EffectEvaluationTests(unittest.TestCase):
         self.assertIn('incomplete_review_sample_manifest',evaluate(ref,report)['evidence_errors'])
         self.assertFalse(evaluate(ref,report)['full_recording_effect_recall_measured'])
 
+    def test_observability_annotation_preserves_denominator_and_missing_effect(self):
+        ref,report=self.pair()
+        ref['observability_exceptions']=[dict(group_index=0,effect_index=0,fields=['amount'],
+            reason='Cursor covers the final digit.',source_timestamps_ms=[250,500])]
+        report['gameplay_tracking']['events']=[]
+        result=evaluate(ref,report)
+        self.assertEqual(result['expected'],1)
+        self.assertEqual(result['matched'],0)
+        self.assertEqual(len(result['missing']),1)
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['reference_observability'],'known_exceptions')
+        self.assertEqual(result['observability_exceptions'],ref['observability_exceptions'])
+        ref.pop('observability_exceptions')
+        self.assertEqual(evaluate(ref,report)['reference_observability'],'not_adjudicated')
+
+    def test_observability_annotation_cannot_point_to_other_receipts_or_fields(self):
+        for changes in (dict(group_index=True),dict(effect_index=1),dict(fields=['name']),
+                        dict(fields=[]),dict(reason=''),dict(source_timestamps_ms=[750]),
+                        dict(source_timestamps_ms=[251]),dict(source_timestamps_ms=[])):
+            with self.subTest(changes=changes):
+                ref,report=self.pair()
+                ref['observability_exceptions']=[dict(dict(group_index=0,effect_index=0,
+                    fields=['amount'],reason='Obscured.',source_timestamps_ms=[250]),**changes)]
+                with self.assertRaises(ValueError):evaluate(ref,report)
+
     def test_unlock_and_announcement_are_not_supporter_counts(self):
         effects=effects_from_lines([dict(text=t,confidence=99) for t in
             ('New supporters joined!','Light Hello will now appear in training.','Oguri Cap joined your cause!')])
