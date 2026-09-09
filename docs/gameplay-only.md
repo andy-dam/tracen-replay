@@ -110,6 +110,11 @@ Completeness applies to the declared channel, interval and sampling scope. A ful
 labeled set of 250 ms samples can be complete within that scope while events
 between those samples remain unknown. Action scores explicitly distinguish a
 complete declaration, an incomplete declaration and legacy unspecified metadata.
+Action evaluation accepts only training, rest, outing and race scopes, and records
+the exact kinds and interval in its result. Lessons, concerts and dialogue choices
+belong to their separate evaluators. Coverage of a training-only reference does
+not establish race, rest or outing recall over the same interval. References that
+exceed the recording duration or use malformed time bounds are rejected.
 
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.

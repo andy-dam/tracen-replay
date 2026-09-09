@@ -6,15 +6,26 @@ def evaluate(reference,report):
     complete=reference.get('reference_complete')
     if 'reference_complete' in reference and type(complete) is not bool:
         raise ValueError('reference_complete must be an explicit boolean when supplied.')
-    if not isinstance(reference.get('actions'),list) or not reference.get('kinds'):
-        raise ValueError('Explicit actions and scoped kinds are required.')
-    if not 0<=reference['start_ms']<reference['end_ms']:raise ValueError('Invalid evaluation interval.')
+    if not isinstance(reference.get('actions'),list):
+        raise ValueError('Explicit actions are required.')
+    kinds=reference.get('kinds')
+    if (not isinstance(kinds,list) or not kinds
+            or any(k not in ('training','rest','outing','race') for k in kinds)
+            or len(set(kinds))!=len(kinds)):
+        raise ValueError('Declare unique supported training/rest/outing/race kinds.')
+    start,end=reference.get('start_ms'),reference.get('end_ms')
+    if type(start) is not int or type(end) is not int or not 0<=start<end:
+        raise ValueError('Invalid evaluation interval.')
+    if 'duration_ms' in report['source'] and end>report['source']['duration_ms']:
+        raise ValueError('Reference exceeds source duration.')
     negative=reference.get('no_completed_actions') is True
     if not reference['actions'] and not (negative and reference.get('independently_reviewed') is True):
         raise ValueError('Empty actions require an explicitly reviewed negative reference.')
     if negative and reference['actions']:raise ValueError('Negative reference contains completed actions.')
     for action in reference['actions']:
-        if action['kind'] not in reference['kinds'] or not reference['start_ms']<=action['start_ms']<action['end_ms']<=reference['end_ms']:
+        if (not isinstance(action,dict) or action.get('kind') not in kinds
+                or type(action.get('start_ms')) is not int or type(action.get('end_ms')) is not int
+                or not start<=action['start_ms']<action['end_ms']<=end):
             raise ValueError('Action annotation lies outside the declared evaluation scope.')
     data=report['gameplay_tracking']
     if data.get('auxiliary_log_used') is not False:raise ValueError('Only gameplay-only results are eligible.')
@@ -35,4 +46,5 @@ def evaluate(reference,report):
         reference_complete=complete,
         completeness='complete' if complete is True else 'incomplete' if complete is False else 'legacy_unspecified',
         score_blockers=['incomplete_reference'] if complete is False else [],
+        kinds=list(kinds),start_ms=start,end_ms=end,
         independently_reviewed=reference.get('independently_reviewed',False),scope=reference['scope'])
