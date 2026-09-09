@@ -55,8 +55,11 @@ def friendship_name_bounds(box,words,columns,line_length):
     end=words.index('went',2)
     if end<=2:return None
     a,b,c,d=box;scale=(c-a)/line_length
-    return [a+max(0,min(columns[2])-.5)*scale,b,
-            a+min(line_length,max(columns[end-1])+1.5)*scale,d]
+    # An obscured first/last letter has no OCR column. Protect the gaps
+    # after "with" and before "went", not merely the recognized letters.
+    start=max(columns[1])+.75;stop=min(columns[end])-.5
+    if start>=min(columns[2]) or stop<=max(columns[end-1]):return None
+    return [a+max(0,start)*scale,b,a+min(line_length,stop)*scale,d]
 
 
 def overlay_boxes(pane):

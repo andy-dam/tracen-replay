@@ -8,6 +8,27 @@ from tracen_replay.transactions import outcome_events
 
 
 class ReceiptOcclusionTests(unittest.TestCase):
+    def test_omitted_recipient_suffix_still_lies_inside_protected_name_span(self):
+        from unittest.mock import patch
+        from tracen_replay.receipt_occlusion import friendship_name_bounds
+        # Source-backed alignment at262500ms: OCR omits letters beneath the
+        # cursor, leaving a gap between "Otonas" and the following "went".
+        box=[314,828,759,862]
+        words=['Friendship','with','Etsuko','Otonas','went','up','by','7.']
+        columns=[[2,3,5,6,8,10,12,14,15,17],[20,22,23,25],[28,29,31,33,35,37],
+                 [40,43,44,46,48,50],[56,58,60,62],[65,67],[70,72],[75,76]]
+        bounds=friendship_name_bounds(box,words,columns,78)
+        self.assertGreater(bounds[2],620)
+        self.assertLess(bounds[2],314+56*445/78)
+        pane=Image.new('RGB',(810,1080),'white')
+        source=raw([line('Friendship with Etsuko Otonash went up by 7.',box)])
+        source['gameplay_sha256']=hashlib.sha256(pane.tobytes()).hexdigest()
+        source['overlay_alignment']=[dict(line_box=box,words=words,columns=columns,line_length=78,confidence=95.63)]
+        with patch('tracen_replay.receipt_occlusion.overlay_boxes',return_value=[[608,830,620,846]]):
+            marked=annotate(source,pane)
+        self.assertEqual(parse(marked)['effects'],[])
+        self.assertTrue(marked['occluded_receipt_lines'][0]['recipient_name_occluded'])
+
     def test_recipient_obstruction_is_not_excused_by_clear_amount(self):
         from unittest.mock import patch
         pane=Image.new('RGB',(810,1080),'white')
