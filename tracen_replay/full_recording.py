@@ -91,11 +91,13 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr'):
 
 
 def assemble(report,readings,choice_observations=()):
+    from .inventory import summarize as inventory_summary
     stat_rows=[dict(r['stats'],source_timestamp_ms=r['source_timestamp_ms'],evidence=r['evidence']) for r in readings]
     spans=screen_summary(readings)
     report['gameplay_tracking']=dict(method='neural_gameplay_v1',auxiliary_log_used=False,input_region=[148,0,958,1080],readings=readings,
         **reconstruct(readings,choice_observations),screens=spans,training_previews=preview_segments(stat_rows),skill_receipts=[s for s in spans if s['screen']=='skill_receipt'])
     report['recognition']=dict(enabled=True,model='RapidOCR 3.9.2 / PP-OCRv6 detection + English PP-OCRv5 recognition')
+    report['gameplay_tracking']['owned_skill_inventory']=inventory_summary(readings)
     report['verification']=audit(report)
     return report
 

@@ -250,6 +250,8 @@ def parse(raw):
             final[field]=number(candidates[0]) if len(candidates)==1 else None
         facts['final_attributes']=final
         facts['owned_skill_list_complete']=False
+        from .inventory import visible_cards
+        facts['visible_owned_skill_cards']=visible_cards(raw,final)
     if screen=='career_completion_hub':
         final={}
         for i,field in enumerate(FIELDS[:5]):

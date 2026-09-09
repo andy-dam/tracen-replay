@@ -17,6 +17,7 @@ The supported profile is English 1920x1080, with gameplay at `(148, 0, 958, 1080
 - `checkpoints`, `events`, `intervals`: repeated six-field states, supported effects and unexplained residuals. Candidate resolutions retain evidence and whether they depend on surrounding states.
 - `lesson_purchases`: matching named receipt and confirmation, five-resource costs, observed debits, actual awards and separate projected effects.
 - `skill_purchases`: receipt-backed batch SP debit, cart additions/removals, committed bundles, prerequisite candidates and circle variants. Complete ownership is a separate claim.
+- `owned_skill_inventory`: repeated visible final-summary card text with source evidence. Partial names, symbol variants, levels and off-screen ownership are not promoted to a complete inventory; see [ownership observations](owned-skill-observations.md).
 - `races`: identity, course, placing, fans and unknown item identities.
 - `concerts`: confirmation, result, aftermath, queued effects, update receipts and later observed current-bonus snapshots. The update caption does not prove every value.
 - `song_acquisitions`: one acquisition per receipt with alternative observed names and supported paid-lesson or story-event associations.

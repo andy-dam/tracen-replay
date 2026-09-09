@@ -42,7 +42,7 @@ All five concerts have linked stat/SP/fan aftermath and an explicit bonus-update
 
 ## Evaluation
 
-241 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
+245 automated tests pass, covering auxiliary-pixel isolation, source tampering, PTS continuity, native sampling, animated digit conflicts, cursor-obscured receipt digits, delayed lesson balances, canceled outings, cart removals/upgrades, circle variants, calendar omissions/duplicates and evaluation penalties. Skill confirmations accept singular and plural wording. Repeated completion-hub SP counters can support a skill charge even when the five-attribute grid is not visible; projected menu counters remain separate. Direct counter crops recover small digits missed by text detection, abstain on disagreement, and retain source hashes. Finish-confirmation balances are observations, not a completed action or a points deduction.
 
 Consecutive skill receipts can be reconciled jointly between observed balances when repeated final-cart counters explain the full debit and no other SP transaction intervenes. Intermediate counters retain their projected status. Account fan totals after career completion are separate from race results. Repeated completed-training identity remains an action even when its reward digits are unreadable; reward completeness stays false.
 
@@ -108,3 +108,7 @@ The optional choice-refinement pass stores gameplay-only card and selection-mark
 ## Concert panel development
 
 Eight manually reviewed Concert Info panels provide 48 current/planned field values. The parser matches 46 with no incorrect values; the first recording has two missing values for the same low-confidence level-zero display. Numeric-slot normalization recovers the second recording's level zero and retains original OCR. This panel-selected review does not establish missed-panel recall or final active bonuses. See [panel evidence and scope](concert-panel-validation.md).
+
+## Final owned-card observations
+
+The final-summary reader now retains repeated visible owned-card text independently of skill purchases. Source review finds 14 visible cards on each first page; 12 original-run names and 13 separate-run names meet the repeated-reading requirement, with three visible cards still missing. Wrapped fragments below confidence are not shortened into different skill names. Circle variants, unique-skill levels, off-screen cards and complete inventory remain unverified. See [ownership evidence and limits](owned-skill-observations.md).
