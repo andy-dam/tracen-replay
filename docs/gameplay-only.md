@@ -51,6 +51,8 @@ Immediate effects, future training modifiers and bonuses queued until a concert 
 
 Cursor checks cover numeric receipts and nonnumeric friendship statuses. When a cursor overlaps a status receipt and character alignment cannot establish which text is obscured, the parser abstains on the whole line. Raw OCR remains available for review. Malformed supporter-join receipts are also surfaced as review candidates; they do not count as confirmed joins.
 
+Receipt crop agreement is not sufficient to accept a text replacement: the agreed text must also parse as a supported receipt. Repeated malformed text, truncated receipts and ordinary dialogue do not qualify. These crops remain correlated views of one frame, not independent temporal evidence. Cached outcome confidence promotions likewise recheck the original text, reread score and eligible receipt location instead of trusting a stored acceptance flag.
+
 Validation follows the output type: race fan gains are checked in race receipts, goal status in screen observations, and dialogue awards in event effects. A missing value in the wrong evaluator is not a recognition failure. Moving a reference between these checks must preserve its source evidence and original observation count.
 
 Lesson transaction references can check the exact observed `name`, `requested_name`, and `receipt_name` alongside costs and awards. A correct numeric reward cannot compensate for a mismatched name. Evaluation output lists `evaluated_fields`; older numeric-only references do not establish lesson identity, and an unreadable name must not be labeled as an empty or null identity.

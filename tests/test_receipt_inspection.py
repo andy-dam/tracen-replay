@@ -34,6 +34,25 @@ class ReceiptInspectionTests(unittest.TestCase):
         self.assertIsNone(consensus([*views[:2],dict(text='Energy went down by8.',confidence=99)]))
         self.assertIsNone(consensus([*views[:2],dict(text=views[0]['text'],confidence=94)]))
 
+    def test_identical_confident_nonreceipts_are_not_corrections(self):
+        for text in ('Skill Pts wet up by 3.', 'Friendshil with Someone is maxed out.',
+                     'Frendship with Someone went up by 7.', 'Speed will go up by 5.',
+                     'Training Speed Gain +5', 'An ordinary dialogue sentence.'):
+            with self.subTest(text=text):
+                views=[dict(text=text,confidence=99) for _ in range(3)]
+                self.assertIsNone(consensus(views))
+                raw=dict(lines=[dict(text='unreadable original',confidence=80)])
+                extra=dict(raw_sha256=fingerprint(raw),lines=[dict(index=0,views=views)])
+                self.assertEqual(apply(raw,extra),raw)
+
+    def test_valid_receipt_families_remain_supported(self):
+        for text in ('Energy recovered by 10.', 'Friendship with Uncatalogued Name went up by 7.',
+                     'Gained 1 hint level(s) for Uncatalogued Skill.', 'Dance went up by 10.',
+                     'New supporters joined!', 'Mood remains Great.'):
+            with self.subTest(text=text):
+                views=[dict(text=text,confidence=99) for _ in range(3)]
+                self.assertEqual(consensus(views)['text'],text)
+
     def test_refinement_retains_original_and_rejects_different_raw(self):
         raw=dict(lines=[dict(text='Energy went down by8.',confidence=98,box=[1,2,3,4])])
         extra=dict(raw_sha256=fingerprint(raw),lines=[dict(index=0,views=[dict(text='Energy went down by18.',confidence=98)]*3)])

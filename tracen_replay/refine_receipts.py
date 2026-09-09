@@ -17,7 +17,7 @@ def consensus(views):
     # These are correlated views of ONE frame, not three independent observations.
     texts={v['text'].strip() for v in views}
     if len(views)!=3:return None
-    if len(texts)==1 and min(v['confidence'] for v in views)>=95 and max(v['confidence'] for v in views)>=97:
+    if len(texts)==1 and receipt(next(iter(texts))) and min(v['confidence'] for v in views)>=95 and max(v['confidence'] for v in views)>=97:
         return dict(text=next(iter(texts)),confidence=min(v['confidence'] for v in views))
     valid=[v for v in views if v['confidence']>=95 and receipt(v['text'])]
     strong=[v for v in valid if v['confidence']>=97]
