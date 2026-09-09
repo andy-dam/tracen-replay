@@ -43,3 +43,21 @@ These panels were selected from detected screens, so this check does not measure
 A subsequent source review of the separate recording covers 1583–1758 seconds with 175 one-second gameplay samples and 51 quarter-second samples around completion transitions. It finds the bonus-update receipt, but no current-bonus value panel in those samples. Completion screens show Attributes; the later skill screens are purchase carts or acquisition receipts, and Sparks are a separate system. An additional ending review checks all 75 quarter-second samples from 1758 seconds through the last sampled frame: the first owned-skill page appears, closes without scrolling, and does not reopen. These reviews support retaining unknown final bonuses and incomplete inventory. They do not prove absence between samples or establish full action/effect recall.
 
 Run `python -m tracen_replay.concert_evaluate REFERENCE REPORT --evidence-root RUN_DIRECTORY --output SCORE_FILE` to check a panel reference against a report. The scorer separates missing values from incorrect values, checks source and screenshot identity, and penalizes swapped current/planned columns.
+
+A later fixed-layout screening prototype classified all 24,915 native frames in
+the two bounded post-fifth-concert spans. It found zero panel candidates and
+582 uncertain frames in 20 groups. Review of the selected frames from every
+uncertain group found other game screens, with no Concert Info panel. The eight
+known panel fixtures all pass the detector, but they are calibration examples,
+not an independent recall test. Unselected frames within longer groups and
+frames classified as neither candidate nor uncertain remain outside visual
+review. See the local `post-fifth-active-bonus-candidate-screening-adjudication-v1.json`.
+
+A separate sensitivity check demonstrates a concrete blind spot: scaling the
+eight calibration images to half brightness makes all eight fall outside both
+candidate and uncertain categories. At 70% and 80% brightness, all eight remain
+uncertain and would be queued for review. These are synthetic controls, not
+observations of the recording. The test changes no thresholds and is preserved
+in `concert-info-detector-fade-sensitivity-v1.json`. The screening result supports
+continued unknown final bonus values; it cannot certify that no transient panel
+appeared.

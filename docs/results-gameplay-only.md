@@ -56,6 +56,23 @@ rank suffix. Numeric interval accounting is unchanged. Reference completeness,
 recognition failures and unobservable fields still need adjudication. Neither
 full semantic recall nor Go readiness is established.
 
+A bounded inheritance review checks all 28 quarter-second samples from 519.5
+through 526.25 seconds. It confirms the Straightaway Recovery spelling and
+that the reference already includes Sympathy's separate +2 hint award. A new
+reference variant records that the full T.M. Opera O inspiration name is not
+proven in its two visible sampled receipts. All labels and the denominator
+remain unchanged: this 60-second reference still matches 38 of 42 effects and
+does not pass. The variant is separate from the current reference index.
+
+A subsequent 105-frame native probe from 520.35 to 522.1 seconds supplies
+several visually clear readings of Mejiro Ryan and Mihono Bourbon. Source-frame,
+gameplay-pixel and OCR hashes were checked for every probe frame; 12 selected
+frames received visual review. The same probe also emits many confident
+misspellings while confetti crosses the names. It remains separate from the
+canonical report: more OCR frames alone do not safely resolve those identities.
+The local `inheritance-reference-review-v1` and `inspiration-native-probe-v1`
+directories preserve the adjudication, candidate readings and limitations.
+
 Repeated readable skill cards and receipt-prefix observations now recover
 `Winter Runner ○` with hint amount 2 in the second recording. Source-bound
 preparation stores card, circle, prefix crop and raw OCR evidence; normal report
