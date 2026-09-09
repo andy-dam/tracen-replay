@@ -35,8 +35,20 @@ def coverage(capture,references,root):
         cursor=end
     if cursor<duration:gaps.append([cursor,duration])
     total=sum(b-a for a,b in merged)
+    # Partition overlapping references so a coarser review cannot inflate the
+    # duration attributed to a finer cadence. This describes declared sampling,
+    # not semantic label quality or visibility between samples.
+    boundaries=sorted({t for record in records for t in (record['start_ms'],record['end_ms'])})
+    cadence={}
+    for left,right in zip(boundaries,boundaries[1:]):
+        covering=[record['sample_interval_ms'] for record in records
+                  if record['start_ms']<=left and right<=record['end_ms']]
+        if covering:
+            finest=min(covering);cadence[finest]=cadence.get(finest,0)+right-left
     return dict(source_sha256=capture['source']['sha256'],source_duration_ms=duration,references=records,
                 declared_reviewed_intervals=merged,declared_reviewed_duration_ms=total,
+                declared_duration_by_finest_sample_interval=[dict(sample_interval_ms=spacing,duration_ms=amount)
+                    for spacing,amount in sorted(cadence.items())],
                 declared_reviewed_percent=round(total/duration*100,3),unreviewed_intervals=gaps,
                 next_source_order_window=[gaps[0][0],min(gaps[0][0]+10000,gaps[0][1])] if gaps else None,
                 full_recording_effect_recall_measured=False,complete_video_frame_review=False,
