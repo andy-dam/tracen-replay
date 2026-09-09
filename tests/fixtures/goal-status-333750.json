@@ -1,0 +1,207 @@
+{
+  "lines": [
+    {
+      "text": "Career",
+      "confidence": 99.872,
+      "box": [
+        154,
+        3,
+        217,
+        30
+      ]
+    },
+    {
+      "text": "Junior Year Late Dec",
+      "confidence": 99.742,
+      "box": [
+        390,
+        37,
+        531,
+        54
+      ]
+    },
+    {
+      "text": "turn(s)",
+      "confidence": 99.807,
+      "box": [
+        322,
+        62,
+        375,
+        82
+      ]
+    },
+    {
+      "text": "left",
+      "confidence": 99.802,
+      "box": [
+        322,
+        78,
+        357,
+        101
+      ]
+    },
+    {
+      "text": "CGoal",
+      "confidence": 85.972,
+      "box": [
+        377,
+        73,
+        445,
+        98
+      ]
+    },
+    {
+      "text": "Earn 3000 fans",
+      "confidence": 99.976,
+      "box": [
+        447,
+        64,
+        580,
+        87
+      ]
+    },
+    {
+      "text": "Goal Achieved!",
+      "confidence": 99.985,
+      "box": [
+        447,
+        87,
+        584,
+        113
+      ]
+    },
+    {
+      "text": "Details",
+      "confidence": 94.912,
+      "box": [
+        773,
+        74,
+        835,
+        99
+      ]
+    },
+    {
+      "text": "Concert begins",
+      "confidence": 99.24,
+      "box": [
+        264,
+        110,
+        372,
+        136
+      ]
+    },
+    {
+      "text": "after this turn",
+      "confidence": 94.828,
+      "box": [
+        267,
+        129,
+        368,
+        152
+      ]
+    },
+    {
+      "text": "Energy",
+      "confidence": 99.765,
+      "box": [
+        381,
+        118,
+        442,
+        155
+      ]
+    },
+    {
+      "text": "GREAT",
+      "confidence": 99.82,
+      "box": [
+        725,
+        122,
+        794,
+        151
+      ]
+    },
+    {
+      "text": "Dinner's on me today!",
+      "confidence": 99.33,
+      "box": [
+        320,
+        627,
+        517,
+        657
+      ]
+    },
+    {
+      "text": "Oguri Cap",
+      "confidence": 99.86,
+      "box": [
+        388,
+        763,
+        498,
+        797
+      ]
+    },
+    {
+      "text": "...All that intense running has left me abnorm",
+      "confidence": 97.123,
+      "box": [
+        311,
+        806,
+        742,
+        835
+      ]
+    },
+    {
+      "text": "Effects",
+      "confidence": 99.656,
+      "box": [
+        742,
+        823,
+        819,
+        851
+      ]
+    },
+    {
+      "text": "hungry, though.",
+      "confidence": 99.817,
+      "box": [
+        309,
+        834,
+        465,
+        864
+      ]
+    },
+    {
+      "text": "Skip",
+      "confidence": 99.918,
+      "box": [
+        522,
+        1038,
+        573,
+        1069
+      ]
+    },
+    {
+      "text": "Quick",
+      "confidence": 99.972,
+      "box": [
+        670,
+        1036,
+        733,
+        1065
+      ]
+    }
+  ],
+  "regions": {},
+  "header": "Career",
+  "result_grid": false,
+  "current_grid": false,
+  "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7",
+  "model_sha256": {
+    "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+    "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+  },
+  "gameplay_sha256": "c9b07b085e8d67004a14cb6d438dacff73d20aaa4007e3fa88dc7222917df0ae",
+  "source_timestamp_ms": 333750,
+  "evidence": "gameplay/part-002-frame-000376.png",
+  "source_frame_sha256": "a8c8448c89d1c5e4baf040a785ffd9f9324a9de3a32fd1d8444fbd3b5e933958"
+}

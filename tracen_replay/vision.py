@@ -219,6 +219,12 @@ def parse(raw):
               and re.fullmatch(r'(?:Junior|Classic|Senior) Year (?:Pre-Debut|(?:Early|Late) [A-Z][a-z]{2})|Finale Underway',l['text'])]
     stats['calendar_text']=' '.join(calendar) or None
     facts={}
+    achieved=[l for l in lines if l['confidence']>=95
+              and within(l,(440,85,760,116)) and l['text'].strip()=='Goal Achieved!']
+    if len(achieved)==1:
+        facts['goal_status_observation']=dict(status='achieved',raw_text=achieved[0]['text'],
+            confidence=achieved[0]['confidence'],box=achieved[0]['box'],
+            semantics='visible_status_only; completion_time_and_rewards_not_inferred')
     if raw.get('occluded_receipt_lines'):
         facts['occluded_receipt_lines']=raw['occluded_receipt_lines']
     if raw.get('resolved_receipt_occlusions'):
