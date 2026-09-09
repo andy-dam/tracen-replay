@@ -188,13 +188,31 @@ def partial_song_name(requested,received):
     return len(suffix)==1 and not suffix.isdigit() and (remainder.startswith(' ') or not suffix.isalnum())
 
 
+def source_song_alias(effect):
+    """Keep the raw receipt identity available after validated symbol recovery.
+
+    This is an association candidate, not a second canonical name. The caller
+    still requires repeated request and debit evidence before linking it.
+    """
+    proof=effect.get('visual_symbol_observation',{})
+    if proof.get('method')!='strict_note_and_independently_read_title':return None
+    title=proof.get('title_evidence',{})
+    original=effect.get('original_text')
+    if not isinstance(original,str) or title.get('line',{}).get('text')!=original:return None
+    name=title.get('title')
+    if not isinstance(name,str) or effect.get('name')!=name+' ♪':return None
+    match=re.fullmatch(r'Learned the song "(.+)"[.!]',original)
+    if not match or not re.fullmatch(re.escape(name)+r'\s+[A-Za-z]',match[1]):return None
+    return match[1]
+
+
 def lesson_receipts(readings, outcomes):
     """Join named acquisition evidence to a matching request, retaining cost gaps."""
     purchases=[];used=set()
     for event in outcomes:
         acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
         for effect in acquired:
-            partial=False;requested=effect['name']
+            partial=False;symbol_alias=False;requested=effect['name'];request_names={requested}
             confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
                 and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
                 and r['facts'].get('name_candidates')==[effect['name']]]
@@ -202,17 +220,26 @@ def lesson_receipts(readings, outcomes):
                 nearby=[r for r in readings if r['screen']=='lesson_confirmation'
                         and 0<event['first_seen_ms']-r['source_timestamp_ms']<=2000]
                 names={r['facts']['name_candidates'][0] for r in nearby if len(r['facts'].get('name_candidates',[]))==1}
-                if len(names)==1:
-                    requested=names.pop()
-                    if partial_song_name(requested,effect['name']):
-                        confirmations=[r for r in nearby if r['facts'].get('name_candidates')==[requested]];partial=True
+                alias=source_song_alias(effect)
+                compatible=bool(alias and names and all(n==alias or n==effect['name'] or partial_song_name(n,effect['name']) for n in names))
+                if len(names)==1 or compatible:
+                    requested=next(r['facts']['name_candidates'][0] for r in reversed(nearby)
+                                   if len(r['facts'].get('name_candidates',[]))==1)
+                    symbol_alias=compatible and alias in names
+                    if partial_song_name(requested,effect['name']) or symbol_alias:
+                        request_names=names if compatible else {requested}
+                        confirmations=[r for r in nearby if len(r['facts'].get('name_candidates',[]))==1
+                                       and r['facts']['name_candidates'][0] in request_names];partial=True
             if not confirmations:continue
+            def request_matches(row):
+                names=row['facts'].get('name_candidates')
+                return names==[] or isinstance(names,list) and len(names)==1 and names[0] in request_names
             last=confirmations[-1]
             # Only the final continuous request belongs to this receipt.
             group=[last]
             for row in reversed([r for r in readings if r['source_timestamp_ms']<last['source_timestamp_ms']]):
                 if row['screen']!='lesson_confirmation' or group[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
-                if row['facts'].get('name_candidates') not in ([],[requested]):break
+                if not request_matches(row):break
                 group.append(row)
             first=group[-1];key=first['source_timestamp_ms']
             if key in used:continue
@@ -267,7 +294,7 @@ def lesson_receipts(readings, outcomes):
                     or len({r['source_timestamp_ms'] for r in agreeing})<2
                     or len({r['source_timestamp_ms'] for r in returned})>=2
                     or any(r['screen'] not in ('lesson_confirmation','lesson_selection','unknown') for r in between)
-                    or any(r['screen']=='lesson_confirmation' and r['facts'].get('name_candidates') not in ([],[requested]) for r in between)):continue
+                    or any(r['screen']=='lesson_confirmation' and not request_matches(r) for r in between)):continue
             used.add(key)
             projected_effects=[];effect_keys=set()
             for row in reversed(group):
@@ -278,11 +305,12 @@ def lesson_receipts(readings, outcomes):
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
                 performance_cost=cost,cost_basis='observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
                 requested_name=requested,receipt_name=effect['name'],name_identity_verified=False,
-                name_match_basis='partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
+                name_match_basis='source_symbol_alias_and_repeated_observed_debit' if symbol_alias else 'partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
                 after_balance_observed=matched is not None,awarded_stats=event['deltas'],
                 projected_effects=projected_effects,
                 evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],
                 complete_transaction_verified=False))
+            if symbol_alias:purchases[-1]['observed_request_names']=sorted(request_names)
     return purchases
 
 

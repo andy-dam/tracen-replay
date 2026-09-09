@@ -5,9 +5,9 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest test run passes 722 automated tests.
+recording and 130 in the second. The latest test run passes 730 automated tests.
 All 12 preserved-reference checks in
-`identity-validation-v2/preserved-regression.json` pass against the
+`song-validation-v2/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
 
@@ -48,7 +48,7 @@ references, parent hashes and label provenance remain separate from the derived
 development slices. Two references explicitly declare incomplete labels; 43
 legacy references leave completeness unspecified.
 
-The current report has 40 missing or extra effect entries in these diagnostics.
+The current report has 38 missing or extra effect entries in these diagnostics.
 Including the cursor's white outline removes a false hint identity and allows
 clear neighboring evidence to resolve a friendship recipient. The earlier
 separator rule still removes one duplicate hint while retaining its unresolved
@@ -78,6 +78,31 @@ Baselines, candidates, source-row changes and publication hashes are preserved
 under each run's `identity-integration-v2`. The second report's race, action and
 preserved-reference checks are in `identity-validation-v2`. Skill-card cache
 preparation and stale-cache checks are retained in `hint-card-recovery-v1`.
+
+Source-pixel song refinement now recovers the musical note in `Hoppity Sunny
+Days ♪` across seven original-run and three second-run frames. The raw OCR
+suffix `D` remains in provenance. Strict note/quote geometry, a separate title
+crop read, and letter-column coverage must all agree. An adversarial extra real
+letter is rejected even when the title OCR confidently omits it. Unsupported
+punctuation, joined glyphs and wrapped star suffixes still abstain.
+
+The corrected receipt stays linked to the original request through its preserved
+raw spelling and repeated debit evidence. Both request spellings remain recorded
+when they alternate. All 77 original-run and 62 second-run lesson purchases,
+their costs, and both complete performance-accounting outputs are preserved.
+One song outcome changes per recording, along with its linked name metadata;
+no mechanic quantity changes. Both final reports replay exactly without OCR.
+Candidates and publication checks are in each run's `song-refinement-v4`, and
+the second report's preserved-reference scores are in `song-validation-v2`.
+This reduces its diagnostics from 40 to 38 without rewriting reference labels.
+
+The post-fifth-concert review decoded every frame in two bounded spans, but
+visually reviewed overviews and transition representatives. A later coverage
+audit found that those representatives do not establish exhaustive frame-level
+absence. No current-bonus panel was found in the reviewed views; final totals
+remain unknown. The corrected scope is preserved in
+`post-fifth-active-bonus-native-adjudication-v2.json`. Neither this review nor
+the earlier first-page inventory checks closes the complete-mechanics gate.
 
 Both published reports now carry the validated producer/consumer schema version.
 The latest cursor check reparsed 24 potentially affected timestamps across both

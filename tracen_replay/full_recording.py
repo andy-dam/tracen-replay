@@ -233,6 +233,14 @@ def cached_readings(report,root,allow_partial=False):
         if symbols.exists():
             from .song_symbols import apply as apply_symbols
             raw=apply_symbols(raw,json.loads(symbols.read_text(encoding='utf-8')),root/raw['evidence'],original)
+        symbol_refinement=root/'song-symbol-refinement'/path.name
+        if symbol_refinement.exists():
+            from .song_symbol_refinement import apply as apply_symbol_refinement
+            try:
+                raw=apply_symbol_refinement(raw,json.loads(symbol_refinement.read_text(encoding='utf-8')),
+                                            root/raw['evidence'],original)
+            except ValueError as exc:
+                raise PipelineError(f'Song-symbol refinement invalid: {exc}') from exc
         concert_panel=root/'concert-panel-refinement'/path.name
         if concert_panel.exists():
             from .concert_panel_refinement import apply as apply_concert_panel

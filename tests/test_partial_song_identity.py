@@ -50,3 +50,35 @@ class PartialSongIdentityTests(unittest.TestCase):
         self.assertFalse(partial_song_name('Lovely Song','Lovely Songs'))
         rows,event=self.sample();event['effects'][0]['kind']='named_acquisition'
         self.assertEqual(lesson_receipts(rows,[event]),[])
+
+    def test_source_symbol_alias_preserves_debit_without_claiming_request_identity(self):
+        from copy import deepcopy
+        rows,event=self.sample()
+        for item in rows:
+            if item['screen']=='lesson_confirmation':item['facts']['name_candidates']=['Hoppity Sunny Days D']
+        original='Learned the song "Hoppity Sunny Days D".'
+        effect=event['effects'][0]
+        effect.update(name='Hoppity Sunny Days ♪',original_text=original,
+            visual_symbol_observation={'method':'strict_note_and_independently_read_title',
+                'title_evidence':{'title':'Hoppity Sunny Days','line':{'text':original}}})
+        purchases=lesson_receipts(rows,[event])
+        self.assertEqual(len(purchases),1)
+        self.assertEqual(purchases[0]['performance_cost'],dict(dance=0,passion=42,vocal=21,visual=0,composure=0))
+        self.assertEqual(purchases[0]['requested_name'],'Hoppity Sunny Days D')
+        self.assertEqual(purchases[0]['receipt_name'],'Hoppity Sunny Days ♪')
+        self.assertEqual(purchases[0]['name_match_basis'],'source_symbol_alias_and_repeated_observed_debit')
+        self.assertFalse(purchases[0]['name_identity_verified'])
+        rows[3]['facts']['name_candidates']=['Hoppity Sunny Days']
+        mixed=lesson_receipts(rows,[event])
+        self.assertEqual(len(mixed),1)
+        self.assertEqual(mixed[0]['observed_request_names'],['Hoppity Sunny Days','Hoppity Sunny Days D'])
+        self.assertEqual(mixed[0]['performance_cost'],purchases[0]['performance_cost'])
+        rows[3]['facts']['name_candidates']=['Hoppity Sunny Days D']
+        self.assertEqual(lesson_receipts(rows[1:],[event]),[])
+        self.assertEqual(lesson_receipts(rows[:-1],[event]),[])
+        for mutation in ('proof','title','original'):
+            changed=deepcopy(event);item=changed['effects'][0]
+            if mutation=='proof':item.pop('visual_symbol_observation')
+            elif mutation=='title':item['visual_symbol_observation']['title_evidence']['title']='Different Song'
+            else:item['original_text']='Learned the song "Different Song D".'
+            self.assertEqual(lesson_receipts(rows,[changed]),[],mutation)

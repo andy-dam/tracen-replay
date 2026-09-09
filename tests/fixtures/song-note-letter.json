@@ -1,0 +1,23 @@
+{
+  "source_timestamp_ms": 1524500,
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "gameplay_evidence": "part-012-frame-000339.png",
+  "gameplay_png_sha256": "20712ccf262afb977400a9d67c6a2fd61822fdecb0756ded1e4a53b4645e4d38",
+  "crop_box": [
+    140,
+    770,
+    580,
+    840
+  ],
+  "crop_png_sha256": "ae7b14c429d9c2434a916b99e630b5c531de4f675e6384f3db051a128d6b059c",
+  "line": {
+    "text": "Learned the song \"Hoppity Sunny Days D\".",
+    "confidence": 95.617,
+    "box": [
+      304,
+      781,
+      712,
+      819
+    ]
+  }
+}

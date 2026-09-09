@@ -106,6 +106,32 @@ an inheritance spark.
 
 ### Source artifacts
 
+For a single-line song receipt whose terminal music note was recognized as a
+letter, run `python -m tracen_replay.song_symbol_refinement OUTPUT_DIRECTORY`,
+then rebuild with `--reparse-only`. The pass verifies the source frame and exact
+gameplay crop, requires note geometry and opening/closing quotes at two strict
+intensity thresholds, and separately reads the title crop before the glyph.
+That title must exactly match the original receipt's preceding text with at least
+95 OCR confidence. Both thresholds must also expose one isolated letter-column
+run per title letter, with gaps at the observed word boundaries; OCR agreement
+alone cannot dismiss an extra glyph. This check currently supports alphabetic
+titles with separated letters. A real trailing letter in the title crop, missing quotes,
+uncertain text or unsupported geometry causes abstention. The cropped read is a
+correlated view of the same source frame, not another independent observation.
+
+The version 2 `song-symbol-refinement/` sidecars retain original OCR, crop hashes,
+model fingerprint, symbol geometry and title glyph coverage. Replay and `verify_evidence` validate them
+without OCR. Existing sidecars are checked rather than overwritten. The earlier
+`song-symbols/` whitespace-only pass retains its original behavior. Wrapped song
+receipts and outlined stars remain outside the new pass's scope.
+
+When a corrected receipt differs from the earlier request's raw spelling, the
+lesson association may use the symbol observation's preserved original text.
+It requires repeated request and before/after debit evidence, keeps every
+compatible request spelling, and rejects conflicting requests or canceled menu
+returns. The corrected receipt does not verify the request's spelling. Costs
+remain supported by observed balances, never by the corrected song name alone.
+
 - `capture.json`: source SHA-256, duration, layout, decoded PTS, and the complete base sampling manifest.
 - `neural/`: original OCR lines, numeric regions, model hashes, engine fingerprint, and source-frame hash.
 - `gameplay/`: cropped evidence images.

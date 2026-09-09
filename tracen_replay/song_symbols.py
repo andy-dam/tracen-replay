@@ -31,13 +31,17 @@ def music_note_suffix(pane,box):
     geometry is restricted to this layout's small receipt font. Three binary
     thresholds test stability of one image, not independent observations.
     """
+    return _music_note_observation(pane,box,(145,165,185))
+
+
+def _music_note_observation(pane,box,thresholds):
     if pane.size!=(810,1080):raise ValueError('Expected isolated gameplay pixels.')
     left,top,right,bottom=box
     if not (250<=left<right<=850 and 770<=top<bottom<=1000):return None
     x0=right-148-45;y0=top-2
     gray=cv2.cvtColor(np.array(pane.convert('RGB').crop((x0,y0,right-148+3,bottom+2))),cv2.COLOR_RGB2GRAY)
     votes=[]
-    for threshold in (145,165,185):
+    for threshold in thresholds:
         _,labels,stats,_=cv2.connectedComponentsWithStats((gray<threshold).astype('uint8'),8)
         found=[]
         for i,(x,y,w,h,area) in enumerate(stats[1:],1):
@@ -52,7 +56,7 @@ def music_note_suffix(pane,box):
         votes.append(found[0])
     if any(max(abs(a-b) for a,b in zip(votes[0],v))>2 for v in votes[1:]):return None
     return dict(symbol='\u266a',box=votes[1],method='isolated_note_stem_flag_head_and_closing_quote',
-                thresholds=[145,165,185],independent_observations=False)
+                thresholds=list(thresholds),independent_observations=False)
 
 
 def _eligible(line):
