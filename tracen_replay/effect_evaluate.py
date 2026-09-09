@@ -11,12 +11,34 @@ def evaluate(reference,report,root=None):
     if not 0<=start<end:raise ValueError('Invalid interval.')
     data=report['gameplay_tracking']
     if data.get('auxiliary_log_used') is not False:raise ValueError('Gameplay-only report required.')
+    timing_basis=reference.get('timing_basis','event_start')
+    if timing_basis not in ('event_start','first_exact_effect_observation'):
+        raise ValueError('Unknown effect timing basis.')
+    rows={r['evidence']:r for r in data.get('readings',[])}
+    timing_errors=[]
     predictions=[]
     for event in data['events']:
-        if not start<=event['first_seen_ms']<end:continue
+        if timing_basis=='event_start' and not start<=event['first_seen_ms']<end:continue
         for effect in event.get('effects',[]):
             key='|'.join(str(v or '') for v in (effect['kind'],effect.get('field'),effect.get('name')))
-            predictions.append(dict(event_id=event['id'],time=event['first_seen_ms'],effect=effect,
+            time=event['first_seen_ms']
+            if timing_basis=='first_exact_effect_observation':
+                times=[]
+                for proof in event.get('field_evidence',{}).get(key,[]):
+                    row=rows.get(proof)
+                    if row is None:continue
+                    if any(all(candidate.get(k)==effect.get(k) for k in
+                               ('kind','field','name','amount','value'))
+                           for candidate in row.get('effects',[])):
+                        times.append(row['source_timestamp_ms'])
+                if not times:
+                    if event['first_seen_ms']<end and event.get('last_seen_ms',event['first_seen_ms'])>=start:
+                        timing_errors.append(dict(event_id=event['id'],field=key,
+                            reason='no_exact_effect_observation_for_window_ownership'))
+                    continue
+                time=min(times)
+                if not start<=time<end:continue
+            predictions.append(dict(event_id=event['id'],time=time,effect=effect,
                 conflicted=any(c.get('field')==key for c in event.get('conflicting_readings',[]))))
     used=set();missing=[];matched=0
     for group in reference['groups']:
@@ -64,7 +86,8 @@ def evaluate(reference,report,root=None):
     return dict(scope=reference['scope'],source_sha256=reference['source_sha256'],start_ms=start,end_ms=end,
         expected=expected,predicted=len(predictions),matched=matched,precision=matched/len(predictions) if predictions else None,
         recall=matched/expected if expected else None,missing=missing,extra_predictions=extras,evidence_errors=evidence_errors,
-        passed=not missing and not extras and not evidence_errors,reviewed_samples=len(samples),
+        passed=not missing and not extras and not evidence_errors and not timing_errors,reviewed_samples=len(samples),
+        timing_basis=timing_basis,timing_errors=timing_errors,
         evidence_hashes_checked=root is not None,complete_video_frame_review=False,full_recording_effect_recall_measured=False,
         observability_exceptions=exceptions,
         reference_observability='known_exceptions' if exceptions else 'not_adjudicated',

@@ -24,6 +24,52 @@ class EffectEvaluationTests(unittest.TestCase):
         report['gameplay_tracking']['events'][0]['conflicting_readings']=[dict(field='energy_change||')]
         self.assertFalse(evaluate(ref,report)['passed'])
 
+    def test_explicit_observation_timing_owns_effect_at_right_boundary(self):
+        ref,report=self.pair()
+        event=report['gameplay_tracking']['events'][0]
+        effect=event['effects'][0]
+        event.update(last_seen_ms=1250,field_evidence={'energy_change||':['receipt']})
+        report['gameplay_tracking']['readings']=[dict(evidence='receipt',source_timestamp_ms=1000,effects=[effect])]
+        # The preserved default still uses the legacy event-start convention.
+        self.assertTrue(evaluate(ref,report)['passed'])
+        ref.update(timing_basis='first_exact_effect_observation',groups=[])
+        result=evaluate(ref,report)
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['predicted'],0)
+        ref.update(start_ms=1000,end_ms=2000,
+                   reviewed_samples=[dict(source_timestamp_ms=t) for t in range(1000,2000,250)],
+                   groups=[dict(start_ms=1000,end_ms=1250,effects=[effect])])
+        result=evaluate(ref,report)
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['matched'],1)
+
+    def test_missing_exact_support_fails_instead_of_silently_dropping(self):
+        for case in ('missing_row','wrong_value','unlinked_row'):
+            with self.subTest(case=case):
+                ref,report=self.pair()
+                ref['timing_basis']='first_exact_effect_observation'
+                event=report['gameplay_tracking']['events'][0]
+                event['field_evidence']={'energy_change||':['receipt']}
+                row=dict(evidence='receipt',source_timestamp_ms=250,effects=[dict(kind='energy_change',amount=50)])
+                if case=='wrong_value':row['effects'][0]['amount']=5
+                if case=='unlinked_row':row['evidence']='unrelated'
+                report['gameplay_tracking']['readings']=[] if case=='missing_row' else [row]
+                result=evaluate(ref,report)
+                self.assertFalse(result['passed'])
+                self.assertEqual(len(result['timing_errors']),1)
+                self.assertEqual(len(result['missing']),1)
+
+    def test_repeated_observations_do_not_create_multiple_awards(self):
+        ref,report=self.pair();ref['timing_basis']='first_exact_effect_observation'
+        event=report['gameplay_tracking']['events'][0]
+        event['field_evidence']={'energy_change||':['a','b']}
+        report['gameplay_tracking']['readings']=[dict(evidence=p,source_timestamp_ms=t,effects=event['effects'])
+                                               for p,t in [('a',250),('b',500)]]
+        self.assertEqual(evaluate(ref,report)['matched'],1)
+        self.assertEqual(evaluate(ref,report)['predicted'],1)
+        ref['timing_basis']='unsupported'
+        with self.assertRaises(ValueError):evaluate(ref,report)
+
     def test_duplicate_reference_cannot_reuse_prediction_and_missing_samples_fail(self):
         ref,report=self.pair();ref['groups'][0]['effects']*=2
         self.assertEqual(evaluate(ref,report)['matched'],1)
