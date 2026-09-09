@@ -1,0 +1,1846 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "report_sha256": "1e3355dcff172126fbfdc52c617de7ffd2322cb88fabcff069be897139023fa1",
+  "event": {
+    "id": "outcome-0082",
+    "kind": "outcome",
+    "first_seen_ms": 500500,
+    "last_seen_ms": 502000,
+    "evidence": "gameplay/part-004-frame-000083.png",
+    "context_title": "A Hint for Growth",
+    "effects": [
+      {
+        "kind": "skill_hint_change",
+        "name": "Medium Straightaways \u25cb",
+        "amount": 3,
+        "raw_text": "Gained 3 hint level(s) for Medium Straightaways \u25cb.",
+        "confidence": 97.385,
+        "original_text": "Gained 3 hint level(s) for Medium Straightaways O.",
+        "visual_symbol_observation": {
+          "kind": "single_circle",
+          "symbol": "\u25cb",
+          "box": [
+            310,
+            836,
+            325,
+            852
+          ],
+          "center": [
+            317.5,
+            844.0
+          ],
+          "threshold": 195,
+          "thresholds": [
+            175,
+            185,
+            195,
+            205,
+            215,
+            225
+          ],
+          "votes": 5,
+          "method": "strict_terminal_ring_geometry",
+          "coordinate_space": "gameplay_crop",
+          "source_timestamp_ms": 501000,
+          "evidence": "gameplay/part-004-frame-000085.png",
+          "gameplay_sha256": "f00d3fe819dac2e5991b1cffaf90dbbd523670f9580190d3eb54b0253e041ee4",
+          "source_frame_sha256": "d9b09d904d5fcb269c9eb40d7c180b66908095ffcdef19f3534f0b1f445c23d4",
+          "evidence_sha256": "747d4830f8fa522dd17dbf5f6b73d03d17dcb8631d290919cb39ee125a6140f6"
+        }
+      },
+      {
+        "kind": "skill_hint_change",
+        "name": "Medium Straightaways O",
+        "amount": 3,
+        "raw_text": "Gained 3 hint level(s) for Medium Straightaways O.",
+        "confidence": 98.157
+      },
+      {
+        "kind": "friendship_change",
+        "name": "Agnes Tachyon",
+        "amount": 5,
+        "raw_text": "Friendship with Agnes Tachyon went up by 5.",
+        "confidence": 98.4
+      }
+    ],
+    "field_evidence": {
+      "skill_hint_change||Medium Straightaways \u25cb": [
+        "gameplay/part-004-frame-000083.png",
+        "gameplay/part-004-frame-000084.png",
+        "gameplay/part-004-frame-000085.png"
+      ],
+      "skill_hint_change||Medium Straightaways O": [
+        "gameplay/part-004-frame-000086.png",
+        "gameplay/part-004-frame-000087.png",
+        "gameplay/part-004-frame-000089.png"
+      ],
+      "friendship_change||Agnes Tachyon": [
+        "gameplay/part-004-frame-000086.png",
+        "gameplay/part-004-frame-000087.png",
+        "gameplay/part-004-frame-000088.png",
+        "gameplay/part-004-frame-000089.png"
+      ]
+    },
+    "conflicting_readings": [],
+    "action_time_ms": null,
+    "context_title_candidate": "A Hint for Growth",
+    "deltas": {}
+  },
+  "rows": [
+    {
+      "evidence": "gameplay/part-004-frame-000083.png",
+      "source_timestamp_ms": 500500,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.964,
+            "box": [
+              156,
+              4,
+              217,
+              30
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 99.954,
+            "box": [
+              389,
+              34,
+              536,
+              54
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.778,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 98.56,
+            "box": [
+              446,
+              63,
+              678,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.499,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 87.053,
+            "box": [
+              377,
+              73,
+              445,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 94.216,
+            "box": [
+              772,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 97.442,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 93.348,
+            "box": [
+              284,
+              110,
+              356,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 93.848,
+            "box": [
+              284,
+              126,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 98.719,
+            "box": [
+              382,
+              120,
+              441,
+              154
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.798,
+            "box": [
+              733,
+              122,
+              803,
+              151
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 98.874,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 97.453,
+            "box": [
+              241,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "a",
+            "confidence": 85.639,
+            "box": [
+              703,
+              539,
+              723,
+              555
+            ]
+          },
+          {
+            "text": "HINL",
+            "confidence": 73.846,
+            "box": [
+              381,
+              591,
+              544,
+              661
+            ]
+          },
+          {
+            "text": "TUPY",
+            "confidence": 80.396,
+            "box": [
+              569,
+              588,
+              717,
+              662
+            ]
+          },
+          {
+            "text": "Medium Straightaways ",
+            "confidence": 97.66,
+            "box": [
+              400,
+              680,
+              644,
+              710
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Medium Straightaways \u25cb.",
+            "confidence": 96.875,
+            "box": [
+              316,
+              806,
+              640,
+              862
+            ],
+            "original_text": "Gained 3 hint level(s) for Medium Straightaways .",
+            "original_symbol_text": "Gained 3 hint level(s) for Medium Straightaways .",
+            "visual_symbol_observation": {
+              "kind": "single_circle",
+              "symbol": "\u25cb",
+              "box": [
+                310,
+                836,
+                325,
+                852
+              ],
+              "center": [
+                317.5,
+                844.0
+              ],
+              "threshold": 195,
+              "thresholds": [
+                175,
+                185,
+                195,
+                205,
+                215,
+                225
+              ],
+              "votes": 5,
+              "method": "strict_terminal_ring_geometry",
+              "coordinate_space": "gameplay_crop",
+              "source_timestamp_ms": 500500,
+              "evidence": "gameplay/part-004-frame-000083.png",
+              "gameplay_sha256": "b3700595bd9e0d99f676f484522e9d013a4c6bf245950c1417ded2a06052f009",
+              "source_frame_sha256": "946bdab4cdb75a0c1e642944a65de6bc540c9f705bc2c0b2091f7d1453d74c52",
+              "evidence_sha256": "88d8408cc4d5a17272663ebaf7298150beb1690b2e485a3868f9fcf44ecdf693"
+            },
+            "text_normalization": "receipt_circle_suffix_wrapped",
+            "wrapped_receipt_parts": [
+              {
+                "text": "Gained 3 hint level(s) for Medium",
+                "confidence": 96.875,
+                "box": [
+                  318,
+                  806,
+                  640,
+                  833
+                ]
+              },
+              {
+                "text": "Straightaways .",
+                "confidence": 98.622,
+                "box": [
+                  316,
+                  830,
+                  485,
+                  862
+                ]
+              }
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.942,
+            "box": [
+              520,
+              1036,
+              612,
+              1071
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.993,
+            "box": [
+              672,
+              1038,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "facts": {}
+    },
+    {
+      "evidence": "gameplay/part-004-frame-000084.png",
+      "source_timestamp_ms": 500750,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.954,
+            "box": [
+              156,
+              5,
+              217,
+              30
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 99.954,
+            "box": [
+              389,
+              34,
+              536,
+              54
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.778,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 98.56,
+            "box": [
+              446,
+              63,
+              678,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.499,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 86.88,
+            "box": [
+              377,
+              73,
+              444,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.898,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 97.442,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 95.062,
+            "box": [
+              284,
+              110,
+              355,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 99.13,
+            "box": [
+              285,
+              127,
+              366,
+              151
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 98.719,
+            "box": [
+              382,
+              120,
+              441,
+              154
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.803,
+            "box": [
+              734,
+              122,
+              803,
+              151
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 97.352,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 99.854,
+            "box": [
+              242,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "a",
+            "confidence": 79.27,
+            "box": [
+              703,
+              539,
+              723,
+              555
+            ]
+          },
+          {
+            "text": "HINT LvI UP!",
+            "confidence": 98.361,
+            "box": [
+              383,
+              590,
+              716,
+              658
+            ]
+          },
+          {
+            "text": "Medium Straightaways",
+            "confidence": 99.849,
+            "box": [
+              401,
+              676,
+              645,
+              706
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Medium Straightaways \u25cb.",
+            "confidence": 96.893,
+            "box": [
+              316,
+              806,
+              640,
+              862
+            ],
+            "original_text": "Gained 3 hint level(s) for Medium Straightaways .",
+            "original_symbol_text": "Gained 3 hint level(s) for Medium Straightaways .",
+            "visual_symbol_observation": {
+              "kind": "single_circle",
+              "symbol": "\u25cb",
+              "box": [
+                310,
+                836,
+                325,
+                852
+              ],
+              "center": [
+                317.5,
+                844.0
+              ],
+              "threshold": 195,
+              "thresholds": [
+                175,
+                185,
+                195,
+                205,
+                215,
+                225
+              ],
+              "votes": 5,
+              "method": "strict_terminal_ring_geometry",
+              "coordinate_space": "gameplay_crop",
+              "source_timestamp_ms": 500750,
+              "evidence": "gameplay/part-004-frame-000084.png",
+              "gameplay_sha256": "fb14c7c7721c23cbf5032ebe37b4dc9c59f6c96a4fb9940d64b066b8a60c2584",
+              "source_frame_sha256": "3cdf84f767267b2e05405ad40c7f848901ab6ede7a8dbb703602a42550819955",
+              "evidence_sha256": "df66d22f65e0445a85f84fd3201f11e54b82a29d959babe77a84cfcfce4305d2"
+            },
+            "text_normalization": "receipt_circle_suffix_wrapped",
+            "wrapped_receipt_parts": [
+              {
+                "text": "Gained 3 hint level(s) for Medium",
+                "confidence": 96.893,
+                "box": [
+                  318,
+                  806,
+                  640,
+                  833
+                ]
+              },
+              {
+                "text": "Straightaways .",
+                "confidence": 98.639,
+                "box": [
+                  316,
+                  830,
+                  485,
+                  862
+                ]
+              }
+            ]
+          },
+          {
+            "text": "I",
+            "confidence": 67.252,
+            "box": [
+              866,
+              1015,
+              925,
+              1067
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.954,
+            "box": [
+              520,
+              1036,
+              611,
+              1071
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.993,
+            "box": [
+              672,
+              1038,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "facts": {}
+    },
+    {
+      "evidence": "gameplay/part-004-frame-000085.png",
+      "source_timestamp_ms": 501000,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.946,
+            "box": [
+              156,
+              5,
+              216,
+              29
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 99.947,
+            "box": [
+              389,
+              34,
+              536,
+              54
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.771,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 98.48,
+            "box": [
+              446,
+              63,
+              678,
+              88
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.191,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 91.255,
+            "box": [
+              377,
+              73,
+              444,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 96.293,
+            "box": [
+              773,
+              74,
+              835,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 99.977,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 96.317,
+            "box": [
+              283,
+              110,
+              354,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 99.092,
+            "box": [
+              285,
+              127,
+              366,
+              151
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.748,
+            "box": [
+              382,
+              120,
+              440,
+              154
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.761,
+            "box": [
+              720,
+              123,
+              803,
+              151
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 96.675,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 99.864,
+            "box": [
+              242,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "a",
+            "confidence": 77.2,
+            "box": [
+              703,
+              538,
+              723,
+              554
+            ]
+          },
+          {
+            "text": "HINT LvI UP!",
+            "confidence": 97.744,
+            "box": [
+              384,
+              590,
+              715,
+              658
+            ]
+          },
+          {
+            "text": "Medium Straightaways",
+            "confidence": 99.898,
+            "box": [
+              400,
+              675,
+              645,
+              707
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Medium Straightaways \u25cb.",
+            "confidence": 97.385,
+            "box": [
+              316,
+              806,
+              640,
+              862
+            ],
+            "original_text": "Gained 3 hint level(s) for Medium Straightaways O.",
+            "original_symbol_text": "Gained 3 hint level(s) for Medium Straightaways O.",
+            "visual_symbol_observation": {
+              "kind": "single_circle",
+              "symbol": "\u25cb",
+              "box": [
+                310,
+                836,
+                325,
+                852
+              ],
+              "center": [
+                317.5,
+                844.0
+              ],
+              "threshold": 195,
+              "thresholds": [
+                175,
+                185,
+                195,
+                205,
+                215,
+                225
+              ],
+              "votes": 5,
+              "method": "strict_terminal_ring_geometry",
+              "coordinate_space": "gameplay_crop",
+              "source_timestamp_ms": 501000,
+              "evidence": "gameplay/part-004-frame-000085.png",
+              "gameplay_sha256": "f00d3fe819dac2e5991b1cffaf90dbbd523670f9580190d3eb54b0253e041ee4",
+              "source_frame_sha256": "d9b09d904d5fcb269c9eb40d7c180b66908095ffcdef19f3534f0b1f445c23d4",
+              "evidence_sha256": "747d4830f8fa522dd17dbf5f6b73d03d17dcb8631d290919cb39ee125a6140f6"
+            },
+            "text_normalization": "receipt_circle_suffix_wrapped",
+            "wrapped_receipt_parts": [
+              {
+                "text": "Gained 3 hint level(s) for Medium",
+                "confidence": 97.58,
+                "box": [
+                  318,
+                  806,
+                  640,
+                  833
+                ]
+              },
+              {
+                "text": "Straightaways O.",
+                "confidence": 97.385,
+                "box": [
+                  316,
+                  830,
+                  485,
+                  862
+                ]
+              }
+            ]
+          },
+          {
+            "text": "I",
+            "confidence": 67.865,
+            "box": [
+              867,
+              1016,
+              925,
+              1067
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.95,
+            "box": [
+              520,
+              1036,
+              612,
+              1071
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.992,
+            "box": [
+              672,
+              1038,
+              734,
+              1066
+            ]
+          }
+        ]
+      },
+      "facts": {}
+    },
+    {
+      "evidence": "gameplay/part-004-frame-000086.png",
+      "source_timestamp_ms": 501250,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.956,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 96.792,
+            "box": [
+              389,
+              35,
+              536,
+              55
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.734,
+            "box": [
+              322,
+              62,
+              376,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 94.986,
+            "box": [
+              444,
+              62,
+              677,
+              87
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.55,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 91.255,
+            "box": [
+              377,
+              73,
+              444,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 96.293,
+            "box": [
+              773,
+              74,
+              835,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 99.974,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 98.598,
+            "box": [
+              284,
+              110,
+              356,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 94.143,
+            "box": [
+              284,
+              126,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.807,
+            "box": [
+              381,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 98.936,
+            "box": [
+              724,
+              119,
+              805,
+              151
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 96.652,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 99.688,
+            "box": [
+              242,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Medium",
+            "confidence": 96.592,
+            "box": [
+              318,
+              806,
+              640,
+              833
+            ]
+          },
+          {
+            "text": "Straightaways O.",
+            "confidence": 98.244,
+            "box": [
+              318,
+              832,
+              484,
+              859
+            ]
+          },
+          {
+            "text": "Friendship with Agnes Tachyon went up by 5.",
+            "confidence": 98.29,
+            "box": [
+              316,
+              856,
+              746,
+              884
+            ]
+          },
+          {
+            "text": "I",
+            "confidence": 64.426,
+            "box": [
+              869,
+              1016,
+              925,
+              1067
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.949,
+            "box": [
+              520,
+              1036,
+              612,
+              1071
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.974,
+            "box": [
+              671,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "facts": {}
+    },
+    {
+      "evidence": "gameplay/part-004-frame-000087.png",
+      "source_timestamp_ms": 501500,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.956,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 96.792,
+            "box": [
+              389,
+              35,
+              536,
+              55
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.774,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 94.986,
+            "box": [
+              444,
+              62,
+              677,
+              87
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.55,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 85.805,
+            "box": [
+              377,
+              72,
+              444,
+              97
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 96.293,
+            "box": [
+              773,
+              74,
+              835,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 99.974,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 98.598,
+            "box": [
+              284,
+              110,
+              356,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 94.144,
+            "box": [
+              284,
+              126,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.807,
+            "box": [
+              381,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": " GREAT",
+            "confidence": 94.117,
+            "box": [
+              720,
+              120,
+              805,
+              151
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 96.679,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 99.688,
+            "box": [
+              242,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Medium",
+            "confidence": 98.378,
+            "box": [
+              317,
+              804,
+              640,
+              835
+            ]
+          },
+          {
+            "text": "Straightaways O.",
+            "confidence": 98.176,
+            "box": [
+              318,
+              832,
+              484,
+              859
+            ]
+          },
+          {
+            "text": "Friendship with Agnes Tachyon went up by 5.",
+            "confidence": 98.37,
+            "box": [
+              316,
+              856,
+              746,
+              884
+            ]
+          },
+          {
+            "text": "I",
+            "confidence": 64.743,
+            "box": [
+              869,
+              1016,
+              925,
+              1067
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.866,
+            "box": [
+              518,
+              1034,
+              611,
+              1074
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.974,
+            "box": [
+              671,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "facts": {}
+    },
+    {
+      "evidence": "gameplay/part-004-frame-000088.png",
+      "source_timestamp_ms": 501750,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.956,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 96.792,
+            "box": [
+              389,
+              35,
+              536,
+              55
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.734,
+            "box": [
+              322,
+              62,
+              376,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 94.986,
+            "box": [
+              444,
+              62,
+              677,
+              87
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.55,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 85.805,
+            "box": [
+              377,
+              72,
+              444,
+              97
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.974,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 99.974,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 98.598,
+            "box": [
+              284,
+              110,
+              356,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 94.143,
+            "box": [
+              284,
+              126,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.807,
+            "box": [
+              381,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.819,
+            "box": [
+              732,
+              121,
+              803,
+              150
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 96.652,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 99.688,
+            "box": [
+              242,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Mecum",
+            "confidence": 0,
+            "box": [
+              316,
+              804,
+              640,
+              837
+            ],
+            "overlay_occluded": true,
+            "pre_occlusion_confidence": 99.241
+          },
+          {
+            "text": "Straightaways O.",
+            "confidence": 96.82,
+            "box": [
+              317,
+              830,
+              485,
+              860
+            ]
+          },
+          {
+            "text": "Friendship with Agnes Tachyon went up by 5.",
+            "confidence": 98.318,
+            "box": [
+              316,
+              856,
+              746,
+              884
+            ]
+          },
+          {
+            "text": "I",
+            "confidence": 64.787,
+            "box": [
+              869,
+              1016,
+              925,
+              1067
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.948,
+            "box": [
+              520,
+              1036,
+              612,
+              1071
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.974,
+            "box": [
+              671,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "occluded_receipt_lines": [
+          {
+            "text": "Gained 3 hint level(s) for Mecum",
+            "box": [
+              316,
+              804,
+              640,
+              837
+            ],
+            "confidence": 99.241,
+            "overlay_boxes": [
+              [
+                598,
+                817,
+                611,
+                833
+              ]
+            ],
+            "recipient_name_occluded": false
+          }
+        ]
+      }
+    },
+    {
+      "evidence": "gameplay/part-004-frame-000089.png",
+      "source_timestamp_ms": 502000,
+      "ocr": {
+        "neural": [
+          {
+            "text": "Career",
+            "confidence": 99.956,
+            "box": [
+              154,
+              4,
+              218,
+              30
+            ]
+          },
+          {
+            "text": "Classic Year Late Mar",
+            "confidence": 96.792,
+            "box": [
+              389,
+              35,
+              536,
+              55
+            ]
+          },
+          {
+            "text": "3",
+            "confidence": 99.957,
+            "box": [
+              266,
+              53,
+              313,
+              104
+            ]
+          },
+          {
+            "text": "turn(s)",
+            "confidence": 99.774,
+            "box": [
+              322,
+              62,
+              375,
+              82
+            ]
+          },
+          {
+            "text": "Place top 5 in NHK Mile C.",
+            "confidence": 94.986,
+            "box": [
+              444,
+              62,
+              677,
+              87
+            ]
+          },
+          {
+            "text": "left",
+            "confidence": 99.55,
+            "box": [
+              321,
+              78,
+              357,
+              101
+            ]
+          },
+          {
+            "text": "CGoal",
+            "confidence": 91.255,
+            "box": [
+              377,
+              73,
+              444,
+              98
+            ]
+          },
+          {
+            "text": "Details",
+            "confidence": 99.974,
+            "box": [
+              773,
+              74,
+              836,
+              99
+            ]
+          },
+          {
+            "text": "Entry criteria met!",
+            "confidence": 99.974,
+            "box": [
+              447,
+              88,
+              603,
+              112
+            ]
+          },
+          {
+            "text": "Concert in",
+            "confidence": 98.598,
+            "box": [
+              284,
+              110,
+              356,
+              131
+            ]
+          },
+          {
+            "text": "6 turn(s)",
+            "confidence": 94.144,
+            "box": [
+              284,
+              126,
+              367,
+              153
+            ]
+          },
+          {
+            "text": "Energy",
+            "confidence": 99.807,
+            "box": [
+              381,
+              120,
+              441,
+              155
+            ]
+          },
+          {
+            "text": "GREAT",
+            "confidence": 99.814,
+            "box": [
+              733,
+              122,
+              804,
+              151
+            ]
+          },
+          {
+            "text": "Support Card Event",
+            "confidence": 96.679,
+            "box": [
+              241,
+              169,
+              400,
+              195
+            ]
+          },
+          {
+            "text": "A Hint for Growth",
+            "confidence": 99.688,
+            "box": [
+              242,
+              205,
+              406,
+              229
+            ]
+          },
+          {
+            "text": "Gained 3 hint level(s) for Medium",
+            "confidence": 98.475,
+            "box": [
+              318,
+              806,
+              640,
+              833
+            ]
+          },
+          {
+            "text": "Straightaways O.",
+            "confidence": 98.157,
+            "box": [
+              318,
+              832,
+              484,
+              859
+            ]
+          },
+          {
+            "text": "Friendship with Agnes Tachyon went up by 5.",
+            "confidence": 98.4,
+            "box": [
+              316,
+              856,
+              746,
+              884
+            ]
+          },
+          {
+            "text": "I",
+            "confidence": 64.787,
+            "box": [
+              869,
+              1016,
+              925,
+              1067
+            ]
+          },
+          {
+            "text": "Skip",
+            "confidence": 99.828,
+            "box": [
+              518,
+              1034,
+              612,
+              1074
+            ]
+          },
+          {
+            "text": "Quick",
+            "confidence": 99.974,
+            "box": [
+              671,
+              1037,
+              733,
+              1065
+            ]
+          }
+        ]
+      },
+      "facts": {}
+    }
+  ]
+}

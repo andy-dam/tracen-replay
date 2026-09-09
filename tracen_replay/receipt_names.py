@@ -108,7 +108,47 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             (e.get('name') and identity(e) in disputed)]
 
 
-def collapse_visual_hint_variants(event,timestamps):
+def _occluded_wrapped_hint_bridge(start,end,effect,rows_by_evidence):
+    """Prove continuity across one obscured first line, without reading its name."""
+    if end-start!=500:return None
+    selected=[]
+    for time in (start,start+250,end):
+        rows=[r for r in rows_by_evidence.values() if r['source_timestamp_ms']==time]
+        if len(rows)!=1:return None
+        selected.append(rows[0])
+    before,middle,after=selected
+    if _dialogue_text_moved(before,middle) or _dialogue_text_moved(middle,after):return None
+    prefix=f"Gained {effect['amount']} hint level(s) for "
+    def parts(row):
+        lines=row.get('ocr',{}).get('neural',[])
+        matches=[]
+        for a,b in zip(lines,lines[1:]):
+            if min(a.get('confidence',0),b.get('confidence',0))<95:continue
+            if a.get('text','')+' '+b.get('text','')!=effect.get('raw_text'):continue
+            ba,bb=a.get('box',[]),b.get('box',[])
+            if len(ba)!=4 or len(bb)!=4:continue
+            if not 780<=ba[1]<bb[1]<=960 or bb[1]-ba[1]>=40 or abs(ba[0]-bb[0])>15:continue
+            matches.append((a,b))
+        return matches
+    a,b=parts(before),parts(after)
+    if len(a)!=1 or len(b)!=1:return None
+    def near(x,y):
+        if len(x)!=4 or len(y)!=4:return False
+        intersection=max(0,min(x[2],y[2])-max(x[0],y[0]))*max(0,min(x[3],y[3])-max(x[1],y[1]))
+        union=(x[2]-x[0])*(x[3]-x[1])+(y[2]-y[0])*(y[3]-y[1])-intersection
+        return union>0 and intersection/union>=.8 and abs(x[0]-y[0])<=3 and abs(x[2]-y[2])<=3 and abs(x[1]+x[3]-y[1]-y[3])<=6
+    if any(x['text']!=y['text'] or not near(x['box'],y['box']) for x,y in zip(a[0],b[0])):return None
+    occluded=[l for l in middle.get('facts',{}).get('occluded_receipt_lines',[])
+              if l.get('text','').startswith(prefix) and l.get('overlay_boxes')
+              and near(l.get('box',[]),a[0][0]['box']) and near(l.get('box',[]),b[0][0]['box'])]
+    tails=[l for l in middle.get('ocr',{}).get('neural',[]) if l.get('confidence',0)>=95
+           and l.get('text')==a[0][1]['text'] and near(l.get('box',[]),a[0][1]['box'])
+           and near(l.get('box',[]),b[0][1]['box'])]
+    if len(occluded)!=1 or len(tails)!=1:return None
+    return middle['evidence']
+
+
+def collapse_visual_hint_variants(event,timestamps,rows_by_evidence=None):
     """Keep one award when contiguous receipt frames lose a proven marker.
 
     Only the exact original OCR sentence of a pixel-corrected observation may
@@ -132,13 +172,20 @@ def collapse_visual_hint_variants(event,timestamps):
             strong_times=sorted({timestamps[p] for p in event['field_evidence'].get(strong_key,[]) if p in timestamps})
             if len(strong_times)<2 or not weak_times:continue
             combined=sorted(set(strong_times+weak_times))
-            if any(b-a>250 for a,b in zip(combined,combined[1:])):continue
-            candidates.append(strong)
+            bridges=[];unresolved=False
+            for a,b in zip(combined,combined[1:]):
+                if b-a<=250:continue
+                bridge=_occluded_wrapped_hint_bridge(a,b,weak,rows_by_evidence or {})
+                if bridge is None:unresolved=True;break
+                bridges.append(bridge)
+            if unresolved:continue
+            candidates.append((strong,bridges))
         if len(candidates)!=1:continue
-        target=candidates[0]
+        target,bridges=candidates[0]
         target.setdefault('observed_name_candidates',[target['name']]).append(weak['name'])
         target.setdefault('alternate_name_evidence',[]).append(dict(name=weak['name'],evidence=list(weak_proofs)))
         target['name_resolution']='exact_original_text_in_contiguous_pixel_verified_hint_receipt'
+        if bridges:target['occluded_continuity_evidence']=bridges
         removed.append(weak)
     event['effects']=[e for e in event['effects'] if e not in removed]
 
