@@ -5,9 +5,9 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest test run passes 669 automated tests.
+recording and 130 in the second. The latest test run passes 677 automated tests.
 All 12 preserved-reference checks in
-`choice-integration-v2/preserved-reference-regression.json` pass against the
+`batch-final-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
 
@@ -26,38 +26,54 @@ positive-only, and some legacy references have undeclared completeness. The
 scorer can report passing scoped agreement for legacy references while listing
 their undeclared completeness separately; that field is not a completeness gate.
 
-Race references match all twelve results and all 118 labeled identity, course,
-placing and fan fields, but only eight of twelve exact-frame item-quantity
-comparisons pass. All six bounded choice labels now match: three doctor-event
-choices and three additional source-reviewed choices. Two missing selections
+Race references match all twelve results, all 118 labeled identity, course,
+placing and fan fields, and all twelve exact-frame item-quantity comparisons.
+All three reviewed negative race windows also pass. The latest crop policy
+recovers four previously incomplete quantity snapshots; 55 source-bound
+refinement artifacts passed strict validation. This does not establish item
+identities or reward-list completeness. All six bounded choice labels match:
+three doctor-event choices and three additional source-reviewed choices. Two missing selections
 were recovered through exact-text native card rereads and native-frame selection
 marks. Shrinking cards retain the established option list, unreadable menus
 invalidate identity, and conflicting text or geometry clears tentative history.
 Every card still requires support from distinct source timestamps. Correlated
 crop provenance is retained in the report. This is not full-recording choice recall.
-All 48 reviewed concert panels match their references. Unseen owned-skill pages
+All 48 labeled values across eight reviewed concert panels match their references. Unseen owned-skill pages
 and unexposed concert values remain unknown.
 
-The effect-reference index covers the full recording in its declared window
-union, but has three overlapping partitions, one revision-selection tie and 45
-missing or extra effect issues. These counts are diagnostic, not a disjoint
-whole-recording accuracy score. Incomplete labels and recognition failures still
-need resolution. Neither full semantic recall nor Go readiness is established.
+The development effect-reference index now has 45 disjoint sections, with no
+overlap or revision-selection tie. It preserves 254 selected groups containing
+876 effect labels and all 7,107 quarter-second sample timestamps. Original
+references, parent hashes and label provenance remain separate from the derived
+development slices. Two references explicitly declare incomplete labels; 43
+legacy references leave completeness unspecified.
+
+The current report has 44 missing or extra effect entries in these diagnostics.
+A source-supported separator rule removes one duplicate hint award while
+retaining both spellings and the unresolved rank suffix. Numeric interval
+accounting is unchanged. Reference completeness, recognition failures and
+unobservable fields still need adjudication. Neither full semantic recall nor
+Go readiness is established.
 
 Both published reports now carry the validated producer/consumer schema version.
-The original report's gameplay data is unchanged. The second report retains all
-seven earlier choice identities and adds two, with all non-choice gameplay data
-unchanged. Previous report bytes and the initial separate-recording evaluation
-remain preserved. Legacy unversioned capture adaptation is restricted to the
-producer; generic consumers require an explicit supported schema.
+The original report's gameplay data is unchanged. The latest second-report
+changes are confined to race quantity observations and aggregates, plus the
+duplicate hint and its linked interval evidence. Previous report bytes, replaced
+refinement sidecars, historical crop proofs and the initial separate-recording
+evaluation remain preserved. Legacy unversioned capture adaptation is restricted
+to the producer; generic consumers require an explicit supported schema.
 
 Current report SHA-256 values are
 `afa1f4ea32e7bf1c199d8f80e928db7a7490bb25efcf0d5fbc61745a3b368c5d`
 (original) and
-`e60b6a5117a8f8a5a73142453fb7754d7ddde15c44588298d456e4503ad5b5ef`
-(second). The local corpus index and score hashes are
+`1ede0e192d2b900ce8f49e11b68d9e82d41fef4ba7fa3e92371c12428fa99bf1`
+(second). The action corpus index SHA-256 is
 `8189172fb21291b1cc5761a4a6e17239f3985ad5b42db3f1bd68b3d137be25c5`
-and `2432b14fdbee13033257fb2b4fde92995a6f9944985e6d0ac6048c40feec63bd`.
+and its report-bound score is in
+`batch-final-validation-v1/action-score.json`. The disjoint effect index is
+`reference-index-v6/index.json`, with SHA-256
+`c9538df54b33ff40f0002d20562507c54a8bb87510227131e21a1fea178c5919`;
+its current report-bound score is in `batch-final-validation-v1/effect-score.json`.
 
 ## Earlier 473-test snapshot
 
