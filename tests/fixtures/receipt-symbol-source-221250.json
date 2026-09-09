@@ -1,0 +1,28 @@
+{
+  "fixture": "receipt-symbol-source-221250.png",
+  "fixture_sha256": "11bab0cb6d8757c96bd543e252dc91a6a8c665d4c251802115e9110844accf63",
+  "neural_fixture": "receipt-symbol-source-221250-neural.json",
+  "neural_fixture_sha256": "fe2b7392511d17f5cd69eb52c879e95dc2db990a1c37e09e071fb82b9d6bb6e8",
+  "pane_size": [810, 1080],
+  "pane_gameplay_sha256": "88c1627121a027e5357686ebc9b1c6e1ae6805f749ac64f862811e9e14471852",
+  "source_recording": "2026-09-08 12-21-21.mp4",
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "source_timestamp_ms": 221250,
+  "source_frame": "part-001/frames/000406.jpg",
+  "source_frame_sha256": "f9f6769493c9707019b94564c36f82e6ad77d42991da1630ba210ce4008aef51",
+  "source_frame_fixture": "receipt-symbol-source-221250-full.jpg",
+  "source_frame_fixture_sha256": "f9f6769493c9707019b94564c36f82e6ad77d42991da1630ba210ce4008aef51",
+  "evidence": "gameplay/part-001-frame-000406.png",
+  "evidence_sha256": "11bab0cb6d8757c96bd543e252dc91a6a8c665d4c251802115e9110844accf63",
+  "receipt_box": [318, 807, 743, 833],
+  "companion_line": {
+    "text": "Firm Conditions",
+    "confidence": 99.043,
+    "box": [402, 678, 579, 704]
+  },
+  "receipt_line": {
+    "text": "Gained 2 hint level(s) for Firm Conditions O.",
+    "confidence": 98.936,
+    "box": [318, 807, 743, 833]
+  }
+}

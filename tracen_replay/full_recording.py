@@ -21,6 +21,31 @@ def save_json(path,value):
     temporary.replace(path)
 
 
+def parse_receipt_pixels(raw,root,frame,original=None):
+    """Apply source-bound receipt checks before interpreting an OCR observation."""
+    from .receipt_occlusion import annotate_path
+    root=Path(root)
+    evidence_path=root/raw['evidence']
+    checked=annotate_path(raw,evidence_path,original)
+    # Open pixels for suffix recovery only when an eligible receipt exists.
+    # Occlusion runs first: a blocked line must not regain confidence here.
+    if any(line.get('confidence',0)>=95 and line.get('text','').startswith('Gained ')
+           and line.get('text','').endswith(' O.') for line in checked['lines']):
+        from PIL import Image
+        from .receipt_symbols import annotate
+        if checked['source_timestamp_ms']!=frame['source_timestamp_ms']:
+            raise PipelineError('Receipt-symbol timestamp differs from capture.')
+        proof=dict(source_timestamp_ms=frame['source_timestamp_ms'],evidence=checked['evidence'],
+                   gameplay_sha256=checked['gameplay_sha256'],
+                   source_frame_sha256=checked['source_frame_sha256'],
+                   source_frame_path=root/frame['evidence'],evidence_path=evidence_path,
+                   evidence_sha256=hashlib.sha256(evidence_path.read_bytes()).hexdigest())
+        if checked.get('source_sha256') is not None:proof['source_sha256']=checked['source_sha256']
+        with Image.open(evidence_path) as pane:
+            checked=annotate(checked,pane,proof)
+    return parse(checked)
+
+
 def capture(source,root,fps):
     source=Path(source).resolve();root=Path(root)
     info,video,duration,origin=probe(source)
@@ -85,8 +110,7 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr'):
                 save_json(root/'progress.json',progress);print(json.dumps(progress),flush=True)
     readings=[]
     for frame in report['frames']:
-        from .receipt_occlusion import annotate_path
-        raw=raws[frame['id']];row=parse(annotate_path(raw,root/raw['evidence']));row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
+        raw=raws[frame['id']];row=parse_receipt_pixels(raw,root,frame);row.update(source_timestamp_ms=raw['source_timestamp_ms'],evidence=raw['evidence']);readings.append(row)
     return readings
 
 
@@ -160,8 +184,7 @@ def cached_readings(report,root,allow_partial=False):
             from .concert_panel_refinement import apply as apply_concert_panel
             raw=apply_concert_panel(raw,json.loads(concert_panel.read_text(encoding='utf-8')),
                 root/raw['evidence'],observation_root=root,original=original)
-        from .receipt_occlusion import annotate_path
-        row=parse(annotate_path(raw,root/raw['evidence'],original))
+        row=parse_receipt_pixels(raw,root,frame,original)
         inventory=root/'inventory-refinement'/path.name
         if inventory.exists():
             from .refine_inventory import apply as apply_inventory

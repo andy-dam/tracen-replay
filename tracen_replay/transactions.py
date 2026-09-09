@@ -489,6 +489,8 @@ def outcome_events(readings):
         reconcile_animated_performance(event,readings)
         reconcile_animated_performance(event,readings,stat=True,receipt_observations=receipt_observations)
         event['effects']=list(event['effects'].values())
+        from .receipt_names import collapse_visual_hint_variants
+        collapse_visual_hint_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings})
         # Missing circle glyphs must not turn one visible hint into two awards.
         # Only collapse a suffix alternative when the exact base was also read
         # in this receipt with the same amount; retain the identity uncertainty.

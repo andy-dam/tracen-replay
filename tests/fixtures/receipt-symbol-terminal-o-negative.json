@@ -1,0 +1,16 @@
+{
+  "fixture": "receipt-symbol-terminal-o-negative.png",
+  "fixture_sha256": "945fee1066ee72dbc462d27b482a5a9d93d25cca6da777689eee6f700c6e0d79",
+  "canvas_size": [810, 1080],
+  "font_at_generation": "Arial 20px",
+  "companion": {
+    "text": "GO",
+    "confidence": 99.0,
+    "box": [318, 654, 350, 669]
+  },
+  "receipt": {
+    "text": "Gained 2 hint level(s) for GO O.",
+    "confidence": 99.0,
+    "box": [318, 784, 603, 803]
+  }
+}
