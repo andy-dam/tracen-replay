@@ -24,6 +24,24 @@ class EffectEvaluationTests(unittest.TestCase):
         report['gameplay_tracking']['events'][0]['conflicting_readings']=[dict(field='energy_change||')]
         self.assertFalse(evaluate(ref,report)['passed'])
 
+    def test_source_onset_bracket_accepts_detection_between_reviewed_samples(self):
+        ref,report=self.pair()
+        report['gameplay_tracking']['events'][0]['first_seen_ms']=200
+        self.assertFalse(evaluate(ref,report)['passed'])
+        ref['groups'][0]['onset_window']=dict(last_absent_ms=0,first_present_ms=250)
+        result=evaluate(ref,report)
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['source_onset_windows'],1)
+        report['gameplay_tracking']['events'][0]['first_seen_ms']=0
+        self.assertFalse(evaluate(ref,report)['passed'])
+
+    def test_onset_window_cannot_invent_samples_or_skip_reviewed_absence_bounds(self):
+        for absent,present in ((1,250),(0,500),(250,0),(-250,250)):
+            with self.subTest(absent=absent,present=present):
+                ref,report=self.pair()
+                ref['groups'][0]['onset_window']=dict(last_absent_ms=absent,first_present_ms=present)
+                with self.assertRaises(ValueError):evaluate(ref,report)
+
     def test_explicit_observation_timing_owns_effect_at_right_boundary(self):
         ref,report=self.pair()
         event=report['gameplay_tracking']['events'][0]

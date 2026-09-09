@@ -40,12 +40,24 @@ def evaluate(reference,report,root=None):
                 if not start<=time<end:continue
             predictions.append(dict(event_id=event['id'],time=time,effect=effect,
                 conflicted=any(c.get('field')==key for c in event.get('conflicting_readings',[]))))
-    used=set();missing=[];matched=0
+    used=set();missing=[];matched=0;onset_windows=0
+    reviewed_times=[sample['source_timestamp_ms'] for sample in reference['reviewed_samples']]
     for group in reference['groups']:
         if not start<=group['start_ms']<=group['end_ms']<end:raise ValueError('Group outside scope.')
+        onset=group.get('onset_window')
+        after=None
+        if onset is not None:
+            if not isinstance(onset,dict):raise ValueError('Invalid source onset window.')
+            after,present=onset.get('last_absent_ms'),onset.get('first_present_ms')
+            if type(after) is not int or type(present) is not int or present!=group['start_ms'] or not start<=after<present:
+                raise ValueError('Onset window must end at the first reviewed group sample.')
+            if not any(a==after and b==present for a,b in zip(reviewed_times,reviewed_times[1:])):
+                raise ValueError('Onset bounds must be adjacent reviewed source samples.')
+            onset_windows+=1
         for expected in group['effects']:
             candidates=[(i,p) for i,p in enumerate(predictions) if i not in used and not p['conflicted']
-                and group['start_ms']<=p['time']<=group['end_ms']
+                and (group['start_ms']<=p['time'] if after is None else after<p['time'])
+                and p['time']<=group['end_ms']
                 and all(k in p['effect'] and p['effect'][k]==v for k,v in expected.items())]
             if candidates:used.add(candidates[0][0]);matched+=1
             else:missing.append(dict(start_ms=group['start_ms'],effect=expected))
@@ -88,6 +100,7 @@ def evaluate(reference,report,root=None):
         recall=matched/expected if expected else None,missing=missing,extra_predictions=extras,evidence_errors=evidence_errors,
         passed=not missing and not extras and not evidence_errors and not timing_errors,reviewed_samples=len(samples),
         timing_basis=timing_basis,timing_errors=timing_errors,
+        source_onset_windows=onset_windows,
         evidence_hashes_checked=root is not None,complete_video_frame_review=False,full_recording_effect_recall_measured=False,
         observability_exceptions=exceptions,
         reference_observability='known_exceptions' if exceptions else 'not_adjudicated',
