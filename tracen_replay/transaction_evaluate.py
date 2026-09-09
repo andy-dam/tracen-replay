@@ -8,8 +8,18 @@ from .reconcile import FIELDS
 
 def evaluate(reference,report):
     if reference['source_sha256']!=report['source']['sha256']:raise ValueError('Reference belongs to a different recording.')
+    if not isinstance(reference.get('transactions'),list):raise ValueError('Explicit transaction labels are required.')
+    kinds=reference.get('kinds')
+    if not isinstance(kinds,list) or not kinds or any(k not in ('lesson','concert') for k in kinds):
+        raise ValueError('Declare supported lesson/concert transaction kinds.')
+    negative=reference.get('no_transactions') is True
+    if not reference['transactions'] and not (negative and reference.get('independently_reviewed') is True):
+        raise ValueError('Empty transactions require an explicitly reviewed negative reference.')
+    if negative and reference['transactions']:raise ValueError('Negative reference contains transactions.')
     start,end=reference['start_ms'],reference['end_ms']
     if not 0<=start<end:raise ValueError('Invalid reference bounds.')
+    if 'duration_ms' in report['source'] and end>report['source']['duration_ms']:
+        raise ValueError('Reference exceeds source duration.')
     data=report['gameplay_tracking'];predictions=[]
     if data.get('auxiliary_log_used') is not False:raise ValueError('Only gameplay-only reports are eligible.')
     for purchase in data.get('lesson_purchases',[]):
@@ -42,6 +52,8 @@ def evaluate(reference,report):
                 expected=len(reference['transactions']),matched=len(matches),precision=precision,recall=recall,
                 missing=missing,extra_predictions=extras,field_errors=field_errors,
                 passed=not missing and not extras and not field_errors,
+                independently_reviewed=reference.get('independently_reviewed',False),
+                explicitly_reviewed_negative=negative,
                 independent_recording=False,complete_effect_recall_measured=False)
 
 
