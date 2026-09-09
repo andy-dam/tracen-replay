@@ -39,6 +39,22 @@ class ReceiptKeywordNormalizationTests(unittest.TestCase):
         self.raw['lines'] = [dict(line, confidence=80) if line['text'].startswith('Friewdship') else line for line in self.raw['lines']]
         self.assertFalse(any(e.get('name') == 'Light Hello' for e in self.effects()))
 
+    def test_source_friendship_verb_preserves_recipient_and_amount(self):
+        raw = json.loads(Path('tests/fixtures/receipt-keyword-499000.json').read_text(encoding='utf-8'))
+        effect = next(e for e in parse(raw)['effects'] if e.get('name') == 'Kitasan Black')
+        self.assertEqual(effect['amount'], 6)
+        self.assertEqual(effect['original_text'], 'Friendship with Kitasan Black wert up by 6.')
+        for text, confidence in (
+            ('Friendship with Example Person wert up by 6', 99),
+            ('Friendship with Example Person will go up by 6.', 99),
+            ('Friendship with Example Person wert up by 6.', 80),
+        ):
+            with self.subTest(text=text, confidence=confidence):
+                changed = copy.deepcopy(raw)
+                changed['lines'] = [dict(l, text=text, confidence=confidence)
+                    if 'Kitasan Black' in l['text'] else l for l in changed['lines']]
+                self.assertFalse(any(e.get('name') == 'Example Person' for e in parse(changed)['effects']))
+
     def test_repaired_keyword_does_not_bypass_recipient_occlusion(self):
         import hashlib
         from unittest.mock import patch

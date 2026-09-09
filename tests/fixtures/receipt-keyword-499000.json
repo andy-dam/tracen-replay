@@ -1,0 +1,237 @@
+{
+  "lines": [
+    {
+      "text": "Training",
+      "confidence": 99.977,
+      "box": [
+        149,
+        1,
+        228,
+        32
+      ]
+    },
+    {
+      "text": "Classic Year Late Mar",
+      "confidence": 99.745,
+      "box": [
+        390,
+        35,
+        536,
+        55
+      ]
+    },
+    {
+      "text": "3",
+      "confidence": 99.955,
+      "box": [
+        268,
+        52,
+        314,
+        104
+      ]
+    },
+    {
+      "text": "turn(s)",
+      "confidence": 99.759,
+      "box": [
+        322,
+        62,
+        375,
+        82
+      ]
+    },
+    {
+      "text": "Place top 5 in NHK Mile C.",
+      "confidence": 97.59,
+      "box": [
+        445,
+        63,
+        678,
+        88
+      ]
+    },
+    {
+      "text": "left",
+      "confidence": 87.086,
+      "box": [
+        321,
+        78,
+        358,
+        101
+      ]
+    },
+    {
+      "text": "CGoal",
+      "confidence": 85.684,
+      "box": [
+        378,
+        73,
+        444,
+        98
+      ]
+    },
+    {
+      "text": "Details",
+      "confidence": 94.23,
+      "box": [
+        772,
+        74,
+        835,
+        99
+      ]
+    },
+    {
+      "text": "Entry criteria met!",
+      "confidence": 97.467,
+      "box": [
+        447,
+        88,
+        603,
+        112
+      ]
+    },
+    {
+      "text": "Concert in",
+      "confidence": 98.984,
+      "box": [
+        284,
+        110,
+        356,
+        131
+      ]
+    },
+    {
+      "text": "6 turn(s)",
+      "confidence": 98.867,
+      "box": [
+        285,
+        127,
+        367,
+        151
+      ]
+    },
+    {
+      "text": "Energy",
+      "confidence": 99.106,
+      "box": [
+        382,
+        120,
+        440,
+        154
+      ]
+    },
+    {
+      "text": "GREAT",
+      "confidence": 99.748,
+      "box": [
+        733,
+        122,
+        803,
+        150
+      ]
+    },
+    {
+      "text": "Guts Lvl",
+      "confidence": 99.819,
+      "box": [
+        232,
+        171,
+        311,
+        191
+      ]
+    },
+    {
+      "text": "Incline",
+      "confidence": 99.996,
+      "box": [
+        227,
+        202,
+        295,
+        226
+      ]
+    },
+    {
+      "text": "CMAXS",
+      "confidence": 85.987,
+      "box": [
+        853,
+        321,
+        929,
+        348
+      ]
+    },
+    {
+      "text": "Energy went down by 20.",
+      "confidence": 99.953,
+      "box": [
+        316,
+        806,
+        560,
+        836
+      ]
+    },
+    {
+      "text": "Friendship with Kitasan Black wert up by 6.",
+      "confidence": 98.419,
+      "box": [
+        315,
+        829,
+        732,
+        860
+      ]
+    },
+    {
+      "text": "Friendship with Agnes Tachyon went up by 7.",
+      "confidence": 99.13,
+      "box": [
+        315,
+        855,
+        747,
+        883
+      ]
+    },
+    {
+      "text": "Friendship with Director Akikawa went up by 2.",
+      "confidence": 99.527,
+      "box": [
+        316,
+        878,
+        767,
+        908
+      ]
+    },
+    {
+      "text": "Skip",
+      "confidence": 99.95,
+      "box": [
+        520,
+        1036,
+        611,
+        1068
+      ]
+    },
+    {
+      "text": "Quick",
+      "confidence": 99.993,
+      "box": [
+        672,
+        1038,
+        734,
+        1066
+      ]
+    }
+  ],
+  "regions": {},
+  "header": "Training",
+  "result_grid": false,
+  "current_grid": false,
+  "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7",
+  "model_sha256": {
+    "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+    "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+  },
+  "gameplay_sha256": "2f8f6c8bd22b81f519172c1cac09ba0ee3f384e3d0dd7f4a4ff85ce81d0ae786",
+  "source_timestamp_ms": 499000,
+  "evidence": "gameplay/part-004-frame-000077.png",
+  "source_frame_sha256": "9081b62577144f954de1eccd115acc4cf6b9740c14d490fa808c90a4eb9986f5"
+}
