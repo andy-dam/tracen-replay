@@ -44,9 +44,14 @@ Validated concert-slot refinements retain their supporting source timestamps and
 | Lessons | Named receipt, confirmation and balances | Offered cards, delayed unchanged counters, canceled dialogs |
 | Songs | Learned receipt and supported acquisition route | OCR alternatives as multiple songs, story songs as paid lessons |
 | Concerts | Result/aftermath and explicit bonus update | Planned values as active; missing values as zero |
+| Goal status | Exact readable `Goal Achieved!` in the goal-status area | Persistent status is not a new event, achievement timestamp, or reward |
 | Completion | Observed final attributes and remaining SP | Existing skills as fresh purchases; missing inventory as complete |
 
 Immediate effects, future training modifiers and bonuses queued until a concert are distinct. Performance currencies, caps, fans, energy, mood, friendship and hints are distinct resources. `Speed went up by 6 to new heights.` means **6**; the displayed reduction has already happened. No unseen rewards are computed from scenario formulas.
+
+Cursor checks cover numeric receipts and nonnumeric friendship statuses. When a cursor overlaps a status receipt and character alignment cannot establish which text is obscured, the parser abstains on the whole line. Raw OCR remains available for review. Malformed supporter-join receipts are also surfaced as review candidates; they do not count as confirmed joins.
+
+Validation follows the output type: race fan gains are checked in race receipts, goal status in screen observations, and dialogue awards in event effects. A missing value in the wrong evaluator is not a recognition failure. Moving a reference between these checks must preserve its source evidence and original observation count.
 
 ## Gates before the application
 
