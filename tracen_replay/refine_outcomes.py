@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 from .vision import NeuralReader, within
 from .gameplay import effects_from_lines
@@ -12,9 +13,23 @@ def apply_refinements(raw,refinement):
     if refinement.get('raw_sha256')!=hashlib.sha256(json.dumps(raw,sort_keys=True).encode()).hexdigest():
         raise ValueError('Refinement does not match the original observation.')
     result=dict(raw,lines=[dict(l) for l in raw['lines']])
+    seen=set()
     for item in refinement['lines']:
-        if item['accepted']:
-            result['lines'][item['index']].update(confidence=item['confidence'],original_confidence=item['original_confidence'],refined=True)
+        index=item['index']
+        if type(index) is not int or not 0<=index<len(raw['lines']) or index in seen:
+            raise ValueError('Invalid or duplicate outcome refinement line index.')
+        seen.add(index)
+        original=raw['lines'][index]
+        score=item['confidence']
+        if type(score) not in (int,float) or not math.isfinite(score) or not 0<=score<=100:
+            raise ValueError('Invalid outcome refinement confidence.')
+        if item['original_confidence']!=original['confidence']:
+            raise ValueError('Outcome refinement original confidence mismatch.')
+        # A cached decision is not evidence. Recompute the same-text promotion
+        # from the bound original and the recorded reread on every load.
+        eligible=80<=original['confidence']<95 and within(original,(250,770,850,1000)) and effects_from_lines([original])
+        if eligible and score>=97 and item['text'].strip()==original['text'].strip():
+            result['lines'][index].update(confidence=score,original_confidence=original['confidence'],refined=True)
     return result
 
 
