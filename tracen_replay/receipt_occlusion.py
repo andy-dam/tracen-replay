@@ -51,7 +51,7 @@ def friendship_name_bounds(box,words,columns,line_length):
     """A readable amount cannot establish a cursor-covered recipient name."""
     if line_length<=0 or len(words)!=len(columns) or any(not c for c in columns):return None
     if any(v<0 or v>=line_length for c in columns for v in c):return None
-    if words[:2]!=['Friendship','with'] or 'went' not in words[2:]:return None
+    if len(words)<2 or words[0] not in ('Friendship','Friewdship','Frendship') or words[1]!='with' or 'went' not in words[2:]:return None
     end=words.index('went',2)
     if end<=2:return None
     a,b,c,d=box;scale=(c-a)/line_length

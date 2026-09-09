@@ -1,0 +1,227 @@
+{
+  "lines": [
+    {
+      "text": "Training",
+      "confidence": 99.974,
+      "box": [
+        150,
+        3,
+        226,
+        30
+      ]
+    },
+    {
+      "text": "Junior Year Late Sep",
+      "confidence": 99.956,
+      "box": [
+        388,
+        33,
+        531,
+        58
+      ]
+    },
+    {
+      "text": "turn(s)",
+      "confidence": 99.821,
+      "box": [
+        322,
+        62,
+        375,
+        82
+      ]
+    },
+    {
+      "text": "Earn 3000 fans",
+      "confidence": 99.984,
+      "box": [
+        447,
+        63,
+        579,
+        86
+      ]
+    },
+    {
+      "text": "left",
+      "confidence": 99.727,
+      "box": [
+        322,
+        78,
+        357,
+        101
+      ]
+    },
+    {
+      "text": "SGoal",
+      "confidence": 87.059,
+      "box": [
+        380,
+        73,
+        445,
+        98
+      ]
+    },
+    {
+      "text": "Progress",
+      "confidence": 93.847,
+      "box": [
+        450,
+        88,
+        517,
+        112
+      ]
+    },
+    {
+      "text": "1,756 fan(s) to go",
+      "confidence": 97.362,
+      "box": [
+        537,
+        86,
+        678,
+        113
+      ]
+    },
+    {
+      "text": "Details",
+      "confidence": 99.988,
+      "box": [
+        773,
+        74,
+        835,
+        99
+      ]
+    },
+    {
+      "text": "Concert in",
+      "confidence": 90.66,
+      "box": [
+        284,
+        110,
+        355,
+        131
+      ]
+    },
+    {
+      "text": "turn(s)",
+      "confidence": 86.379,
+      "box": [
+        310,
+        128,
+        366,
+        150
+      ]
+    },
+    {
+      "text": "Energy",
+      "confidence": 99.697,
+      "box": [
+        381,
+        120,
+        440,
+        153
+      ]
+    },
+    {
+      "text": "GREAT",
+      "confidence": 99.77,
+      "box": [
+        725,
+        121,
+        793,
+        149
+      ]
+    },
+    {
+      "text": "Speed Lvl 1",
+      "confidence": 97.315,
+      "box": [
+        229,
+        168,
+        331,
+        194
+      ]
+    },
+    {
+      "text": "Turf",
+      "confidence": 99.995,
+      "box": [
+        228,
+        201,
+        275,
+        227
+      ]
+    },
+    {
+      "text": "TUP",
+      "confidence": 99.641,
+      "box": [
+        870,
+        316,
+        918,
+        340
+      ]
+    },
+    {
+      "text": "Energy went down by 17.",
+      "confidence": 98.544,
+      "box": [
+        317,
+        807,
+        560,
+        834
+      ]
+    },
+    {
+      "text": "Friewdship with Light Hello went up by 4.",
+      "confidence": 97.747,
+      "box": [
+        315,
+        829,
+        709,
+        860
+      ]
+    },
+    {
+      "text": "Friendship with Agnes Tachyon went up by 7.",
+      "confidence": 99.538,
+      "box": [
+        316,
+        856,
+        747,
+        884
+      ]
+    },
+    {
+      "text": "Skip",
+      "confidence": 99.823,
+      "box": [
+        520,
+        1036,
+        574,
+        1070
+      ]
+    },
+    {
+      "text": "Quick",
+      "confidence": 99.994,
+      "box": [
+        672,
+        1038,
+        734,
+        1066
+      ]
+    }
+  ],
+  "regions": {},
+  "header": "Training",
+  "result_grid": false,
+  "current_grid": false,
+  "engine_fingerprint": "a3a1ad748ef1cb4336eaf919abe12878970357658c25b18f583e6877194acfc7",
+  "model_sha256": {
+    "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+    "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+  },
+  "gameplay_sha256": "21ec4fe2e5b4aebf9bc95b62944d47dcf7da2ddf1aa43b9f0e9fef01ce94affb",
+  "source_timestamp_ms": 249000,
+  "evidence": "gameplay/part-002-frame-000037.png",
+  "source_frame_sha256": "c011536e040d4ce979710622e26dea00407393f344fc46a90dde6d054707397a"
+}
