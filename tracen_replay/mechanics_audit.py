@@ -3,6 +3,19 @@ from collections import Counter
 import re
 
 
+_RECEIPT_PREFIX=re.compile(r'^(?:Gained \d|Learned |Acquired |(?:Max )?Energy |Friendship with |'
+                          r'(?:Speed|Stamina|Power|Guts|Wit|Skill Pts|Dance|Passion|Vocals?|Visuals?|Composure) '
+                          r'(?:cap |Bonus |went )|(?:Front Runner|Pace Chaser|Sprint|Mile|Medium|Long) Aptitude )',re.I)
+_SUPPORTER_PREFIX=re.compile(r'^.+? joined your\b',re.I)
+
+
+def plausible_receipt_line(line):
+    """Recognize receipt-shaped uncertainty, without accepting an effect."""
+    from .vision import within
+    return (line['confidence']>=95 and within(line,(250,770,850,1000))
+            and bool(_RECEIPT_PREFIX.match(line['text']) or _SUPPORTER_PREFIX.match(line['text'])))
+
+
 def fan_accounting(races, events):
     states = [r for r in races if type(r.get('fans')) is int]
     intervals = []
@@ -46,18 +59,12 @@ def song_acquisitions(events, lessons):
 
 def unparsed_receipt_candidates(readings):
     """Expose plausible missed receipts without guessing their meaning or value."""
-    from .vision import within
     from .gameplay import effects_from_lines
     result=[];latest={}
-    prefix=re.compile(r'^(?:Gained \d|Learned |Acquired |(?:Max )?Energy |Friendship with |'
-                      r'(?:Speed|Stamina|Power|Guts|Wit|Skill Pts|Dance|Passion|Vocals?|Visuals?|Composure) '
-                      r'(?:cap |Bonus |went )|(?:Front Runner|Pace Chaser|Sprint|Mile|Medium|Long) Aptitude )',re.I)
-    supporter=re.compile(r'^.+? joined your\b',re.I)
     for row in readings:
         if row['screen'] not in ('unknown','event_outcome'):continue
         for line in row.get('ocr',{}).get('neural',[]):
-            if line['confidence']<95 or not within(line,(250,770,850,1000)):continue
-            if not (prefix.match(line['text']) or supporter.match(line['text'])):continue
+            if not plausible_receipt_line(line):continue
             if effects_from_lines([line]):continue
             if any(line['text'] in e.get('raw_text','') or line['text']==e.get('original_text') for e in row.get('effects',[])):continue
             key=line['text'];time=row['source_timestamp_ms'];entry=latest.get(key)

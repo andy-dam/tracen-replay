@@ -548,9 +548,46 @@ def outcome_events(readings):
         time=row['source_timestamp_ms'];effects=deepcopy(row.get('effects',[]));pending=deepcopy(row.get('facts',{}).get('effect_candidates',[]))
         if not effects and not pending:
             # Recognized dialogue or a different screen is evidence of a boundary.
+            # A malformed receipt is uncertainty, not positive dialogue evidence.
+            # It does not extend the 500 ms gap or supply any accepted effect.
+            from .mechanics_audit import plausible_receipt_line
             lines=row.get('ocr',{}).get('neural',[])
-            narrative=any(l['confidence']>=95 and 790<(l['box'][1]+l['box'][3])/2<950 and len(l['text'])>25 for l in lines)
-            if current and (narrative or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
+            long_lines=[l for l in lines if l['confidence']>=95 and 790<(l['box'][1]+l['box'][3])/2<950 and len(l['text'])>25]
+            def repeats_receipt(line):
+                if not current or not plausible_receipt_line(line):return False
+                text=' '.join(line['text'].casefold().split())
+                hint=re.fullmatch(r'gained (\d+) hint level[()s ]*f(?:or|r|o)\s*(.+?)\.?',text)
+                if not hint:return False
+                ambiguous={c['field'] for c in current['conflicting_readings']}
+                for key,effect in current['effects'].items():
+                    if key in ambiguous:continue
+                    name=' '.join(effect.get('name','').casefold().split())
+                    amount=effect.get('amount')
+                    # Only damaged grammar may differ: the visible terminal
+                    # identity and amount must still match an accepted receipt.
+                    # A similar name or different number cannot anchor a gap.
+                    if (effect['kind']=='skill_hint_change' and name and type(amount) is int
+                            and int(hint[1])==amount and hint[2]==name):
+                        return True
+                return False
+            anchored=any(repeats_receipt(l) for l in long_lines)
+            def uncertain_companion(line):
+                # Missing letters in the fixed word "went" can leave a
+                # friendship receipt unparsed. Its name/amount stay unknown;
+                # arbitrary receipt-like prose cannot preserve a boundary.
+                text=' '.join(line['text'].casefold().split())
+                return plausible_receipt_line(line) and bool(re.fullmatch(
+                    r'friendship with .+? [went ]{1,5}up by \d+\.',text))
+            narrative=bool(long_lines) and (not anchored or any(
+                not repeats_receipt(l) and not uncertain_companion(l) for l in long_lines))
+            changed_title=(current and row.get('context_title') and current['context_title']
+                           and row['context_title']!=current['context_title'] and not continued_title(current,row))
+            if current and (narrative or changed_title or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
+            elif current and long_lines:
+                current.setdefault('receipt_continuity_evidence',[]).append(dict(
+                    source_timestamp_ms=time,evidence=row['evidence'],
+                    raw_texts=[l['text'] for l in long_lines],basis='matching_named_amount_receipt_ocr_gap',
+                    accepted_as_effect=False))
             continue
         title=row.get('context_title')
         continuation=continued_title(current,row)
