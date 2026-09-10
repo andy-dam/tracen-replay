@@ -11,7 +11,7 @@ from PIL import Image
 from tests.test_gameplay import workspace_temp
 from tracen_replay.full_recording import cached_readings
 from tracen_replay.refine_contrast import fingerprint
-from tracen_replay.song_symbols import _eligible, apply, music_note_suffix
+from tracen_replay.song_symbols import _eligible, _restore_symbol_separator, apply, music_note_suffix
 from tracen_replay.vision import parse
 
 
@@ -43,6 +43,11 @@ class SongSymbolsTests(unittest.TestCase):
         draw.line([(476,800),(483,800),(483,807)],fill='black',width=2)
         self.assertIsNone(music_note_suffix(self.pane,self.line['box']))
 
+    def test_symbol_recovery_preserves_source_separator(self):
+        text='Learned the song "Present March   ".'
+        self.assertEqual(_restore_symbol_separator(text,'♪'),
+                         'Learned the song "Present March   ♪".')
+
     def test_faint_or_missing_note_abstains(self):
         self.assertIsNone(music_note_suffix(Image.new('RGB',(810,1080),'white'),self.line['box']))
         # A glyph visible only in permissive threshold variants is insufficient.
@@ -63,14 +68,14 @@ class SongSymbolsTests(unittest.TestCase):
                        observations=[dict(line_index=0,line_box=self.line['box'],symbol=music_note_suffix(self.pane,self.line['box']))])
             corrected=apply(raw,extra,root/'proof.png')
             effect=parse(corrected)['effects'][0]
-            self.assertEqual(effect['name'],'Present March\u266a')
+            self.assertEqual(effect['name'],'Present March \u266a')
             self.assertEqual(effect['original_text'],self.line['text'])
             self.assertEqual(raw,before)
             (root/'neural/one.json').write_text(json.dumps(raw),encoding='utf-8')
             (root/'song-symbols/one.json').write_text(json.dumps(extra),encoding='utf-8')
             report=dict(frames=[dict(id='one',evidence='source.png',source_timestamp_ms=1222250)])
             with patch('tracen_replay.receipt_occlusion.annotate_path',side_effect=lambda raw,*args,**kwargs:raw):
-                self.assertEqual(cached_readings(report,root)[0]['effects'][0]['name'],'Present March\u266a')
+                self.assertEqual(cached_readings(report,root)[0]['effects'][0]['name'],'Present March \u266a')
             with self.assertRaisesRegex(ValueError,'provenance'):
                 apply(dict(raw,header='changed'),extra,root/'proof.png')
             (root/'proof.png').write_bytes(b'changed')

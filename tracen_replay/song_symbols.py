@@ -64,6 +64,15 @@ def _eligible(line):
     return line['confidence']>=95 and re.fullmatch(r'Learned the song "[^"\n]+\s+"[.!]',line['text'])
 
 
+def _restore_symbol_separator(text,symbol):
+    """Replace the missing suffix glyph while retaining the source spacing."""
+    return re.sub(
+        r'(?P<separator>\s+)"(?P<stop>[.!])$',
+        lambda match: match.group('separator') + symbol + '"' + match.group('stop'),
+        text,
+    )
+
+
 def apply(raw,extra,proof,original=None):
     original=raw if original is None else original
     if extra.get('version')!=1 or extra['raw_sha256']!=fingerprint(original) or extra['evidence_sha256']!=hashlib.sha256(proof.read_bytes()).hexdigest():
@@ -72,7 +81,7 @@ def apply(raw,extra,proof,original=None):
     for item in extra['observations']:
         i=item['line_index'];line=lines[i]
         if line['box']!=item['line_box'] or not _eligible(line):continue
-        text=re.sub(r'\s+"([.!])$',item['symbol']['symbol']+'"'+r'\1',line['text'])
+        text=_restore_symbol_separator(line['text'],item['symbol']['symbol'])
         lines[i]=dict(line,text=text,original_symbol_text=line['text'],visual_symbol_observation=item['symbol'])
     return dict(raw,lines=lines)
 
