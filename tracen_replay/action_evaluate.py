@@ -1,6 +1,6 @@
 """One-to-one receipt evaluation within an explicitly labeled source interval."""
 
-ACTION_KINDS=('training','rest','outing','race')
+ACTION_KINDS=('training','rest','outing','race','infirmary')
 
 
 def evaluate(reference,report):
@@ -14,7 +14,7 @@ def evaluate(reference,report):
     if (not isinstance(kinds,list) or not kinds
             or any(k not in ACTION_KINDS for k in kinds)
             or len(set(kinds))!=len(kinds)):
-        raise ValueError('Declare unique supported training/rest/outing/race kinds.')
+        raise ValueError('Declare unique supported training/rest/outing/race/infirmary kinds.')
     start,end=reference.get('start_ms'),reference.get('end_ms')
     if type(start) is not int or type(end) is not int or not 0<=start<end:
         raise ValueError('Invalid evaluation interval.')

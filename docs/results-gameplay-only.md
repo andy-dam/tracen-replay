@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 1,010 automated tests and retains
+The latest development reconstruction passes 1,030 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -98,6 +98,37 @@ unchanged, including both numeric ledgers, event effects, purchases and inventor
 The first two reports are byte-for-byte unchanged. The latest third report has
 SHA-256 `e014cf074877c37e5349c98357aa42a9ce65aa1620430e87b572e13b541a5107`.
 These action corrections do not establish complete action or event recall.
+
+The latest `infirmary-replay-v2` candidate adds two source-supported Infirmary
+visits. One starts at 230500 ms and advances the pre-debut countdown from 4 to 3;
+the other starts at 1375500 ms and advances Senior Year Late Apr to Early May.
+Both +20 energy receipts were already present. Confirmation text alone cannot
+create an action: repeated named result evidence, an explicit recovery receipt,
+and a consistent observed turn transition are required. Cancellation, competing
+screens, contradictory calendars/counters, and duplicate result evidence do not
+create additional actions. The accepted transition observations remain attached.
+
+The third report now has one action for each of its 60 repeatedly observed dated
+turns, plus separately recorded pre-debut and finale actions. It contains 57
+trainings, 13 race records, four rests, two outings and two Infirmary visits. The
+unresolved finale result return remains among the race records; these are not
+claimed as 13 independently verified races. Both targeted Infirmary references
+match 1/1 actions, but remain explicitly incomplete and post-prediction reviews.
+
+Four confirmation frames were reparsed from original OCR with decoded-frame
+hash and gameplay-crop checks. Their only reading change is the screen label.
+All numeric intervals, event effects, purchases, race results, fan accounting,
+choices and inventory are unchanged. Skill-receipt source details also match;
+their screen-sequence IDs change after the new modal spans are inserted. The
+first two reports remain byte-for-byte unchanged. The third candidate SHA-256 is
+`34d45bcff53af5c740039eeb4185c21a39c2d99d830ef9142fc691532fce862d`.
+
+A separate timing diagnostic preserves the quarter-window reference and its
+9/41 legacy event-start score. Using the evaluator's existing exact-effect
+observation mode on an in-memory reference copy yields 24/41, with seven
+remaining timing-boundary disagreements and ten recognition/representation
+misses. This identifies an evaluation configuration issue; it is not a new
+recognition result, a replacement reference, or a global accuracy estimate.
 
 The preceding stat/currency snapshot retained 143 balanced six-field intervals
 in the original recording and 130 in the second, with 894 passing automated tests.

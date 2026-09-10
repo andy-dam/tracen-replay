@@ -203,6 +203,8 @@ def classify(text, header, result_grid=False, preview=False):
     lower = text.lower()
     if 'take the day off to let your trainee recover energy?' in lower and 'entire turn' in lower:
         return 'rest_confirmation'
+    if 'visit the infirmary?' in lower and 'entire turn' in lower:
+        return 'infirmary_confirmation'
     if re.search(r'\blearn\s+the\s+above\s+skills?\b',lower):
         return 'skill_confirmation'
     if 'skills learned' in lower or 'trainee learned new skills' in lower:

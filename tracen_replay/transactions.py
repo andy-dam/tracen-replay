@@ -876,6 +876,8 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hi
         if confirmations and any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):
             actions.append(dict(kind='rest',source_timestamp_ms=event['first_seen_ms'],evidence=[confirmations[-1]['evidence'],event['evidence']],event_id=event['id'],click_timestamp_ms=None))
     actions+=outing_actions(readings,events)
+    from .infirmary_actions import reconstruct as infirmary_actions
+    actions+=infirmary_actions(readings,events)
     from .race_completion import annotate as annotate_race_completion
     race_results=annotate_race_completion(races(readings,race_reward_observations),readings)
     actions += [dict(kind='race',source_timestamp_ms=r.get('completion_first_seen_ms',r['first_seen_ms']),

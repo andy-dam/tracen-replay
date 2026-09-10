@@ -25,7 +25,7 @@ subsequent output; explicitly different versions are never relabeled.
 - `readings` and `screens`: source-timestamped observations and visibility spans, not action counts.
 - `training_previews`: browsed options, never completed-action claims.
 - `dialogue_choices`: repeated offered menus and matched selection animations, with single-response dialogue distinguished from multi-option choices. Choice time is an observation, not a known click time or proof of all subsequent effects.
-- `turn_action_receipts`: training result options, rest/outing recovery chains and race results. Receipt time and unknown click time are separate.
+- `turn_action_receipts`: training result options, rest/outing recovery chains, infirmary visits and race results. Receipt time and unknown click time are separate.
 - `checkpoints`, `events`, `intervals`: repeated six-field states, supported effects and unexplained residuals. Candidate resolutions retain evidence and whether they depend on surrounding states.
 - `lesson_purchases`: matching named receipt and confirmation, five-resource costs, observed debits, actual awards and separate projected effects.
 - `skill_purchases`: receipt-backed batch SP debit, cart additions/removals, committed bundles, prerequisite candidates and circle variants. Complete ownership is a separate claim.
@@ -51,6 +51,7 @@ Validated concert-slot refinements retain their supporting source timestamps and
 | Ordinary events | Explicit receipts with title/geometry/time boundaries | Dialogue, actual selected choice, unreadable effects |
 | Dialogue choices | Repeated menu and bilateral selection marks consistent with readable selected-card text | Different later responses at the same height, incomplete menus and rewards as selection evidence |
 | Rest and outings | Request then recovery; support outings without energy also require matching narrative and the observed next date | Canceled dialogs, returns to the hub and unrelated recovery |
+| Infirmary | Source confirmation, repeated named recovery result, and repeated next-date or same-phase countdown advancement | Confirmation alone, canceled visits, unrelated recovery and contradictory turn evidence |
 | Races | Result identity, placing and fan receipt | Entry menus, unread item identities |
 | Skills | Acquisition receipt plus SP balance evidence | Pending/removed selections, bundled prerequisites, next offered rank |
 | Lessons | Named receipt, confirmation and balances | Offered cards, delayed unchanged counters, canceled dialogs |
@@ -176,7 +177,7 @@ Completeness applies to the declared channel, interval and sampling scope. A ful
 labeled set of 250 ms samples can be complete within that scope while events
 between those samples remain unknown. Action scores explicitly distinguish a
 complete declaration, an incomplete declaration and legacy unspecified metadata.
-Action evaluation accepts only training, rest, outing and race scopes, and records
+Action evaluation accepts training, rest, outing, race and infirmary scopes, and records
 the exact kinds and interval in its result. Lessons, concerts and dialogue choices
 belong to their separate evaluators. Coverage of a training-only reference does
 not establish race, rest or outing recall over the same interval. References that
