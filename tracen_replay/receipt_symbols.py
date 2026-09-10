@@ -7,10 +7,11 @@ require the following evidence before correction:
 * the target is a confident, complete hint receipt whose OCR either emits a
   standalone uppercase ``O`` or leaves the suffix as whitespace before the
   sentence period;
-* a confident same-frame label above it contains the exact name without that
-  suffix; and
 * source gameplay pixels contain one stable circular ring immediately before
   the receipt's final punctuation.
+
+The complete receipt supplies the name. A separate skill card is optional:
+it can disappear before the receipt does, and need not be recorded at all.
 
 The same checks also cover a receipt whose name wraps onto a second OCR line.
 The accepted representation joins those two source lines and retains the
@@ -53,7 +54,7 @@ _SPARK_RECEIPT = re.compile(r"^(\S(?:.*?\S)?)(?: O| ) spark activated!$")
 def _box(box: Sequence[Any]) -> tuple[int, int, int, int] | None:
     try:
         values = tuple(float(value) for value in box)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if len(values) != 4 or not all(math.isfinite(value) for value in values):
         return None
@@ -80,6 +81,12 @@ def _image_and_gray(pane: Any):
     if image.ndim != 3 or image.shape != (1080, 810, 3):
         return None, None
     return image, cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+
+def _open_ring_center(gray: Any, center: Sequence[Any], threshold: int) -> bool:
+    x, y = (round(value) for value in center)
+    inner = gray[y - 5:y + 5, x - 5:x + 5]
+    return inner.shape == (10, 10) and float((inner < threshold).mean()) <= 0.10
 
 
 def _ring_candidates(gray: Any, box: tuple[int, int, int, int], threshold: int) -> list[dict[str, Any]]:
@@ -160,11 +167,14 @@ def _ring_candidates(gray: Any, box: tuple[int, int, int, int], threshold: int) 
                 break
         if not has_period:
             continue
+        center = [absolute_left + width / 2.0, center_y]
+        # Connected-component geometry alone misses a disconnected inner ring.
+        # Keep that ambiguity visible so another threshold cannot outvote it.
         found.append(dict(
-            kind="single_circle",
+            kind="single_circle" if _open_ring_center(gray, center, threshold) else "nonempty_ring_center",
             symbol=SINGLE_CIRCLE,
             box=[absolute_left, absolute_top, absolute_left + width, absolute_top + height],
-            center=[absolute_left + width / 2.0, center_y],
+            center=center,
             threshold=threshold,
         ))
     return found
@@ -189,6 +199,8 @@ def detect_circle_marker(pane: Any, line_box: Sequence[Any]) -> dict[str, Any] |
     observations: list[dict[str, Any]] = []
     for threshold in _THRESHOLDS:
         candidates = _ring_candidates(gray, normalized, threshold)
+        if any(candidate['kind'] != 'single_circle' for candidate in candidates):
+            return None
         if len(candidates) == 1:
             observations.append(candidates[0])
     if len(observations) < _MIN_VOTES:
@@ -246,36 +258,21 @@ def _verify_proof(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -
     return actual_gameplay
 
 
-def _matching_companions(lines: Sequence[Mapping[str, Any]], base: str, target: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    target_box = _box(target.get("box", ()))
-    if target_box is None:
-        return []
-    _, target_top, target_right, _ = target_box
-    matches = []
-    for line in lines:
-        if line is target or _clean(line.get("text")) != base or line.get("confidence", 0) < 95:
-            continue
-        companion_box = _box(line.get("box", ()))
-        if companion_box is None:
-            continue
-        companion_left, _, companion_right, companion_bottom = companion_box
-        if not 0 < target_top - companion_bottom <= 180:
-            continue
-        if min(companion_right, target_right) - max(companion_left, target_box[0]) < 20:
-            continue
-        # Lines in the neural cache inherit timestamp/evidence provenance from
-        # the enclosing observation. Requiring those fields on every OCR word
-        # would reject the actual source cache; ``_verify_proof`` binds the
-        # enclosing observation before this structural check runs.
-        required = ("text", "box", "confidence")
-        if any(key not in line for key in required):
-            continue
-        matches.append(line)
-    return matches
+def _confident(line: Mapping[str, Any]) -> bool:
+    confidence = line.get('confidence')
+    return type(confidence) in (int, float) and 95 <= confidence <= 100
+
+
+def _readable_receipt(line: Mapping[str, Any]) -> bool:
+    box = _box(line.get('box', ()))
+    return (_confident(line)
+            and not line.get('overlay_occluded') and box is not None
+            and 250 <= box[0] < box[2] <= 850 and 770 <= box[1] < box[3] <= 1000)
 
 
 def _hint_match(text: Any):
-    return _HINT_RECEIPT.fullmatch(_clean(text))
+    match = _HINT_RECEIPT.fullmatch(_clean(text))
+    return match if match and not any(symbol in match.group(2) for symbol in ('○', '◯', '◎')) else None
 
 
 def _spark_match(text: Any):
@@ -340,10 +337,7 @@ def detect_spark_circle(pane: Any, line_box: Sequence[Any]) -> dict[str, Any] | 
                 # A disconnected inner ring can share an outer contour with
                 # a single marker. Require a clear center in the receipt's
                 # source pixels rather than trusting the contour class alone.
-                cx, cy = round(x), round(y)
-                inner = gray[cy - 5:cy + 5, cx - 5:cx + 5]
-                if (kind != 'single_circle' or inner.shape != (10, 10)
-                        or float((inner < threshold).mean()) > 0.10):
+                if kind != 'single_circle' or not _open_ring_center(gray, [x, y], threshold):
                     return None
                 if not any(old[0] == kind and max(abs(old[1] - x), abs(old[2] - y)) <= 3 for old in found):
                     found.append((kind, x, y))
@@ -402,7 +396,7 @@ def _line_box_union(first: Mapping[str, Any], second: Mapping[str, Any]) -> list
 def _is_hint_continuation(first: Mapping[str, Any], second: Mapping[str, Any]) -> bool:
     """Match the narrow two-line layout used by ``vision.parse``."""
 
-    if first.get("confidence", 0) < 95 or second.get("confidence", 0) < 95:
+    if not _readable_receipt(first) or not _readable_receipt(second):
         return False
     first_text = _clean(first.get("text"))
     second_text = _clean(second.get("text"))
@@ -437,7 +431,7 @@ def has_eligible_receipt(lines: Sequence[Mapping[str, Any]]) -> bool:
 
     materialized = [line for line in lines if isinstance(line, Mapping)]
     for line in materialized:
-        if line.get("confidence", 0) < 95 or not isinstance(line.get("text"), str):
+        if not _confident(line) or not isinstance(line.get("text"), str):
             continue
         if _hint_match(line["text"]) or _spark_match(line["text"]):
             return True
@@ -455,8 +449,8 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
 
     The returned mapping is a copy. Every accepted line retains its original
     confidence and gets ``original_text``, ``visual_symbol_observation``, and
-    ``text_normalization`` provenance fields. If no eligible line has a unique
-    companion and a stable pixel marker, the copied observation is unchanged.
+    ``text_normalization`` provenance fields. If no readable complete receipt
+    has a stable pixel marker, the copied observation is unchanged.
     """
 
     if not isinstance(raw, Mapping):
@@ -465,7 +459,7 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
     lines = [dict(line) for line in raw.get("lines", ())]
     changed = False
     for index, line in enumerate(lines):
-        if line.get("confidence", 0) < 95 or not isinstance(line.get("text"), str):
+        if not _confident(line) or not isinstance(line.get("text"), str):
             continue
         spark = _spark_match(line['text'])
         if spark and not line.get('overlay_occluded'):
@@ -478,11 +472,7 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
                 changed = True
             continue
         match = _hint_match(line["text"])
-        if not match:
-            continue
-        base = _clean(match.group(2))
-        companions = _matching_companions(lines, base, line)
-        if len(companions) != 1:
+        if not match or not _readable_receipt(line):
             continue
         symbol = detect_circle_marker(pane, line.get("box", ()))
         if symbol is None:
@@ -505,7 +495,7 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
         changed = True
 
     # OCR sometimes wraps a long skill name.  Normalize the two source lines
-    # into one parser-visible line only after the continuation, exact heading,
+    # into one parser-visible line only after the continuation, complete receipt,
     # and terminal ring have all passed the same evidence gates.  The source
     # line dictionaries remain available under ``wrapped_receipt_parts``.
     index = 0
@@ -521,12 +511,6 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
             continue
         merged_box = _line_box_union(first, second)
         if merged_box is None:
-            index += 1
-            continue
-        base = _clean(match.group(2))
-        target = {"box": merged_box}
-        companions = _matching_companions(lines, base, target)
-        if len(companions) != 1:
             index += 1
             continue
         symbol = detect_circle_marker(pane, second.get("box", ()))

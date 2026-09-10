@@ -130,6 +130,40 @@ References may also attach `source_performance_balance` with complete five-curre
 
 ## Gates before the application
 
+### First Go integration milestone
+
+The first application milestone is a usable, evidence-backed analyzer for the
+supported recording profile. It does not require exhaustive recognition of
+every mechanic. Full-recording semantic verification remains a separate claim;
+the unfinished coverage checks below must not be marked passed to start Go.
+
+Close this bounded checklist before beginning the integration:
+
+- Finish the current standalone hint-marker change and replay all three
+  development recordings. Preserve initial reports and reference labels.
+- Resolve or explicitly quarantine the three saved-reading provenance
+  discrepancies identified by that replay; unsupported accepted effects must
+  not be presented as verified.
+- Run one fixed regression pass over the existing action, effect, transaction,
+  final-state and missing-panel references. Record failures with their scope.
+  Fix incorrect accepted action identities, duplicate transactions, invented
+  numeric values, lost evidence, or crashes before integration.
+- Confirm the versioned Python report can be reconstructed, validated and
+  consumed with partial or unknown fields. Preserve unresolved ledger residuals
+  and the distinction between browsed options and committed actions.
+- Publish the acceptance results and remaining limitations together. Do not
+  convert sampled agreement or balanced observed intervals into full-run
+  accuracy, and do not change `fully_verified` on the basis of this milestone.
+
+Unreadable recipient names, unknown inheritance totals, unsupported race-item
+identities, absent optional panels and unseen inventory pages belong in the
+analyzer backlog when their uncertainty is represented correctly. Readable
+recognition misses remain recorded defects; they do not automatically expand
+this integration milestone into another full-recording annotation effort.
+After the fixed pass, reopen the milestone only for a specific integrity or
+core-action/accounting blocker. Go can expose evidence and unresolved results
+while recognition coverage continues to improve.
+
 Ordinary recordings do not need to open Concert Info, scroll the complete skill
 inventory, pause on a panel, provide overlapping scroll rows, or follow a recording
 script. Those screens provide optional validation

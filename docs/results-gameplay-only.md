@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 1,093 automated tests and retains
+The latest development reconstruction passes 1,097 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -12,6 +12,37 @@ these accounting results from the complete source reparses:
 | Original | 143/143 | 170/171 |
 | Second | 130/130 | 148/148 |
 | Third | 131/131 | 125/125 |
+
+The `standalone-hint-replay-v1` candidates recover circle suffixes from complete
+hint receipts without requiring a separate skill card. Source-paired checks
+cover 153, 208 and 426 readings respectively; 21, 42 and 97 readings change.
+The detector retains strict source-pixel checks and rejects filled, double or
+competing rings, unreadable receipts and malformed confidence values. A proven
+circle does not verify the spelling of the rest of the skill name.
+
+All three candidates reconstruct exactly from their stored readings, and their
+numeric intervals, actions, purchases, race records and other protected tracking
+collections match the preceding candidates. Three older readings fail exact
+baseline reproduction (two in the second recording and one in the third); these
+are preserved unchanged and listed separately in the source audits. This is a
+paired incremental replay, not a clean fresh reparse of every stored reading.
+
+Against the unchanged, timing-adjudicated quarter-window reference, with the
+explicit inheritance-occurrence option, agreement improves from 37/41 to 39/41.
+The reference remains incomplete. The two missing labels are obscured friendship
+recipients; two unmatched predictions have separately reviewed source receipts
+but are absent from that reference. None of these counts establishes global
+accuracy. Of the fifteen preserved third-recording window checks, two effect
+scores improve and the other thirteen retain their prior numeric scores.
+Existing malformed hint-name alternatives remain a known recognition defect.
+
+The current candidate hashes, in recording order, are
+`2e533fa5fe5c7807f12d31ce362113e69fbb9aba5c9488c095383154b6b5e3ce`,
+`201e43e42a38ce85311789241bf087c307560fe8c2c6e6a122671edcd1d57ac7`, and
+`2f6f3851854ec23f90b77ee24322ac038c40f02d5ec37ac6e052ff101ebee091`.
+The bounded first Go integration checklist is documented in
+[application gates](gameplay-only.md#first-go-integration-milestone); it does not
+close the separate full-recording verification gaps.
 
 Recognizing the training-preview popup above all five tabs exposes additional
 performance checkpoints, so these interval counts differ from earlier snapshots.

@@ -5,11 +5,11 @@ from pathlib import Path
 import shutil
 import unittest
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from tests.test_gameplay import workspace_temp
 from tracen_replay.full_recording import parse_receipt_pixels
-from tracen_replay.receipt_symbols import annotate, detect_circle_marker
+from tracen_replay.receipt_symbols import annotate, detect_circle_marker, has_eligible_receipt
 from tracen_replay.vision import parse
 
 
@@ -112,7 +112,7 @@ class ReceiptSymbolTests(unittest.TestCase):
         self.assertEqual(result["coordinate_space"], "gameplay_crop")
         self.assertGreaterEqual(result["votes"], 3)
 
-    def test_annotate_requires_companion_and_preserves_ocr_provenance(self):
+    def test_annotate_preserves_complete_receipt_ocr_provenance(self):
         raw = self.raw_observation()
         original = copy.deepcopy(raw)
         result = annotate(raw, self.pane, self.proof())
@@ -183,7 +183,7 @@ class ReceiptSymbolTests(unittest.TestCase):
         self.assertEqual(annotate(missing_continuation, pane, proof)["lines"], missing_continuation["lines"])
 
         wrong_heading = copy.deepcopy(raw)
-        wrong_heading["lines"][0]["text"] = "Front Runner Straightawayss"
+        wrong_heading["lines"][1]["text"] = "Unrelated heading for Front Runner"
         self.assertEqual(annotate(wrong_heading, pane, proof)["lines"], wrong_heading["lines"])
 
         no_separator = copy.deepcopy(raw)
@@ -296,19 +296,74 @@ class ReceiptSymbolTests(unittest.TestCase):
         result = annotate(raw, pane, proof)
         self.assertEqual(result["lines"], raw["lines"])
 
-    def test_wrong_same_receipt_companion_abstains(self):
+    def test_card_text_does_not_override_the_complete_receipt(self):
         raw = self.raw_observation(companion="Firm Condition")
         result = annotate(raw, self.pane, self.proof())
-        self.assertEqual(result["lines"], raw["lines"])
+        self.assertEqual(result["lines"][1]['text'], 'Gained 2 hint level(s) for Firm Conditions ○.')
+        self.assertEqual(result["lines"][0], raw["lines"][0])
 
-    def test_low_confidence_or_duplicate_companion_abstains(self):
+    def test_low_receipt_confidence_abstains_but_duplicate_cards_do_not_block(self):
         low_confidence = self.raw_observation()
-        low_confidence["lines"][0]["confidence"] = 94.99
+        low_confidence["lines"][1]["confidence"] = 94.99
         self.assertEqual(annotate(low_confidence, self.pane, self.proof())["lines"], low_confidence["lines"])
 
         duplicate = self.raw_observation()
         duplicate["lines"].append(dict(duplicate["lines"][0]))
-        self.assertEqual(annotate(duplicate, self.pane, self.proof())["lines"], duplicate["lines"])
+        self.assertEqual(annotate(duplicate, self.pane, self.proof())["lines"][1]['text'],
+                         'Gained 2 hint level(s) for Firm Conditions ○.')
+
+    def test_complete_single_and_wrapped_receipts_need_no_card(self):
+        for name, expected in (('fall-runner-single-line', 'Fall Runner ○'),
+                               ('front-runner-straightaways-wrapped', 'Front Runner Straightaways ○')):
+            with self.subTest(name=name):
+                _case, pane, raw, proof = self.real_case(name)
+                raw['lines'].pop(0)
+                before = copy.deepcopy(raw)
+                result = annotate(raw, pane, proof)
+                hints = [e for e in parse(result)['effects'] if e['kind'] == 'skill_hint_change']
+                self.assertEqual([e['name'] for e in hints], [expected])
+                self.assertEqual(raw, before)
+                self.assertEqual(result['lines'][0]['confidence'], min(l['confidence'] for l in raw['lines']))
+
+    def test_occluded_invalid_or_already_marked_standalone_receipt_abstains(self):
+        changes = [dict(overlay_occluded=True), dict(confidence=94.99), dict(confidence=float('nan')),
+                   dict(confidence=101), dict(box=[0, 807, 743, 833]),
+                   dict(box=[10**1000, 807, 743, 833])]
+        changes += [dict(text=f'Gained 2 hint level(s) for Firm Conditions {symbol} .')
+                    for symbol in ('○', '◯', '◎')]
+        changes += [dict(text='Gained 2 hint level(s) for Firm Conditions.')]
+        for change in changes:
+            raw = self.raw_observation()
+            raw['lines'] = [dict(raw['lines'][1], **change)]
+            self.assertEqual(annotate(raw, self.pane, self.proof())['lines'], raw['lines'])
+
+    def test_malformed_confidence_abstains_at_shape_and_pixel_gates(self):
+        for confidence in (None, '99', True, float('nan'), float('inf'), -1, 101):
+            for text in ('Gained 2 hint level(s) for Firm Conditions O.',
+                         'Firm Conditions O spark activated!'):
+                with self.subTest(confidence=confidence, text=text):
+                    raw = self.raw_observation()
+                    raw['lines'] = [dict(raw['lines'][1], text=text, confidence=confidence)]
+                    self.assertFalse(has_eligible_receipt(raw['lines']))
+                    self.assertEqual(annotate(raw, self.pane, self.proof())['lines'], raw['lines'])
+
+    def test_double_filled_or_multiple_terminal_rings_abstain(self):
+        symbol = detect_circle_marker(self.pane, self.manifest['receipt_box'])
+        left, top, right, bottom = symbol['box']
+        for kind in ('double', 'pale_double', 'filled', 'multiple'):
+            with self.subTest(kind=kind):
+                pane = self.pane.copy()
+                draw = ImageDraw.Draw(pane)
+                shade = (220, 220, 220) if kind == 'pale_double' else (100, 100, 100)
+                if kind == 'multiple':
+                    draw.rectangle((530, 800, 600, 840), fill='white')
+                    for x in (548, 574):
+                        draw.ellipse((x, 812, x+16, 828), outline=shade, width=1)
+                        draw.rectangle((x+18, 825, x+20, 828), fill=shade)
+                else:
+                    draw.ellipse((left+4, top+4, right-5, bottom-5),
+                                 outline=shade, fill=shade if kind == 'filled' else None, width=1)
+                self.assertIsNone(detect_circle_marker(pane, self.manifest['receipt_box']))
 
     def test_clipped_marker_abstains(self):
         pane = self.pane.copy()
