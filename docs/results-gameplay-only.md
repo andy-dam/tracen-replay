@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 961 automated tests and retains
+The latest development reconstruction passes 999 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -49,14 +49,35 @@ association. The unchanged quarter-window action reference now matches 3/3,
 but remains incomplete and does not pass the full coverage gate. Item identities
 remain open. The initial reference and score are preserved.
 
-The latest candidates use `race-completion-replay-v1`, reconstructed from the
-previously source-validated readings without rerunning OCR. All non-race
-tracking fields match exactly; only the third race's completion metadata and
-action timing/evidence change. The third candidate has SHA-256
-`eb3182e0d4cbfb3d867e77e6bcc44fa4b44837bd171862d78d3d1a2ac728ece4`.
-The first two remain byte-identical, with respective hashes
-`acb37a6294a91471edf12e6032b0f9a71f5acd7c0745dd3ee0e74abdc6ccff78`
-and `b00e5e076ac89595902261866ef443255430c3fe65d06e3c9401af44681eb8f1`.
+Inheritance receipts now retain per-frame occurrence evidence and a minimum
+simultaneous count. Repeated frames never increase that count, and total
+activation counts remain unknown. Only occupancy conflicts directly explained
+by disjoint, exact source lines are cleared; identity and value conflicts remain.
+The footage can show more occurrences than the accepted OCR proves: the middle
+Stamina line in one three-line display reads `activted` and remains unaccepted.
+
+Hint reconciliation preserves repeated pixel-verified circle identities when
+uncertain text interrupts the existing continuity rule. Exact-base and anchored
+literal-`O` readings remain possible duplicate or additional observations with
+unknown counts. Other malformed spellings are not silently corrected. Pixel
+proofs with insufficient repetition remain visible with an unresolved relation
+between variants. The incomplete middle effect reference improves from 34/40
+to 35/40 matches; the quarter reference stays 9/41, with timing and identity
+mismatches still open. These are scoped label-agreement results, not global recall.
+
+The latest candidates use `event-evidence-replay-v2`, reconstructed from the
+previously source-validated readings without rerunning OCR. Numeric event
+effects, interval accounting, actions, purchases, concerts, fan accounting,
+readings and inventories match the preceding race-timing candidates. All twelve
+preserved second-recording checks are unchanged: eleven pass, and one has an
+existing spacing mismatch between `Present March♪` in the preserved label and
+`Present March ♪` in the report. The original label remains intact.
+
+The third candidate has SHA-256
+`5627ba57f64501b8966463c0b44264f064555d5d8d3b0555746c0c99e8c9c38b`.
+The first two have respective hashes
+`3864b337feb2ba6f383f965a58edc88c7bfc361f43665167edb71ab5d84fe6f0`
+and `2a4a3523b3d627c1edc40104e05a59685289b5fc8eb4dcdd3e98113ec9fc9f86`.
 These are development regressions; the original reports and initial scores are
 preserved. Other sampled action/effect checks remain incomplete or failing, and
 full action/effect recall and the remaining mechanics gates are still open.

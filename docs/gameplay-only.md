@@ -227,6 +227,19 @@ sequence must connect the animation to its detail panel. The separate
 `first_seen_ms` still dates the detail panel used for fan and item accounting.
 An animation alone does not create a race or establish its rewards.
 
+Inheritance events preserve simultaneous receipt lines in
+`inheritance_occurrence_evidence`. Each exact label has a source-supported
+`minimum_observed_count`; `total_count` remains unknown. Repeated frames are
+evidence of the same display, not additional activations. Numeric awards still
+require their own receipts. Only duplicate-line conflicts fully supported by
+disjoint observations are reclassified as visible multiplicity.
+
+When a circle identity has repeated pixel proof but its relationship to an
+unmarked reading is unresolved, the proven effect stays accepted and the weak
+reading is retained in `ambiguous_effect_candidates`. It may be a duplicate or
+an additional observation; its occurrence count is unknown. A fallback cannot
+discard pixel metadata merely because it cannot establish that relationship.
+
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.
 - [x] Separate previews, confirmations, receipts, immediate awards and future effects.

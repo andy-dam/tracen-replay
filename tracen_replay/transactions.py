@@ -727,6 +727,8 @@ def outcome_events(readings):
         collapse_visual_hint_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings},rows_by_evidence)
         from .receipt_names import collapse_punctuated_hint_variants
         collapse_punctuated_hint_variants(event,rows_by_evidence)
+        from .hint_identity_fallback import preserve_valid_circle_effect
+        preserve_valid_circle_effect(event,rows_by_evidence)
         # Missing circle glyphs must not turn one visible hint into two awards.
         # Only collapse a suffix alternative when the exact base was also read
         # in this receipt with the same amount; retain the identity uncertainty.
@@ -735,6 +737,16 @@ def outcome_events(readings):
         for name,effect in hints.items():
             base=re.sub(r'\s*[O○◯◎]$','',name).strip()
             if base==name or base not in hints or hints[base]['amount']!=effect['amount']:continue
+            if effect.get('visual_symbol_observation'):
+                # Insufficient continuity cannot invalidate an existing pixel
+                # observation. Retain both identities and their unresolved
+                # relationship instead of downgrading the observed symbol.
+                for field in ('skill_hint_change||'+base,'skill_hint_change||'+name):
+                    event['conflicting_readings'].append(dict(field=field,
+                        reason='unresolved_circle_variant_relation',name_candidates=[base,name],
+                        evidence=list(dict.fromkeys(event['field_evidence'].get('skill_hint_change||'+base,[])
+                                                    +event['field_evidence'].get('skill_hint_change||'+name,[])))))
+                continue
             target=hints[base]
             target.setdefault('observed_name_candidates',[base]).append(name)
             target['circle_variant_verified']=False
@@ -753,7 +765,38 @@ def outcome_events(readings):
     for event in events:
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
+        attach_inheritance_occurrences(event,rows_by_evidence)
     return events
+
+
+def attach_inheritance_occurrences(event,rows_by_evidence):
+    """Keep simultaneous receipt evidence separate from unique effect names."""
+    from .inheritance_occurrences import summarize
+    evidence=summarize(event,rows_by_evidence)
+    if not evidence['by_key']:return
+    event['inheritance_occurrence_evidence']=evidence
+    retained=[]
+    for conflict in event.get('conflicting_readings',[]):
+        if conflict.get('reason')!='multiple_same_field_lines':
+            retained.append(conflict);continue
+        entry=evidence['by_key'].get(conflict.get('field'))
+        proof=conflict.get('evidence')
+        row=rows_by_evidence.get(proof) if isinstance(proof,str) else None
+        if not entry or entry['uncertain'] or not row:
+            retained.append(conflict);continue
+        same_field=[effect for effect in row.get('effects',[]) if
+                    '|'.join(str(effect.get(k) or '') for k in ('kind','field','name'))==conflict['field']]
+        payload=entry.get('payload',{})
+        matching=all(all(effect.get(k)==v for k,v in payload.items()) for effect in same_field)
+        counts=[frame['minimum_observed_count'] for frame in entry.get('frame_counts',[])
+                if frame['evidence']==row['evidence'] and frame['source_timestamp_ms']==row['source_timestamp_ms']]
+        if len(same_field)<2 or not matching or counts!=[len(same_field)]:
+            retained.append(conflict);continue
+        event.setdefault('resolved_occurrence_conflicts',[]).append(dict(
+            field=conflict['field'],evidence=row['evidence'],source_timestamp_ms=row['source_timestamp_ms'],
+            minimum_observed_count=counts[0],basis='simultaneous_disjoint_exact_receipt_lines',
+            total_count=None,count_complete=False))
+    event['conflicting_readings']=retained
 
 
 def checkpoints(readings):
