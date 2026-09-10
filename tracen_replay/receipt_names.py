@@ -62,6 +62,27 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             if len(parsed)==1 and all(parsed[0].get(k)==effect.get(k) for k in ('kind','amount','value')):
                 return row['evidence']
         return False
+    def receipt_gap_bridge(ta,tb,pa,pb,ba,bb,effect):
+        # Dense and base samples need not land at the same cadence. An
+        # explicitly anchored OCR gap can connect a stationary unknown slot
+        # without treating its corrupted recipient as a new person.
+        if not 250<abs(ta-tb)<=500 or effect['kind']!='friendship_change':return False
+        start,end=sorted((ta,tb))
+        for gap in event.get('receipt_continuity_evidence',[]):
+            if gap.get('basis')!='matching_named_amount_receipt_ocr_gap' or gap.get('accepted_as_effect') is not False:continue
+            proof=gap.get('evidence');row=rows_by_evidence.get(proof)
+            if not row or not start<row['source_timestamp_ms']<end:continue
+            if row['source_timestamp_ms']!=gap.get('source_timestamp_ms'):continue
+            if row.get('effects') or row.get('facts',{}).get('effect_candidates'):continue
+            if row.get('screen') not in ('unknown','event_outcome'):continue
+            if _dialogue_text_moved(rows_by_evidence[pa],row) or _dialogue_text_moved(row,rows_by_evidence[pb]):continue
+            for line in row.get('ocr',{}).get('neural',[]):
+                if line.get('confidence',0)<95 or line.get('text') not in gap.get('raw_texts',[]):continue
+                if not same_slot(ba,line.get('box',[])) or not same_slot(bb,line.get('box',[])):continue
+                match=re.fullmatch(r'friendship with .+? [went ]{1,5}up by (\d+)\.',
+                                   ' '.join(line.get('text','').casefold().split()))
+                if match and int(match[1])==effect.get('amount'):return proof
+        return False
     def identity(effect):return (effect['kind'],effect['name'])
     def field(effect):return effect['kind']+'||'+effect['name']
     def observations(effect):
@@ -87,22 +108,25 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             if left.get('amount')!=right.get('amount') or left.get('value')!=right.get('value'):continue
             first,second=observed[identity(left)],observed[identity(right)]
             if {x[0] for x in first}&{x[0] for x in second}:continue
-            pairs=[];bridges=[]
+            pairs=[];bridges=[];gap_bridges=[]
             for ta,pa,ba in first:
                 for tb,pb,bb in second:
                     bridge=occluded_bridge(ta,tb,pa,pb,ba,bb,left) if abs(ta-tb)>250 else False
-                    if not (0<abs(ta-tb)<=250 or bridge):continue
+                    gap_bridge=receipt_gap_bridge(ta,tb,pa,pb,ba,bb,left) if abs(ta-tb)>250 else False
+                    if not (0<abs(ta-tb)<=250 or bridge or gap_bridge):continue
                     if _dialogue_text_moved(rows_by_evidence[pa],rows_by_evidence[pb]):continue
                     if same_slot(ba,bb):
                         pairs.append([pa,pb])
                         if bridge:bridges.append(bridge)
+                        if gap_bridge:gap_bridges.append(gap_bridge)
             if not pairs:continue
             disputed.update((identity(left),identity(right)))
             for effect in (left,right):
                 event['conflicting_readings'].append(dict(field=field(effect),
                     reason='recipient_name_changes_in_adjacent_same_slot_receipt',
                     name_candidates=[a,b],evidence_pairs=pairs,
-                    **({'occluded_bridge_evidence':sorted(set(bridges))} if bridges else {})))
+                    **({'occluded_bridge_evidence':sorted(set(bridges))} if bridges else {}),
+                    **({'receipt_gap_bridge_evidence':sorted(set(gap_bridges))} if gap_bridges else {})))
     if disputed:
         event.setdefault('ambiguous_effect_candidates',[]).extend(
             dict(effect=e,reason='unresolved_recipient_identity',
