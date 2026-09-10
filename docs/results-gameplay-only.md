@@ -39,7 +39,7 @@ awards. Exact model-free reconstruction passes, and the next plan excludes the
 attempted windows. The trial leaves the active report unchanged; it demonstrates
 bounded recovery on development footage, not independent accuracy.
 
-The original recording's candidate remains separate. It retains all 143 balanced
+The original recording's stricter candidate is now the active local report. It retains all 143 balanced
 stat intervals but withholds Passion +10 under the stricter cursor check, leaving
 one performance interval unresolved. A bounded 30 FPS source probe found no
 clear duplicate receipt. Other withheld non-stat receipts still need source
@@ -51,7 +51,13 @@ separately recognized amount prefix tied to its exact crop and OCR model;
 the skill's suffix rank remains undetermined. Model-free full reassembly
 adds that one effect without changing numeric accounting, actions, or
 transactions. Tampered prefix names, crop hashes and model bindings are
-rejected by cache replay. This candidate remains separate from the active report.
+rejected by cache replay. Before activation, the report passed the five preserved
+opening-action, fixed-effect, lesson/concert, full-action-receipt and gameplay-point
+checks with exactly the same results as the prior report. Exact model-free
+reconstruction passes; checkpoints, actions, fans, owned inventory, lessons,
+songs, concerts, skill purchases, choices and races remain unchanged. The prior
+report and viewer are archived locally. Of 137 performance intervals, 136 balance
+and one remains unresolved because the cursor-covered Passion receipt is withheld.
 
 The second recording's `action-corpus-v10` selects 50 reference entries with
 non-overlapping scopes within each action kind. All 78 detected actions match
