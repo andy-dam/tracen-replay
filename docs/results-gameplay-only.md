@@ -98,6 +98,16 @@ to visible before/after balances for all five performance currencies. The
 unknown cost follows a missing Dance reading in the confirmation even though
 the surrounding observed balances are readable.
 
+A later component-only replay recovers that Visual 24 debit from repeated actual
+balances and the named purchase receipt, while preserving the initial score.
+The same rule also recovers two earlier costs in the third recording: Passion 21
+plus Visual 21 for Run for Our Dream!, and Vocal 16 for Vocal Training Intermediate
+Class. Post-prediction review of all 41 quarter-second samples from 14:08.750 to
+14:18.750 supports those two additional transactions. This is development
+adjudication, not another independent result. All 139 lesson records in the first
+two reports remain unchanged. The selected third-run transaction check still
+fails on the missing musical note in Present March's identity.
+
 The same window has no false training, rest or outing actions. Its Arima Kinen
 goal-completion screen does not locate the earlier race action, and its Grand
 Concert lobby does not establish a completed concert or rewards. The last lesson

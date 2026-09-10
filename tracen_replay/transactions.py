@@ -228,6 +228,49 @@ def source_song_alias(effect):
     return raw_title
 
 
+def observed_lesson_debit(readings, event, group, before_rows, after_rows, name):
+    """Recover a debit from repeated actual balances, without filling projections."""
+    if len(before_rows)<2 or len(after_rows)<2:return None
+    before=before_rows[-2:];after=after_rows[:2]
+    def repeated_balance(rows):
+        if not 0<rows[1]['source_timestamp_ms']-rows[0]['source_timestamp_ms']<=500:return None
+        values=[r['facts'].get('performance_points',{}) for r in rows]
+        if values[0]!=values[1] or any(type(values[0].get(k)) is not int or values[0][k]<0 for k in CURRENCIES):return None
+        return {k:values[0][k] for k in CURRENCIES}
+    initial,final=repeated_balance(before),repeated_balance(after)
+    if initial is None or final is None:return None
+    # Every observed projection must agree; a missing number is not replaced
+    # with an inferred OCR reading, and contradictory projections cannot vote.
+    for r in group:
+        for k,v in r['facts'].get('projected_performance_points',{}).items():
+            if k in CURRENCIES and v is not None and (type(v) is not int or v!=final[k]):return None
+    acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
+    if len(acquired)!=1 or acquired[0]['name']!=name:return None
+    first=min(r['source_timestamp_ms'] for r in group)
+    last=max(r['source_timestamp_ms'] for r in group)
+    span=[r for r in readings if before[-1]['source_timestamp_ms']<=r['source_timestamp_ms']<=after[-1]['source_timestamp_ms']]
+    if any(not 0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 for a,b in zip(span,span[1:])):return None
+    returned=[]
+    for r in span:
+        t=r['source_timestamp_ms']
+        if r['screen'] not in ('lesson_selection','lesson_confirmation','event_outcome','unknown'):return None
+        if r['facts'].get('awarded_performance_gains'):return None
+        if r['screen']=='lesson_confirmation':
+            if not first<=t<=last or r['facts'].get('name_candidates') not in ([],[name]):return None
+        if last<t<event['first_seen_ms'] and r['screen']=='lesson_selection':returned.append(r)
+        if any(e['kind']=='performance_change' or
+               (e['kind'] in ('named_acquisition','song_learned') and
+                (e.get('name')!=name or not event['first_seen_ms']<=t<=event['last_seen_ms'])) for e in r['effects']):return None
+    # A single transition frame can show the menu beneath the receipt. A
+    # sustained return to the menu is cancellation/another visit, not proof.
+    if len(returned)>1 or returned and event['first_seen_ms']-returned[0]['source_timestamp_ms']>500:return None
+    cost={k:initial[k]-final[k] for k in CURRENCIES}
+    if any(v<0 for v in cost.values()) or not any(v>0 for v in cost.values()):return None
+    return dict(cost=cost,matched=after[-1],proofs=[dict(role=role,values=values,
+        timestamps_ms=[r['source_timestamp_ms'] for r in rows],evidence=[r['evidence'] for r in rows])
+        for role,values,rows in (('before',initial,before),('after',final,after))])
+
+
 def lesson_receipts(readings, outcomes):
     """Join named acquisition evidence to a matching request, retaining cost gaps."""
     purchases=[];used=set()
@@ -317,6 +360,10 @@ def lesson_receipts(readings, outcomes):
                 if row['source_timestamp_ms']-event['last_seen_ms']>5000 or row['screen']=='lesson_confirmation':break
                 if row['screen']=='lesson_selection' and all(type(row['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES):after.append(row)
             matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
+            observed=None
+            if cost is None and not complete and not partial:
+                observed=observed_lesson_debit(readings,event,group,before_rows,after,effect['name'])
+                if observed:cost=observed['cost'];matched=observed['matched']
             if partial:
                 agreeing=[r for r in after if complete and r['facts']['performance_points']==projected]
                 between=[r for r in readings if first['source_timestamp_ms']<r['source_timestamp_ms']<event['first_seen_ms']]
@@ -336,7 +383,7 @@ def lesson_receipts(readings, outcomes):
                     if effect_key not in effect_keys:projected_effects.append(projected_effect);effect_keys.add(effect_key)
             purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
-                performance_cost=cost,cost_basis='observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
+                performance_cost=cost,cost_basis='receipt_and_repeated_observed_balances' if observed else 'observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
                 requested_name=requested,receipt_name=effect['name'],name_identity_verified=False,
                 name_match_basis='source_symbol_alias_and_repeated_observed_debit' if symbol_alias else 'partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
                 after_balance_observed=matched is not None,awarded_stats=event['deltas'],
@@ -344,6 +391,10 @@ def lesson_receipts(readings, outcomes):
                 evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],
                 complete_transaction_verified=False))
             if symbol_alias:purchases[-1]['observed_request_names']=sorted(request_names)
+            if observed:
+                purchases[-1]['balance_evidence']=observed['proofs']
+                purchases[-1]['evidence']=list(dict.fromkeys(purchases[-1]['evidence']+
+                    [p for proof in observed['proofs'] for p in proof['evidence']]))
     return purchases
 
 
