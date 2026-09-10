@@ -5,7 +5,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest working-tree test run passes 872 automated tests.
+recording and 130 in the second. The latest working-tree test run passes 894 automated tests.
 All 12 preserved-reference checks in
 `sp-receipt-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
@@ -191,13 +191,50 @@ remain identical, and none of the matched intervals has a larger absolute
 residual in any field. Performance accounting stays at 53 balanced and eight
 unresolved. These are accounting diagnostics, not a full event-recall score.
 
-The remaining stat gaps occur at 660250–686000 ms (SP +11),
+That candidate retained stat gaps at 660250–686000 ms (SP +11),
 1300000–1359250 ms (SP +67), 1645750–1658500 ms (SP −4), and
 2226000–2282500 ms (Speed +8, Power +5, Guts +32, SP +18).
 Residuals are recorded for investigation; they are not invented awards.
 The combined candidate remains separate from the frozen baseline and published
 reports. Inventory, effect identity, timing conventions and coverage still
 require review before the Go gate can pass.
+
+The subsequent `stat-currency-replay-v1` development candidate has 129 balanced
+stat intervals and two unresolved intervals. Complete fixed-label receipt
+normalization recovers the race's 67 SP while retaining the actual OCR text.
+A separate continuity check suppresses the repeated 4-SP receipt only across
+distinct, ordered source frames with a stationary stat line and compatible
+visible values. The later friendship receipt remains counted. Reordered frames,
+reused evidence, contradictory amounts and scene boundaries reject that bridge.
+
+The existing wide currency crops were also applied to all 133 incomplete base
+menu and confirmation observations. The pass took 6.85 seconds after reader
+initialization, recovered 134 previously unknown field observations, and changed
+no already accepted balance value. Four lesson costs now have matching observed
+debits: Composure Training Intermediate Class (Composure 16), Rap Basics
+(Vocal 8 and Composure 8), Precious Treasure Box (Dance 42 and Visual 26), and
+Vocal Theory Intermediate Class (Vocal 14 and Composure 10). Performance
+accounting now has 59 balanced and four unresolved intervals; the extra readable
+checkpoints also change its interval count from 61 to 63.
+
+The two remaining stat gaps are SP +11 at 660250–686000 ms and the unobserved
+training-result gains at 2226000–2282500 ms. Repeated full-versus-partial OCR
+field sets are retained as diagnostic training-phase candidates, without
+resolving the SP +11 conflict: missing OCR fields do not prove a separate
+animation phase. Remaining currency gaps concern one lesson debit and three
+training intervals. Sampled effect-recall and identity checks still fail, so
+this accounting improvement does not close the Go gate or establish whole-run
+semantic verification. Frozen references and the initial baseline are unchanged.
+The candidate SHA-256 is
+`b8fde6565ee78e213e1b0fc7f6ef69ecae6ceaeee84d08d16f8d0d0d4ad04cd4`.
+
+Complete source reparses of the first two recordings produce byte-identical
+candidates to their preceding inventory integration. They retain 143/143 and
+130/130 balanced stat intervals, all 14 reviewed visible inventory names each,
+and the previously verified level and circle details. All non-inventory
+gameplay collections also match the active local reports exactly. These
+regressions and the 894-test suite pass; the three candidate reports remain
+separate from the active reports.
 
 The same window has no false training, rest or outing actions. Its Arima Kinen
 goal-completion screen does not locate the earlier race action, and its Grand
