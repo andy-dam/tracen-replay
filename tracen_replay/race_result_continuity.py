@@ -82,6 +82,8 @@ def _source_observation(row):
                   evidence=deepcopy(row.get('evidence')),
                   screen=row.get('screen'))
     facts = row.get('facts') if isinstance(row, dict) else None
+    if isinstance(facts, dict) and facts.get('race_identity_refinement'):
+        record['race_identity_refinement'] = deepcopy(facts['race_identity_refinement'])
     for key in HASH_FIELDS:
         source = row.get(key) if isinstance(row, dict) else None
         if source is None and isinstance(facts, dict):

@@ -267,6 +267,13 @@ def cached_readings(report,root,allow_partial=False):
                     evidence_path=root/original['evidence'],source_frame_path=root/frame['evidence'])
             except ValueError as exc:
                 raise PipelineError(f'Base receipt refinement evidence invalid: {exc}') from exc
+        race_identity=root/'race-identity-refinement'/path.name
+        if race_identity.exists():
+            from .race_identity_refinement import apply as apply_race_identity
+            try:
+                raw=apply_race_identity(raw,json.loads(race_identity.read_text(encoding='utf-8')),root,original=original)
+            except (ValueError,KeyError,TypeError,OSError) as exc:
+                raise PipelineError(f'Race identity refinement evidence invalid: {exc}') from exc
         row=parse_receipt_pixels(raw,root,frame,original,source_sha256=report.get('source',{}).get('sha256'))
         if 'base_receipt_refinement' in raw:
             row['base_receipt_refinement']=raw['base_receipt_refinement']

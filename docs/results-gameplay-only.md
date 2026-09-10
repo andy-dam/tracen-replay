@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 1,035 automated tests and retains
+The latest development reconstruction passes 1,044 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -53,8 +53,9 @@ Inheritance receipts now retain per-frame occurrence evidence and a minimum
 simultaneous count. Repeated frames never increase that count, and total
 activation counts remain unknown. Only occupancy conflicts directly explained
 by disjoint, exact source lines are cleared; identity and value conflicts remain.
-The footage can show more occurrences than the accepted OCR proves: the middle
-Stamina line in one three-line display reads `activted` and remains unaccepted.
+The footage can show more occurrences than this simultaneous-count bound proves.
+Counting additional lines as they enter a scrolling receipt requires separate
+source continuity evidence; repeated screenshots are not additional activations.
 
 Hint reconciliation preserves repeated pixel-verified circle identities when
 uncertain text interrupts the existing continuity rule. Exact-base and anchored
@@ -99,7 +100,7 @@ The first two reports are byte-for-byte unchanged. The latest third report has
 SHA-256 `e014cf074877c37e5349c98357aa42a9ce65aa1620430e87b572e13b541a5107`.
 These action corrections do not establish complete action or event recall.
 
-The latest `infirmary-replay-v2` candidate adds two source-supported Infirmary
+The preceding `infirmary-replay-v2` candidate adds two source-supported Infirmary
 visits. One starts at 230500 ms and advances the pre-debut countdown from 4 to 3;
 the other starts at 1375500 ms and advances Senior Year Late Apr to Early May.
 Both +20 energy receipts were already present. Confirmation text alone cannot
@@ -131,8 +132,25 @@ a merge. The existing Arima continuation gains per-field evidence. All other
 tracking fields, action counts and accounting remain unchanged, and the first
 two reports remain byte-for-byte identical. The third candidate SHA-256 is
 `827ff8c1839baaf93b5670eb727d0faa8d53ed300736035c82fca10e3a9fe3f0`.
-The finale return still lacks repeated accepted name evidence and remains
-unresolved; separate crop probes have not yet been promoted into this report.
+That candidate still lacks repeated accepted name evidence on the finale return;
+the later source-bound crop refinement below addresses this limitation.
+
+The `race-identity-replay-v2` candidate corroborates two unchanged race-title
+readings with fixed crop rereads from distinct source timestamps. Every crop
+retains its reread model identity and is checked against the captured frame's
+pixels, original OCR line and geometry. Confident contradictory text blocks
+promotion. This optional adapter consumes recorded OCR outputs; it does not
+independently attest the OCR engine execution or re-decode the source video.
+
+The finale return now has sufficient repeated identity evidence to preserve one
+race across the observed playback dialog. The third recording contains 12 races
+and 77 actions, including the two Infirmary visits. All 11 observed fan intervals
+balance. Stat/performance intervals, numeric event effects, non-race actions,
+purchases, choices and inventory are unchanged. Both earlier reports remain
+byte-for-byte identical. All 15 preserved third-recording source-window scores
+remain unchanged; this correction does not establish full event recall.
+The third candidate SHA-256 is
+`d7fb37ccfa7a0989a850678858f6b66acf9cb5dbfc91eb94bc5a21663d5533a9`.
 
 A separate timing diagnostic preserves the quarter-window reference and its
 9/41 legacy event-start score. Using the evaluator's existing exact-effect

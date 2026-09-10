@@ -251,6 +251,8 @@ def parse(raw):
               and re.fullmatch(r'(?:Junior|Classic|Senior) Year (?:Pre-Debut|(?:Early|Late) [A-Z][a-z]{2})|Finale Underway',l['text'])]
     stats['calendar_text']=' '.join(calendar) or None
     facts={}
+    if screen=='race_result' and raw.get('race_identity_refinement'):
+        facts['race_identity_refinement']=raw['race_identity_refinement']
     achieved=[l for l in lines if l['confidence']>=95
               and within(l,(440,85,760,116)) and l['text'].strip()=='Goal Achieved!']
     if len(achieved)==1:
