@@ -178,7 +178,7 @@ def parse(raw):
                 and len(following['text'].split())<=4 and re.fullmatch(r'[A-Z][^.!?]{0,60}[.!]',following['text'])
                 and not effects_from_lines([following])):
                 line=dict(line,text=line['text']+' '+following['text'],confidence=min(line['confidence'],following['confidence']));index+=1
-        elif re.match(r'Gained \d+ hint level\(s\) for ',line['text']) and not re.search(r'[.!]$',line['text']) and index+1<len(outcome_lines):
+        elif re.match(r'Gained \d+ hint level\(?s?\)? for ',line['text']) and not re.search(r'[.!]$',line['text']) and index+1<len(outcome_lines):
             following=outcome_lines[index+1]
             if (0<following['box'][1]-line['box'][1]<40 and abs(following['box'][0]-line['box'][0])<=15
                 and len(following['text'].split())<=4 and re.search(r'[.!]$',following['text']) and not effects_from_lines([following])):
@@ -186,7 +186,10 @@ def parse(raw):
         joined.append(line);index+=1
     repairs={}
     for i,line in enumerate(joined):
-        fixed=re.sub(r'^((?:Speed|Stamina|Power|Guts|Wit|Skill Pts)) (?:wet|welt) ((?:up|down) by \d+[.!]?)$',r'\1 went \2',line['text'])
+        # The optional plural marker is fixed UI grammar. Missing marker
+        # characters cannot supply a missing digit or change the skill name.
+        fixed=re.sub(r'^(Gained \d+ hint level)\(?s?\)?( for \S.*[.!])$',r'\1(s)\2',line['text'])
+        fixed=re.sub(r'^((?:Speed|Stamina|Power|Guts|Wit|Skill Pts)) (?:wet|welt) ((?:up|down) by \d+[.!]?)$',r'\1 went \2',fixed)
         fixed=re.sub(r'^((?:Speed|Stamina|Power|Guts|Wit|Skill Pts|Dance|Passion|Vocals?|Visuals?|Composure) went (?:up|down) by)(\d+[.!]?)$',r'\1 \2',fixed)
         fixed=re.sub(r'^(Energy recovered by)(\d+[.!]?)$',r'\1 \2',fixed)
         fixed=re.sub(r'^(Energy went (?:up|down))by\s*(\d+[.!]?)$',r'\1 by \2',fixed)
