@@ -62,6 +62,51 @@ python -m tracen_replay.full_recording "C:\path\to\recording.mp4" --output .loca
 
 Receipt crop variants count as one frame. Agreement can recover cursor-obscured characters; disagreement invalidates the original reading without selecting an unsupported replacement. The final reparse includes the matching evidence-audit snapshot in the report.
 
+### Bounded receipt sampling plans
+
+The report can produce a source-bound plan for uncertain receipt observations
+that are worth rereading. These are review targets, not confirmed missing events;
+another frame may already support the same receipt. The planner uses occluded lines, unparsed receipt candidates,
+and conflicting receipt observations as anchors, pads and merges nearby anchors,
+and splits the result into windows of at most five seconds. Unresolved stat or
+performance intervals affect ordering only; residual numbers and expected
+labels are never supplied to OCR. A finite footage and frame budget leaves
+deferred targets in the plan with their reasons. Existing receipt-inspection
+windows at the requested sampling rate are skipped, so the same frames are not
+resampled indefinitely. Optional Concert Info and inventory screens are not
+receipt targets.
+
+Create a dry-run plan without changing the report:
+
+```powershell
+python -m tracen_replay.receipt_sampling "C:\path\to\recording.mp4" --report .local/full-recording/run-01/report.json --output .local/full-recording/run-01/receipt-sampling-plan-v1.json
+```
+
+For a candidate report stored below a separate evidence root, provide that
+root explicitly so the planner uses its `capture.json` and
+`receipt-inspection.json`:
+
+```powershell
+python -m tracen_replay.receipt_sampling "C:\path\to\recording.mp4" --report .local/full-recording/run-01/candidate/report.json --evidence-root .local/full-recording/run-01
+```
+
+Frame budgets use the decoder's conservative `ceil(window duration × FPS) +
+1` bound, so the selected windows remain within the cap after timestamp
+rounding.
+
+After reviewing the immutable plan, execute it with the existing receipt
+inspector:
+
+```powershell
+python -m tracen_replay.receipt_sampling --execute-plan .local/full-recording/run-01/receipt-sampling-plan-v1.json
+```
+
+The executor checks the source, capture, report and prior receipt-inspection
+hashes before invoking OCR. It refuses stale plans and existing plan-output
+paths, leaves `report.json` unchanged, and writes only the bounded
+`receipt-inspection` artifacts for a later `--reparse-only` run. A new plan is
+required after those inspection artifacts change.
+
 Training inspection reads both ordinary and enlarged friendship-training gains. It also reads result totals when animation obscures the blue grid headers. Repeated result totals can support a gain relative to a nearby observed pre-training state. They are separate evidence from the later career-hub checkpoint being reconciled. Conflicts between animated gains and stable result totals remain in the report.
 
 Inspection does not resolve every kind of discrepancy. A result that never becomes a candidate, an obscured event receipt, an unknown mechanic, or an incomplete skill list can still require further source review.
