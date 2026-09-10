@@ -177,6 +177,8 @@ def assemble(report,readings,choice_observations=(),race_reward_observations=(),
     report['recognition']=dict(enabled=True,model='RapidOCR 3.9.2 / PP-OCRv6 detection + English PP-OCRv5 recognition')
     report['gameplay_tracking']['owned_skill_inventory']=inventory_summary(readings)
     report['verification']=audit(report)
+    from .turn_ledger import build as build_turn_ledger
+    report['turn_ledger']=build_turn_ledger(report)
     return report
 
 

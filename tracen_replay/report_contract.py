@@ -261,4 +261,12 @@ def validate(report, *, require_gameplay=False):
     for key in ("verification", "evidence_integrity_snapshot"):
         if key in report and report[key] is not None:
             _object(report[key], f"report.{key}")
+    if 'turn_ledger' in report:
+        from .turn_ledger import build as build_turn_ledger
+        try:
+            expected = build_turn_ledger(report)
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            _error('report.turn_ledger', f'cannot project core report records: {exc}')
+        if report['turn_ledger'] != expected:
+            _error('report.turn_ledger', 'does not match the source report collections')
     return report
