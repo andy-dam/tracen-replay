@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 1,030 automated tests and retains
+The latest development reconstruction passes 1,035 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -123,12 +123,43 @@ their screen-sequence IDs change after the new modal spans are inserted. The
 first two reports remain byte-for-byte unchanged. The third candidate SHA-256 is
 `34d45bcff53af5c740039eeb4185c21a39c2d99d830ef9142fc691532fce862d`.
 
+The subsequent `race-fields-replay-v1` reconstruction retains repeated identity
+fields even when the name and course appear on different result frames. Each
+field still needs two witnesses on each side of an observed playback dialog;
+unknown in-panel transitions, conflicting conditions and one-off fields prevent
+a merge. The existing Arima continuation gains per-field evidence. All other
+tracking fields, action counts and accounting remain unchanged, and the first
+two reports remain byte-for-byte identical. The third candidate SHA-256 is
+`827ff8c1839baaf93b5670eb727d0faa8d53ed300736035c82fca10e3a9fe3f0`.
+The finale return still lacks repeated accepted name evidence and remains
+unresolved; separate crop probes have not yet been promoted into this report.
+
 A separate timing diagnostic preserves the quarter-window reference and its
 9/41 legacy event-start score. Using the evaluator's existing exact-effect
 observation mode on an in-memory reference copy yields 24/41, with seven
 remaining timing-boundary disagreements and ten recognition/representation
 misses. This identifies an evaluation configuration issue; it is not a new
 recognition result, a replacement reference, or a global accuracy estimate.
+
+The separately versioned `effects-reference-v4-timing-adjudication.json` now
+records source-reviewed onset brackets for those seven timing cases. Effects
+with different onsets use separate groups; neighboring effects retain their
+original bounds. All 41 labels and 360 reviewed samples are unchanged. The
+current report matches 31/41 with no timing or evidence errors, leaving ten
+recognition/occurrence misses. The reference remains incomplete and the frozen
+9/41 score remains preserved. This measures agreement under corrected timing,
+not an improvement to recognition or a full-recording accuracy score.
+
+A 24-frame native probe around the brief 662800–663200 ms friendship receipt
+retains conflicting recipient spellings under animated pink/cyan/yellow trails.
+The existing source-pixel checks and standard three-crop rereads do not resolve
+them. Outcome reconstruction correctly retains five ambiguous name candidates
+and accepts neither friendship identity; the separately readable energy award
+remains accepted. The probe's frame hashes, gameplay crops and reparsed output
+were checked, and its pre/post-refinement artifacts remain separate from the
+candidate report. This validates abstention on this example, not complete overlay
+detection or improved effect recall. Repeating the same OCR method is not a
+supported next step for these names.
 
 The preceding stat/currency snapshot retained 143 balanced six-field intervals
 in the original recording and 130 in the second, with 894 passing automated tests.

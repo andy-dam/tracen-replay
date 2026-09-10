@@ -1,7 +1,7 @@
 """Keep a result panel resumed after a playback dialog in the same race.
 
 Matching rewards alone cannot identify a race. Continuation requires repeated
-complete result identities on both sides and an observed, uninterrupted dialog
+per-field identities on both sides and an observed, uninterrupted dialog
 sequence. The dialog interrupts item visibility even when race identity persists.
 """
 
@@ -9,78 +9,303 @@ from copy import deepcopy
 
 
 IDENTITY_FIELDS = ('race_name', 'placing', 'fans', 'fans_gained', 'course')
+ANCHOR_FIELDS = ('placing', 'fans', 'fans_gained')
+COURSE_FIELDS = ('venue', 'surface', 'distance_m', 'distance_category', 'direction')
+HASH_FIELDS = ('source_frame_sha256', 'gameplay_sha256', 'evidence_sha256',
+               'source_sha256')
 MAX_SOURCE_STEP_MS = 1000
 MAX_TRANSITION_MS = 500
 MAX_DIALOG_SPAN_MS = 10000
 
 
-def _identity(rows):
-    complete = []
+def _time(row):
+    value = row.get('source_timestamp_ms') if isinstance(row, dict) else None
+    return value if type(value) is int and value >= 0 else None
+
+
+def _evidence_paths(row):
+    value = row.get('evidence') if isinstance(row, dict) else None
+    if isinstance(value, str) and value:
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [item for item in value if isinstance(item, str) and item]
+    return []
+
+
+def _valid_scalar(field, value):
+    if field == 'race_name':
+        return isinstance(value, str) and bool(value.strip())
+    if field == 'placing':
+        return type(value) is int and value >= 1
+    if field in ('fans', 'fans_gained'):
+        return type(value) is int and value >= 0
+    return False
+
+
+def _valid_course(value):
+    if not isinstance(value, dict):
+        return False
+    if any(value.get(key) is None for key in COURSE_FIELDS):
+        return False
+    if not all(isinstance(value[key], str) and value[key].strip()
+               for key in ('venue', 'surface', 'distance_category', 'direction')):
+        return False
+    return type(value['distance_m']) is int and value['distance_m'] > 0
+
+
+def _ocr_geometry(row):
+    """Copy OCR text/boxes when present without making them an identity rule."""
+    lines = []
+
+    def visit(value):
+        if isinstance(value, dict):
+            text = value.get('text')
+            box = value.get('box')
+            if (isinstance(text, str) and isinstance(box, (list, tuple))
+                    and len(box) == 4):
+                lines.append({key: deepcopy(value[key]) for key in
+                              ('text', 'confidence', 'conf', 'box')
+                              if key in value})
+            for nested in value.values():
+                visit(nested)
+        elif isinstance(value, (list, tuple)):
+            for nested in value:
+                visit(nested)
+
+    if isinstance(row, dict):
+        visit(row.get('ocr'))
+    return lines
+
+
+def _source_observation(row):
+    record = dict(source_timestamp_ms=_time(row),
+                  evidence=deepcopy(row.get('evidence')),
+                  screen=row.get('screen'))
+    facts = row.get('facts') if isinstance(row, dict) else None
+    for key in HASH_FIELDS:
+        source = row.get(key) if isinstance(row, dict) else None
+        if source is None and isinstance(facts, dict):
+            source = facts.get(key)
+        if isinstance(source, str) and source:
+            record[key] = source
+    geometry = _ocr_geometry(row)
+    if geometry:
+        record['ocr_geometry'] = geometry
+    if isinstance(row, dict):
+        for key in ('field_evidence', 'alignment_boxes'):
+            if key in row:
+                record[key] = deepcopy(row[key])
+    return record
+
+
+def _field_observation(row, field, value):
+    record = _source_observation(row)
+    record['value'] = deepcopy(value)
+    return record
+
+
+def _support_is_repeated(observations):
+    times = {item['source_timestamp_ms'] for item in observations
+             if _time(item) is not None}
+    evidence = set()
+    for item in observations:
+        value = item.get('evidence')
+        if isinstance(value, str) and value:
+            evidence.add(value)
+        elif isinstance(value, (list, tuple)):
+            evidence.update(path for path in value
+                            if isinstance(path, str) and path)
+    return len(times) >= 2 and len(evidence) >= 2
+
+
+def _anchor_support(rows):
+    observations = []
     for row in rows:
-        facts = row.get('facts', {})
-        if any(facts.get(field) is None for field in IDENTITY_FIELDS):
+        facts = row.get('facts', {}) if isinstance(row, dict) else {}
+        if not isinstance(facts, dict):
+            return None
+        if not all(_valid_scalar(field, facts.get(field))
+                   for field in ANCHOR_FIELDS):
             continue
-        if not isinstance(facts['race_name'], str) or not facts['race_name'].strip():
-            return None
-        if any(type(facts[field]) is not int for field in ('placing', 'fans', 'fans_gained')):
-            return None
-        if facts['placing'] < 1 or facts['fans'] < 0 or facts['fans_gained'] < 0:
-            return None
-        course = facts['course']
-        if not isinstance(course, dict) or any(course.get(k) is None for k in
-                ('venue', 'surface', 'distance_m', 'distance_category', 'direction')):
-            continue
-        complete.append(row)
-    if len({r['source_timestamp_ms'] for r in complete}) < 2 or len({r['evidence'] for r in complete}) < 2:
+        observations.append(dict(
+            source_timestamp_ms=_time(row),
+            evidence=deepcopy(row.get('evidence')),
+            value=tuple(facts[field] for field in ANCHOR_FIELDS)))
+    if not _support_is_repeated(observations):
         return None
-    identity = {field: complete[0]['facts'][field] for field in IDENTITY_FIELDS}
+    values = {item['value'] for item in observations}
+    return observations if len(values) == 1 else None
+
+
+def _field_observations(rows, field):
+    observations = []
     for row in rows:
-        facts = row.get('facts', {})
-        if any(facts.get(field) is not None and facts[field] != identity[field]
-               for field in IDENTITY_FIELDS if field != 'course'):
-            return None
-        course = facts.get('course')
-        if course is not None and (not isinstance(course, dict) or any(
-                value is not None and value != identity['course'].get(key) for key, value in course.items())):
-            return None
-    conditions = {r['facts']['course_condition'] for r in rows if r.get('facts', {}).get('course_condition')}
-    if len(conditions) > 1:
+        facts = row.get('facts', {}) if isinstance(row, dict) else None
+        if not isinstance(facts, dict):
+            continue
+        value = facts.get(field)
+        if field == 'course' and _valid_course(value):
+            observations.append(_field_observation(row, field, value))
+        elif field != 'course' and _valid_scalar(field, value):
+            observations.append(_field_observation(row, field, value))
+    return observations
+
+
+def _identity_proof(rows):
+    """Build one identity from split fields, retaining every field witness.
+
+    A complete row is not required.  Every required field must still occur in
+    at least two distinct source frames/evidence paths across the uninterrupted
+    result sequence, and the placing/fan anchors must repeat on each side of
+    the dialog.  Missing fields remain missing rather than being synthesized.
+    """
+    ordered = sorted((row for row in rows if isinstance(row, dict) and _time(row) is not None),
+                     key=_time)
+    if not ordered:
         return None
-    if conditions:
-        identity['course_condition'] = next(iter(conditions))
-    return identity
+    field_records = {field: [] for field in IDENTITY_FIELDS}
+    partial_courses = []
+    conditions = []
+    for row in ordered:
+        facts = row.get('facts', {})
+        if not isinstance(facts, dict):
+            return None
+        for field in IDENTITY_FIELDS:
+            value = facts.get(field)
+            if value is None:
+                continue
+            if field == 'course':
+                if not isinstance(value, dict):
+                    return None
+                if _valid_course(value):
+                    field_records[field].append(_field_observation(row, field, value))
+                else:
+                    partial_courses.append((row, value))
+                continue
+            if not _valid_scalar(field, value):
+                return None
+            field_records[field].append(_field_observation(row, field, value))
+        condition = facts.get('course_condition')
+        if condition is not None:
+            if not isinstance(condition, str) or not condition.strip():
+                return None
+            conditions.append(condition)
+    identity = {}
+    for field in IDENTITY_FIELDS:
+        observations = field_records[field]
+        if not _support_is_repeated(observations):
+            return None
+        values = [item['value'] for item in observations]
+        unique = []
+        for value in values:
+            if value not in unique:
+                unique.append(value)
+        if len(unique) != 1:
+            return None
+        identity[field] = deepcopy(unique[0])
+    for row, partial in partial_courses:
+        for key, value in partial.items():
+            if value is not None and key in identity['course'] and value != identity['course'][key]:
+                return None
+    unique_conditions = list(dict.fromkeys(conditions))
+    if len(unique_conditions) > 1:
+        return None
+    if unique_conditions:
+        identity['course_condition'] = unique_conditions[0]
+    return dict(identity=identity, field_observations=field_records)
+
+
+def _latest_panel_rows(group):
+    rows = group.get('rows')
+    if not isinstance(rows, list):
+        return None
+    continuations = group.get('result_panel_continuations', [])
+    if continuations:
+        start = continuations[-1]['resumed_result_ms']
+        rows = [row for row in rows if _time(row) is not None and _time(row) >= start]
+    return rows
+
+
+def _continuous_panel(rows, readings):
+    """Do not borrow identity fields through an unobserved panel transition."""
+    if not rows or any(_time(row) is None for row in rows):
+        return False
+    start, end = min(map(_time, rows)), max(map(_time, rows))
+    source = [row for row in readings if _time(row) is not None
+              and start <= _time(row) <= end]
+    if not source or any(row.get('screen') != 'race_result' for row in source):
+        return False
+    times = sorted({_time(row) for row in source})
+    if times[0] != start or times[-1] != end:
+        return False
+    return all(b - a <= MAX_SOURCE_STEP_MS for a, b in zip(times, times[1:]))
 
 
 def _bridge(previous, following, readings):
     before, after = previous['last_seen_ms'], following['first_seen_ms']
-    if not 0 < after - before <= MAX_DIALOG_SPAN_MS:
+    if (not type(before) is int or not type(after) is int
+            or not 0 <= before < after
+            or after - before > MAX_DIALOG_SPAN_MS):
         return None
-    identity = _identity(previous['rows'])
-    if identity is None or identity != _identity(following['rows']):
+    previous_rows = _latest_panel_rows(previous)
+    following_rows = _latest_panel_rows(following)
+    if not isinstance(previous_rows, list) or not isinstance(following_rows, list):
         return None
-    gap = [r for r in readings if before < r['source_timestamp_ms'] < after]
-    if not gap or any(r['screen'] not in ('unknown', 'playback_confirmation') for r in gap):
+    if not all(_continuous_panel(side, readings) for side in (previous_rows, following_rows)):
         return None
-    times = sorted({before, after, *(r['source_timestamp_ms'] for r in gap)})
+    if _anchor_support(previous_rows) is None or _anchor_support(following_rows) is None:
+        return None
+    # A field must be independently repeated on both sides.  This keeps a
+    # single lucky OCR frame after playback from supplying an identity field;
+    # fields split across several frames are still supported when each side
+    # has two source witnesses.
+    if any(not _support_is_repeated(_field_observations(side, field))
+           for side in (previous_rows, following_rows)
+           for field in IDENTITY_FIELDS):
+        return None
+    proof = _identity_proof(previous_rows + following_rows)
+    if proof is None:
+        return None
+    identity = proof['identity']
+    # An observed condition on only one panel does not confirm that the return
+    # has the same condition. Preserve the earlier conservative distinction.
+    conditions = [{row.get('facts', {}).get('course_condition') for row in side
+                   if row.get('facts', {}).get('course_condition') is not None}
+                  for side in (previous_rows, following_rows)]
+    if conditions[0] != conditions[1]:
+        return None
+    gap = [r for r in readings if isinstance(r, dict) and _time(r) is not None
+           and before < _time(r) < after]
+    gap = sorted((r for r in gap if isinstance(r, dict)
+                  and _time(r) is not None), key=_time)
+    if not gap or any(r.get('screen') not in ('unknown', 'playback_confirmation')
+                      for r in gap):
+        return None
+    times = sorted({before, after, *(_time(r) for r in gap)})
     if any(b - a > MAX_SOURCE_STEP_MS for a, b in zip(times, times[1:])):
         return None
-    modal = [r for r in gap if r['screen'] == 'playback_confirmation']
-    if len({r['source_timestamp_ms'] for r in modal}) < 2 or len({r['evidence'] for r in modal}) < 2:
+    modal = [r for r in gap if r.get('screen') == 'playback_confirmation']
+    modal_times = {_time(r) for r in modal}
+    modal_evidence = {path for r in modal for path in _evidence_paths(r)}
+    if len(modal_times) < 2 or len(modal_evidence) < 2:
         return None
-    first = min(r['source_timestamp_ms'] for r in modal)
-    last = max(r['source_timestamp_ms'] for r in modal)
+    first = min(_time(r) for r in modal)
+    last = max(_time(r) for r in modal)
     if first - before > MAX_TRANSITION_MS or after - last > MAX_TRANSITION_MS:
         return None
     # An unknown screen inside the confirmed dialog could be playback starting;
     # only short transition frames at its edges are permitted.
-    if any(first <= r['source_timestamp_ms'] <= last and r['screen'] != 'playback_confirmation' for r in gap):
+    if any(first <= _time(r) <= last and r.get('screen') != 'playback_confirmation'
+           for r in gap):
         return None
     return dict(
         basis='matching_result_identity_across_observed_playback_dialog',
         previous_result_ms=before, resumed_result_ms=after,
         identity=deepcopy(identity),
-        observations=[dict(source_timestamp_ms=r['source_timestamp_ms'],
-                           evidence=r['evidence'], screen=r['screen']) for r in gap],
+        field_observations=deepcopy(proof['field_observations']),
+        anchor_fields=list(ANCHOR_FIELDS),
+        modal_observations=[_source_observation(r) for r in modal],
+        observations=[_source_observation(r) for r in gap],
     ), gap
 
 

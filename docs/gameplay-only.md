@@ -234,6 +234,12 @@ source sequence through the observed dialog. Navigation to another recognized
 screen breaks the initial grouping. Dialogs interrupt item visibility, so reward
 snapshots on either side remain separate and quantities are never summed.
 Missing or contradictory identity evidence leaves the association unresolved.
+Identity fields may be read on different frames of one continuous result panel,
+but each field needs repeated support on each side of the dialog. Unknown or
+navigation screens between those witnesses prevent the association. Later
+returns use the most recent panel's evidence, and observed course conditions
+must agree on both panels. The per-field observations remain attached to the
+continuation; no synthetic complete OCR row is created.
 
 Inheritance events preserve simultaneous receipt lines in
 `inheritance_occurrence_evidence`. Each exact label has a source-supported

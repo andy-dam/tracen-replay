@@ -23,6 +23,19 @@ def sequence():
             screen(1250, 'playback_confirmation'), result(1500), result(1750)]
 
 
+def split_field_sequence():
+    rows = []
+    for time, field in ((0, 'race_name'), (250, 'race_name'), (300, 'course'),
+                        (350, 'course'), (1500, 'race_name'), (1750, 'race_name'),
+                        (2000, 'course'), (2250, 'course')):
+        row = result(time)
+        row['facts']['course' if field == 'race_name' else 'race_name'] = None
+        rows.append(row)
+    rows.extend([screen(500, 'unknown'), screen(750, 'playback_confirmation'),
+                 screen(1000, 'playback_confirmation'), screen(1250, 'playback_confirmation')])
+    return sorted(rows, key=lambda row: row['source_timestamp_ms'])
+
+
 class RaceResultContinuityTests(unittest.TestCase):
     def test_dialog_return_is_one_race_with_separate_item_snapshots(self):
         rows = sequence()
@@ -42,6 +55,65 @@ class RaceResultContinuityTests(unittest.TestCase):
         self.assertFalse(race['verified'])
         self.assertFalse(race['item_rewards_complete'])
 
+    def test_split_fields_are_joined_with_per_field_provenance(self):
+        rows = split_field_sequence()
+        for index, row in enumerate(rows):
+            if row['screen'] == 'race_result':
+                row['source_frame_sha256'] = f'frame-{index}'
+                row['gameplay_sha256'] = f'gameplay-{index}'
+                row['evidence_sha256'] = f'evidence-{index}'
+                row['ocr'] = {'neural': [{
+                    'text': 'field witness', 'confidence': 99.0,
+                    'box': [10 + index, 20, 30 + index, 40],
+                }]}
+        found = races(rows)
+        self.assertEqual(len(found), 1)
+        proof = found[0]['result_panel_continuations'][0]
+        self.assertEqual(proof['identity']['race_name'], 'Example Cup')
+        self.assertEqual(proof['identity']['course']['venue'], 'Example')
+        self.assertEqual(
+            [item['source_timestamp_ms']
+             for item in proof['field_observations']['race_name']],
+            [0, 250, 1500, 1750])
+        course_proofs = proof['field_observations']['course']
+        self.assertEqual([item['source_timestamp_ms'] for item in course_proofs],
+                         [300, 350, 2000, 2250])
+        self.assertEqual(course_proofs[0]['source_frame_sha256'], 'frame-2')
+        self.assertEqual(course_proofs[0]['ocr_geometry'][0]['box'], [12, 20, 32, 40])
+
+    def test_one_off_resumed_field_stays_unresolved(self):
+        rows = split_field_sequence()
+        # The resumed panel has only one source witness for the race name;
+        # anchors remain repeated, but that is insufficient for identity.
+        rows[-3]['facts']['race_name'] = None
+        rows[-2]['facts']['race_name'] = None
+        self.assertEqual(len(races(rows)), 2)
+
+    def test_unknown_between_split_field_witnesses_prevents_continuation(self):
+        rows = split_field_sequence()
+        rows.append(screen(1875, 'unknown'))
+        rows.sort(key=lambda row: row['source_timestamp_ms'])
+        self.assertEqual(len(races(rows)), 2)
+
+    def test_second_return_cannot_borrow_identity_from_first_panel(self):
+        rows = sequence() + [screen(2000, 'playback_confirmation'),
+                             screen(2250, 'playback_confirmation'), result(2500)]
+        # The first return is confirmed, but a lone following frame cannot use
+        # old witnesses as a substitute for repeated evidence on the new panel.
+        self.assertEqual(len(races(rows)), 2)
+        rows.append(result(2750))
+        found = races(rows)
+        self.assertEqual(len(found), 1)
+        proof = found[0]['result_panel_continuations'][1]
+        self.assertEqual([r['source_timestamp_ms'] for r in proof['field_observations']['race_name']],
+                         [1500, 1750, 2500, 2750])
+
+    def test_one_sided_course_condition_is_not_confirmed(self):
+        rows = sequence()
+        for row in rows[:2]:
+            row['facts']['course_condition'] = 'firm'
+        self.assertEqual(len(races(rows)), 2)
+
     def test_different_or_missing_identity_is_not_joined(self):
         for field, value in [('race_name', 'Different Cup'), ('placing', 1), ('fans', 13000),
                              ('fans_gained', 4000), ('course', None)]:
@@ -52,6 +124,10 @@ class RaceResultContinuityTests(unittest.TestCase):
         rows = sequence()
         rows[-1]['facts']['fans'] = 13000
         self.assertEqual(len(races(rows)), 3)
+
+        rows = split_field_sequence()
+        rows[-1]['facts']['course']['venue'] = 'Different'
+        self.assertEqual(len(races(rows)), 2)
 
     def test_dialog_must_be_observed_at_distinct_times_and_paths(self):
         for mode in ('absent', 'one', 'copied'):
