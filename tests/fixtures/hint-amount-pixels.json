@@ -1,0 +1,124 @@
+{
+  "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+  "source_timestamp_ms": 523750,
+  "source_gameplay_png_sha256": "b55c52e26a100f27aee5caa048db95baabe0e76283185c20418359edadfd1028",
+  "source_crop_box": [
+    165,
+    872,
+    367,
+    911
+  ],
+  "receipt_box": [
+    315,
+    874,
+    688,
+    909
+  ],
+  "synthetic_control": "Duplicate original amount-digit pixels at local x81..95; insert at x95, shifting remaining pixels14px right.",
+  "model_sha256": {
+    "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+    "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+  },
+  "observations": [
+    {
+      "timestamp_ms": 523750,
+      "variant": "original",
+      "view": "digit",
+      "recognized_text": [
+        "2"
+      ],
+      "confidence": [
+        0.99941
+      ],
+      "pixel_sha256": "d030a452a297f9ccb357ea261947bc8be199650de21627675074fb5a66d0b008"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "original",
+      "view": "delimiter",
+      "recognized_text": [
+        "hin"
+      ],
+      "confidence": [
+        0.98518
+      ],
+      "pixel_sha256": "3e6cd1b3efd465de211fb995a23b67bb3252ba2171ce0151ed6dd3ea6b9ea9db"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "original",
+      "view": "full_prefix",
+      "recognized_text": [
+        "Gained 2 hint"
+      ],
+      "confidence": [
+        0.91759
+      ],
+      "pixel_sha256": "c8e60bf29967aa2552f64b8c8fa3d9850b39b26d56abbb64885ea34606ce7fc0"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "original",
+      "view": "full_control",
+      "recognized_text": [
+        "Gained 2 hint level"
+      ],
+      "confidence": [
+        0.97223
+      ],
+      "pixel_sha256": "b34cf5eabe0cd004d939809e6205d51cdcc4d9657d829e2dafbeca5eb8b196e3"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "duplicated_digit",
+      "view": "digit",
+      "recognized_text": [
+        "2"
+      ],
+      "confidence": [
+        0.98621
+      ],
+      "pixel_sha256": "34fb4fed0f6cfb84432db4e899d46db5ebf98f132a98a25180e7d5927ff60ecd"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "duplicated_digit",
+      "view": "delimiter",
+      "recognized_text": [
+        "2 h"
+      ],
+      "confidence": [
+        0.95856
+      ],
+      "pixel_sha256": "a2b5732bad882051b7277cf013614294dec9d7a0f99e34e44dded03f1f426a15"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "duplicated_digit",
+      "view": "full_prefix",
+      "recognized_text": [
+        "Gained 22 hin"
+      ],
+      "confidence": [
+        0.91514
+      ],
+      "pixel_sha256": "028e633f604f99232cdb6a63aee913687a3d23927310531f02405738fb5d9715"
+    },
+    {
+      "timestamp_ms": 523750,
+      "variant": "duplicated_digit",
+      "view": "full_control",
+      "recognized_text": [
+        "Gained 22 hint level"
+      ],
+      "confidence": [
+        0.98387
+      ],
+      "pixel_sha256": "31a251834a67a4667999752ff43727816012e3f0a1efe1f8a39fe3d6b3dbfe3d"
+    }
+  ],
+  "fixture_sha256": {
+    "hint-amount-source.png": "47bc74db8ce9cbeabb9c93b47f0e855275490982b7170475238e0a7283341811",
+    "hint-amount-duplicated-digit.png": "bfde7b7889d4cae4bddd1381df41c8552decc33fe4751a3165bdaa19c932d31e"
+  }
+}

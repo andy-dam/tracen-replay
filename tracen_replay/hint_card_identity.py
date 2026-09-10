@@ -12,11 +12,15 @@ standalone HINT card is visible at multiple source timestamps.
   one hint receipt amount;
 * the exact card spelling and card geometry to persist through a contiguous
   episode;
-* ``inventory_suffix.detect`` to report the same visible suffix at two or
-  more distinct timestamps; and
-* an OCR pass over a prefix crop whose right edge is the detected cursor
-  boundary to read the amount.  The crop is created from source geometry and
-  does not receive the expected name or amount.
+* for the original complete-line path, ``inventory_suffix.detect`` must report
+  the same visible suffix at two or more distinct timestamps and a prefix
+  crop must corroborate the amount; or
+* for a wrapped line, a standalone card and an amount-only crop must each be
+  source-proven at every corroborating timestamp.  The rank may remain
+  ``undetermined`` when no marker is visible.
+
+All crops are created from source geometry and receive no expected name or
+amount.  Wrapped prefix and continuation text is retained verbatim.
 
 The prefix crop is an independent view of one source PNG, not another frame.
 Only timestamps, never crops or OCR views, count toward corroboration.  The
@@ -56,6 +60,22 @@ _MIN_CARD_CONFIDENCE = 95.0
 _MIN_HEADER_CONFIDENCE = 90.0
 _MIN_RECEIPT_CONFIDENCE = 90.0
 _MIN_PREFIX_CONFIDENCE = 90.0
+_WRAPPED_HINT_KIND = "wrapped_hint_receipt"
+_WRAPPED_HINT_PREFIX_RE = re.compile(
+    r"^\s*Gained\s*(?P<amount>\d{1,2})\s+hint\b(?P<body>.*)$",
+    re.IGNORECASE,
+)
+_WRAPPED_AMOUNT_DELIMITER_BASIS = "amount_digit_followed_by_hint_delimiter_ocr"
+_WRAPPED_AMOUNT_BASIS = "source_bound_amount_digit_crop_ocr"
+_WRAPPED_IDENTITY_FRAGMENT_BASIS = "source_bound_identity_fragment_tail_ocr"
+_WRAPPED_IDENTITY_FRAGMENT_GAP = 3.0
+_WRAPPED_MAX_CONTINUATION_GAP = 40.0
+_WRAPPED_MAX_LINE_MOVE = 40.0
+_WORD_TOKEN_PATTERN = (
+    r"[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)?"
+    r"(?:[-‐‑‒–—/&+][A-Za-z0-9]+(?:['’][A-Za-z0-9]+)?)*"
+)
+_WORD_TOKEN_RE = re.compile(_WORD_TOKEN_PATTERN)
 
 
 def _finite_number(value: Any) -> bool:
@@ -185,6 +205,9 @@ def _card_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             or box is None
             or not _CARD_Y_RANGE[0] <= _center_y(box) <= _CARD_Y_RANGE[1]
             or _center_y(box) <= _center_y(header["box"]) + 12.0
+            or line.get("overlay_occluded") is True
+            or bool(line.get("overlay_boxes"))
+            or line.get("recipient_name_occluded") is True
             or text.strip().lower().startswith("hint")
             or "gained" in text.lower()
             or " went " in text.lower()
@@ -210,6 +233,324 @@ def _parse_hint_text(text: str) -> tuple[int, str] | None:
     if not name:
         return None
     return amount, name
+
+
+def _wrapped_prefix(text: Any) -> tuple[int, str] | None:
+    """Read only the stable amount-bearing prefix of a wrapped receipt.
+
+    The remainder is deliberately opaque.  In particular, this helper does
+    not repair OCR glyphs or infer a recipient name.  It exists for lines such
+    as ``Gained 2 hint l:ve s.wor Straightaway`` whose fixed boilerplate is
+    corrupted while the amount and a visible name fragment remain usable.
+    """
+    if not isinstance(text, str):
+        return None
+    match = _WRAPPED_HINT_PREFIX_RE.fullmatch(text.strip())
+    if match is None:
+        return None
+    amount = int(match.group("amount"))
+    body = match.group("body").strip()
+    if not 0 < amount <= 99 or not body:
+        return None
+    # A complete strict receipt already has a safer representation.  Keeping
+    # it out of this path avoids duplicate candidates for one source row.
+    if _parse_hint_text(text) is not None:
+        return None
+    return amount, body
+
+
+def _word_tokens(text: str) -> list[str]:
+    """Tokenize name words while retaining meaningful internal punctuation.
+
+    Hyphenated (and similarly joined) names must not compare equal to names
+    whose words merely happen to be separated by OCR whitespace.  Sentence
+    punctuation is handled by the caller for the continuation line.
+    """
+    return _WORD_TOKEN_RE.findall(text)
+
+
+def _literal_fragment(text: str) -> str:
+    """Normalize only case and whitespace for a source-visible fragment."""
+    return re.sub(r"\s+", " ", text.strip()).casefold()
+
+
+def _without_one_terminal_sentence_mark(text: str) -> str:
+    """Remove the one punctuation mark added by a terminal receipt line."""
+    return re.sub(r"[.!?]\s*$", "", text)
+
+
+def _wrapped_name_fragment(
+    prefix_text: str,
+    continuation_text: str,
+    card_text: str,
+) -> str | None:
+    """Match visible receipt fragments to an exact standalone card name."""
+    card_text = card_text.strip()
+    prefix_text = prefix_text.strip()
+    continuation_text = continuation_text.strip()
+    card_words = _word_tokens(card_text)
+    prefix_words = _word_tokens(prefix_text)
+    continuation_words = _word_tokens(continuation_text)
+    if len(card_words) < 2 or not prefix_words or not continuation_words:
+        return None
+    card_spans = list(_WORD_TOKEN_RE.finditer(card_text))
+    prefix_spans = list(_WORD_TOKEN_RE.finditer(prefix_text))
+    if (
+        len(card_spans) != len(card_words)
+        or len(prefix_spans) != len(prefix_words)
+        or card_spans[0].start() != 0
+    ):
+        # A leading symbol that is absent from both receipt fragments is an
+        # unsupported identity character.  Dropping it would make two
+        # distinct cards compare equal.
+        return None
+    card_lower = [word.lower() for word in card_words]
+    prefix_lower = [word.lower() for word in prefix_words]
+    continuation_lower = [word.lower() for word in continuation_words]
+    # The wrapped line must end with a visible prefix of the exact card name,
+    # and the continuation must be its exact final suffix.  No edit distance,
+    # catalog lookup, or expected name is involved.
+    matched_prefix_length = 0
+    for length in range(min(len(card_lower), len(prefix_lower)), 0, -1):
+        # The two visible fragments must partition the card name exactly.
+        # This rejects an apparent ``Alpha ... Gamma`` match for the card
+        # ``Alpha Beta Gamma`` and prevents a later line from supplying an
+        # arbitrary suffix while silently dropping middle words.
+        if (
+            prefix_lower[-length:] == card_lower[:length]
+            and continuation_lower == card_lower[length:]
+            and _literal_fragment(
+                prefix_text[prefix_spans[-length].start() :]
+            )
+            == _literal_fragment(
+                card_text[card_spans[0].start() : card_spans[length - 1].end()]
+            )
+            and (
+                _literal_fragment(continuation_text)
+                == _literal_fragment(card_text[card_spans[length - 1].end() :])
+                or _literal_fragment(_without_one_terminal_sentence_mark(continuation_text))
+                == _literal_fragment(card_text[card_spans[length - 1].end() :])
+            )
+        ):
+            matched_prefix_length = length
+            break
+    if matched_prefix_length == 0:
+        return None
+    return card_text.strip()
+
+
+def _wrapped_line_records(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return deduplicated raw/retained OCR lines for wrapped receipts."""
+    records: dict[tuple[str, tuple[float, ...]], dict[str, Any]] = {}
+    for line in _neural_lines(row):
+        text = line.get("text")
+        box = _box(line.get("box"))
+        confidence = _confidence(line)
+        if not isinstance(text, str) or box is None or confidence is None:
+            continue
+        overlay_boxes = line.get("overlay_boxes")
+        if overlay_boxes is not None:
+            if not isinstance(overlay_boxes, list):
+                continue
+            parsed_overlays = []
+            for overlay in overlay_boxes:
+                parsed_overlay = _box(overlay)
+                if parsed_overlay is None:
+                    parsed_overlays = None
+                    break
+                parsed_overlays.append(_box_list(parsed_overlay))
+            if parsed_overlays is None:
+                continue
+        else:
+            parsed_overlays = []
+        item = {
+            "text": text.strip(),
+            "confidence": confidence,
+            "box": box,
+            "source": "neural",
+            "overlay_occluded": line.get("overlay_occluded") is True or bool(parsed_overlays),
+            "overlay_boxes": parsed_overlays,
+            "recipient_name_occluded": line.get("recipient_name_occluded") is True,
+        }
+        key = (item["text"], tuple(item["box"]))
+        prior = records.get(key)
+        if prior is None or item["confidence"] > prior["confidence"]:
+            records[key] = item
+    facts = row.get("facts")
+    occluded = facts.get("occluded_receipt_lines") if isinstance(facts, Mapping) else None
+    if isinstance(occluded, list):
+        for line in occluded:
+            if not isinstance(line, Mapping):
+                continue
+            text = line.get("text")
+            box = _box(line.get("box"))
+            confidence = _confidence(line)
+            if not isinstance(text, str) or box is None or confidence is None:
+                continue
+            overlay_boxes = line.get("overlay_boxes")
+            if overlay_boxes is not None:
+                if not isinstance(overlay_boxes, list):
+                    continue
+                parsed_overlays = []
+                for overlay in overlay_boxes:
+                    parsed_overlay = _box(overlay)
+                    if parsed_overlay is None:
+                        parsed_overlays = None
+                        break
+                    parsed_overlays.append(_box_list(parsed_overlay))
+                if parsed_overlays is None:
+                    continue
+            else:
+                parsed_overlays = []
+            key = (text.strip(), tuple(box))
+            item = {
+                "text": text.strip(),
+                "confidence": confidence,
+                "box": box,
+                "source": "occluded_receipt_line",
+                "overlay_occluded": line.get("overlay_occluded") is True or bool(parsed_overlays),
+                "overlay_boxes": parsed_overlays,
+                "recipient_name_occluded": line.get("recipient_name_occluded") is True,
+            }
+            prior = records.get(key)
+            if prior is None or item["confidence"] > prior["confidence"]:
+                records[key] = item
+    return sorted(records.values(), key=lambda item: (item["box"][1], item["box"][0], item["text"]))
+
+
+def _wrapped_is_effect_line(line: Mapping[str, Any]) -> bool:
+    try:
+        from .gameplay import effects_from_lines
+
+        return bool(effects_from_lines([line]))
+    except (ImportError, TypeError, ValueError):
+        # If the semantic parser is unavailable, do not turn an unknown line
+        # into a continuation by guessing from its prose.
+        return True
+
+
+def _wrapped_continuation(
+    lines: Sequence[Mapping[str, Any]],
+    prefix: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Find one immediate, short, terminal-punctuated continuation line."""
+    prefix_box = prefix.get("box")
+    if prefix_box is None:
+        return None
+    prefix_center = _center_y(prefix_box)
+    candidates: list[dict[str, Any]] = []
+    for line in lines:
+        text = line.get("text")
+        box = line.get("box")
+        confidence = line.get("confidence")
+        if (
+            not isinstance(text, str)
+            or not text.strip()
+            or not isinstance(box, (list, tuple))
+            or _box(box) is None
+            or not _finite_number(confidence)
+            or float(confidence) < _MIN_RECEIPT_CONFIDENCE
+            or line.get("overlay_occluded") is True
+            or bool(line.get("overlay_boxes"))
+            or line.get("recipient_name_occluded") is True
+            or box[1] <= prefix_box[1]
+            or not 0.0 < _center_y(box) - prefix_center <= _WRAPPED_MAX_CONTINUATION_GAP
+            or abs(float(box[0]) - float(prefix_box[0])) > 15.0
+            or len(_word_tokens(text)) > 4
+            or not re.search(r"[.!?]\s*$", text)
+            or not text.lstrip()[0].isupper()
+            or _wrapped_is_effect_line(line)
+        ):
+            continue
+        candidates.append(
+            {
+                "text": text.strip(),
+                "confidence": float(confidence),
+                "box": _box(box),
+                "source": line.get("source", "neural"),
+            }
+        )
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (_center_y(item["box"]), item["box"][0], item["text"]))
+    # A second line at the same transition is ambiguous.  Do not select one
+    # merely because it is shorter or has a higher OCR score.
+    if len(candidates) > 1 and abs(_center_y(candidates[0]["box"]) - _center_y(candidates[1]["box"])) <= 4.0:
+        return None
+    return candidates[0]
+
+
+def _wrapped_receipt_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    lines = _wrapped_line_records(row)
+    result: list[dict[str, Any]] = []
+    for prefix in lines:
+        parsed = _wrapped_prefix(prefix.get("text"))
+        box = prefix.get("box")
+        if parsed is None or box is None:
+            continue
+        if not _RECEIPT_Y_RANGE[0] <= _center_y(box) <= _RECEIPT_Y_RANGE[1]:
+            continue
+        continuation = _wrapped_continuation(lines, prefix)
+        if continuation is None:
+            continue
+        result.append(
+            {
+                "text": prefix["text"],
+                "confidence": min(prefix["confidence"], continuation["confidence"]),
+                "box": box,
+                "amount": parsed[0],
+                "prefix": dict(prefix),
+                "continuation": continuation,
+                "source": "wrapped_receipt",
+            }
+        )
+    return result
+
+
+def _wrapped_context(row: Mapping[str, Any]) -> tuple[bool, str | None]:
+    values = []
+    for key in ("context_title", "context_title_candidate"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+    if values and len(set(values)) != 1:
+        return False, None
+    # A missing title is allowed for the source HINT transition, but it is
+    # represented as unknown and must match another unknown row exactly.
+    return True, values[0] if values else None
+
+
+def _wrapped_contexts_compatible(left: str | None, right: str | None) -> bool:
+    return left == right
+
+
+def _wrapped_line_geometry_compatible(
+    first: Sequence[float],
+    second: Sequence[float],
+) -> bool:
+    first_width = first[2] - first[0]
+    second_width = second[2] - second[0]
+    first_height = first[3] - first[1]
+    second_height = second[3] - second[1]
+    top_delta = second[1] - first[1]
+    return (
+        abs(first[0] - second[0]) <= 8.0
+        and abs(first_width - second_width) <= 25.0
+        and abs(first_height - second_height) <= 8.0
+        and -_WRAPPED_MAX_LINE_MOVE <= top_delta <= 4.0
+    )
+
+
+def _wrapped_card_match(item: Mapping[str, Any]) -> bool:
+    card = item.get("card")
+    receipt = item.get("receipt")
+    if not isinstance(card, Mapping) or not isinstance(receipt, Mapping):
+        return False
+    return _wrapped_name_fragment(
+        receipt["prefix"]["text"],
+        receipt["continuation"]["text"],
+        card["text"],
+    ) is not None
 
 
 def _receipt_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -739,6 +1080,531 @@ def _static_row(row: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _wrapped_static_row(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Extract one source row whose receipt is split across two OCR lines.
+
+    The card line supplies the identity anchor.  The receipt contributes only
+    its stable amount prefix and two exact name fragments; the continuation is
+    retained verbatim so later stages can audit the wrapped text.  A missing
+    context title is represented as ``None`` rather than fabricated from the
+    card or receipt.
+    """
+    if row.get("screen") != "event_outcome":
+        return None
+    timestamp = _timestamp(row)
+    evidence = _evidence(row)
+    context_valid, context = _wrapped_context(row)
+    cards = _card_candidates(row)
+    receipts = _wrapped_receipt_candidates(row)
+    if (
+        timestamp is None
+        or evidence is None
+        or not context_valid
+        or len(cards) != 1
+        or len(receipts) != 1
+    ):
+        return None
+    receipt = receipts[0]
+    matched_name = _wrapped_name_fragment(
+        receipt["prefix"]["text"],
+        receipt["continuation"]["text"],
+        cards[0]["text"],
+    )
+    if matched_name is None:
+        # Multiple wrapped receipts or no card-aligned receipt is ambiguous;
+        # never choose by OCR confidence or line order.
+        return None
+    receipt_box = receipt["box"]
+    overlay = _intersecting_overlay(receipt_box, _overlay_boxes(row))
+    return {
+        "variant": _WRAPPED_HINT_KIND,
+        "row": row,
+        "timestamp": timestamp,
+        "evidence": evidence,
+        "context": context,
+        "card": cards[0],
+        "receipt": {
+            "text": f'{receipt["prefix"]["text"]} {receipt["continuation"]["text"]}',
+            "name": matched_name,
+            "amount": receipt["amount"],
+            "confidence": receipt["confidence"],
+            "box": receipt_box,
+            "source": receipt["source"],
+            "prefix": deepcopy(receipt["prefix"]),
+            "continuation": deepcopy(receipt["continuation"]),
+        },
+        "overlay": overlay,
+    }
+
+
+def _wrapped_contiguous_runs(
+    rows: Sequence[dict[str, Any]],
+    source_rows: Sequence[Mapping[str, Any]],
+) -> list[list[dict[str, Any]]]:
+    """Build wrapped runs without skipping any source row or card change."""
+    accepted = {
+        (item["timestamp"], item["evidence"]): item
+        for item in rows
+    }
+    ordered = sorted(
+        source_rows,
+        key=lambda row: (_timestamp(row), _evidence(row)),
+    )
+    runs: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for row in ordered:
+        key = (_timestamp(row), _evidence(row))
+        item = accepted.get(key)
+        if item is None:
+            if current:
+                runs.append(current)
+                current = []
+            continue
+        if current:
+            previous = current[-1]
+            if not (
+                item["variant"] == previous["variant"] == _WRAPPED_HINT_KIND
+                and item["timestamp"] > previous["timestamp"]
+                and item["timestamp"] - previous["timestamp"] <= _MAX_ROW_GAP_MS
+                and item["context"] == previous["context"]
+                and item["card"]["text"] == previous["card"]["text"]
+                and item["receipt"]["amount"] == previous["receipt"]["amount"]
+                and _geometry_compatible(
+                    previous["card"]["box"], item["card"]["box"]
+                )
+                and _wrapped_line_geometry_compatible(
+                    previous["receipt"]["box"], item["receipt"]["box"]
+                )
+            ):
+                runs.append(current)
+                current = []
+        if current:
+            current.append(item)
+        else:
+            current = [item]
+    if current:
+        runs.append(current)
+    return runs
+
+
+def _wrapped_run_is_consistent(run: Sequence[dict[str, Any]]) -> bool:
+    if len(run) < 2:
+        return False
+    if len({item.get("timestamp") for item in run}) != len(run):
+        return False
+    if len({item.get("evidence") for item in run}) != len(run):
+        return False
+    if any(item.get("variant") != _WRAPPED_HINT_KIND for item in run):
+        return False
+    cards = [item.get("card") for item in run]
+    receipts = [item.get("receipt") for item in run]
+    if any(not isinstance(card, Mapping) for card in cards):
+        return False
+    if any(not isinstance(receipt, Mapping) for receipt in receipts):
+        return False
+    if len({card["text"] for card in cards}) != 1:
+        return False
+    if len({receipt["amount"] for receipt in receipts}) != 1:
+        return False
+    if any(
+        not _wrapped_card_match(item)
+        for item in run
+    ):
+        return False
+    for previous, current in zip(run, run[1:]):
+        if (
+            current["timestamp"] <= previous["timestamp"]
+            or current["timestamp"] - previous["timestamp"] > _MAX_ROW_GAP_MS
+            or not _wrapped_contexts_compatible(
+                previous["context"], current["context"]
+            )
+            or not _geometry_compatible(
+                previous["card"]["box"], current["card"]["box"]
+            )
+            or not _wrapped_line_geometry_compatible(
+                previous["receipt"]["box"], current["receipt"]["box"]
+            )
+        ):
+            return False
+    return True
+
+
+def _wrapped_amount_crop_box(
+    receipt_box: Sequence[float],
+) -> tuple[float, float, float, float] | None:
+    """Return the fixed source-space amount-digit box for a wrapped line."""
+    box = _box(receipt_box)
+    if box is None:
+        return None
+    # The amount is the stable first field after the 148px pane offset.  The
+    # box is derived solely from the observed receipt geometry, never from an
+    # expected name or estimated text width.
+    return _box((box[0] + 79.0, box[1] - 2.0, box[0] + 99.0, box[3] + 2.0))
+
+
+def _wrapped_amount_delimiter_crop_box(
+    receipt_box: Sequence[float],
+) -> tuple[float, float, float, float] | None:
+    """Return the source box immediately after the amount field.
+
+    The wrapped receipt has a fixed ``hint`` delimiter after its amount.  A
+    separate crop of that delimiter provides a right-boundary witness: an
+    amount crop that read only the first digit of ``20`` or ``12`` must not be
+    promoted when the next source pixels still contain the missing digit.
+    """
+    box = _box(receipt_box)
+    if box is None:
+        return None
+    return _box((box[0] + 94.0, box[1] - 2.0, box[0] + 124.0, box[3] + 2.0))
+
+
+def _wrapped_identity_fragment_crop_box(
+    receipt_box: Sequence[float],
+    overlay_box: Sequence[float],
+) -> tuple[float, float, float, float] | None:
+    """Return a source crop after the obstruction and before the line edge."""
+    receipt = _box(receipt_box)
+    overlay = _box(overlay_box)
+    if receipt is None or overlay is None:
+        return None
+    if not (
+        overlay[0] < receipt[2]
+        and overlay[2] > receipt[0]
+        and overlay[1] <= _center_y(receipt) <= overlay[3]
+    ):
+        return None
+    # Start outside the padded cursor box.  The gap is fixed source geometry,
+    # not an estimate based on the expected name's width.
+    return _box(
+        (
+            overlay[2] + _WRAPPED_IDENTITY_FRAGMENT_GAP,
+            receipt[1] - 2.0,
+            receipt[2],
+            receipt[3] + 2.0,
+        )
+    )
+
+
+def _wrapped_identity_fragment_from_tail(
+    recognized_text: str,
+    card_text: str,
+) -> str | None:
+    """Match an OCR tail to an exact prefix of the standalone card name.
+
+    The crop begins immediately after the obstruction, so OCR may include the
+    end of the fixed ``for`` boilerplate.  We may discard that leading tail
+    only when the remaining literal text is an exact card prefix.  This keeps
+    punctuation and token boundaries visible; no catalog or edit distance is
+    involved.
+    """
+    if not isinstance(recognized_text, str) or not isinstance(card_text, str):
+        return None
+    recognized_text = recognized_text.strip()
+    card_text = card_text.strip()
+    if not recognized_text or not card_text:
+        return None
+    card_spans = list(_WORD_TOKEN_RE.finditer(card_text))
+    tail_spans = list(_WORD_TOKEN_RE.finditer(recognized_text))
+    if len(card_spans) < 2 or not tail_spans or card_spans[0].start() != 0:
+        return None
+    card_words = [match.group(0).casefold() for match in card_spans]
+    tail_words = [match.group(0).casefold() for match in tail_spans]
+    for tail_start in range(len(tail_spans)):
+        if tail_start > 0 and not recognized_text[tail_spans[tail_start].start() - 1].isspace():
+            continue
+        # The crop can retain the tail of the fixed ``for`` boilerplate, but
+        # it must not be allowed to discard arbitrary words before a matching
+        # card prefix.  Otherwise ``Other Wrapped`` could certify ``Wrapped
+        # Skill`` merely because the second word happens to match.
+        leading_text = recognized_text[: tail_spans[tail_start].start()].strip().casefold()
+        if leading_text not in ("", "for", "or", "r"):
+            continue
+        for length in range(1, min(len(card_words), len(tail_words) - tail_start) + 1):
+            if tail_words[tail_start : tail_start + length] != card_words[:length]:
+                continue
+            tail_fragment = recognized_text[tail_spans[tail_start].start() :]
+            card_fragment = card_text[card_spans[0].start() : card_spans[length - 1].end()]
+            if (
+                _literal_fragment(tail_fragment) == _literal_fragment(card_fragment)
+                or _literal_fragment(_without_one_terminal_sentence_mark(tail_fragment))
+                == _literal_fragment(card_fragment)
+            ):
+                return card_fragment
+    return None
+
+
+def _wrapped_identity_fragment_ocr(
+    reader: Any,
+    image: Any,
+    item: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Read a name fragment from source pixels beyond a cursor obstruction."""
+    receipt = item.get("receipt")
+    card = item.get("card")
+    overlay = item.get("overlay")
+    if not isinstance(receipt, Mapping) or not isinstance(card, Mapping):
+        return None
+    crop_box = _wrapped_identity_fragment_crop_box(receipt.get("box"), overlay)
+    if crop_box is None:
+        return None
+    try:
+        import numpy as np
+
+        left, top, right, bottom = (int(round(value)) for value in crop_box)
+        crop = image.crop((left - 148, top, right - 148, bottom))
+        if crop.width < 32 or crop.height < 8:
+            return None
+        result = reader.engine.text_rec(
+            reader.TextRecInput(img=[np.asarray(crop)[:, :, ::-1]])
+        )
+        texts = getattr(result, "txts", ()) or ()
+        scores = getattr(result, "scores", ()) or ()
+    except (AttributeError, ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+    if len(texts) != 1 or len(scores) != 1:
+        return None
+    recognized_text, score = texts[0], scores[0]
+    if not isinstance(recognized_text, str) or not _finite_number(score):
+        return None
+    confidence = float(score) * 100.0
+    if not 90.0 <= confidence <= 100.0:
+        return None
+    fragment = _wrapped_identity_fragment_from_tail(
+        recognized_text,
+        card.get("text"),
+    )
+    if fragment is None:
+        return None
+    try:
+        pixel_sha256 = hashlib.sha256(crop.convert("RGB").tobytes()).hexdigest()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return {
+        "basis": _WRAPPED_IDENTITY_FRAGMENT_BASIS,
+        "recognized_text": recognized_text.strip(),
+        "fragment": fragment,
+        "confidence": round(confidence, 4),
+        "crop_box": _box_list(crop_box),
+        "overlay_box": _box_list(overlay),
+        "pixel_rgb_sha256": pixel_sha256,
+        "model_fingerprint": getattr(reader, "fingerprint", None),
+    }
+
+
+def _wrapped_identity_fragment_proof_matches(
+    proof: Mapping[str, Any] | None,
+    item: Mapping[str, Any],
+    image: Any | None = None,
+) -> bool:
+    """Validate a persisted source-bound identity-fragment proof."""
+    if not isinstance(proof, Mapping):
+        return False
+    receipt = item.get("receipt")
+    card = item.get("card")
+    overlay = item.get("overlay")
+    if not isinstance(receipt, Mapping) or not isinstance(card, Mapping):
+        return False
+    recognized_text = proof.get("recognized_text")
+    fragment = proof.get("fragment")
+    confidence = proof.get("confidence")
+    model_fingerprint = proof.get("model_fingerprint")
+    pixel_sha256 = proof.get("pixel_rgb_sha256")
+    expected_crop = _wrapped_identity_fragment_crop_box(receipt.get("box"), overlay)
+    saved_crop = _box(proof.get("crop_box"))
+    saved_overlay = _box(proof.get("overlay_box"))
+    expected_overlay = _box(overlay)
+    prefix = receipt.get("prefix")
+    continuation = receipt.get("continuation")
+    if not isinstance(prefix, Mapping) or not isinstance(continuation, Mapping):
+        # Prepared event observations keep the raw receipt parts beside the
+        # compact receipt object.  Accept that representation only as an
+        # equivalent view; the parts still have to pass the exact literal
+        # partition below.
+        parts = item.get("receipt_parts")
+        if isinstance(parts, Mapping):
+            prefix = parts.get("prefix")
+            continuation = parts.get("continuation")
+    if (
+        proof.get("basis") != _WRAPPED_IDENTITY_FRAGMENT_BASIS
+        or not isinstance(recognized_text, str)
+        or not recognized_text.strip()
+        or not isinstance(fragment, str)
+        or not fragment.strip()
+        or not _finite_number(confidence)
+        or not 90.0 <= float(confidence) <= 100.0
+        or not isinstance(model_fingerprint, str)
+        or _SOURCE_SHA_RE.fullmatch(model_fingerprint) is None
+        or not isinstance(pixel_sha256, str)
+        or _SOURCE_SHA_RE.fullmatch(pixel_sha256) is None
+        or expected_crop is None
+        or saved_crop != expected_crop
+        or expected_overlay is None
+        or saved_overlay != expected_overlay
+        or _wrapped_identity_fragment_from_tail(recognized_text, card.get("text")) != fragment
+        # The independently read tail must still belong to a complete,
+        # literal partition of the source receipt.  This rejects cards whose
+        # standalone punctuation/symbols disappeared between the wrapped
+        # prefix and continuation, even when the tail happens to match a
+        # token prefix of the card name.
+        or not isinstance(prefix, Mapping)
+        or not isinstance(continuation, Mapping)
+        or _wrapped_name_fragment(
+            prefix.get("text"), continuation.get("text"), card.get("text")
+        )
+        != card.get("text", "").strip()
+    ):
+        return False
+    if image is not None:
+        try:
+            left, top, right, bottom = (int(round(value)) for value in saved_crop)
+            crop = image.crop((left - 148, top, right - 148, bottom))
+            actual_sha256 = hashlib.sha256(crop.convert("RGB").tobytes()).hexdigest()
+        except (AttributeError, OSError, TypeError, ValueError):
+            return False
+        if actual_sha256 != pixel_sha256:
+            return False
+    return True
+
+
+def _wrapped_amount_ocr(
+    reader: Any,
+    image: Any,
+    receipt: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Read only the amount digit from a wrapped receipt's source pixels."""
+    amount = receipt.get("amount")
+    crop_box = _wrapped_amount_crop_box(receipt.get("box"))
+    if type(amount) is not int or not 0 < amount <= 99 or crop_box is None:
+        return None
+    try:
+        import numpy as np
+
+        left, top, right, bottom = (
+            int(round(value)) for value in crop_box
+        )
+        crop = image.crop((left - 148, top, right - 148, bottom))
+        if crop.width < 8 or crop.height < 8:
+            return None
+        result = reader.engine.text_rec(
+            reader.TextRecInput(img=[np.asarray(crop)[:, :, ::-1]])
+        )
+        texts = getattr(result, "txts", ()) or ()
+        scores = getattr(result, "scores", ()) or ()
+    except (AttributeError, ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+    readings: list[tuple[int, str, float]] = []
+    for text, score in zip(texts, scores):
+        if not isinstance(text, str) or not _finite_number(score):
+            continue
+        raw_text = text.strip()
+        if not re.fullmatch(r"\d{1,2}", raw_text):
+            continue
+        confidence = float(score) * 100.0
+        if not _finite_number(confidence) or not 90.0 <= confidence <= 100.0:
+            continue
+        value = int(raw_text)
+        readings.append((value, raw_text, confidence))
+    if not readings:
+        return None
+    if len({value for value, _, _ in readings}) != 1:
+        return None
+    value, raw_text, confidence = max(
+        readings,
+        key=lambda item: (item[2], len(item[1]), item[1]),
+    )
+    if value != amount:
+        return None
+    try:
+        pixel_sha256 = hashlib.sha256(crop.convert("RGB").tobytes()).hexdigest()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    delimiter_box = _wrapped_amount_delimiter_crop_box(receipt.get("box"))
+    if delimiter_box is None:
+        return None
+    try:
+        delimiter_left, delimiter_top, delimiter_right, delimiter_bottom = (
+            int(round(value)) for value in delimiter_box
+        )
+        delimiter_crop = image.crop(
+            (delimiter_left - 148, delimiter_top, delimiter_right - 148, delimiter_bottom)
+        )
+        delimiter_result = reader.engine.text_rec(
+            reader.TextRecInput(img=[np.asarray(delimiter_crop)[:, :, ::-1]])
+        )
+        delimiter_texts = getattr(delimiter_result, "txts", ()) or ()
+        delimiter_scores = getattr(delimiter_result, "scores", ()) or ()
+    except (AttributeError, ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+    delimiter_readings = []
+    for text, score in zip(delimiter_texts, delimiter_scores):
+        if not isinstance(text, str) or not _finite_number(score):
+            continue
+        raw_delimiter = text.strip()
+        confidence = float(score) * 100.0
+        if (
+            re.fullmatch(r"h\s*in(?:t)?", raw_delimiter, re.IGNORECASE)
+            and _finite_number(confidence)
+            and 90.0 <= confidence <= 100.0
+        ):
+            delimiter_readings.append((raw_delimiter, confidence))
+    # Any digit or competing OCR result in this fixed boundary crop makes the
+    # amount field incomplete or ambiguous.  Do not select the best-looking
+    # delimiter from correlated alternatives.
+    if len(delimiter_readings) != 1 or len(delimiter_texts) != 1:
+        return None
+    delimiter_text, delimiter_confidence = delimiter_readings[0]
+    try:
+        delimiter_sha256 = hashlib.sha256(
+            delimiter_crop.convert("RGB").tobytes()
+        ).hexdigest()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    model_fingerprint = getattr(reader, "fingerprint", None)
+    return {
+        "amount": value,
+        "recognized_text": raw_text,
+        "confidence": round(confidence, 4),
+        "crop_box": _box_list(crop_box),
+        "pixel_rgb_sha256": pixel_sha256,
+        "basis": _WRAPPED_AMOUNT_BASIS,
+        "model_fingerprint": model_fingerprint,
+        "delimiter_proof": {
+            "recognized_text": delimiter_text,
+            "confidence": round(delimiter_confidence, 4),
+            "crop_box": _box_list(delimiter_box),
+            "pixel_rgb_sha256": delimiter_sha256,
+            "basis": _WRAPPED_AMOUNT_DELIMITER_BASIS,
+            "model_fingerprint": model_fingerprint,
+        },
+    }
+
+
+def _raw_supports_wrapped_item(
+    item: Mapping[str, Any],
+    raw: Mapping[str, Any],
+) -> bool:
+    """Bind both wrapped receipt lines and the card to raw neural OCR."""
+    card = item.get("card")
+    receipt = item.get("receipt")
+    header = card.get("header") if isinstance(card, Mapping) else None
+    if (
+        not isinstance(card, Mapping)
+        or not isinstance(receipt, Mapping)
+        or not isinstance(header, Mapping)
+        or not _raw_has_line(raw, card)
+        or not _raw_has_line(raw, header)
+    ):
+        return False
+    prefix = receipt.get("prefix")
+    continuation = receipt.get("continuation")
+    return (
+        isinstance(prefix, Mapping)
+        and isinstance(continuation, Mapping)
+        and _raw_has_line(raw, prefix)
+        and _raw_has_line(raw, continuation)
+    )
+
+
 def _contiguous_runs(
     rows: Sequence[dict[str, Any]],
     source_rows: Sequence[Mapping[str, Any]],
@@ -949,6 +1815,263 @@ def _candidate_from_run(
     }
 
 
+def _wrapped_amount_proof_matches(
+    proof: Mapping[str, Any] | None,
+    item: Mapping[str, Any],
+    image: Any,
+) -> bool:
+    """Validate an amount proof and bind its crop hash to source pixels."""
+    if not isinstance(proof, Mapping):
+        return False
+    receipt = item.get("receipt")
+    if not isinstance(receipt, Mapping):
+        return False
+    amount = receipt.get("amount")
+    recognized = proof.get("recognized_text")
+    confidence = proof.get("confidence")
+    crop_box = proof.get("crop_box")
+    pixel_sha256 = proof.get("pixel_rgb_sha256")
+    model_fingerprint = proof.get("model_fingerprint")
+    if (
+        type(amount) is not int
+        or proof.get("amount") != amount
+        or not isinstance(recognized, str)
+        or not re.fullmatch(r"\d{1,2}", recognized.strip())
+        or int(recognized.strip()) != amount
+        or not _finite_number(confidence)
+        or not 90.0 <= float(confidence) <= 100.0
+        or proof.get("basis") != _WRAPPED_AMOUNT_BASIS
+        or not isinstance(pixel_sha256, str)
+        or _SOURCE_SHA_RE.fullmatch(pixel_sha256) is None
+        or not isinstance(model_fingerprint, str)
+        or _SOURCE_SHA_RE.fullmatch(model_fingerprint) is None
+    ):
+        return False
+    expected_crop = _wrapped_amount_crop_box(receipt.get("box"))
+    saved_crop = _box(crop_box)
+    if expected_crop is None or saved_crop is None or saved_crop != expected_crop:
+        return False
+    try:
+        left, top, right, bottom = (
+            int(round(value)) for value in saved_crop
+        )
+        crop = image.crop((left - 148, top, right - 148, bottom))
+        actual_sha256 = hashlib.sha256(crop.convert("RGB").tobytes()).hexdigest()
+    except (AttributeError, OSError, TypeError, ValueError):
+        return False
+    if actual_sha256 != pixel_sha256:
+        return False
+    delimiter = proof.get("delimiter_proof")
+    if not isinstance(delimiter, Mapping):
+        return False
+    delimiter_text = delimiter.get("recognized_text")
+    delimiter_confidence = delimiter.get("confidence")
+    delimiter_sha256 = delimiter.get("pixel_rgb_sha256")
+    delimiter_model = delimiter.get("model_fingerprint")
+    if (
+        not isinstance(delimiter_text, str)
+        or re.fullmatch(r"h\s*in(?:t)?", delimiter_text.strip(), re.IGNORECASE)
+        is None
+        or not _finite_number(delimiter_confidence)
+        or not 90.0 <= float(delimiter_confidence) <= 100.0
+        or delimiter.get("basis") != _WRAPPED_AMOUNT_DELIMITER_BASIS
+        or not isinstance(delimiter_model, str)
+        or _SOURCE_SHA_RE.fullmatch(delimiter_model) is None
+        or delimiter_model != model_fingerprint
+        or not isinstance(delimiter_sha256, str)
+        or _SOURCE_SHA_RE.fullmatch(delimiter_sha256) is None
+    ):
+        return False
+    expected_delimiter = _wrapped_amount_delimiter_crop_box(receipt.get("box"))
+    saved_delimiter = _box(delimiter.get("crop_box"))
+    if expected_delimiter is None or saved_delimiter is None or saved_delimiter != expected_delimiter:
+        return False
+    try:
+        left, top, right, bottom = (
+            int(round(value)) for value in saved_delimiter
+        )
+        delimiter_crop = image.crop((left - 148, top, right - 148, bottom))
+        actual_delimiter_sha256 = hashlib.sha256(
+            delimiter_crop.convert("RGB").tobytes()
+        ).hexdigest()
+    except (AttributeError, OSError, TypeError, ValueError):
+        return False
+    return actual_delimiter_sha256 == delimiter_sha256
+
+
+def _candidate_from_wrapped_run(
+    run: Sequence[dict[str, Any]],
+    *,
+    evidence_root: Path,
+    source_sha256: str,
+    image_cache: dict[str, dict[str, Any]],
+    source_manifest: Mapping[str, Mapping[str, Any]],
+    capture_manifest_sha256: str,
+    reader: Any,
+) -> dict[str, Any] | None:
+    """Build a wrapped receipt candidate from independently proven rows."""
+    if not _wrapped_run_is_consistent(run):
+        return None
+    try:
+        from .inventory_suffix import detect as detect_suffix
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+    reader_fingerprint = getattr(reader, "fingerprint", None)
+    if not isinstance(reader_fingerprint, str) or _SOURCE_SHA_RE.fullmatch(reader_fingerprint) is None:
+        return None
+
+    observations: list[dict[str, Any]] = []
+    suffix_values: list[str] = []
+    for item in run:
+        loaded = _load_image(
+            evidence_root,
+            item["row"],
+            image_cache,
+            source_sha256=source_sha256,
+            source_manifest=source_manifest,
+        )
+        if loaded is None:
+            return None
+        raw = loaded["binding"]["raw"]
+        if not _raw_supports_wrapped_item(item, raw):
+            return None
+        if item["overlay"] is not None and not _source_overlay_matches(
+            loaded["image"], item["overlay"]
+        ):
+            return None
+        try:
+            suffix = detect_suffix(loaded["image"], item["card"]["box"])
+        except (AttributeError, ImportError, IndexError, RuntimeError, TypeError, ValueError):
+            return None
+        if suffix not in (None, "single_circle", "double_circle"):
+            return None
+        if suffix is not None:
+            suffix_values.append(suffix)
+        prefix_line = item["receipt"]["prefix"]
+        identity_fragment_proof = None
+        prefix_occluded = (
+            item["overlay"] is not None
+            or prefix_line.get("overlay_occluded") is True
+            or bool(prefix_line.get("overlay_boxes"))
+            or prefix_line.get("recipient_name_occluded") is True
+        )
+        if prefix_occluded:
+            # A cursor-covered prefix needs an independently source-bound
+            # tail fragment.  The standalone card and a hidden OCR line do
+            # not, by themselves, prove the receipt identity.
+            if item["overlay"] is None:
+                return None
+            identity_fragment_proof = _wrapped_identity_fragment_ocr(
+                reader, loaded["image"], item
+            )
+            if not _wrapped_identity_fragment_proof_matches(
+                identity_fragment_proof, item, loaded["image"]
+            ):
+                return None
+        proof = _wrapped_amount_ocr(reader, loaded["image"], item["receipt"])
+        if (
+            not _wrapped_amount_proof_matches(proof, item, loaded["image"])
+            or proof.get("model_fingerprint") != reader_fingerprint
+        ):
+            return None
+        suffix_state = "present" if suffix is not None else "undetermined"
+        observations.append(
+            {
+                "timestamp_ms": item["timestamp"],
+                "evidence": item["evidence"],
+                "evidence_sha256": loaded["evidence_sha256"],
+                "raw_sha256": loaded["binding"]["raw_sha256"],
+                "gameplay_sha256": loaded["binding"]["gameplay_sha256"],
+                "source_frame_sha256": loaded["binding"]["source_frame_sha256"],
+                "source_frame_path": loaded["binding"]["source_frame_path"],
+                "capture_frame_id": loaded["binding"]["capture_frame_id"],
+                "card": {
+                    "text": item["card"]["text"],
+                    "confidence": item["card"]["confidence"],
+                    "box": _box_list(item["card"]["box"]),
+                    "header": {
+                        "text": item["card"]["header"]["text"],
+                        "confidence": item["card"]["header"]["confidence"],
+                        "box": _box_list(item["card"]["header"]["box"]),
+                    },
+                    "suffix": suffix,
+                    "suffix_state": suffix_state,
+                },
+                "receipt": {
+                    "text": item["receipt"]["text"],
+                    "raw_name": item["receipt"]["name"],
+                    "amount": item["receipt"]["amount"],
+                    "confidence": item["receipt"]["confidence"],
+                    "box": _box_list(item["receipt"]["box"]),
+                    "source": item["receipt"]["source"],
+                },
+                "receipt_parts": {
+                    "prefix": deepcopy(item["receipt"]["prefix"]),
+                    "continuation": deepcopy(item["receipt"]["continuation"]),
+                },
+                "overlay_box": (
+                    _box_list(item["overlay"]) if item["overlay"] is not None else None
+                ),
+                "identity_fragment_proof": identity_fragment_proof,
+                "prefix_amount_proof": proof,
+            }
+        )
+
+    if len(observations) < 2:
+        return None
+    evidence_hashes = [observation["evidence_sha256"] for observation in observations]
+    gameplay_hashes = [observation["gameplay_sha256"] for observation in observations]
+    source_frame_hashes = [
+        observation["source_frame_sha256"] for observation in observations
+    ]
+    if (
+        len(set(evidence_hashes)) != len(evidence_hashes)
+        or len(set(gameplay_hashes)) != len(gameplay_hashes)
+        or len(set(source_frame_hashes)) != len(source_frame_hashes)
+    ):
+        return None
+    if len(suffix_values) > 1 and len(set(suffix_values)) != 1:
+        return None
+    rank_state = (
+        "present"
+        if len(suffix_values) == len(observations) and suffix_values
+        else "undetermined"
+    )
+    suffix = suffix_values[0] if rank_state == "present" else None
+    card_name = observations[0]["card"]["text"]
+    amount = observations[0]["receipt"]["amount"]
+    raw_names = sorted({observation["receipt"]["raw_name"] for observation in observations})
+    return {
+        "observation_kind": _WRAPPED_HINT_KIND,
+        "kind": "skill_hint_change",
+        "name": card_name,
+        "amount": amount,
+        "source_sha256": source_sha256,
+        "source_timestamps_ms": [observation["timestamp_ms"] for observation in observations],
+        "raw_receipt_name_candidates": raw_names,
+        "identity_proof": {
+            "basis": "standalone_hint_card_with_wrapped_receipt_and_per_row_amount_ocr",
+            "card_text": card_name,
+            "suffix": suffix,
+            "rank_state": rank_state,
+            "distinct_timestamp_count": len(observations),
+            "same_context": run[0]["context"],
+            "context_observed": run[0]["context"] is not None,
+            "geometry_stable": True,
+        },
+        "provenance": {
+            "source_evidence_type": "decoded_gameplay_png",
+            "capture_manifest_sha256": capture_manifest_sha256,
+            "source_frame_chain": "capture.json -> source frame -> neural cache -> gameplay PNG",
+            "independent_observations": False,
+            "multi_crop_not_counted_as_timestamp": True,
+            "prefix_ocr_model_fingerprint": reader_fingerprint,
+            "prefix_crop_count": len(observations),
+        },
+        "observations": observations,
+    }
+
+
 def recover(
     rows: Sequence[Mapping[str, Any]],
     evidence_root: str | Path,
@@ -980,6 +2103,7 @@ def recover(
 
     source_rows: list[Mapping[str, Any]] = []
     static = []
+    wrapped_static = []
     all_timestamp_evidence: dict[int, str] = {}
     all_evidence_timestamp: dict[str, int] = {}
     timestamp_evidence: dict[int, str] = {}
@@ -1008,33 +2132,44 @@ def recover(
         all_timestamp_evidence[source_timestamp] = source_evidence
         all_evidence_timestamp[source_evidence] = source_timestamp
         item = _static_row(row)
-        if item is None:
-            continue
-        timestamp = item["timestamp"]
-        evidence = item["evidence"]
-        prior_evidence = timestamp_evidence.get(timestamp)
-        prior_timestamp = evidence_timestamp.get(evidence)
-        if prior_evidence is not None and prior_evidence != evidence:
-            return []
-        if prior_timestamp is not None and prior_timestamp != timestamp:
-            return []
-        timestamp_evidence[timestamp] = evidence
-        evidence_timestamp[evidence] = timestamp
-        static.append(item)
+        if item is not None:
+            timestamp = item["timestamp"]
+            evidence = item["evidence"]
+            prior_evidence = timestamp_evidence.get(timestamp)
+            prior_timestamp = evidence_timestamp.get(evidence)
+            if prior_evidence is not None and prior_evidence != evidence:
+                return []
+            if prior_timestamp is not None and prior_timestamp != timestamp:
+                return []
+            timestamp_evidence[timestamp] = evidence
+            evidence_timestamp[evidence] = timestamp
+            static.append(item)
+        wrapped_item = _wrapped_static_row(row)
+        if wrapped_item is not None:
+            wrapped_static.append(wrapped_item)
 
     image_cache: dict[str, dict[str, Any]] = {}
     reader: Any | None = None
     candidates = []
+
+    def get_reader() -> Any | None:
+        nonlocal reader
+        if reader is not None:
+            return reader
+        try:
+            from .vision import NeuralReader
+
+            reader = NeuralReader()
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+            return None
+        return reader
+
     for run in _contiguous_runs(static, source_rows):
         if len(run) < 2:
             continue
-        if reader is None:
-            try:
-                from .vision import NeuralReader
-
-                reader = NeuralReader()
-            except (ImportError, OSError, RuntimeError, TypeError, ValueError):
-                return []
+        active_reader = get_reader()
+        if active_reader is None:
+            return []
         candidate = _candidate_from_run(
             run,
             evidence_root=root,
@@ -1042,7 +2177,24 @@ def recover(
             image_cache=image_cache,
             source_manifest=source_manifest,
             capture_manifest_sha256=capture_manifest_sha256,
-            reader=reader,
+            reader=active_reader,
+        )
+        if candidate is not None:
+            candidates.append(candidate)
+    for run in _wrapped_contiguous_runs(wrapped_static, source_rows):
+        if len(run) < 2:
+            continue
+        active_reader = get_reader()
+        if active_reader is None:
+            return []
+        candidate = _candidate_from_wrapped_run(
+            run,
+            evidence_root=root,
+            source_sha256=source_sha256,
+            image_cache=image_cache,
+            source_manifest=source_manifest,
+            capture_manifest_sha256=capture_manifest_sha256,
+            reader=active_reader,
         )
         if candidate is not None:
             candidates.append(candidate)

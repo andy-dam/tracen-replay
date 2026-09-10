@@ -98,11 +98,21 @@ to overwrite an existing artifact. If parser or refinement changes invalidate a
 cache, archive it, rebuild the report, then prepare a new cache from that final
 state. Preserve the prior report and cache for comparison.
 
-The current cache supports base capture observations. Native inspection
-manifests require a separate adapter. Integration requires a unique existing
-outcome and refuses conflicting skill amounts or circle ranks before applying
-any candidate. It does not create event boundaries or infer a hint award from
-an inheritance spark.
+The cache supports base capture observations. Native inspection manifests
+require a separate adapter. Wrapped receipts can combine a readable card with
+literal receipt fragments and source-bound amount crops. The digit and its
+following delimiter are checked together so a clipped multi-digit amount cannot
+be accepted as one digit. Multiple crops of one frame are correlated evidence.
+An unexposed circle rank stays undetermined; it is not evidence of an unranked skill.
+
+Validated wrapped receipts enter copied observations before outcome grouping,
+so an unparsed receipt does not itself force an event boundary. Observed screen
+changes and unrelated narrative lines still block that association. Integration
+checks the whole candidate batch for conflicting amounts or ranks. If a staged
+candidate is rejected, reconstruction starts again from the original readings
+without it; rejected evidence cannot leave an award in the timeline. The report
+retains original candidate indices and rejection reasons. Raw readings stay
+unchanged, and inheritance sparks never establish hint amounts.
 
 ### Source artifacts
 

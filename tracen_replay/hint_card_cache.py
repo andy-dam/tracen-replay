@@ -1,11 +1,12 @@
 """Persist and replay source-bound hint-card recovery observations.
 
 ``hint_card_identity.recover`` is an explicit preparation step: it performs
-the prefix OCR needed to establish the amount outside the cursor.  This
-module stores that result together with the source-row and pixel provenance
-needed to validate it later.  ``load`` never constructs a ``NeuralReader`` or
-reruns OCR; it rechecks the saved proof against the current parsed rows and
-source cache, and returns no candidates when any binding is stale.
+the OCR needed to establish a complete-line prefix or a wrapped receipt's
+amount outside the cursor.  This module stores that result together with the
+source-row and pixel provenance needed to validate it later.  ``load`` never
+constructs a ``NeuralReader`` or reruns OCR; it rechecks the saved proof
+against the current parsed rows and source cache, and returns no candidates
+when any binding is stale.
 
 The cache is an immutable preparation artifact.  ``save`` refuses to replace
 an existing path.  A caller may use the default ``root/hint-card-recovery.json``
@@ -136,6 +137,12 @@ def _boxes_equal(left: Any, right: Any) -> bool:
     left_box = _box(left)
     right_box = _box(right)
     return left_box is not None and right_box is not None and left_box == right_box
+
+
+def _optional_boxes_equal(left: Any, right: Any) -> bool:
+    if left is None or right is None:
+        return left is None and right is None
+    return _boxes_equal(left, right)
 
 
 def _source_manifest_hash(root: Path) -> str | None:
@@ -274,6 +281,288 @@ def _observation_binding_matches(
     return all(observation.get(field) == binding.get(field) for field in fields)
 
 
+def _wrapped_line_matches(
+    saved: Any,
+    expected: Any,
+) -> bool:
+    if not isinstance(saved, Mapping) or not isinstance(expected, Mapping):
+        return False
+    return (
+        saved.get("text") == expected.get("text")
+        and saved.get("confidence") == expected.get("confidence")
+        and _boxes_equal(saved.get("box"), expected.get("box"))
+        and saved.get("source") == expected.get("source")
+        and saved.get("overlay_occluded") is expected.get("overlay_occluded")
+        and saved.get("overlay_boxes", []) == expected.get("overlay_boxes", [])
+        and saved.get("recipient_name_occluded", False)
+        is expected.get("recipient_name_occluded", False)
+    )
+
+
+def _wrapped_candidate_observation_matches(
+    observation: Mapping[str, Any],
+    item: Mapping[str, Any],
+) -> bool:
+    """Compare one persisted wrapped observation with current parsed rows."""
+    card = observation.get("card")
+    receipt = observation.get("receipt")
+    parts = observation.get("receipt_parts")
+    expected_card = item.get("card")
+    expected_receipt = item.get("receipt")
+    if (
+        not isinstance(card, Mapping)
+        or not isinstance(receipt, Mapping)
+        or not isinstance(parts, Mapping)
+        or not isinstance(expected_card, Mapping)
+        or not isinstance(expected_receipt, Mapping)
+    ):
+        return False
+    expected_header = expected_card.get("header")
+    saved_header = card.get("header")
+    if (
+        not isinstance(expected_header, Mapping)
+        or not isinstance(saved_header, Mapping)
+        or card.get("text") != expected_card.get("text")
+        or card.get("confidence") != expected_card.get("confidence")
+        or not _boxes_equal(card.get("box"), expected_card.get("box"))
+        or not _wrapped_line_matches(saved_header, expected_header)
+        or receipt.get("text") != expected_receipt.get("text")
+        or receipt.get("raw_name") != expected_receipt.get("name")
+        or receipt.get("amount") != expected_receipt.get("amount")
+        or receipt.get("confidence") != expected_receipt.get("confidence")
+        or receipt.get("source") != expected_receipt.get("source")
+        or not _boxes_equal(receipt.get("box"), expected_receipt.get("box"))
+        or not _wrapped_line_matches(
+            parts.get("prefix"), expected_receipt.get("prefix")
+        )
+        or not _wrapped_line_matches(
+            parts.get("continuation"), expected_receipt.get("continuation")
+        )
+        or not _optional_boxes_equal(observation.get("overlay_box"), item.get("overlay"))
+    ):
+        return False
+    suffix = card.get("suffix")
+    suffix_state = card.get("suffix_state")
+    if suffix_state not in ("present", "undetermined"):
+        return False
+    if suffix_state == "present":
+        if suffix not in ("single_circle", "double_circle"):
+            return False
+    elif suffix is not None:
+        return False
+    return True
+
+
+def _validate_wrapped_candidate(
+    candidate: Mapping[str, Any],
+    readings: Sequence[Mapping[str, Any]],
+    root: Path,
+    *,
+    source_sha256: str,
+    capture_manifest_sha256: str,
+    stored_span_hashes: Any = None,
+    stored_observation_provenance: Any = None,
+) -> dict[str, Any] | None:
+    """Validate a wrapped candidate without invoking OCR."""
+    if (
+        not isinstance(candidate, Mapping)
+        or candidate.get("observation_kind") != "wrapped_hint_receipt"
+        or candidate.get("kind") != "skill_hint_change"
+        or candidate.get("source_sha256") != source_sha256
+        or not isinstance(candidate.get("name"), str)
+        or not candidate["name"].strip()
+        or type(candidate.get("amount")) is not int
+        or not 0 < candidate["amount"] <= 99
+    ):
+        return None
+    observations = candidate.get("observations")
+    source_times = candidate.get("source_timestamps_ms")
+    identity = candidate.get("identity_proof")
+    provenance = candidate.get("provenance")
+    raw_names = candidate.get("raw_receipt_name_candidates")
+    if (
+        not isinstance(observations, list)
+        or not isinstance(source_times, list)
+        or not isinstance(identity, Mapping)
+        or not isinstance(provenance, Mapping)
+        or not isinstance(raw_names, list)
+        or len(observations) < 2
+        or len(observations) != len(source_times)
+        or any(type(value) is not int or value < 0 for value in source_times)
+        or len(set(source_times)) != len(source_times)
+        or source_times != sorted(source_times)
+        or any(not isinstance(value, str) or not value.strip() for value in raw_names)
+        or raw_names != sorted(set(raw_names))
+    ):
+        return None
+    rank_state = identity.get("rank_state")
+    identity_suffix = identity.get("suffix")
+    context_observed = identity.get("context_observed")
+    same_context = identity.get("same_context")
+    if (
+        identity.get("basis")
+        != "standalone_hint_card_with_wrapped_receipt_and_per_row_amount_ocr"
+        or identity.get("card_text") != candidate["name"]
+        or rank_state not in ("present", "undetermined")
+        or (rank_state == "present" and identity_suffix not in ("single_circle", "double_circle"))
+        or (rank_state == "undetermined" and identity_suffix is not None)
+        or identity.get("distinct_timestamp_count") != len(source_times)
+        or identity.get("geometry_stable") is not True
+        or type(context_observed) is not bool
+        or (context_observed and (not isinstance(same_context, str) or not same_context))
+        or (not context_observed and same_context is not None)
+        or provenance.get("source_evidence_type") != "decoded_gameplay_png"
+        or provenance.get("independent_observations") is not False
+        or provenance.get("multi_crop_not_counted_as_timestamp") is not True
+        or provenance.get("capture_manifest_sha256") != capture_manifest_sha256
+        or not isinstance(provenance.get("prefix_ocr_model_fingerprint"), str)
+        or _SHA256_RE.fullmatch(provenance["prefix_ocr_model_fingerprint"]) is None
+        or provenance.get("prefix_crop_count") != len(observations)
+    ):
+        return None
+
+    try:
+        from .hint_card_identity import (
+            _load_image,
+            _load_source_manifest,
+            _raw_supports_wrapped_item,
+            _source_overlay_matches,
+            _wrapped_amount_proof_matches,
+            _wrapped_identity_fragment_proof_matches,
+            _wrapped_run_is_consistent,
+            _wrapped_static_row,
+        )
+        from .inventory_suffix import detect as detect_suffix
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+
+    source_manifest = _load_source_manifest(root, source_sha256=source_sha256)
+    if source_manifest is None:
+        return None
+    valid_rows = _validated_rows(readings)
+    if valid_rows is None:
+        return None
+    start_ms, end_ms = source_times[0], source_times[-1]
+    span = _span_rows(valid_rows, start_ms, end_ms)
+    if span is None or len(span) < 2:
+        return None
+    span_static = []
+    for row in span:
+        item = _wrapped_static_row(row)
+        if item is None:
+            return None
+        span_static.append(item)
+    if not _wrapped_run_is_consistent(span_static):
+        return None
+    span_times = [item["timestamp"] for item in span_static]
+    if span_times != source_times:
+        return None
+    if any(item["card"]["text"] != candidate["name"] for item in span_static):
+        return None
+    if any(item["receipt"]["amount"] != candidate["amount"] for item in span_static):
+        return None
+    if any(item["context"] != same_context for item in span_static):
+        return None
+    current_span_hashes = _span_hashes(span)
+    if current_span_hashes is None:
+        return None
+    if stored_span_hashes is not None and not _hash_list_equal(
+        stored_span_hashes,
+        current_span_hashes,
+    ):
+        return None
+
+    image_cache: dict[str, dict[str, Any]] = {}
+    observation_provenance: list[dict[str, Any]] = []
+    observed_names: list[str] = []
+    observed_bindings: list[Mapping[str, Any]] = []
+    for observation, item in zip(observations, span_static):
+        if not isinstance(observation, Mapping):
+            return None
+        if (
+            observation.get("timestamp_ms") != item["timestamp"]
+            or observation.get("evidence") != item["evidence"]
+            or not _wrapped_candidate_observation_matches(observation, item)
+        ):
+            return None
+        loaded = _load_image(
+            root,
+            item["row"],
+            image_cache,
+            source_sha256=source_sha256,
+            source_manifest=source_manifest,
+        )
+        if loaded is None:
+            return None
+        if (
+            not _raw_supports_wrapped_item(item, loaded["binding"]["raw"])
+            or not _observation_binding_matches(observation, loaded["binding"])
+            or not _wrapped_amount_proof_matches(
+                observation.get("prefix_amount_proof"),
+                item,
+                loaded["image"],
+            )
+            or (
+                item["overlay"] is not None
+                and not _wrapped_identity_fragment_proof_matches(
+                    observation.get("identity_fragment_proof"),
+                    item,
+                    loaded["image"],
+                )
+            )
+            or (
+                item["overlay"] is None
+                and observation.get("identity_fragment_proof") is not None
+            )
+            or observation["prefix_amount_proof"].get("model_fingerprint")
+            != provenance["prefix_ocr_model_fingerprint"]
+        ):
+            return None
+        if item["overlay"] is not None and not _source_overlay_matches(
+            loaded["image"], item["overlay"]
+        ):
+            return None
+        try:
+            suffix = detect_suffix(loaded["image"], item["card"]["box"])
+        except (AttributeError, ImportError, IndexError, RuntimeError, TypeError, ValueError):
+            return None
+        if suffix not in (None, "single_circle", "double_circle"):
+            return None
+        saved_suffix = observation["card"].get("suffix")
+        saved_state = observation["card"].get("suffix_state")
+        if saved_state == "present" and suffix != saved_suffix:
+            return None
+        if (
+            rank_state == "present"
+            and (saved_state != "present" or suffix != identity_suffix)
+        ):
+            return None
+        # An undetermined rank remains undetermined even if a detector happens
+        # to find a marker during replay; the cache must not promote it.
+        observed_names.append(item["receipt"]["name"])
+        observed_bindings.append(loaded["binding"])
+        proof = _cache_observation_provenance(observation, loaded["binding"])
+        if proof is None:
+            return None
+        observation_provenance.append(proof)
+
+    if sorted(set(observed_names)) != raw_names:
+        return None
+    for field in ("evidence_sha256", "gameplay_sha256", "source_frame_sha256"):
+        values = [binding.get(field) for binding in observed_bindings]
+        if len(set(values)) != len(values):
+            return None
+    if stored_observation_provenance is not None and not _hash_list_equal(
+        stored_observation_provenance,
+        observation_provenance,
+    ):
+        return None
+    return {
+        "span_hashes": current_span_hashes,
+        "observation_provenance": observation_provenance,
+    }
+
+
 def _validate_candidate(
     candidate: Mapping[str, Any],
     readings: Sequence[Mapping[str, Any]],
@@ -285,6 +574,19 @@ def _validate_candidate(
     stored_observation_provenance: Any = None,
 ) -> dict[str, Any] | None:
     """Validate a saved candidate without constructing an OCR reader."""
+    if (
+        isinstance(candidate, Mapping)
+        and candidate.get("observation_kind") == "wrapped_hint_receipt"
+    ):
+        return _validate_wrapped_candidate(
+            candidate,
+            readings,
+            root,
+            source_sha256=source_sha256,
+            capture_manifest_sha256=capture_manifest_sha256,
+            stored_span_hashes=stored_span_hashes,
+            stored_observation_provenance=stored_observation_provenance,
+        )
     if (
         not isinstance(candidate, Mapping)
         or candidate.get("kind") != "skill_hint_change"

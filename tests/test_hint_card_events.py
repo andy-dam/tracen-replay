@@ -26,6 +26,86 @@ def fixture():
     return [event],rows,[candidate]
 
 
+def wrapped_fixture():
+    """Build a source-row-shaped wrapped receipt with an unknown rank."""
+    rows = []
+    observations = []
+    for time in (1000, 1250):
+        evidence = f'gameplay/{time}.png'
+        card = dict(
+            text='Wrapped Skill', confidence=99,
+            box=[400, 678, 565, 703],
+            header={'text': 'Hint', 'confidence': 99, 'box': [400, 650, 500, 675]},
+            suffix=None, suffix_state='undetermined',
+        )
+        prefix = dict(
+            text='Gained 2 hint level(s) for Wrapped', confidence=99,
+            box=[316, 830, 590, 854], source='neural',
+        )
+        continuation = dict(
+            text='Skill.', confidence=99,
+            box=[316, 858, 410, 882], source='neural',
+        )
+        receipt = dict(
+            text=f'{prefix["text"]} {continuation["text"]}',
+            raw_name='Wrapped Skill', amount=2, confidence=99,
+            box=[316, 830, 731, 882], source='wrapped_receipt',
+        )
+        rows.append(dict(
+            source_timestamp_ms=time, evidence=evidence, screen='event_outcome',
+            effects=[], facts={},
+            ocr={'neural': [deepcopy(card), deepcopy(prefix), deepcopy(continuation)]},
+        ))
+        observations.append(dict(
+            timestamp_ms=time, evidence=evidence,
+            card=deepcopy(card), receipt=deepcopy(receipt),
+            receipt_parts={'prefix': deepcopy(prefix), 'continuation': deepcopy(continuation)},
+            prefix_amount_proof={
+                'amount': 2, 'recognized_text': '2', 'confidence': 94,
+                'crop_box': [395, 828, 415, 884],
+                'pixel_rgb_sha256': 'e' * 64,
+                'basis': 'source_bound_amount_digit_crop_ocr',
+                'model_fingerprint': 'd' * 64,
+                'delimiter_proof': {
+                    'recognized_text': 'hint', 'confidence': 94,
+                    'crop_box': [410, 828, 440, 884],
+                    'pixel_rgb_sha256': 'f' * 64,
+                    'basis': 'amount_digit_followed_by_hint_delimiter_ocr',
+                    'model_fingerprint': 'd' * 64,
+                },
+            },
+        ))
+    candidate = dict(
+        observation_kind='wrapped_hint_receipt', kind='skill_hint_change',
+        name='Wrapped Skill', amount=2, source_sha256=SOURCE,
+        source_timestamps_ms=[1000, 1250],
+        raw_receipt_name_candidates=['Wrapped Skill'],
+        identity_proof={
+            'basis': 'standalone_hint_card_with_wrapped_receipt_and_per_row_amount_ocr',
+            'card_text': 'Wrapped Skill', 'suffix': None,
+            'rank_state': 'undetermined', 'distinct_timestamp_count': 2,
+            'same_context': None, 'context_observed': False,
+            'geometry_stable': True,
+        },
+        provenance={
+            'source_evidence_type': 'decoded_gameplay_png',
+            'capture_manifest_sha256': 'b' * 64,
+            'source_frame_chain': 'capture.json -> source frame -> neural cache -> gameplay PNG',
+            'independent_observations': False,
+            'multi_crop_not_counted_as_timestamp': True,
+            'prefix_ocr_model_fingerprint': 'd' * 64,
+            'prefix_crop_count': 2,
+        },
+        observations=observations,
+    )
+    event = dict(
+        id='outcome-wrapped', kind='outcome', first_seen_ms=900, last_seen_ms=1500,
+        context_title='A Present', effects=[], field_evidence={},
+        conflicting_readings=[], deltas={},
+    )
+    return [event], rows, [candidate]
+
+
 class HintCardEventTests(unittest.TestCase):
     def test_report_reconstruction_reuses_observations_without_running_ocr(self):
         from unittest.mock import patch
@@ -169,3 +249,137 @@ class HintCardEventTests(unittest.TestCase):
             result=apply(events,rows,candidates,source_sha256=SOURCE)
             self.assertEqual(bool(result['accepted']),accepted)
             if accepted:self.assertEqual(events[0]['effects'][0]['name'],name)
+
+    def test_attaches_wrapped_identity_with_unknown_rank_and_raw_parts(self):
+        events, rows, candidates = wrapped_fixture()
+        originals = deepcopy((rows, candidates))
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['rejected'], [])
+        effect = events[0]['effects'][0]
+        self.assertEqual((effect['name'], effect['amount']), ('Wrapped Skill', 2))
+        self.assertEqual(effect['rank_state'], 'undetermined')
+        self.assertFalse(effect['circle_variant_verified'])
+        self.assertEqual(
+            effect['identity_basis'],
+            'validated_repeated_hint_card_and_wrapped_receipt',
+        )
+        saved = effect['hint_card_evidence'][0]
+        self.assertEqual(
+            saved['observations'][0]['receipt_parts']['prefix']['text'],
+            'Gained 2 hint level(s) for Wrapped',
+        )
+        self.assertEqual(saved['observations'][0]['receipt_parts']['continuation']['text'], 'Skill.')
+        self.assertEqual(rows, originals[0])
+        self.assertEqual(candidates, originals[1])
+
+    def test_wrapped_candidate_rejects_missing_receipt_part(self):
+        for missing in ('prefix', 'continuation'):
+            with self.subTest(missing=missing):
+                events, rows, candidates = wrapped_fixture()
+                candidates[0]['observations'][0]['receipt_parts'][missing]['text'] = 'Corrupt.'
+                before = deepcopy(events)
+                result = apply(events, rows, candidates, source_sha256=SOURCE)
+                self.assertEqual(result['accepted'], [])
+                self.assertEqual(events, before)
+
+    def test_wrapped_candidate_rejects_malformed_receipt_parts(self):
+        events, rows, candidates = wrapped_fixture()
+        candidates[0]['observations'][0]['receipt_parts']['prefix'] = None
+        before = deepcopy(events)
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['accepted'], [])
+        self.assertEqual(events, before)
+
+    def test_wrapped_unknown_context_requires_unique_temporal_outcome(self):
+        events, rows, candidates = wrapped_fixture()
+        second = deepcopy(events[0])
+        second['id'] = 'outcome-wrapped-2'
+        events.append(second)
+        before = deepcopy(events)
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['accepted'], [])
+        self.assertEqual(events, before)
+
+    def test_wrapped_candidate_rejects_invalid_amount_proof_or_rank_state(self):
+        for change in ('proof', 'rank'):
+            with self.subTest(change=change):
+                events, rows, candidates = wrapped_fixture()
+                if change == 'proof':
+                    candidates[0]['observations'][1]['prefix_amount_proof']['confidence'] = 101
+                else:
+                    candidates[0]['identity_proof']['rank_state'] = 'absent'
+                before = deepcopy(events)
+                result = apply(events, rows, candidates, source_sha256=SOURCE)
+                self.assertEqual(result['accepted'], [])
+                self.assertEqual(events, before)
+
+    def test_wrapped_candidate_rejects_relocated_delimiter_crop(self):
+        events, rows, candidates = wrapped_fixture()
+        candidates[0]['observations'][0]['prefix_amount_proof']['delimiter_proof']['crop_box'] = [
+            500, 500, 530, 560
+        ]
+        before = deepcopy(events)
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['accepted'], [])
+        self.assertEqual(events, before)
+
+    def test_wrapped_unknown_rank_does_not_duplicate_ranked_existing_effect(self):
+        events, rows, candidates = wrapped_fixture()
+        existing = dict(kind='skill_hint_change', name='Wrapped Skill ○', amount=2)
+        events[0]['effects'] = [existing]
+        before = deepcopy(existing)
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['rejected'], [])
+        self.assertEqual(len(events[0]['effects']), 1)
+        self.assertEqual(events[0]['effects'][0]['name'], before['name'])
+        self.assertEqual(events[0]['effects'][0]['amount'], before['amount'])
+        self.assertEqual(events[0]['effects'][0]['hint_card_rank_state'], 'undetermined')
+
+    def test_wrapped_source_lines_select_high_confidence_retained_duplicate(self):
+        from tracen_replay.hint_card_events import _wrapped_source_lines
+
+        events, rows, candidates = wrapped_fixture()
+        row = rows[1]
+        prefix = deepcopy(row['ocr']['neural'][1])
+        prefix['confidence'] = 0
+        prefix['overlay_occluded'] = True
+        row['ocr']['neural'][1] = prefix
+        retained = deepcopy(prefix)
+        retained['confidence'] = 92.407
+        retained.pop('overlay_occluded', None)
+        retained['overlay_boxes'] = [[522, 862, 535, 877]]
+        row['facts'] = {'occluded_receipt_lines': [retained]}
+
+        selected = [
+            line for line in _wrapped_source_lines(row)
+            if line.get('text') == prefix['text']
+        ]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]['confidence'], 92.407)
+        self.assertEqual(selected[0]['source'], 'occluded_receipt_line')
+        self.assertTrue(selected[0]['overlay_occluded'])
+        self.assertEqual(selected[0]['overlay_boxes'], [[522, 862, 535, 877]])
+
+    def test_attaches_wrapped_candidate_with_source_clear_fragment_proof(self):
+        events, rows, candidates = wrapped_fixture()
+        row = rows[1]
+        source_prefix = row['ocr']['neural'][1]
+        source_prefix['overlay_occluded'] = True
+        source_prefix['overlay_boxes'] = [[522, 850, 535, 865]]
+        observation = candidates[0]['observations'][1]
+        observation['receipt_parts']['prefix']['overlay_occluded'] = True
+        observation['receipt_parts']['prefix']['overlay_boxes'] = [[522, 850, 535, 865]]
+        observation['overlay_box'] = [522, 850, 535, 865]
+        observation['identity_fragment_proof'] = {
+            'basis': 'source_bound_identity_fragment_tail_ocr',
+            'recognized_text': 'or Wrapped',
+            'fragment': 'Wrapped',
+            'confidence': 93.0,
+            'crop_box': [538, 828, 731, 884],
+            'overlay_box': [522, 850, 535, 865],
+            'pixel_rgb_sha256': 'a' * 64,
+            'model_fingerprint': 'd' * 64,
+        }
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['rejected'], [])
+        self.assertEqual(result['accepted'][0]['name'], 'Wrapped Skill')

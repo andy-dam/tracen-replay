@@ -638,10 +638,24 @@ def reconcile_visible_training_candidates(before,after,events,readings):
 
 
 def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hint_card_observations=(),source_sha256=None):
-    states=checkpoints(readings);events=training_events(readings,states)+outcome_events(readings)
+    outcome_readings=readings;eligible_hints=hint_card_observations;hint_row_audit=None
+    if any(isinstance(candidate,dict) and candidate.get('observation_kind')=='wrapped_hint_receipt'
+           for candidate in hint_card_observations):
+        from .hint_card_rows import prepare as prepare_hint_rows
+        outcome_readings,eligible_hints,hint_row_audit=prepare_hint_rows(
+            readings,hint_card_observations,source_sha256=source_sha256)
+    states=checkpoints(readings);events=training_events(readings,states)+outcome_events(outcome_readings)
     if hint_card_observations:
         from .hint_card_events import apply as apply_hint_cards
-        hint_card_audit=apply_hint_cards(events,readings,hint_card_observations,source_sha256=source_sha256)
+        hint_card_audit=apply_hint_cards(events,readings,eligible_hints,source_sha256=source_sha256)
+        if hint_row_audit is not None:
+            original_indices=hint_row_audit['eligible_input_indices']
+            for channel in ('accepted','rejected'):
+                hint_card_audit[channel]=[dict(entry,index=original_indices[entry['index']])
+                                          for entry in hint_card_audit[channel]]
+            hint_card_audit['rejected']+=deepcopy(hint_row_audit['rejected'])
+            hint_card_audit['rejected'].sort(key=lambda entry:entry['index'])
+            hint_card_audit['row_recovery']=hint_row_audit
     skills=skill_transactions(readings,states);events+=skills
     events.sort(key=lambda e:e['first_seen_ms'])
     intervals=[]

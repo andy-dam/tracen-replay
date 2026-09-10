@@ -184,5 +184,112 @@ class HintCardCacheTests(unittest.TestCase):
             self.assertEqual(load(self.rows, self.root, SOURCE_SHA, cache_path=output), [self.candidate])
 
 
+class WrappedHintCardCacheTests(unittest.TestCase):
+    def setUp(self):
+        fixture_class = import_module("tests.test_hint_card_identity").HintCardIdentityTests
+        self.fixture = fixture_class("test_wrapped_receipt_recovers_with_unknown_rank_and_context")
+        self.fixture.setUp()
+        self.root = self.fixture.root
+        self.rows = self.fixture._make_wrapped_rows()
+        for path in (self.root / "neural").glob("*.json"):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            raw["engine_fingerprint"] = "e" * 64
+            path.write_text(json.dumps(raw), encoding="utf-8")
+        self.candidate = self.fixture._patched_wrapped_recover(self.rows)[0]
+        self.cache_path = self.root / "wrapped-hint-card-recovery.json"
+        with patch(
+            "tracen_replay.inventory_suffix.detect",
+            side_effect=[None, None],
+        ):
+            save(
+                self.cache_path,
+                [self.candidate],
+                self.rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+            )
+
+    def tearDown(self):
+        self.fixture.tearDown()
+
+    def _load(self, rows=None, *, suffixes=None):
+        suffixes = [None, None] if suffixes is None else suffixes
+        with (
+            patch("tracen_replay.inventory_suffix.detect", side_effect=suffixes),
+            patch(
+                "tracen_replay.vision.NeuralReader",
+                side_effect=AssertionError("cache load must not construct OCR"),
+            ),
+        ):
+            return load(
+                self.rows if rows is None else rows,
+                self.root,
+                SOURCE_SHA,
+                cache_path=self.cache_path,
+            )
+
+    def _assert_invalid(self, rows=None):
+        with (
+            patch("tracen_replay.inventory_suffix.detect", side_effect=[None, None]),
+            patch(
+                "tracen_replay.vision.NeuralReader",
+                side_effect=AssertionError("cache load must not construct OCR"),
+            ),
+            self.assertRaises(ValueError),
+        ):
+            load(
+                self.rows if rows is None else rows,
+                self.root,
+                SOURCE_SHA,
+                cache_path=self.cache_path,
+            )
+
+    def test_wrapped_cache_replays_without_ocr_and_preserves_unknown_rank(self):
+        loaded = self._load()
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["name"], "Wrapped Skill")
+        self.assertEqual(loaded[0]["identity_proof"]["rank_state"], "undetermined")
+        self.assertIsNone(loaded[0]["identity_proof"]["suffix"])
+        self.assertEqual(
+            loaded[0]["observations"][0]["receipt_parts"]["prefix"]["text"],
+            "Gained 2 hint l:ve Wrapped",
+        )
+
+    def test_undetermined_rank_is_not_promoted_by_replay_detector(self):
+        loaded = self._load(suffixes=["single_circle", "single_circle"])
+        self.assertEqual(loaded[0]["identity_proof"]["rank_state"], "undetermined")
+        self.assertIsNone(loaded[0]["identity_proof"]["suffix"])
+
+    def test_tampered_amount_crop_hash_invalidates_cache(self):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        payload["candidates"][0]["observations"][0]["prefix_amount_proof"][
+            "pixel_rgb_sha256"
+        ] = "a" * 64
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._assert_invalid()
+
+    def test_tampered_amount_crop_geometry_invalidates_cache(self):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        payload["candidates"][0]["observations"][0]["prefix_amount_proof"][
+            "crop_box"
+        ][0] += 1
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._assert_invalid()
+
+    def test_amount_proof_model_binding_invalidates_cache(self):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        payload["candidates"][0]["observations"][0]["prefix_amount_proof"][
+            "model_fingerprint"
+        ] = "f" * 64
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._assert_invalid()
+
+    def test_unknown_rank_state_or_suffix_is_rejected(self):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        payload["candidates"][0]["observations"][0]["card"]["suffix_state"] = "absent_proven"
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._assert_invalid()
+
+
 if __name__ == "__main__":
     unittest.main()
