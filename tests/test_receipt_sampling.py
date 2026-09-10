@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -44,6 +45,60 @@ def point_reading(timestamp, *, screen='event_outcome', text='Energy went down b
 
 
 class ReceiptSamplingTests(unittest.TestCase):
+    def symbol_event(self):
+        return dict(kind='outcome', first_seen_ms=2000, last_seen_ms=2500,
+                    evidence='receipt.png', effects=[
+                        dict(kind='skill_hint_change', name='Test Skill ○', amount=3,
+                             original_text='Gained hint for Test Skill O.',
+                             visual_symbol_observation=dict(method='strict_terminal_ring_geometry')),
+                        dict(kind='skill_hint_change', name='Test Skill O', amount=3,
+                             raw_text='Gained hint for Test Skill O.')])
+
+    def test_unresolved_symbol_pair_requests_pixels_without_supplying_labels(self):
+        data = report(events=[self.symbol_event()])
+        original = copy.deepcopy(data)
+        plan = self.make_plan(data)
+        self.assertEqual(len(plan['windows']), 1)
+        self.assertEqual([t['kind'] for t in plan['targets']], ['unresolved_hint_symbol'])
+        self.assertEqual(plan['targets'][0]['anchor_start_ms'], 2000)
+        self.assertNotIn('Test Skill', json.dumps(plan))
+        self.assertNotIn('amount', json.dumps(plan))
+        self.assertEqual(data, original)
+
+    def test_distinct_or_malformed_hints_do_not_trigger_symbol_recovery(self):
+        mutations = [
+            (0, 'visual_symbol_observation', None),
+            (0, 'visual_symbol_observation', 'unverified'),
+            (0, 'visual_symbol_observation', {'method': 'guessed'}),
+            (0, 'original_text', None),
+            (1, 'name', 'Test Skill ○'),
+            (1, 'name', None),
+            (1, 'raw_text', 'Different receipt.'),
+            (1, 'amount', 2),
+            (1, 'amount', None),
+            (1, 'amount', True),
+        ]
+        for index, key, value in mutations:
+            with self.subTest(index=index, key=key, value=value):
+                event = self.symbol_event()
+                event['effects'][index][key] = value
+                self.assertEqual(self.make_plan(report(events=[event]))['targets'], [])
+
+    def test_symbol_recovery_respects_optional_panels_and_prior_inspection(self):
+        for kind in ('training', 'career_summary', 'concert_info'):
+            event = self.symbol_event()
+            event['kind'] = kind
+            plan = self.make_plan(report(events=[event]))
+            self.assertEqual(plan['targets'], [])
+            self.assertEqual(plan['windows'], [])
+        covered = dict(source_sha256=SOURCE_SHA,
+                       windows=[dict(start_ms=1500, end_ms=3000, fps=30)])
+        plan = self.make_plan(report(events=[self.symbol_event()]),
+                              existing_inspection=covered,
+                              existing_inspection_sha256=INSPECTION_SHA)
+        self.assertEqual(plan['windows'], [])
+        self.assertEqual(plan['deferred'][0]['reason'], 'already_inspected_at_sufficient_fps')
+
     def make_plan(self, data, **kwargs):
         return build_plan(data, capture(data['source']['duration_ms']),
                           source_sha256=SOURCE_SHA, report_sha256=REPORT_SHA,

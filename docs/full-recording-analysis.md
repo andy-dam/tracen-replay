@@ -67,7 +67,8 @@ Receipt crop variants count as one frame. Agreement can recover cursor-obscured 
 The report can produce a source-bound plan for uncertain receipt observations
 that are worth rereading. These are review targets, not confirmed missing events;
 another frame may already support the same receipt. The planner uses occluded lines, unparsed receipt candidates,
-and conflicting receipt observations as anchors, pads and merges nearby anchors,
+conflicting receipt observations, and unresolved symbol/OCR hint-identity pairs
+as anchors, pads and merges nearby anchors,
 and splits the result into windows of at most five seconds. Unresolved stat or
 performance intervals affect ordering only; residual numbers and expected
 labels are never supplied to OCR. A finite footage and frame budget leaves

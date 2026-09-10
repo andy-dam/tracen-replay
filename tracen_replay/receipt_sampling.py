@@ -139,6 +139,34 @@ def _target(target_id: str, kind: str, bounds: tuple[int, int], evidence: Any, r
                 evidence=_evidence(evidence), reason=reason)
 
 
+def _unresolved_hint_symbol(event: dict[str, Any]) -> bool:
+    """Request more pixels when one receipt retains a symbol/OCR identity pair.
+
+    This identifies uncertainty only. It neither chooses the correct spelling
+    nor merges awards; reconstruction still requires repeated visual evidence.
+    """
+    effects = event.get('effects', [])
+    if not isinstance(effects, list):
+        return False
+    hints = [e for e in effects if isinstance(e, dict) and e.get('kind') == 'skill_hint_change']
+    for strong in hints:
+        symbol = strong.get('visual_symbol_observation')
+        original = strong.get('original_text')
+        if not isinstance(symbol, dict) or symbol.get('method') != 'strict_terminal_ring_geometry':
+            continue
+        if not isinstance(original, str) or not original or not strong.get('name'):
+            continue
+        if type(strong.get('amount')) is not int:
+            continue
+        if any(not weak.get('visual_symbol_observation')
+               and weak.get('name') and weak['name'] != strong['name']
+               and weak.get('raw_text') == original
+               and type(weak.get('amount')) is int and weak['amount'] == strong['amount']
+               for weak in hints):
+            return True
+    return False
+
+
 def _extract_targets(report: dict[str, Any], duration: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     data = report.get('gameplay_tracking', {})
     if not isinstance(data, dict):
@@ -213,17 +241,21 @@ def _extract_targets(report: dict[str, Any], duration: int) -> tuple[list[dict[s
     if not isinstance(events, list):
         events = []
     for event in events:
-        if not isinstance(event, dict) or not event.get('conflicting_readings'):
+        if not isinstance(event, dict):
             continue
+        kinds = []
+        if event.get('conflicting_readings'):
+            kinds.append(('conflicting_receipt_readings', 'source event retained conflicting receipt readings'))
+        if _unresolved_hint_symbol(event):
+            kinds.append(('unresolved_hint_symbol', 'source receipt retained competing visual-symbol identities'))
         bounds = _range(event, 'event', duration)
-        if _optional_marker(event):
-            defer('conflicting_receipt_readings', 'optional_panel_not_receipt_target', event, bounds)
-            continue
-        if event.get('kind') not in _RECEIPT_EVENT_KINDS:
-            defer('conflicting_receipt_readings', 'non_receipt_event_conflict', event, bounds)
-            continue
-        add('conflicting_receipt_readings', bounds, event.get('evidence'),
-            'source event retained conflicting receipt readings')
+        for kind, reason in kinds:
+            if _optional_marker(event):
+                defer(kind, 'optional_panel_not_receipt_target', event, bounds)
+            elif event.get('kind') not in _RECEIPT_EVENT_KINDS:
+                defer(kind, 'non_receipt_event_conflict', event, bounds)
+            else:
+                add(kind, bounds, event.get('evidence'), reason)
 
     return targets, deferred
 
