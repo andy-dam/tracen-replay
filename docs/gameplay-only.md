@@ -63,7 +63,7 @@ Immediate effects, future training modifiers and bonuses queued until a concert 
 
 The lower race-day totals row can supply current stats from the original OCR when its layout is established by the label/control geometry or the five blue label bands in the gameplay pixels. All six numeric readings still require 97% confidence; cap denominators, projected gains and duplicate candidates are excluded. The report preserves the field text, boxes and confidence. A visible race button does not establish a completed race, and these observations must meet the ordinary temporal checkpoint requirements before entering the state ledger.
 
-Cursor checks cover numeric receipts, nonnumeric friendship statuses and inheritance inspiration receipts. The supported cursor mask includes its white outline, while the text-center intersection check prevents neighboring baseline padding alone from invalidating a receipt. When a cursor overlaps a receipt and character alignment cannot establish which text is obscured, the parser abstains on the whole line. Inheritance alignment must reproduce the original OCR text exactly before it can narrow that check to the name. This detects the supported cursor appearance; it does not establish that animated confetti or other effects leave a name unobstructed. Raw OCR remains available for review. Malformed supporter-join receipts are also surfaced as review candidates; they do not count as confirmed joins.
+Cursor checks cover numeric receipts, nonnumeric friendship statuses and inheritance inspiration receipts. The supported cursor mask includes its white outline. The overlap check measures the visible ink height across the receipt line so an almost-erased digit cannot supply a misleading one-row text band. Recipient regions include internal gaps because OCR whitespace can represent a cursor-hidden letter. Small edge contacts remain distinct from intersections through the text; conservative rejection can still leave a readable receipt unresolved. When a cursor overlaps a receipt and character alignment cannot establish which text is obscured, the parser abstains on the whole line. Inheritance alignment must reproduce the original OCR text exactly before it can narrow that check to the name. This detects the supported cursor appearance; it does not establish that animated confetti or other effects leave a name unobstructed. Raw OCR remains available for review. Malformed supporter-join receipts are also surfaced as review candidates; they do not count as confirmed joins.
 
 A complete numeric field receipt may resolve one shorter digit reading when a later source frame repeats its exact text with only the sentence terminator missing. Both readings require at least 97 OCR confidence and distinct source timestamps and artifacts, 50–500 ms apart within the same outcome. A conflicting repeat, intervening outlier, or recipient name prevents this supplemental resolution. The accepted complete receipt, later corroboration and rejected reading remain in the conflict audit. An unfinished line alone cannot supply the replacement amount, and state totals are not used by this rule. The existing check based on multiple complete receipts remains separate; earlier typewriter prefixes do not invalidate that stronger evidence.
 
@@ -120,7 +120,8 @@ References may also attach `source_performance_balance` with complete five-curre
 ## Gates before the application
 
 Ordinary recordings do not need to open Concert Info, scroll the complete skill
-inventory, or follow a recording script. Those screens provide optional validation
+inventory, pause on a panel, provide overlapping scroll rows, or follow a recording
+script. Those screens provide optional validation
 evidence. Their absence must not prevent analysis of the rest of the run or,
 by itself, prevent application readiness.
 
@@ -139,6 +140,13 @@ from an unavailable observation. A controlled recording can expose optional
 screens to check correctness, while an ordinary recording checks that their
 absence is handled honestly. Preserve the next independent recording's initial
 evaluation before using it to guide fixes.
+
+Repeated readable observations may come from normal playback or scrolling;
+they do not imply a required user pause. The inventory aggregator can retain a
+name observed in different card slots across frames. This does not establish
+recognition of arbitrary scrolling layouts, motion blur, clipped names, or pages
+never shown. Those cases need their own source validation and must retain partial
+or unknown output when evidence is insufficient.
 
 Hint spellings that differ only in spaces or hyphens can represent one receipt.
 Merging requires matching amounts and receipt sentences in the same outcome,
