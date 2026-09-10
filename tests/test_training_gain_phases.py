@@ -31,6 +31,14 @@ def before_state(skill_points=606):
 
 
 class TrainingGainPhaseTests(unittest.TestCase):
+    def test_unknown_option_does_not_count_as_observed_action_identity(self):
+        rows = [result_row(t, {'speed': 8}, option=None) for t in (1000, 1033)]
+        event = training_events(rows)[0]
+        self.assertIsNone(event['training_option'])
+        self.assertEqual(event['action_identity_evidence'], [])
+        self.assertEqual(event['action_identity_observations'], 0)
+        self.assertEqual(event['deltas']['speed'], 8)
+
     def test_repeated_full_result_records_strict_component_candidate_without_accounting(self):
         rows = [
             result_row(1000, {'speed': 8, 'wit': 21, 'skill_points': 11}),

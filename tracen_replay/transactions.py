@@ -370,6 +370,11 @@ def lesson_receipts(readings, outcomes):
             if cost is None and not complete and not partial and not invalid_projection:
                 observed=observed_lesson_debit(readings,event,group,before_rows,after,effect['name'])
                 if observed:cost=observed['cost'];matched=observed['matched']
+            offered=None
+            if cost is None and not partial and not invalid_projection:
+                from .lesson_offer_costs import join_lesson_cost
+                offered=join_lesson_cost(readings,event,group,before_rows,initial)
+                if offered:cost=offered['cost']
             if partial:
                 agreeing=[r for r in after if complete and r['facts']['performance_points']==projected]
                 between=[r for r in readings if first['source_timestamp_ms']<r['source_timestamp_ms']<event['first_seen_ms']]
@@ -389,7 +394,7 @@ def lesson_receipts(readings, outcomes):
                     if effect_key not in effect_keys:projected_effects.append(projected_effect);effect_keys.add(effect_key)
             purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
-                performance_cost=cost,cost_basis='receipt_and_repeated_observed_balances' if observed else 'observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
+                performance_cost=cost,cost_basis='receipt_request_and_observed_offer_prices' if offered else 'receipt_and_repeated_observed_balances' if observed else 'observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
                 requested_name=requested,receipt_name=effect['name'],name_identity_verified=False,
                 name_match_basis='source_symbol_alias_and_repeated_observed_debit' if symbol_alias else 'partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
                 after_balance_observed=matched is not None,awarded_stats=event['deltas'],
@@ -397,6 +402,10 @@ def lesson_receipts(readings, outcomes):
                 evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],
                 complete_transaction_verified=False))
             if symbol_alias:purchases[-1]['observed_request_names']=sorted(request_names)
+            if offered:
+                purchases[-1]['offer_cost_evidence']=offered
+                purchases[-1]['evidence']=list(dict.fromkeys(purchases[-1]['evidence']+
+                    offered['offer']['evidence']+offered['request']['evidence']))
             if observed:
                 purchases[-1]['balance_evidence']=observed['proofs']
                 purchases[-1]['evidence']=list(dict.fromkeys(purchases[-1]['evidence']+
@@ -511,9 +520,9 @@ def training_events(readings,states=()):
                 else:events[-1].setdefault('performance_reading_conflicts',{})[field]=sorted(values)
         events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs,
                          action_identity_evidence=[r['evidence'] for r in group['rows']
-                             if r.get('training_option')==group['option']],
+                             if group['option'] is not None and r.get('training_option')==group['option']],
                          action_identity_observations=len({r['source_timestamp_ms'] for r in group['rows']
-                             if r.get('training_option')==group['option']}))
+                             if group['option'] is not None and r.get('training_option')==group['option']}))
         failures=[r for r in group['rows'] if r['facts'].get('training_outcome')=='failure']
         if failures:
             events[-1].update(training_outcome='failure',failure_evidence=[r['evidence'] for r in failures],

@@ -282,6 +282,10 @@ def cached_readings(report,root,allow_partial=False):
         if inventory.exists():
             from .refine_inventory import apply as apply_inventory
             row=apply_inventory(row,original,json.loads(inventory.read_text(encoding='utf-8')),root/raw['evidence'])
+        offers=root/'lesson-offer-refinement'/path.name
+        if offers.exists():
+            from .lesson_offer_refinement import apply as apply_offers
+            row=apply_offers(row,original,json.loads(offers.read_text(encoding='utf-8')),root/raw['evidence'])
         choice=root/'choice-refinement'/path.name
         if choice.exists():
             from .refine_choices import apply as apply_choice
