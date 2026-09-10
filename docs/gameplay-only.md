@@ -167,6 +167,9 @@ must be reported explicitly rather than silently described as complete coverage.
 
 Close this bounded checklist before beginning the integration:
 
+The completed checks, evidence bindings and remaining limits are recorded in
+[first Go integration acceptance](first-go-acceptance.md).
+
 - Finish the current standalone hint-marker change and replay all three
   development recordings. Preserve initial reports and reference labels.
 - Resolve or explicitly quarantine the three saved-reading provenance

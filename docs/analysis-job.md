@@ -41,7 +41,9 @@ the generic report validator, but the worker rejects them with
 `missing_turn_ledger`. The three boolean fields
 are report verification results. They remain separate from job completion, so
 a successfully produced report can still have `fully_verified` or `go_ready`
-set to `false`.
+set to `false`. The legacy `go_ready` field currently remains false; it is not
+a computed decision for the bounded first-integration milestone. See
+[the acceptance record](first-go-acceptance.md) for that decision and its limits.
 
 Input, producer, and report failures each produce one JSON object with
 `status: failed` and an `error` containing a stable `code` and human-readable

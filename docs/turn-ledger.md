@@ -21,6 +21,13 @@ with JSON pointers. Consumers resolve those pointers in the same report.
   window. Its timestamp and `exact_turn_boundary` flag remain visible. A later
   state's values are not moved backward to fill an opening. Matching explicit
   source observations can link an unchanged stat checkpoint across dates.
+- Repeated complete source readings can also establish an opening when their
+  short duration does not qualify them as accounting checkpoints. Two distinct
+  timestamps must agree; conflicting, singleton and uncertain-calendar readings
+  remain unresolved. `source_ref` identifies the source record and `values_ref`
+  points directly to its numeric mapping. Use `values_ref` for both checkpoint
+  and reading-backed states; `supporting_source_refs` preserves corroborating
+  observations. This does not add a synthetic accounting interval.
 - A closing state can refer to the next window's first observed state or the
   last observed state after the final action. Neither promises the value at an
   unseen exact boundary. Events before the next first state remain visible in
@@ -46,5 +53,5 @@ events, and performance comparisons link the original transaction records.
 The ledger checks types, source bounds, key references and arithmetic
 consistency. It does not certify interpretation of the source video. In
 particular, `complete_event_history` stays false until coverage has been
-verified independently. First Go integration still requires the source and
-attribution checks in [the application checklist](gameplay-only.md#first-go-integration-milestone).
+verified independently. The completed bounded source and attribution checks
+are recorded in [the first integration acceptance](first-go-acceptance.md).
