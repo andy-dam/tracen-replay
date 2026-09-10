@@ -50,7 +50,7 @@ Validated concert-slot refinements retain their supporting source timestamps and
 | Training | Repeated completed result option; gains tracked separately | Browsing, projections, caps, unreadable rewards, click time |
 | Ordinary events | Explicit receipts with title/geometry/time boundaries | Dialogue, actual selected choice, unreadable effects |
 | Dialogue choices | Repeated menu and bilateral selection marks consistent with readable selected-card text | Different later responses at the same height, incomplete menus and rewards as selection evidence |
-| Rest and outings | Request then recovery; support outings without energy also require matching narrative and the observed next date | Canceled dialogs, returns to the hub and unrelated recovery |
+| Rest and outings | Request then recovery and source turn progression; support outings without energy require matching narrative and the observed next date | Canceled dialogs, returns to the hub and unrelated recovery |
 | Infirmary | Source confirmation, repeated named recovery result, and repeated next-date or same-phase countdown advancement | Confirmation alone, canceled visits, unrelated recovery and contradictory turn evidence |
 | Races | Result identity, placing and fan receipt | Entry menus, unread item identities |
 | Skills | Acquisition receipt plus SP balance evidence | Pending/removed selections, bundled prerequisites, next offered rank |
@@ -61,6 +61,23 @@ Validated concert-slot refinements retain their supporting source timestamps and
 | Completion | Observed final attributes and remaining SP | Existing skills as fresh purchases; missing inventory as complete |
 
 Immediate effects, future training modifiers and bonuses queued until a concert are distinct. Performance currencies, caps, fans, energy, mood, friendship and hints are distinct resources. `Speed went up by 6 to new heights.` means **6**; the displayed reduction has already happened. No unseen rewards are computed from scenario formulas.
+
+Event extraction is shared across action types. It reads the event title and
+visible effects; the Rest and Infirmary modules link those observations to a
+committed turn. They do not run separate OCR models. Rest uses the shared energy
+effect grammar and accepts result titles without a title whitelist. Its source
+chain must include the confirmation, repeated recovery and turn progression.
+Scenario dialogue can occur after recovery. A subsequent goal race can precede
+the next dated hub when the final phase countdown and race result are repeatedly
+observed; the race remains a separate action with its own rewards.
+
+Conflicting hint spellings in a stable, titled receipt slot remain ambiguous
+when distinct source frames support those alternatives. A verified circle
+symbol does not establish the preceding name. The guard preserves all candidate
+text and pixel evidence, leaves occurrence counts unknown, and runs after hint
+fallbacks so they cannot restore the alternatives as separate accepted awards.
+Untitled inheritance sequences, different receipt positions, changing contexts
+and incompatible amounts do not establish this same-slot relationship.
 
 The lower race-day totals row can supply current stats from the original OCR when its layout is established by the label/control geometry or the five blue label bands in the gameplay pixels. All six numeric readings still require 97% confidence; cap denominators, projected gains and duplicate candidates are excluded. The report preserves the field text, boxes and confidence. A visible race button does not establish a completed race, and these observations must meet the ordinary temporal checkpoint requirements before entering the state ledger.
 

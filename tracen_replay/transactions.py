@@ -764,7 +764,9 @@ def outcome_events(readings):
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
     events=collapse_cross_event_hint_duplicates(events,readings)
     events=collapse_cross_event_stat_duplicates(events,readings)
+    from .hint_identity_quarantine import quarantine_receipt_identity_conflicts
     for event in events:
+        quarantine_receipt_identity_conflicts(event, rows_by_evidence, effect_kind='skill_hint_change')
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
         attach_inheritance_occurrences(event,rows_by_evidence)
@@ -887,11 +889,8 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hi
         intervals.append(item)
     lessons=lesson_receipts(readings,[e for e in events if e['kind']=='outcome'])
     actions=training_actions(events)
-    for event in events:
-        if event['kind']!='outcome' or event.get('context_title')!='All Refreshed':continue
-        confirmations=[r for r in readings if r['screen']=='rest_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=10000]
-        if confirmations and any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):
-            actions.append(dict(kind='rest',source_timestamp_ms=event['first_seen_ms'],evidence=[confirmations[-1]['evidence'],event['evidence']],event_id=event['id'],click_timestamp_ms=None))
+    from .rest_actions import reconstruct as rest_actions
+    actions+=rest_actions(readings,events)
     actions+=outing_actions(readings,events)
     from .infirmary_actions import reconstruct as infirmary_actions
     actions+=infirmary_actions(readings,events)
