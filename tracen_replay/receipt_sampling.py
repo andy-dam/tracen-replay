@@ -392,6 +392,8 @@ def _validate_policy(*, pad_ms: int, merge_gap_ms: int, fps: int,
         raise ReceiptSamplingError('fps must be between 4 and 60.')
     if not 4 <= min_inspection_fps <= 60:
         raise ReceiptSamplingError('min_inspection_fps must be between 4 and 60.')
+    if fps < min_inspection_fps:
+        raise ReceiptSamplingError('fps must meet min_inspection_fps so new inspections can be reused.')
     if max_footage_ms <= 0 or max_frames <= 0:
         raise ReceiptSamplingError('Sampling budgets must be positive.')
     if not 1 <= max_window_ms <= MAX_WINDOW_MS:

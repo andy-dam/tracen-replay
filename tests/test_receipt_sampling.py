@@ -183,6 +183,10 @@ class ReceiptSamplingTests(unittest.TestCase):
         self.assertEqual(len(plan['windows']), 1)
         self.assertEqual(plan['deferred'], [])
 
+    def test_requested_sampling_must_meet_its_own_reuse_threshold(self):
+        with self.assertRaisesRegex(ReceiptSamplingError, 'fps must meet min_inspection_fps'):
+            self.make_plan(report(), fps=8, min_inspection_fps=16)
+
     def test_conflict_target_keeps_uncertainty_without_expected_labels(self):
         data = report(
             events=[dict(id='event-1', kind='outcome', first_seen_ms=2_000, last_seen_ms=2_100,
