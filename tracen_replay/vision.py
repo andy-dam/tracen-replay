@@ -23,6 +23,21 @@ def number(observation,minimum=97):
     return int(text) if re.fullmatch(r'\d{1,4}',text) and observation['confidence']>=minimum else None
 
 
+def training_preview(raw):
+    """Recognize the failure popup above any selected training tab.
+
+    Its percentage can be occluded or mid-animation. The fixed label, training
+    header and current-stat layout establish a preview, not an awarded gain.
+    """
+    if not raw['current_grid'] or raw['header'].strip().lower()!='training':return False
+    for line in raw['lines']:
+        if line['text'].strip().lower()!='failure' or line['confidence']<90:continue
+        left,top,right,bottom=line['box']
+        if (250<=left<right<=850 and 750<=top<bottom<=850
+            and right-left<=110 and bottom-top<=45):return True
+    return False
+
+
 class NeuralReader:
     def __init__(self,model_dir='.local/models/rapidocr'):
         from rapidocr import RapidOCR,OCRVersion,ModelType,LangRec
@@ -136,8 +151,8 @@ def parse(raw):
                 value,conflicts=counter_reading(padding,result[field])
                 result[field]=value if not conflicts and type(value) is int and 0<=value<=999 else None
         return result
-    preview=raw['current_grid'] and any('failure' in l['text'].lower() and within(l,(250,760,470,835)) for l in lines)
-    result_grid=raw['result_grid']
+    preview=training_preview(raw)
+    result_grid=raw['result_grid'] and not preview
     if raw.get('inspection')=='training_result_only' and header.lower().startswith('training'):
         count=sum(bool(re.fullmatch(r'\d{1,4}/\d{4}',regions.get('result.'+f,{}).get('text',''))) and regions.get('result.'+f,{}).get('confidence',0)>=90 for f in FIELDS[:5])
         result_grid=result_grid or count>=2
