@@ -5,14 +5,18 @@ must supply the receipt. It does not claim to detect every cursor or overlay.
 """
 import hashlib
 import json
+import math
 import re
 
 
 # The color mask captures the green fill, not the white cursor outline and
 # antialiased edge. In this capture profile the outline extends three pixels
-# beyond the fill. Keep the glyph-center check below: padding alone near a
-# neighboring baseline must not erase that receipt.
+# beyond the fill. The source glyph-band check below prevents padding near a
+# neighboring baseline from erasing a readable receipt.
 CURSOR_OUTLINE_PADDING = 3
+MIN_GLYPH_OVERLAP_PX = 3
+GLYPH_ROW_MIN_PIXELS = 8
+GLYPH_ROW_DENSITY = .08
 
 
 def numeric_line(line):
@@ -120,6 +124,102 @@ def inspiration_name_bounds(box,words,columns,line_length):
     return [a+start*scale,b,a+end*scale,d]
 
 
+def _alignment_glyph_spans(item):
+    """Map validated OCR character columns to absolute horizontal spans.
+
+    The OCR line box includes inter-word whitespace. Using its full width for
+    cursor overlap makes a pointer parked in a normal gap look like it covered
+    a glyph. Alignment columns are source-linked geometry, so they let the
+    occlusion check distinguish a real character hit from a small edge touch.
+    """
+    box=item.get('line_box');words=item.get('words');columns=item.get('columns')
+    line_length=item.get('line_length')
+    if (not isinstance(box,(list,tuple)) or len(box)!=4 or
+        not isinstance(words,list) or not isinstance(columns,list) or
+        len(words)!=len(columns) or not isinstance(line_length,(int,float)) or
+        isinstance(line_length,bool) or not math.isfinite(float(line_length)) or
+        line_length<=0):return None
+    try:
+        a,b,c,d=(float(value) for value in box)
+    except (TypeError,ValueError):return None
+    if not all(math.isfinite(value) for value in (a,b,c,d)) or c<=a or d<=b:return None
+    scale=(c-a)/float(line_length);spans=[]
+    for group in columns:
+        if not isinstance(group,list) or not group:return None
+        for value in group:
+            if (isinstance(value,bool) or not isinstance(value,(int,float)) or
+                not math.isfinite(float(value)) or value<0 or value>=line_length):return None
+            start=a+float(value)*scale
+            end=a+min(float(line_length),float(value)+1)*scale
+            if end>start:spans.append([start,end])
+    return spans
+
+
+def _friendship_name_glyph_spans(item):
+    """Protect the entire recipient, including gaps left by missing glyphs.
+
+    OCR whitespace alone cannot distinguish a real word space from a letter
+    hidden by the cursor. A different readable frame may establish identity;
+    metadata assertions cannot make the obstructed frame readable.
+    """
+    if _alignment_glyph_spans(item) is None:
+        return None
+    bounds=friendship_name_bounds(item['line_box'],item['words'],item['columns'],item['line_length'])
+    return [[bounds[0],bounds[2]]] if bounds else None
+
+
+def _glyph_vertical_band(pixels,box):
+    """Find the visible receipt glyph rows inside an OCR line region.
+
+    OCR boxes contain several pixels of baseline and antialiasing slack. The
+    warm dark text mask is independent of the green cursor and its white
+    outline; selecting the dominant row run avoids treating that slack as a
+    covered glyph. ``None`` keeps the prior center-line fallback for synthetic
+    or fully covered lines where no text pixels remain.
+    """
+    try:
+        a,b,c,d=(float(value) for value in box)
+    except (TypeError,ValueError):return None
+    if not all(math.isfinite(value) for value in (a,b,c,d)) or c<=a or d<=b:return None
+    y0=max(0,int(math.floor(b)));y1=min(pixels.shape[0],int(math.ceil(d)))
+    x0=max(0,int(math.floor(a-148)));x1=min(pixels.shape[1],int(math.ceil(c-148)))
+    if y1<=y0 or x1<=x0:return None
+    region=pixels[y0:y1,x0:x1]
+    red,green,blue=region[:,:,0],region[:,:,1],region[:,:,2]
+    # Dialogue ink is warm/dark; gray cursor outline and green fill fail this
+    # test. The thresholds include antialiased text while excluding the white
+    # bubble and its cool border.
+    ink=((red<190)&(green<160)&(blue<150)&((red-green)>=8)&((green-blue)>=2))
+    counts=ink.sum(axis=1);peak=int(counts.max(initial=0))
+    if peak<GLYPH_ROW_MIN_PIXELS:return None
+    threshold=max(GLYPH_ROW_MIN_PIXELS,peak*GLYPH_ROW_DENSITY)
+    active=counts>threshold;runs=[];start=None
+    for index,is_active in enumerate(active):
+        if is_active and start is None:start=index
+        if start is not None and (not is_active or index==len(active)-1):
+            stop=index if not is_active else index+1
+            runs.append((start,stop,int(counts[start:stop].sum())))
+            start=None
+    if not runs:return None
+    start,stop,_=max(runs,key=lambda run:run[2])
+    return [y0+start,y0+stop]
+
+
+def _horizontal_hit(box,spans):
+    return any(min(right,box[2])-max(left,box[0])>=MIN_GLYPH_OVERLAP_PX
+               for left,right in spans)
+
+
+def _vertical_hit(box,band,region):
+    if band is None:
+        middle=(region[1]+region[3])/2
+        return box[1]<=middle<=box[3]
+    # A cursor whose padded box merely touches the last three glyph rows is
+    # at the lower edge of the receipt, as in the clear 238000 anchor. Require
+    # evidence beyond that shared boundary before declaring text covered.
+    return min(band[1],box[3])-max(band[0],box[1])>MIN_GLYPH_OVERLAP_PX
+
+
 def overlay_boxes(pane):
     import numpy as np
     if pane.size != (810,1080):raise ValueError('Expected the gameplay crop.')
@@ -152,31 +252,56 @@ def annotate(raw,pane):
         raise ValueError('Receipt overlay proof differs from original OCR pixels.')
     boxes=overlay_boxes(pane)
     if not boxes:return raw
+    import numpy as np
+    pixels=np.asarray(pane.convert('RGB')).astype('int16')
     lines=[dict(line) for line in raw['lines']];blocked=[];resolved=[]
     for index in candidates:
         line=lines[index];a,b,c,d=line['box']
-        localized=[];name_regions=[]
+        full_line_region=[a,b,c,d]
+        localized=[];name_regions=[];line_glyph_spans=[]
         for item in raw.get('overlay_alignment',[]):
             if item['line_box']!=line['box'] or item.get('confidence',100)<95:continue
             bounds=numeric_bounds(item['line_box'],item['words'],item['columns'],item['line_length']) if 'words' in item else item.get('numeric_box')
             if bounds:localized.append(bounds)
             if 'words' in item:
                 name=friendship_name_bounds(item['line_box'],item['words'],item['columns'],item['line_length'])
-                if name:name_regions.append(name)
+                spans=_alignment_glyph_spans(item)
+                if spans:line_glyph_spans.extend(spans)
+                name_spans=_friendship_name_glyph_spans(item)
+                if name:name_regions.append((name,name_spans))
                 inspiration=inspiration_name_bounds(item['line_box'],item['words'],item['columns'],item['line_length']) if (
                     item.get('recognized_text')==line['text'] and ' '.join(item['words'])==line['text']) else None
                 if inspiration:
-                    name_regions.append(inspiration)
+                    name_regions.append((inspiration,[[inspiration[0],inspiration[2]]]))
                     localized.append(inspiration)
-        if len(localized)==1:a,b,c,d=localized[0]
-        # Detector boxes include space below the baseline. A cursor there can
-        # overlap the box while the glyphs remain readable. Require obstruction
-        # through the text's vertical center, not padding or a glyph's edge.
-        middle=(b+d)/2
-        overlaps=[box for box in boxes if min(c,box[2])-max(a,box[0])>=3 and box[1]<=middle<=box[3]]
-        name_overlaps=[box for x,y,z,w in name_regions for box in boxes
-                       if min(z,box[2])-max(x,box[0])>=3 and box[1]<=(y+w)/2<=box[3]]
-        overlaps+=name_overlaps
+        if len(localized)==1:
+            # Keep amount horizontal bounds for deciding whether the cursor
+            # intersects the award, but calibrate its vertical position from
+            # the whole receipt line. A cursor can erase most of a digit in
+            # the localized crop while leaving enough neighboring receipt
+            # ink to prove that the line is covered.
+            amount_region=localized[0]
+            line_spans=[[amount_region[0],amount_region[2]]]
+        else:
+            line_spans=line_glyph_spans or [[a,c]]
+        line_region=full_line_region
+        line_band=_glyph_vertical_band(pixels,line_region)
+        overlaps=[box for box in boxes if _horizontal_hit(box,line_spans)
+                  and _vertical_hit(box,line_band,line_region)]
+        name_overlaps=[]
+        for region,spans in name_regions:
+            band=line_band
+            # Calibrate vertical position from the full receipt, because the
+            # cursor may erase most of the recipient's own visible ink.
+            spans=([[region[0],region[2]]] if band is None
+                   else (spans or [[region[0],region[2]]]))
+            for box in boxes:
+                if _horizontal_hit(box,spans) and _vertical_hit(box,band,region):
+                    name_overlaps.append(box)
+        combined=[]
+        for box in overlaps+name_overlaps:
+            if box not in combined:combined.append(box)
+        overlaps=combined
         if overlaps:
             if not name_overlaps and recovered_leading_digit(line,raw.get('overlay_alignment',[])):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
