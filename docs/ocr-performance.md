@@ -5,6 +5,20 @@ The full third-recording baseline processed 10,099 samples at 4 FPS across
 using four CPU workers. This excludes subsequent semantic validation and fixes.
 It is a measured stage duration, not a promise of total analysis time.
 
+A subsequent targeted training pass captured 5,878 observations across 57
+automatically selected windows, covering 195.5 seconds of footage at a requested
+30 FPS. It took 1,389 seconds (23.2 minutes) using one specialized CPU OCR reader
+and reusing the earlier 98-frame probe. This duration includes source hashing,
+decoding, cache reads, OCR, parsing and evidence writes. It excludes subsequent
+source revalidation and timeline reconstruction. Its effective rate is not
+directly comparable with the full-frame worker benchmark below because the
+reader uses different crops and cached work.
+
+Window selection came from detected training results in the frozen baseline.
+This avoids dense processing of the entire video, but does not establish recall
+for training screens the baseline failed to detect. The 57-window capture and
+completion manifest are retained under `independent-02/training-recovery-v1/`.
+
 ## CPU worker trial
 
 A bounded trial on a Ryzen 5 9600X used the same 48 evenly spaced frames from the
