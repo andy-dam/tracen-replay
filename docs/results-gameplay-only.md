@@ -56,6 +56,16 @@ rank suffix. Numeric interval accounting is unchanged. Reference completeness,
 recognition failures and unobservable fields still need adjudication. Neither
 full semantic recall nor Go readiness is established.
 
+A bounded energy-receipt check examines 30 existing native frames from 176.5
+to 177 seconds in the second recording. All 19 readable receipt views retain
+cursor overlap over the second digit and sentence terminator. Comparing visible
+pixels with same-font digit templates favors zero, but the similarity has not
+been validated as a recovery rule. The analyzer therefore retains an unknown
+amount, and the expected -20 remains a recognition miss in the reference score.
+No additional OCR or reference relabeling was used. The local
+`energy-native-inspection-v2/energy-glyph-template-audit-v3.json` records this
+method's limits; it does not rule out future recovery from partial glyphs.
+
 The outlined-star pass recovers the complete Full Speed Ahead! Umadol Power☆
 receipt in seven original-run frames and nine second-run frames. Both reports
 reproduce from the cached evidence without OCR. The change removes one missing
