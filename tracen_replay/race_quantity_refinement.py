@@ -1898,29 +1898,39 @@ def _validate_gameplay_pixels(
     raw: Mapping[str, Any],
     observation: Mapping[str, Any],
     root: Path,
+    validated_pixels: dict[tuple[str, str], str] | None = None,
 ) -> None:
     """Verify the exact 810x1080 gameplay crop used by the OCR observation."""
 
     if not gameplay_path.is_file():
         raise ValueError("Race quantity refinement gameplay evidence is missing.")
-    if observation.get("gameplay_file_sha256") != _sha256(gameplay_path):
+    gameplay_file_hash = _sha256(gameplay_path)
+    if observation.get("gameplay_file_sha256") != gameplay_file_hash:
         raise ValueError("Race quantity refinement gameplay proof hash mismatch.")
-    try:
-        with Image.open(source_path) as source_image, Image.open(gameplay_path) as gameplay_image:
-            source = source_image.convert("RGB")
-            gameplay = gameplay_image.convert("RGB")
-            expected = source.crop((GAMEPLAY_X_OFFSET, 0, GAMEPLAY_X_OFFSET + 810, 1080))
-            if gameplay.size != expected.size or gameplay.tobytes() != expected.tobytes():
-                raise ValueError("Race quantity refinement gameplay crop pixels changed.")
-            pixels_hash = hashlib.sha256(gameplay.tobytes()).hexdigest()
-    except (OSError, ValueError) as exc:
-        if isinstance(exc, ValueError) and str(exc) == "Race quantity refinement gameplay crop pixels changed.":
-            raise
-        raise ValueError("Race quantity refinement gameplay evidence is unreadable.") from exc
+    # Several slots and OCR views share the same frame. Reuse its decoded
+    # crop comparison only within this artifact validation, and only after
+    # hashing both current files again. Paths or timestamps are not cache keys.
+    key = (_sha256(source_path), gameplay_file_hash) if validated_pixels is not None else None
+    pixels_hash = validated_pixels.get(key) if validated_pixels is not None else None
+    if pixels_hash is None:
+        try:
+            with Image.open(source_path) as source_image, Image.open(gameplay_path) as gameplay_image:
+                source = source_image.convert("RGB")
+                gameplay = gameplay_image.convert("RGB")
+                expected = source.crop((GAMEPLAY_X_OFFSET, 0, GAMEPLAY_X_OFFSET + 810, 1080))
+                if gameplay.size != expected.size or gameplay.tobytes() != expected.tobytes():
+                    raise ValueError("Race quantity refinement gameplay crop pixels changed.")
+                pixels_hash = hashlib.sha256(gameplay.tobytes()).hexdigest()
+        except (OSError, ValueError) as exc:
+            if isinstance(exc, ValueError) and str(exc) == "Race quantity refinement gameplay crop pixels changed.":
+                raise
+            raise ValueError("Race quantity refinement gameplay evidence is unreadable.") from exc
     if raw.get("gameplay_sha256") != pixels_hash:
         raise ValueError("Race quantity refinement raw gameplay pixels changed.")
     if raw.get("evidence") != observation.get("gameplay_evidence"):
         raise ValueError("Race quantity refinement gameplay evidence binding changed.")
+    if validated_pixels is not None:
+        validated_pixels[key] = pixels_hash
 
 
 def _validate_raw_observation(
@@ -1934,6 +1944,7 @@ def _validate_raw_observation(
     allow_fixed_fallback: bool = False,
     section_layout: Mapping[str, Any] | None = None,
     quantity_policy: Mapping[str, Any] | None = None,
+    validated_pixels: dict[tuple[str, str], str] | None = None,
 ) -> Mapping[str, Any]:
     """Validate raw OCR, source pixels and the crop backing one measurement."""
 
@@ -2071,7 +2082,7 @@ def _validate_raw_observation(
     crop_path = _safe_path(root, observation.get("crop_evidence"))
     if crop_path is None or not crop_path.is_file() or observation.get("crop_sha256") != _sha256(crop_path):
         raise ValueError("Race quantity refinement crop proof hash mismatch.")
-    _validate_gameplay_pixels(source_path, gameplay_path, raw, observation, root)
+    _validate_gameplay_pixels(source_path, gameplay_path, raw, observation, root, validated_pixels)
     try:
         with Image.open(gameplay_path) as gameplay_image, Image.open(crop_path) as crop_image:
             gameplay = gameplay_image.convert("RGB")
@@ -2271,6 +2282,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     flattened: list[Mapping[str, Any]] = []
     summaries: dict[str, dict[str, Any]] = {}
     seen_slots: set[str] = set()
+    validated_pixels: dict[tuple[str, str], str] = {}
     for slot in slots:
         if not isinstance(slot, Mapping):
             raise ValueError("Race quantity refinement slot is malformed.")
@@ -2310,6 +2322,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
                 allow_fixed_fallback=allow_fixed_fallback,
                 section_layout=observation_layout,
                 quantity_policy=quantity_policy,
+                validated_pixels=validated_pixels,
             )
             if observation.get("reader_fingerprint") != artifact.get("reader_fingerprint") or \
                     not _mapping_equal(observation.get("model_sha256"), artifact.get("model_sha256")):
