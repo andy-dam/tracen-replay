@@ -5,7 +5,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest working-tree test run passes 811 automated tests.
+recording and 130 in the second. The latest working-tree test run passes 837 automated tests.
 All 12 preserved-reference checks in
 `sp-receipt-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
@@ -29,13 +29,31 @@ reference checks pass. A semantic comparison confirms unchanged actions, lesson
 and song transactions, concerts, and races; shifted event IDs do not represent
 new transactions. The previous report and inspection manifests remain archived.
 
+A retrospective trial of the automatic receipt planner starts from the preserved
+second-run candidate before that SP recovery. A six-second footage budget and
+100-frame cap select four windows totaling 5.801 seconds, without expected
+receipt names or values as OCR input. The decoder produces 88 frames. After
+source-image and cursor checks, reconstruction recovers one SP +105 award and
+all 130 stat intervals balance. Repeated observations do not create duplicate
+awards. Exact model-free reconstruction passes, and the next plan excludes the
+attempted windows. The trial leaves the active report unchanged; it demonstrates
+bounded recovery on development footage, not independent accuracy.
+
 The original recording's candidate remains separate. It retains all 143 balanced
 stat intervals but withholds Passion +10 under the stricter cursor check, leaving
 one performance interval unresolved. A bounded 30 FPS source probe found no
 clear duplicate receipt. Other withheld non-stat receipts still need source
 adjudication or supported recovery. Full semantic recall remains unproven.
 
-The second recording's `action-corpus-v6` selects 50 reference entries with
+A subsequent source-bound hint-card pass recovers Unstoppable +3 from two
+adjacent observations in the original recording. Each observation has a
+separately recognized amount prefix tied to its exact crop and OCR model;
+the skill's suffix rank remains undetermined. Model-free full reassembly
+adds that one effect without changing numeric accounting, actions, or
+transactions. Tampered prefix names, crop hashes and model bindings are
+rejected by cache replay. This candidate remains separate from the active report.
+
+The second recording's `action-corpus-v10` selects 50 reference entries with
 non-overlapping scopes within each action kind. All 78 detected actions match
 source labels: 60 training actions, one rest, five outings and twelve races.
 No predicted action remains outside its kind's selected scopes. The last three
@@ -44,11 +62,25 @@ Training reference windows cover the full 1,776.717 seconds; training previews
 remain excluded. The reusable corpus scorer verifies reference hashes, rejects
 same-kind scope overlaps and reports predictions outside selected scopes.
 
-This agreement does not establish missing-action recall. Other action kinds
-still have gaps in their declared scopes, seven added race labels are explicitly
-positive-only, and some legacy references have undeclared completeness. The
-scorer can report passing scoped agreement for legacy references while listing
-their undeclared completeness separately; that field is not a completeness gate.
+The selected training references now explicitly declare completeness within
+their reviewed sampling scopes. Eighteen replacements bind existing completed
+reviews and a newly completed dense review of 08:40–09:40, preserving action
+identities and timing labels. No selected reference retains unspecified
+completeness metadata. Other action kinds still have gaps in their declared
+scopes, and seven race references are explicitly incomplete. Their twelve
+matching race labels therefore do not produce a passing race agreement gate.
+None of these sampled development checks establishes native-frame recall.
+
+The third recording's initial 4 FPS baseline is frozen before source-guided
+changes: 10,099 sampled frames across 42:04.583, with source, code, model and
+output hashes sealed. Five contiguous evaluation windows were selected from
+duration alone before viewing its frames or predictions. The opening 90-second
+window has now been source-labeled from all 360 samples and compared with that
+baseline. It produces no false run actions, effect receipts, lesson/concert
+transactions, skill purchases, race results, stat checkpoints, or owned-skill
+attributions while the user browses setup menus, support skill descriptions,
+and an older character's inventory. This is a negative-window result; the
+remaining selected windows and whole-recording accuracy are not yet validated.
 
 Race references match all twelve results, all 118 labeled identity, course,
 placing and fan fields, and all twelve exact-frame item-quantity comparisons.
@@ -72,7 +104,7 @@ references, parent hashes and label provenance remain separate from the derived
 development slices. Two references explicitly declare incomplete labels; 43
 legacy references leave completeness unspecified.
 
-The current report has 36 missing or extra effect entries in these diagnostics.
+The current second report has 35 missing or extra effect entries in these diagnostics.
 Including the cursor's white outline removes a false hint identity and allows
 clear neighboring evidence to resolve a friendship recipient. The earlier
 separator rule still removes one duplicate hint while retaining its unresolved
