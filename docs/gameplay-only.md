@@ -248,6 +248,16 @@ evidence of the same display, not additional activations. Numeric awards still
 require their own receipts. Only duplicate-line conflicts fully supported by
 disjoint observations are reclassified as visible multiplicity.
 
+`inheritance_scroll_evidence` separately records a larger minimum when exact
+receipt lines can be tracked through a continuous sampled scroll. Two or more
+unique anchors must agree on motion, target-line assignments must be unique,
+and new lines must enter at the bottom. Missing interior text, conflicting
+crops, navigation and source gaps break continuity. Disconnected segments
+contribute their maximum count, never their sum; the total remains unknown.
+The optional occurrence evaluator recomputes this evidence from source rows.
+Each additional count belongs to its first proving observation, so later
+redisplays cannot be scored as new activations in another time window.
+
 When a circle identity has repeated pixel proof but its relationship to an
 unmarked reading is unresolved, the proven effect stays accepted and the weak
 reading is retained in `ambiguous_effect_candidates`. It may be a duplicate or

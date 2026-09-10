@@ -774,6 +774,7 @@ def outcome_events(readings):
 def attach_inheritance_occurrences(event,rows_by_evidence):
     """Keep simultaneous receipt evidence separate from unique effect names."""
     from .inheritance_occurrences import summarize
+    event.pop('inheritance_scroll_evidence',None)
     evidence=summarize(event,rows_by_evidence)
     if not evidence['by_key']:return
     event['inheritance_occurrence_evidence']=evidence
@@ -799,6 +800,20 @@ def attach_inheritance_occurrences(event,rows_by_evidence):
             minimum_observed_count=counts[0],basis='simultaneous_disjoint_exact_receipt_lines',
             total_count=None,count_complete=False))
     event['conflicting_readings']=retained
+    from .inheritance_scroll import track
+    scroll_evidence={}
+    for effect in event.get('effects',[]):
+        key='|'.join(str(effect.get(k) or '') for k in ('kind','field','name'))
+        entry=evidence['by_key'].get(key)
+        if (not entry or entry.get('uncertain') is not False
+                or entry.get('conflicting_payloads') is not False
+                or any(c.get('field')==key for c in retained)):
+            continue
+        observed=track(event,effect,rows_by_evidence)
+        if observed['minimum_observed_count']>entry['minimum_observed_count']:
+            scroll_evidence[key]=observed
+    if scroll_evidence:
+        event['inheritance_scroll_evidence']={'by_key':scroll_evidence}
 
 
 def checkpoints(readings):

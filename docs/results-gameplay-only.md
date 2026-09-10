@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 1,055 automated tests and retains
+The latest development reconstruction passes 1,093 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -194,6 +194,23 @@ intervals, action identities, purchases and inventory outputs are preserved
 across the three reconstructions. The third candidate SHA-256 is
 `6ede2e5c73c838ea392477a8b0cd5d2a09c03b1b433e3183f7651da2bf540d1f`.
 These are development improvements within reviewed samples, not complete event recall.
+
+The `inheritance-scroll-replay-v3` reconstruction adds separate source-track
+evidence for a third Power spark and a third Stamina spark. Their entry witnesses
+are 678783 ms and 679250 ms, respectively. The original simultaneous-count
+fields remain two, and total activation counts remain unknown. Only the third
+recording's `outcome-0096` gains this new evidence; both earlier reports and all
+existing event fields, numeric accounting and action outputs are unchanged.
+All 15 default third-recording source-window scores are unchanged.
+
+With occurrence scoring enabled, the unchanged timing-adjudicated reference
+matches 37/41 labels with 41 predictions. The four missing labels are Target in
+Sight ○ hint +1, Long Shot ○ hint +3, and the Fine Motion +7 and Light Hello +2
+friendship receipts. Two extra predictions are those unmarked hint names.
+Direct source inspection supports the other two extras: Director Akikawa
+friendship +4 at 650250 ms and Audience Involvement Intermediate Class at
+692750 ms. Their screenshot pixels, source-frame hashes and timestamps were
+checked separately; the incomplete reference and its scores remain unchanged.
 
 A 24-frame native probe around the brief 662800–663200 ms friendship receipt
 retains conflicting recipient spellings under animated pink/cyan/yellow trails.

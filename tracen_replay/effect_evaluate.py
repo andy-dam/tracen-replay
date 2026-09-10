@@ -95,10 +95,28 @@ def _inheritance_prediction_units(
     timing_basis,
     start,
     end,
+    rows,
 ):
     item = _inheritance_occurrence_item(event, effect, summary)
     if item is None:
         return [base_prediction] if start <= base_prediction["time"] < end else []
+
+    # Recompute from source rows; neither cached event counts nor a later
+    # redisplay can introduce another occurrence into a separate window.
+    from .inheritance_scroll import track
+    scroll = track(event, effect, rows)
+    if scroll['minimum_observed_count'] > item['count']:
+        item['count'] = scroll['minimum_observed_count']
+        for segment_index, segment in enumerate(scroll['segments']):
+            for ordinal, observed in enumerate(segment['tracks'], 1):
+                entry = observed['entry']
+                item['witnesses'].append(dict(
+                    source_timestamp_ms=entry['source_timestamp_ms'], evidence=entry['evidence'],
+                    minimum_observed_count=ordinal, count_complete=False,
+                    basis='source_tracked_scroll', segment_index=segment_index,
+                    track_id=observed['track_id'], entry=entry,
+                    supporting_tracks=segment['tracks'][:ordinal]))
+        item['witnesses'].sort(key=lambda witness: (witness['source_timestamp_ms'], witness['evidence']))
 
     units = []
     for ordinal in range(1, item["count"] + 1):
@@ -178,7 +196,7 @@ def evaluate(reference,report,root=None):
                 conflicted=any(c.get('field')==key for c in event.get('conflicting_readings',[])))
             units=([base_prediction] if not include_inheritance else
                    _inheritance_prediction_units(event,effect,base_prediction,occurrence_summary,
-                                                 timing_basis,start,end))
+                                                 timing_basis,start,end,rows))
             for unit in units:
                 predictions.append(unit)
                 if include_inheritance and 'inheritance_occurrence' in unit:
