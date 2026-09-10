@@ -87,6 +87,31 @@ transactions, skill purchases, race results, stat checkpoints, or owned-skill
 attributions while the user browses setup menus, support skill descriptions,
 and an older character's inventory. This is a negative-window result.
 
+The 10:31–12:01 source review exposes additional failures: the frozen predictions
+match one of three labeled actions and 17 of 41 labeled effects. A Wit result
+loses action identity when its heading/effect observations fragment; a race is
+reported at its later reward panel rather than within the reviewed entry/result
+sequence. Three planned concert values are also missed. These are scoped counts,
+not full-recording accuracy.
+
+That window's transaction-reference provenance required correction. A source
+observation for Run n' Run! was initially omitted from evaluator registration,
+then added after the first prediction comparison. The reference, seal and scores
+were overwritten during that amendment. A separate chronology audit now records
+the prior hashes, unavailable original bytes, unchanged channels and amended
+transaction result. Its three matching transactions are an amended-reference
+comparison and must not be presented as an untouched initial score. The frozen
+baseline report itself remains unchanged.
+
+The 21:02.250–22:32.250 window matches 33 of 40 labeled receipt effects. Its
+action and effect references explicitly remain incomplete; an additional training
+prediction without a source-labeled commitment is unassessed, not a demonstrated
+false action. A completed race matches its observed identity/course/result fields,
+while item quantities remain unresolved. The source shows eight named skill
+purchases totaling 1,234 SP; the baseline captures that debit and candidate names
+without verifying each purchase. Missing optional panels do not supply zero
+values or complete inventory claims.
+
 The preselected 31:33.250–33:03.250 window now has source-first labels for all
 360 quarter-second samples, with full-width checks where the cinematic changes
 the gameplay layout. Its frozen baseline matches 13 of 14 explicit receipt
