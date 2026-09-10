@@ -229,6 +229,24 @@ class InheritanceEffectEvaluationTests(unittest.TestCase):
         self.assertEqual(diagnostic["occurrence"]["ordinal"], 2)
         self.assertEqual(diagnostic["time"], 500)
 
+    def test_already_proven_multiplicity_is_not_recounted_in_a_later_window(self):
+        effect = inheritance_effect()
+        rows = {
+            "before.png": row(250, "before.png", [effect, effect], [line(), line(top=850)]),
+            "inside.png": row(500, "inside.png", [effect, effect], [line(), line(top=850)]),
+        }
+        ref = reference([], timing_basis="first_exact_effect_observation",
+                        group_start=500, group_end=750, start_ms=500)
+        ref.update(groups=[], include_inheritance_occurrences=True)
+        result = evaluate(ref, report([event(effect, list(rows), last_seen=600)], rows))
+
+        # The second snapshot repeats the already-proven lower bound. Moving
+        # ordinal 2 into this window would count the same receipt twice.
+        self.assertEqual(result["predicted"], 0)
+        self.assertEqual(result["matched"], 0)
+        self.assertEqual(result["inheritance_occurrence_diagnostics"], [])
+        self.assertTrue(result["passed"])
+
     def test_conflicting_payloads_do_not_expand(self):
         first = inheritance_effect(value=None)
         second = inheritance_effect(value=1)

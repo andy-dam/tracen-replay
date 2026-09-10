@@ -70,7 +70,9 @@ Repeated frames and alternate crops cannot be added together. With
 `first_exact_effect_observation` timing, each additional unit belongs to the
 earliest frame that proves its ordinal, even if the first unit falls in a
 different evaluation window. Event-start timing retains its explicit shared
-event-time convention. Diagnostics retain the source witness and the event's
+event-time convention. Once an ordinal has an earlier witness, redisplaying
+that lower bound in a later window does not create another occurrence.
+Diagnostics retain the source witness and the event's
 minimum count; total activation counts remain unknown. This scores an observed
 lower bound, not complete scrolling coverage or inferred numeric awards.
 
