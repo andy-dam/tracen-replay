@@ -122,8 +122,19 @@ correlated view of the same source frame, not another independent observation.
 The version 2 `song-symbol-refinement/` sidecars retain original OCR, crop hashes,
 model fingerprint, symbol geometry and title glyph coverage. Replay and `verify_evidence` validate them
 without OCR. Existing sidecars are checked rather than overwritten. The earlier
-`song-symbols/` whitespace-only pass retains its original behavior. Wrapped song
-receipts and outlined stars remain outside the new pass's scope.
+`song-symbols/` whitespace-only pass retains its original behavior.
+
+For a wrapped song receipt with a dropped outlined star, run
+`python -m tracen_replay.song_star_refinement OUTPUT_DIRECTORY` before rebuilding.
+This separate pass requires aligned adjacent lines, closing quotes, and an
+outlined star with one hole and ten alternating contour turns at two thresholds.
+It rereads both text crops, checks their glyph coverage, and preserves the lower
+confidence of the source lines and crop readings. Crop readings remain correlated
+views of one frame. Filled stars, asterisks, open contours, uncertain text and
+unsupported layouts cause abstention. The `song-star-refinement/` sidecars retain
+both original lines, model and pixel hashes, text witnesses and geometry.
+Cached replay and evidence verification validate these observations without OCR;
+the joined song effect retains the complete original sentence and symbol proof.
 
 When a corrected receipt differs from the earlier request's raw spelling, the
 lesson association may use the symbol observation's preserved original text.

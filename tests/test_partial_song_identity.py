@@ -1,5 +1,5 @@
 import unittest
-from tracen_replay.transactions import lesson_receipts,partial_song_name
+from tracen_replay.transactions import lesson_receipts,partial_song_name,source_song_alias
 from tracen_replay.gameplay import CURRENCIES
 from tests.test_neural_transactions import row, raw, line
 from tracen_replay.vision import parse
@@ -82,3 +82,83 @@ class PartialSongIdentityTests(unittest.TestCase):
             elif mutation=='title':item['visual_symbol_observation']['title_evidence']['title']='Different Song'
             else:item['original_text']='Learned the song "Different Song D".'
             self.assertEqual(lesson_receipts(rows,[changed]),[],mutation)
+
+    def star_sample(self, names):
+        rows,event=self.sample()
+        for item,name in zip((rows[2],rows[3]),names):
+            item['facts']['name_candidates']=[name]
+        original='Learned the song "Full Speed Ahead! Umadol Power".'
+        effect=event['effects'][0]
+        effect.update(name='Full Speed Ahead! Umadol Power☆',original_text=original,
+            visual_symbol_observation={
+                'method':'outlined_star_one_hole_ten_alternating_turns','symbol':'☆',
+                'title_evidence':{
+                    'prefix_text':'Full Speed Ahead! Umadol',
+                    'continuation_text':'Power',
+                    'raw_lines':[
+                        {'text':'Learned the song "Full Speed Ahead! Umadol'},
+                        {'text':'Power".'},
+                    ],
+                },
+            })
+        return rows,event
+
+    def test_star_proof_reconciles_mixed_request_spellings_with_exact_symbol(self):
+        names=('Full Speed Ahead! Umadol Power','Full Speed Ahead! Umadol Power☆')
+        rows,event=self.star_sample(names)
+        purchases=lesson_receipts(rows,[event])
+        self.assertEqual(len(purchases),1)
+        purchase=purchases[0]
+        self.assertEqual(purchase['performance_cost'],dict(dance=0,passion=42,vocal=21,visual=0,composure=0))
+        self.assertEqual(purchase['requested_name'],names[-1])
+        self.assertEqual(purchase['receipt_name'],names[-1])
+        self.assertEqual(purchase['name_match_basis'],'source_symbol_alias_and_repeated_observed_debit')
+        self.assertEqual(purchase['observed_request_names'],sorted(names))
+        self.assertFalse(purchase['name_identity_verified'])
+        self.assertFalse(purchase['complete_transaction_verified'])
+
+        reversed_rows,reversed_event=self.star_sample(tuple(reversed(names)))
+        reversed_purchase=lesson_receipts(reversed_rows,[reversed_event])
+        self.assertEqual(len(reversed_purchase),1)
+        self.assertEqual(reversed_purchase[0]['observed_request_names'],sorted(names))
+
+    def test_star_only_basename_keeps_partial_name_basis(self):
+        rows,event=self.star_sample((
+            'Full Speed Ahead! Umadol Power',
+            'Full Speed Ahead! Umadol Power'))
+        purchases=lesson_receipts(rows,[event])
+        self.assertEqual(len(purchases),1)
+        self.assertEqual(purchases[0]['name_match_basis'],'partial_name_and_repeated_observed_debit')
+        self.assertNotIn('observed_request_names',purchases[0])
+        self.assertEqual(source_song_alias(event['effects'][0]),'Full Speed Ahead! Umadol Power')
+        from copy import deepcopy
+        curly=deepcopy(event['effects'][0])
+        curly['original_text']='Learned the song “Full Speed Ahead! Umadol Power”.'
+        curly['visual_symbol_observation']['title_evidence']['raw_lines'][0]['text']='Learned the song “Full Speed Ahead! Umadol'
+        curly['visual_symbol_observation']['title_evidence']['raw_lines'][1]['text']='Power”.'
+        self.assertEqual(source_song_alias(curly),'Full Speed Ahead! Umadol Power')
+
+    def test_star_proof_tampering_canceled_request_and_missing_debit_are_rejected(self):
+        rows,event=self.star_sample((
+            'Full Speed Ahead! Umadol Power',
+            'Full Speed Ahead! Umadol Power☆'))
+        from copy import deepcopy
+        for mutation in ('symbol','raw_lines','original','name'):
+            changed=deepcopy(event);effect=changed['effects'][0]
+            if mutation=='symbol':effect['visual_symbol_observation']['symbol']='★'
+            elif mutation=='raw_lines':effect['visual_symbol_observation']['title_evidence']['raw_lines'][1]['text']='Other".'
+            elif mutation=='original':effect['original_text']='Learned the song "Other Song".'
+            else:effect['name']='Other Song☆'
+            self.assertIsNone(source_song_alias(effect),mutation)
+            # Keep the confirmation sequence mixed but remove the exact
+            # corrected-symbol spelling, so only a valid source alias could
+            # relate the two observed request variants.
+            tampered_rows=deepcopy(rows)
+            tampered_rows[3]['facts']['name_candidates']=['Full Speed Ahead! Umadol Power D']
+            self.assertEqual(lesson_receipts(tampered_rows,[changed]),[],mutation)
+
+        canceled=rows[:4]+[row(t,'lesson_selection') for t in (800,900)]+rows[4:]
+        self.assertEqual(lesson_receipts(canceled,[event]),[])
+        missing=deepcopy(rows)
+        missing[-1]['facts']['performance_points']=dict.fromkeys(CURRENCIES,100)
+        self.assertEqual(lesson_receipts(missing,[event]),[])

@@ -241,6 +241,19 @@ def cached_readings(report,root,allow_partial=False):
                                             root/raw['evidence'],original)
             except ValueError as exc:
                 raise PipelineError(f'Song-symbol refinement invalid: {exc}') from exc
+        star_refinement=root/'song-star-refinement'/path.name
+        if star_refinement.exists():
+            from .song_star_refinement import apply as apply_star_refinement
+            try:
+                from PIL import Image
+                with Image.open(root/frame['evidence']) as source_image:
+                    source_pixels=source_image.convert('RGB').crop((148,0,958,1080))
+                if hashlib.sha256(source_pixels.tobytes()).hexdigest()!=original.get('gameplay_sha256'):
+                    raise ValueError('Gameplay pixels differ from decoded source crop.')
+                raw=apply_star_refinement(raw,json.loads(star_refinement.read_text(encoding='utf-8')),
+                                          root/raw['evidence'],original)
+            except ValueError as exc:
+                raise PipelineError(f'Song-star refinement invalid: {exc}') from exc
         concert_panel=root/'concert-panel-refinement'/path.name
         if concert_panel.exists():
             from .concert_panel_refinement import apply as apply_concert_panel

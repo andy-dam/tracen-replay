@@ -5,9 +5,9 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest test run passes 730 automated tests.
+recording and 130 in the second. The latest working-tree test run passes 762 automated tests.
 All 12 preserved-reference checks in
-`song-validation-v2/preserved-regression.json` pass against the
+`song-star-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
 
@@ -48,13 +48,24 @@ references, parent hashes and label provenance remain separate from the derived
 development slices. Two references explicitly declare incomplete labels; 43
 legacy references leave completeness unspecified.
 
-The current report has 38 missing or extra effect entries in these diagnostics.
+The current report has 36 missing or extra effect entries in these diagnostics.
 Including the cursor's white outline removes a false hint identity and allows
 clear neighboring evidence to resolve a friendship recipient. The earlier
 separator rule still removes one duplicate hint while retaining its unresolved
 rank suffix. Numeric interval accounting is unchanged. Reference completeness,
 recognition failures and unobservable fields still need adjudication. Neither
 full semantic recall nor Go readiness is established.
+
+The outlined-star pass recovers the complete Full Speed Ahead! Umadol Power☆
+receipt in seven original-run frames and nine second-run frames. Both reports
+reproduce from the cached evidence without OCR. The change removes one missing
+song label and its extra truncated-name prediction from the second-run diagnostic.
+Both lesson purchases retain their observed costs and original request names;
+the receipt spelling changes without claiming that the request's suffix was
+readable. All 77 original-run and 62 second-run lesson purchases, all performance
+accounting, and concert quantities and activation flags remain unchanged. The
+run-local `song-star-candidate-v2` artifacts preserve the previous reports,
+source-row changes, replay checks and publication hashes.
 
 A bounded inheritance review checks all 28 quarter-second samples from 519.5
 through 526.25 seconds. It confirms the Straightaway Recovery spelling and

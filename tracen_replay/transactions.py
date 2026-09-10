@@ -194,16 +194,38 @@ def source_song_alias(effect):
     This is an association candidate, not a second canonical name. The caller
     still requires repeated request and debit evidence before linking it.
     """
+    if not isinstance(effect,dict):return None
     proof=effect.get('visual_symbol_observation',{})
-    if proof.get('method')!='strict_note_and_independently_read_title':return None
+    if not isinstance(proof,dict):return None
+    method=proof.get('method')
     title=proof.get('title_evidence',{})
+    if not isinstance(title,dict):return None
     original=effect.get('original_text')
-    if not isinstance(original,str) or title.get('line',{}).get('text')!=original:return None
-    name=title.get('title')
-    if not isinstance(name,str) or effect.get('name')!=name+' ♪':return None
-    match=re.fullmatch(r'Learned the song "(.+)"[.!]',original)
-    if not match or not re.fullmatch(re.escape(name)+r'\s+[A-Za-z]',match[1]):return None
-    return match[1]
+    if method=='strict_note_and_independently_read_title':
+        if not isinstance(original,str) or title.get('line',{}).get('text')!=original:return None
+        name=title.get('title')
+        if not isinstance(name,str) or effect.get('name')!=name+' ♪':return None
+        match=re.fullmatch(r'Learned the song "(.+)"[.!]',original)
+        if not match or not re.fullmatch(re.escape(name)+r'\s+[A-Za-z]',match[1]):return None
+        return match[1]
+    if method!='outlined_star_one_hole_ten_alternating_turns' or proof.get('symbol')!='☆':return None
+    if not isinstance(original,str):return None
+    match=re.fullmatch(r'Learned the song (["“])(.+?)(["”])([.!])',original)
+    if not match:return None
+    opening,raw_title,closing,stop=match.groups()
+    if effect.get('name')!=raw_title+'☆':return None
+    prefix=title.get('prefix_text');continuation=title.get('continuation_text')
+    raw_lines=title.get('raw_lines')
+    if not isinstance(prefix,str) or not isinstance(continuation,str):return None
+    if not prefix or not continuation or raw_title!=prefix+' '+continuation:return None
+    if not isinstance(raw_lines,list) or len(raw_lines)!=2 or not all(isinstance(line,dict) for line in raw_lines):return None
+    first=f'Learned the song {opening}{prefix}'
+    first_text=raw_lines[0].get('text')
+    second_text=raw_lines[1].get('text')
+    if first_text!=first or not isinstance(second_text,str):return None
+    if second_text!=f'{continuation}{closing}{stop}':return None
+    if ' '.join((first_text,second_text))!=original:return None
+    return raw_title
 
 
 def lesson_receipts(readings, outcomes):
@@ -216,17 +238,28 @@ def lesson_receipts(readings, outcomes):
             confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
                 and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
                 and r['facts'].get('name_candidates')==[effect['name']]]
-            if not confirmations and effect['kind']=='song_learned' and len(acquired)==1:
+            if effect['kind']=='song_learned' and len(acquired)==1:
                 nearby=[r for r in readings if r['screen']=='lesson_confirmation'
                         and 0<event['first_seen_ms']-r['source_timestamp_ms']<=2000]
                 names={r['facts']['name_candidates'][0] for r in nearby if len(r['facts'].get('name_candidates',[]))==1}
                 alias=source_song_alias(effect)
-                compatible=bool(alias and names and all(n==alias or n==effect['name'] or partial_song_name(n,effect['name']) for n in names))
-                if len(names)==1 or compatible:
+                compatible=bool(alias and names and all(
+                    n==alias or n==effect['name'] or partial_song_name(n,effect['name'])
+                    or partial_song_name(n,alias) or partial_song_name(alias,n) for n in names))
+                # Source proof can reconcile a mixed request even when one
+                # frame already contains the corrected symbol name. Without
+                # that proof, retain the exact-text path unchanged.
+                source_compatible=bool(alias and compatible)
+                if (not confirmations and (len(names)==1 or compatible)) or source_compatible:
                     requested=next(r['facts']['name_candidates'][0] for r in reversed(nearby)
                                    if len(r['facts'].get('name_candidates',[]))==1)
-                    symbol_alias=compatible and alias in names
-                    if partial_song_name(requested,effect['name']) or symbol_alias:
+                    partial_match=partial_song_name(requested,effect['name'])
+                    # A lone raw title keeps the existing partial-name basis.
+                    # Use the source alias when the corrected symbol is the
+                    # only way to relate the names, or when mixed spellings
+                    # need to be retained for auditability.
+                    symbol_alias=compatible and alias in names and (not partial_match or len(names)>1)
+                    if partial_match or symbol_alias:
                         request_names=names if compatible else {requested}
                         confirmations=[r for r in nearby if len(r['facts'].get('name_candidates',[]))==1
                                        and r['facts']['name_candidates'][0] in request_names];partial=True

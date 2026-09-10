@@ -53,7 +53,7 @@ def verify(root,source):
             extras=[raw_path.with_suffix('.'+suffix+'.json') for suffix in ('totals','contrast','performance','awards','receipt')]
             extras.append(evidence.with_suffix('.overlay.json'))
             extras.append(evidence.with_suffix('.choice.json'))
-            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','choice-card-refinement','song-symbols','song-symbol-refinement','inventory-refinement','concert-panel-refinement')]
+            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','choice-card-refinement','song-symbols','song-symbol-refinement','song-star-refinement','inventory-refinement','concert-panel-refinement')]
             for extra_path in extras:
                 if not extra_path.exists():continue
                 extra=json.loads(extra_path.read_text(encoding='utf-8'))
@@ -68,6 +68,9 @@ def verify(root,source):
                 if extra_path.parent.name=='song-symbol-refinement':
                     from .song_symbol_refinement import apply as apply_song_symbol
                     apply_song_symbol(raw,extra,evidence)
+                if extra_path.parent.name=='song-star-refinement':
+                    from .song_star_refinement import apply as apply_song_star
+                    apply_song_star(raw,extra,evidence)
                 refinements+=1
             checked+=1
         except (ValueError,KeyError,OSError) as error:errors.append(dict(path=str(raw_path.relative_to(root)),reason=str(error)))

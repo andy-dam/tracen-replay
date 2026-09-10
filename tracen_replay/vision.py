@@ -164,7 +164,14 @@ def parse(raw):
         if re.match(r'Learned the song ["“]',line['text']) and not re.search(r'["”][.!]$',line['text']) and index+1<len(outcome_lines):
             following=outcome_lines[index+1]
             if 0<following['box'][1]-line['box'][1]<40 and re.fullmatch(r'[^"“”]+["”][.!]',following['text']):
+                original_prefix=line.get('original_symbol_text',line['text'])
                 line=dict(line,text=line['text']+' '+following['text'],confidence=min(line['confidence'],following['confidence']));index+=1
+                # A symbol on the continuation belongs to the joined receipt.
+                # Keep its physical source lines in the observation and the
+                # complete original sentence alongside the normalized effect.
+                if following.get('visual_symbol_observation') and isinstance(following.get('original_symbol_text'),str):
+                    line.update(original_symbol_text=original_prefix+' '+following['original_symbol_text'],
+                                visual_symbol_observation=following['visual_symbol_observation'])
         elif line['text'].startswith('Learned ') and not re.search(r'[.!]$',line['text']) and index+1<len(outcome_lines):
             following=outcome_lines[index+1]
             if (0<following['box'][1]-line['box'][1]<40 and abs(following['box'][0]-line['box'][0])<=15
@@ -195,7 +202,7 @@ def parse(raw):
             repairs[fixed]=line['text'];joined[i]=dict(line,text=fixed)
     parsed_effects=effects_from_lines(joined)
     for effect in parsed_effects:
-        symbol_line=next((l for l in lines if l['text']==effect['raw_text'] and l.get('visual_symbol_observation')),None)
+        symbol_line=next((l for l in joined if l['text']==effect['raw_text'] and l.get('visual_symbol_observation')),None)
         if symbol_line:
             effect.update(original_text=symbol_line['original_symbol_text'],visual_symbol_observation=symbol_line['visual_symbol_observation'])
         if effect['raw_text'] in repairs:
