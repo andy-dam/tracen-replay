@@ -204,6 +204,22 @@ are verified; source-pixel provenance and visual annotation completeness still
 require their separate audits. The command refuses to overwrite an existing
 score artifact.
 
+Training previews are recognized by the fixed failure popup above any of the
+five training tabs. A preview does not establish a completed action or award.
+When an unresolved stat interval contains an empty training-result fragment,
+`python -m tracen_replay.inspect_missing_results SOURCE REPORT --output NEW_DIRECTORY`
+can inspect the preceding preview-to-result transition at 60 FPS. Each selected
+window is at most eight seconds. Result frames must supply the training identity
+and gains; the selector never copies preview values into awarded fields. Capture
+and OCR cache seals bind the source clock, frames, extractor settings and models.
+
+A named lesson receipt can also explain a cost through repeated offer prices
+and repeated confirmation balances. Each currency needs its own evidence, and
+readable prices and projections must agree. The report records the basis for
+each field separately. This does not fill unreadable projected balances or
+claim that a complete post-purchase balance was observed. Browsing alone,
+conflicting prices and a cancelled request cannot establish this cost.
+
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.
 - [x] Separate previews, confirmations, receipts, immediate awards and future effects.

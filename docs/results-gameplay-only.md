@@ -4,8 +4,59 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest working-tree test run passes 894 automated tests.
+The latest complete source reparses pass 941 automated tests and retain these
+accounting results in separate development candidates:
+
+| Recording | Balanced stat intervals | Balanced performance intervals |
+| --- | ---: | ---: |
+| Original | 143/143 | 170/171 |
+| Second | 130/130 | 148/148 |
+| Third | 131/131 | 125/125 |
+
+Recognizing the training-preview popup above all five tabs exposes additional
+performance checkpoints, so these interval counts differ from earlier snapshots.
+The original recording's remaining Passion +10 gap stays unresolved. Its 78
+actions, stat readings and numeric event deltas are preserved, as are the second
+recording's 78 actions. Skill charges, races, fan accounting, stat checkpoints
+and dialogue choices match the preceding candidates in both recordings. Both
+retain all 14 reviewed visible inventory names and the reviewed levels/circles.
+One original-recording training onset moves forward by 33 ms after a preview
+frame stops being treated as a result; its action identity and awards are unchanged.
+
+In the third recording, native inspection provides repeated direct evidence for
+the previously ambiguous +11 SP gain. A separate preview-based recovery selects
+2225500–2230433 ms and finds four direct Guts-result frames at
+2228050–2228100 ms: Speed +8, Power +5, Guts +32 and SP +18, with Vocal +24 and
+Visual +24. These are visible awards, rather than values copied from previews
+or filled from a ledger residual. The native capture contains 296 frames and
+passes a subsequent cache-reuse check with source-clock, frame and OCR seals.
+
+The remaining lesson cost is supported by repeated named offer prices and
+confirmation balances: Dance 21 and Visual 21 for Zero Is Where the Center Stands!.
+Per-currency evidence remains attached. Unreadable projected and post-purchase
+balances stay unknown, and `after_balance_observed` remains false. Source-pixel
+music-note recovery also preserves the separator in Present March ♪. The
+1893250–1983250 ms effect reference now matches 14/14 effects, with no extras.
+
+The quarter-window race mismatch is a timing gap: the source shows Satsuki Sho's
+first-place animation at 715250 ms, while the analyzer anchors its completed
+race record to the detailed panel at 723250 ms, outside the reference's 721000 ms
+end. The full recording includes that race, course and fan reward. Recovering
+the earlier completion evidence and the remaining item identities is still open;
+the reference and its original score are unchanged.
+
+The third candidate is `lesson-training-replay-v1`, SHA-256
+`9b7b9038379caf0b72af6c454d4a2aebdaa724f1772c15a7f2933c29ffb5e1f0`.
+The first two use `preview-offer-replay-v1`, with respective hashes
+`acb37a6294a91471edf12e6032b0f9a71f5acd7c0745dd3ee0e74abdc6ccff78`
+and `b00e5e076ac89595902261866ef443255430c3fe65d06e3c9401af44681eb8f1`.
+These are development regressions; the original reports and initial scores are
+preserved. Other sampled action/effect checks remain incomplete or failing, and
+full action/effect recall and the remaining mechanics gates are still open.
+Balanced accounting does not establish a fully verified recording or Go readiness.
+
+The preceding stat/currency snapshot retained 143 balanced six-field intervals
+in the original recording and 130 in the second, with 894 passing automated tests.
 All 12 preserved-reference checks in
 `sp-receipt-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
