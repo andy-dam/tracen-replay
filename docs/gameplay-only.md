@@ -119,6 +119,27 @@ References may also attach `source_performance_balance` with complete five-curre
 
 ## Gates before the application
 
+Ordinary recordings do not need to open Concert Info, scroll the complete skill
+inventory, or follow a recording script. Those screens provide optional validation
+evidence. Their absence must not prevent analysis of the rest of the run or,
+by itself, prevent application readiness.
+
+Validate both observable and unobservable cases. When a panel is present, compare
+the reported values with its source pixels. When it is absent, preserve supported
+transactions and leave unsupported totals or inventory completeness unknown.
+Any reconstructed total needs an established starting state and a complete,
+validated sequence of relevant changes, with its derivation recorded separately
+from direct panel observations. Planned bonuses alone do not establish activation.
+The current `later_active_bonus_snapshot` contract describes observed panel values;
+it does not yet promise this separate total reconstruction.
+
+Unknown is an appropriate result for unavailable evidence, not a substitute for
+recognizing readable evidence. Evaluation must distinguish a recognition miss
+from an unavailable observation. A controlled recording can expose optional
+screens to check correctness, while an ordinary recording checks that their
+absence is handled honestly. Preserve the next independent recording's initial
+evaluation before using it to guide fixes.
+
 Hint spellings that differ only in spaces or hyphens can represent one receipt.
 Merging requires matching amounts and receipt sentences in the same outcome,
 distinct source timestamps no more than 250 ms apart, and a stationary dialogue
@@ -173,7 +194,7 @@ score artifact.
 - [x] Recover observed lesson debits, committed skill charges and concert reward/update receipts.
 - [x] Review every detected action receipt and evaluate two contiguous development sequences.
 - [ ] Measure full action/effect recall against dense references not selected only from predictions.
-- [ ] Validate complete skill inventory and active concert bonuses; adjudicate fields the source does not expose.
+- [ ] Validate visible skill ownership and active concert bonuses, and correct partial/unknown outputs when optional screens or inventory pages are absent. Claim completeness only with sufficient evidence.
 - [ ] Validate non-stat mechanics and uncertain names, including choice evidence and race item identities.
 - [x] Evaluate a separate recording before source-driven changes and preserve initial scores separately from later regression results.
 
