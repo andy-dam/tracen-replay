@@ -136,11 +136,11 @@ def _check_evidence_path(value: str, field: str, root: Path) -> None:
         ) from exc
 
 
-def _walk_evidence(value, field: str, *, root: Path, in_evidence: bool = False) -> None:
-    """Check path-shaped evidence values without treating boxes as paths."""
+def _evidence_paths(value, field: str, *, in_evidence: bool = False, in_path_map: bool = False):
+    """Yield path fields while keeping receipt names and reasons as metadata."""
     if isinstance(value, str):
         if in_evidence:
-            _check_evidence_path(value, field, root)
+            yield field, value
         return
     if value is None or isinstance(value, (bool, int, float)):
         return
@@ -150,22 +150,25 @@ def _walk_evidence(value, field: str, *, root: Path, in_evidence: bool = False) 
             key_is_path = isinstance(key, str) and key.lower() in {
                 "path", "file", "filename", "source_frame_path", "evidence_path",
             }
-            child_in_evidence = _is_evidence_key(key) or (in_evidence and
-                (key_is_path or isinstance(child, (Mapping, list))))
-            _walk_evidence(
+            path_map = key in {'evidence', 'field_evidence', 'performance_evidence', 'concert_bonus_evidence'}
+            nested_map = in_path_map and isinstance(child, (Mapping, list))
+            child_in_evidence = _is_evidence_key(key) or (in_evidence and key_is_path) or nested_map
+            yield from _evidence_paths(
                 child,
                 child_field,
-                root=root,
                 in_evidence=child_in_evidence,
+                in_path_map=path_map or nested_map,
             )
         return
     if isinstance(value, list):
         for index, child in enumerate(value):
-            _walk_evidence(child, f"{field}[{index}]", root=root, in_evidence=in_evidence)
+            yield from _evidence_paths(child, f"{field}[{index}]", in_evidence=in_evidence, in_path_map=in_path_map)
 
 
 def _validate_evidence_paths(report: Mapping[str, object], root: Path) -> None:
-    _walk_evidence(report, "report", root=root.resolve())
+    root = root.resolve()
+    for field, path in _evidence_paths(report, 'report'):
+        _check_evidence_path(path, field, root)
 
 
 def _producer_argv(source: Path, output: Path, model_dir: Path, args: argparse.Namespace) -> list[str]:

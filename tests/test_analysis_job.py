@@ -41,6 +41,17 @@ def _write_report(output, source, *, frame_evidence=None, observations=None):
 
 
 class AnalysisJobTests(unittest.TestCase):
+    def test_evidence_records_keep_name_alternatives_and_reasons_as_metadata(self):
+        from pathlib import Path
+        from tracen_replay.analysis_job import _validate_evidence_paths, _evidence_paths
+        payload = {'hint_card_evidence': [{'raw_receipt_name_candidates': ['../uncertain name'],
+            'observations': [{'evidence': 'frames/hint.png'}]}],
+            'inheritance_occurrence_evidence': {'by_key': {'example': {
+                'uncertainty_reasons': ['C:/not a file reference'], 'evidence': ['frames/receipt.png']}}}}
+        _validate_evidence_paths(payload, Path.cwd())
+        self.assertEqual({path for _, path in _evidence_paths(payload, 'report')},
+                         {'frames/hint.png', 'frames/receipt.png'})
+
     def test_legacy_report_without_ledger_cannot_be_published_by_worker(self):
         with workspace_temp() as root:
             source = root / 'run.mp4'
