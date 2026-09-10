@@ -833,8 +833,11 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hi
         if confirmations and any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects']):
             actions.append(dict(kind='rest',source_timestamp_ms=event['first_seen_ms'],evidence=[confirmations[-1]['evidence'],event['evidence']],event_id=event['id'],click_timestamp_ms=None))
     actions+=outing_actions(readings,events)
-    race_results=races(readings,race_reward_observations)
-    actions += [dict(kind='race',source_timestamp_ms=r['first_seen_ms'],evidence=r['evidence'],race_id=r['id'],click_timestamp_ms=None) for r in race_results]
+    from .race_completion import annotate as annotate_race_completion
+    race_results=annotate_race_completion(races(readings,race_reward_observations),readings)
+    actions += [dict(kind='race',source_timestamp_ms=r.get('completion_first_seen_ms',r['first_seen_ms']),
+                     evidence=list(dict.fromkeys(r.get('completion_evidence',[])+r['evidence'])),
+                     race_id=r['id'],click_timestamp_ms=None) for r in race_results]
     actions.sort(key=lambda a:a['source_timestamp_ms'])
     from .mechanics_audit import fan_accounting,song_acquisitions,unparsed_receipt_candidates
     from .choice_evidence import reconstruct as reconstruct_choices,collect as collect_choices

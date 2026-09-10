@@ -220,6 +220,13 @@ each field separately. This does not fill unreadable projected balances or
 claim that a complete post-purchase balance was observed. Browsing alone,
 conflicting prices and a cancelled request cannot establish this cost.
 
+Race actions can use an earlier completion animation when repeated exact
+ordinal readings match an already observed completed race. A continuous source
+sequence must connect the animation to its detail panel. The separate
+`completion_first_seen_ms` and source observations date the action; the race's
+`first_seen_ms` still dates the detail panel used for fan and item accounting.
+An animation alone does not create a race or establish its rewards.
+
 - [x] Structurally isolate gameplay pixels and test independence from the auxiliary log.
 - [x] Process the complete supplied recording and verify frame/crop/refinement provenance.
 - [x] Separate previews, confirmations, receipts, immediate awards and future effects.

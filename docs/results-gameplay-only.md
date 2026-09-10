@@ -4,8 +4,8 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest complete source reparses pass 941 automated tests and retain these
-accounting results in separate development candidates:
+The latest development reconstruction passes 961 automated tests and retains
+these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
 | --- | ---: | ---: |
@@ -38,16 +38,23 @@ balances stay unknown, and `after_balance_observed` remains false. Source-pixel
 music-note recovery also preserves the separator in Present March ♪. The
 1893250–1983250 ms effect reference now matches 14/14 effects, with no extras.
 
-The quarter-window race mismatch is a timing gap: the source shows Satsuki Sho's
-first-place animation at 715250 ms, while the analyzer anchors its completed
-race record to the detailed panel at 723250 ms, outside the reference's 721000 ms
-end. The full recording includes that race, course and fan reward. Recovering
-the earlier completion evidence and the remaining item identities is still open;
-the reference and its original score are unchanged.
+The quarter-window race timing mismatch is now corrected. Eighteen exact,
+high-confidence ordinal observations support completion at 715500 ms, while
+the race's detailed-panel timestamp remains 723250 ms for reward accounting.
+The human-readable animation begins at 715250 ms; its partial OCR is not used
+to invent an earlier machine observation. The helper requires a continuous
+source sequence through an existing completed race with matching placing;
+previews, menu returns, conflicting ordinals and gaps cannot establish this
+association. The unchanged quarter-window action reference now matches 3/3,
+but remains incomplete and does not pass the full coverage gate. Item identities
+remain open. The initial reference and score are preserved.
 
-The third candidate is `lesson-training-replay-v1`, SHA-256
-`9b7b9038379caf0b72af6c454d4a2aebdaa724f1772c15a7f2933c29ffb5e1f0`.
-The first two use `preview-offer-replay-v1`, with respective hashes
+The latest candidates use `race-completion-replay-v1`, reconstructed from the
+previously source-validated readings without rerunning OCR. All non-race
+tracking fields match exactly; only the third race's completion metadata and
+action timing/evidence change. The third candidate has SHA-256
+`eb3182e0d4cbfb3d867e77e6bcc44fa4b44837bd171862d78d3d1a2ac728ece4`.
+The first two remain byte-identical, with respective hashes
 `acb37a6294a91471edf12e6032b0f9a71f5acd7c0745dd3ee0e74abdc6ccff78`
 and `b00e5e076ac89595902261866ef443255430c3fe65d06e3c9401af44681eb8f1`.
 These are development regressions; the original reports and initial scores are
