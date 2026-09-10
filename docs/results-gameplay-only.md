@@ -44,6 +44,21 @@ The bounded first Go integration checklist is documented in
 [application gates](gameplay-only.md#first-go-integration-milestone); it does not
 close the separate full-recording verification gaps.
 
+The follow-up `standalone-hint-replay-v2` resolves the three saved-reading
+discrepancies through direct production parsing of their sealed source OCR and
+refinements. The earlier merged readings and both parser outputs remain in the
+local `baseline_drift` audit. Two second-recording readings now use the refined
+energy confidence; one no longer carries a hint rejected by its refined OCR.
+The third-recording reading uses its own inspection-frame symbol proof instead
+of the equivalent base-frame proof. Numeric meanings remain unchanged.
+All three candidates again reconstruct exactly with protected accounting intact.
+The original candidate hash is unchanged; the second and third are respectively
+`4c88c9f86f1f2cdacce20aabeb82f8dc229e7c17efb4a57092215af1bb66b011` and
+`4cb350cbc8da91fa0dffef3d0feeb14819d05aef5fbc3eab4ff2b7ceddfd0760`.
+The preserved second-recording checks remain 11/12, including the existing
+music-note spacing mismatch. Turn-boundary coverage and source attribution
+remain separate acceptance checks; interval balance does not close them.
+
 Recognizing the training-preview popup above all five tabs exposes additional
 performance checkpoints, so these interval counts differ from earlier snapshots.
 The original recording's remaining Passion +10 gap stays unresolved. Its 78

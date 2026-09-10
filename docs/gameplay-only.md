@@ -137,6 +137,17 @@ supported recording profile. It does not require exhaustive recognition of
 every mechanic. Full-recording semantic verification remains a separate claim;
 the unfinished coverage checks below must not be marked passed to start Go.
 
+The essential product is an explainable turn ledger. Each observed turn needs
+its starting and ending five stats, skill points and five performance currencies,
+the committed action and actual rewards, and intervening event/race awards and
+lesson/song/skill transactions. Hint gains belong in this timeline even though
+they do not enter a numeric stat ledger. Each accepted change needs linked source
+evidence; arithmetic agreement alone does not establish a correct explanation.
+Unavailable observations remain unknown and unexplained differences remain
+visible. A known missed readable reward or an unsupported attribution is a core
+defect, not an optional-detail backlog item. Missing turn-boundary observations
+must be reported explicitly rather than silently described as complete coverage.
+
 Close this bounded checklist before beginning the integration:
 
 - Finish the current standalone hint-marker change and replay all three
@@ -151,6 +162,11 @@ Close this bounded checklist before beginning the integration:
 - Confirm the versioned Python report can be reconstructed, validated and
   consumed with partial or unknown fields. Preserve unresolved ledger residuals
   and the distinction between browsed options and committed actions.
+- Audit the turn-ledger coverage and attribution separately from interval
+  balance: state what was observed at each boundary, which changes have source
+  support, and which changes or hints remain missing, ambiguous or unassigned.
+  The application must expose these limits; balanced intervals cannot stand in
+  for this check.
 - Publish the acceptance results and remaining limitations together. Do not
   convert sampled agreement or balanced observed intervals into full-run
   accuracy, and do not change `fully_verified` on the basis of this milestone.
