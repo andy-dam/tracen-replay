@@ -119,6 +119,30 @@ class NeuralReader:
                     gameplay_sha256=hashlib.sha256(pane.tobytes()).hexdigest())
 
 
+def performance_panel_facts(lines, screen, stats):
+    """Read the shared sidebar; only training results can award its gain badges."""
+    eligible = screen in ('training_preview', 'training_result') or (
+        stats.get('observation_profile') == 'race_day_lower_totals'
+        and all(type(stats.get('values', {}).get(f)) is int for f in FIELDS))
+    if not eligible or not any(l['text']=='Performance' and within(l,(150,250,270,285)) for l in lines):
+        return {}
+    points={};projected={}
+    for i,field in enumerate(CURRENCIES):
+        candidates=[l for l in lines if l['confidence']>=97 and within(l,(200,290+56*i,330,330+56*i))]
+        matches=[re.fullmatch(r'(\d{1,3})(?:\+(\d{1,3}))?',l['text']) for l in candidates]
+        matches=[m for m in matches if m]
+        if len(matches)==1:
+            points[field]=int(matches[0][1])
+            if matches[0][2]:projected[field]=int(matches[0][2])
+        separate=[re.fullmatch(r'\+(\d{1,3})',l['text']) for l in candidates]
+        separate={int(m[1]) for m in separate if m}
+        if field not in projected and len(separate)==1:projected[field]=separate.pop()
+    result={'performance_points':points}
+    if screen=='training_preview':result['projected_performance_gains']=projected
+    elif screen=='training_result':result['awarded_performance_gains']=projected
+    return result
+
+
 def parse(raw):
     lines=raw['lines'];regions=raw['regions'];text='\n'.join(l['text'] for l in lines if l['confidence']>=90)
     header=raw['header']
@@ -421,21 +445,7 @@ def parse(raw):
             if match:effect.update(field={'Friendship Training Effectiveness':'friendship_training_effectiveness','Specialty Priority':'specialty_priority','Support Chain Event Frequency Lvl':'support_chain_event_frequency'}[match[1]],amount=int(match[2]))
     if screen=='lesson_selection':
         facts.update(performance_points=currencies(),available_effects=preview_effects(lines))
-    if screen in ('training_preview','training_result') and any(l['text']=='Performance' and within(l,(150,250,270,285)) for l in lines):
-        points={};projected={}
-        for i,field in enumerate(CURRENCIES):
-            candidates=[l for l in lines if l['confidence']>=97 and within(l,(200,290+56*i,330,330+56*i))]
-            matches=[re.fullmatch(r'(\d{1,3})(?:\+(\d{1,3}))?',l['text']) for l in candidates]
-            matches=[m for m in matches if m]
-            if len(matches)==1:
-                points[field]=int(matches[0][1])
-                if matches[0][2]:projected[field]=int(matches[0][2])
-            separate=[re.fullmatch(r'\+(\d{1,3})',l['text']) for l in candidates]
-            separate={int(m[1]) for m in separate if m}
-            if field not in projected and len(separate)==1:projected[field]=separate.pop()
-        facts['performance_points']=points
-        if screen=='training_preview':facts['projected_performance_gains']=projected
-        else:facts['awarded_performance_gains']=projected
+    facts.update(performance_panel_facts(lines, screen, stats))
     if facts.get('training_outcome')=='failure':
         facts['unawarded_performance_projection']=facts.pop('awarded_performance_gains',{})
     if screen in ('skill_selection','skill_confirmation','skill_receipt'):

@@ -29,6 +29,31 @@ class RaceHubStatsTests(unittest.TestCase):
         self.assertEqual(result['values']['speed'],17)
         self.assertEqual(result['values']['skill_points'],0)
 
+    def test_shared_performance_sidebar_reads_race_day_totals_without_awarding_gains(self):
+        raw=copy.deepcopy(self.raw)
+        raw['lines'].append(dict(text='Performance',confidence=99,box=[155,255,250,278]))
+        for i,value in enumerate((69,51,56,44,77)):
+            raw['lines'].append(dict(text=str(value),confidence=99,box=[210,298+56*i,244,323+56*i]))
+        raw['lines'].append(dict(text='+10',confidence=99,box=[260,298,300,323]))
+        row=parse(raw)
+        self.assertEqual(row['facts']['performance_points'],dict(dance=69,passion=51,vocal=56,visual=44,composure=77))
+        self.assertNotIn('awarded_performance_gains',row['facts'])
+        self.assertNotIn('projected_performance_gains',row['facts'])
+        self.assertIsNone(row['completed_action'])
+        # Identical sidebar text without an established screen/profile is not enough.
+        raw['lines']=[l for l in raw['lines'] if l['text']!='Race!']
+        self.assertNotIn('performance_points',parse(raw)['facts'])
+
+    def test_performance_sidebar_leaves_clipped_or_ambiguous_currency_unknown(self):
+        from tracen_replay.vision import performance_panel_facts
+        stats=dict(observation_profile='race_day_lower_totals',values={f:1 for f in ('speed','stamina','power','guts','wit','skill_points')})
+        header=dict(text='Performance',confidence=99,box=[155,255,250,278])
+        for lines in ([dict(text='69',confidence=96,box=[210,298,244,323])],
+                      [dict(text='/250',confidence=99,box=[210,298,244,323])],
+                      [dict(text=t,confidence=99,box=[210,298,244,323]) for t in ('69','68')]):
+            self.assertNotIn('dance',performance_panel_facts([header,*lines],'unknown',stats)['performance_points'])
+        self.assertEqual(performance_panel_facts([], 'unknown', stats),{})
+
     def test_caps_projections_partial_and_low_confidence_values_do_not_qualify(self):
         for replacement in ('/1600','+642','642/1600','64?'):
             raw=copy.deepcopy(self.raw)

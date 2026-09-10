@@ -2,7 +2,7 @@ import copy
 import unittest
 
 from tracen_replay.reconcile import FIELDS
-from tracen_replay.turn_ledger import build
+from tracen_replay.turn_ledger import PERFORMANCE_FIELDS, build
 
 
 def reading(time, date='Junior Year Early Jul', remaining=None):
@@ -13,6 +13,10 @@ def reading(time, date='Junior Year Early Jul', remaining=None):
 def checkpoint(identity, time, value):
     return dict(id=identity, first_seen_ms=time, last_seen_ms=time + 100,
                 values={f: value for f in FIELDS}, evidence=f'{time}.png')
+
+
+def complete_values(value, fields):
+    return {field: value for field in fields}
 
 
 def report():
@@ -99,6 +103,79 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertEqual(opening['observed_at_ms'], 500)
         self.assertFalse(opening['exact_turn_boundary'])
         self.assertEqual(ledger['turns'][0]['states']['stats']['closing']['values'], {f: 15 for f in FIELDS})
+
+    def test_repeated_source_readings_supply_stats_and_performance_openings(self):
+        source = report()
+        data = source['gameplay_tracking']
+        for row in data['readings'][:2]:
+            row['stats']['values'] = complete_values(10, FIELDS)
+            row['facts'] = {'performance_points': complete_values(20, PERFORMANCE_FIELDS)}
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=500, evidence='500.png')]
+
+        states = build(source)['turns'][0]['states']
+        stats = states['stats']['opening']
+        self.assertEqual(stats['source_ref'], '/gameplay_tracking/readings/0/stats')
+        self.assertEqual(stats['values_ref'], '/gameplay_tracking/readings/0/stats/values')
+        self.assertEqual(stats['supporting_source_refs'], [
+            '/gameplay_tracking/readings/0/stats', '/gameplay_tracking/readings/1/stats'])
+        self.assertEqual(stats['basis'], 'first_repeated_source_state_before_action')
+        self.assertEqual(stats['observed_at_ms'], 100)
+        self.assertTrue(stats['exact_turn_boundary'])
+        performance = states['performance']['opening']
+        self.assertEqual(performance['source_ref'], '/gameplay_tracking/readings/0/facts')
+        self.assertEqual(performance['values_ref'], '/gameplay_tracking/readings/0/facts/performance_points')
+        self.assertEqual(performance['supporting_source_refs'], [
+            '/gameplay_tracking/readings/0/facts', '/gameplay_tracking/readings/1/facts'])
+        self.assertEqual(performance['values'], complete_values(20, PERFORMANCE_FIELDS))
+
+    def test_repeated_source_opening_rejects_singleton_and_disagreement(self):
+        for case in ('singleton', 'disagreement'):
+            with self.subTest(case=case):
+                source = report()
+                data = source['gameplay_tracking']
+                data['readings'][0]['stats']['values'] = complete_values(10, FIELDS)
+                if case == 'disagreement':
+                    data['readings'][1]['stats']['values'] = complete_values(11, FIELDS)
+                data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=500)]
+                opening = build(source)['turns'][0]['states']['stats']['opening']
+                self.assertIsNone(opening)
+
+    def test_repeated_source_opening_ignores_after_action_values(self):
+        source = report()
+        data = source['gameplay_tracking']
+        for row in data['readings'][2:4]:
+            row['stats']['values'] = complete_values(10, FIELDS)
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=500)]
+        self.assertIsNone(build(source)['turns'][0]['states']['stats']['opening'])
+
+    def test_repeated_source_opening_rejects_uncertain_calendar_and_duplicate_pts(self):
+        source = report()
+        data = source['gameplay_tracking']
+        data['readings'] = [
+            reading(100, 'Junior Year Early Jul'), reading(200, 'Junior Year Early Jul'),
+            reading(500, 'Junior Year Late Jul'), reading(600, None), reading(700, None),
+            reading(1000, 'Junior Year Early Aug'), reading(1100, 'Junior Year Early Aug')]
+        data['readings'][3]['stats']['values'] = complete_values(10, FIELDS)
+        data['readings'][4]['stats']['values'] = complete_values(10, FIELDS)
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=900)]
+        self.assertIsNone(build(source)['turns'][0]['states']['stats']['opening'])
+
+        duplicate = report()
+        duplicate['gameplay_tracking']['readings'][0]['stats']['values'] = complete_values(10, FIELDS)
+        duplicate['gameplay_tracking']['readings'][1]['source_timestamp_ms'] = 100
+        duplicate['gameplay_tracking']['readings'][1]['stats']['values'] = complete_values(10, FIELDS)
+        duplicate['gameplay_tracking']['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=500)]
+        self.assertIsNone(build(duplicate)['turns'][0]['states']['stats']['opening'])
+
+    def test_repeated_source_opening_rejects_malformed_values(self):
+        source = report()
+        data = source['gameplay_tracking']
+        data['readings'][0]['stats']['values'] = complete_values(10, FIELDS)
+        malformed = complete_values(10, FIELDS)
+        malformed['speed'] = '10'
+        data['readings'][1]['stats']['values'] = malformed
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=500)]
+        self.assertIsNone(build(source)['turns'][0]['states']['stats']['opening'])
 
     def test_state_observed_only_after_action_cannot_be_opening_state(self):
         source = report()

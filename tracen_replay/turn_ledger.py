@@ -44,6 +44,53 @@ def _changes(value, fields, label, *, complete=False):
     return deepcopy(value)
 
 
+def _repeated_source_state(readings, fields, channel, start_ms, action_time, uncertain):
+    """Find one repeated complete source reading before the committed action.
+
+    A repeated reading is evidence of an observed state, not a new accounting
+    checkpoint.  Requiring distinct source timestamps and one exact value tuple
+    keeps singleton, duplicate-PTS and conflicting observations unresolved.
+    """
+    groups = {}
+    for index, row in enumerate(readings):
+        time = row.get('source_timestamp_ms')
+        if type(time) is not int or not start_ms <= time < action_time or uncertain(time, time):
+            continue
+        stats = row.get('stats')
+        if not isinstance(stats, dict):
+            continue
+        if channel == 'stats':
+            values = stats.get('values')
+            source_ref = f'/gameplay_tracking/readings/{index}/stats'
+            values_ref = f'{source_ref}/values'
+        else:
+            facts = row.get('facts')
+            values = facts.get('performance_points') if isinstance(facts, dict) else None
+            source_ref = f'/gameplay_tracking/readings/{index}/facts'
+            values_ref = f'{source_ref}/performance_points'
+        if not isinstance(values, dict) or any(type(values.get(field)) is not int for field in fields):
+            continue
+        evidence = _proof(row.get('evidence'))
+        if not evidence:
+            continue
+        key = tuple(values[field] for field in fields)
+        groups.setdefault(key, []).append(dict(index=index, time=time, values=deepcopy(values),
+                                               evidence=evidence, source_ref=source_ref,
+                                               values_ref=values_ref))
+    if len(groups) != 1:
+        return None
+    observations = next(iter(groups.values()))
+    if len({item['time'] for item in observations}) < 2:
+        return None
+    observations.sort(key=lambda item: (item['time'], item['index']))
+    first = observations[0]
+    return dict(source_ref=first['source_ref'], values_ref=first['values_ref'],
+                supporting_source_refs=[item['source_ref'] for item in observations],
+                observed_at_ms=first['time'], values=first['values'],
+                evidence=first['evidence'], basis='first_repeated_source_state_before_action',
+                exact_turn_boundary=first['time'] == start_ms)
+
+
 def _calendar_identity(row):
     stats = row.get('stats', {})
     text = stats.get('calendar_text')
@@ -305,7 +352,9 @@ def build(report):
         for turn_index, turn in enumerate(turns):
             action_times = [e['first_seen_ms'] for e in timeline if e['turn_id'] == turn['id'] and e['kind'] == 'committed_action']
             action_time = min(action_times, default=turn['end_ms'])
-            candidates = [(i, c, c['first_seen_ms'], c.get('evidence')) for i, c in enumerate(checkpoints)
+            candidates = [dict(kind='checkpoint', index=i, values=deepcopy(c['values']),
+                               observed_at_ms=c['first_seen_ms'], evidence=c.get('evidence'))
+                          for i, c in enumerate(checkpoints)
                           if turn['start_ms'] <= c['first_seen_ms'] < action_time and
                           not uncertain(c['first_seen_ms'], c['first_seen_ms'])]
             if channel == 'stats':
@@ -316,12 +365,28 @@ def build(report):
                             time = row['source_timestamp_ms']
                             if (turn['start_ms'] <= time < action_time and c['first_seen_ms'] <= time <= c['last_seen_ms']
                                     and not uncertain(time, time)):
-                                candidates.append((i, c, time, proof))
-            chosen = min(candidates, key=lambda p: p[2]) if candidates else None
-            opening = None if chosen is None else dict(source_ref=_ref(prefix, chosen[0]),
-                observed_at_ms=chosen[2], values=deepcopy(chosen[1]['values']),
-                evidence=_proof(chosen[3]), basis='first_observed_state_before_action',
-                exact_turn_boundary=chosen[2] == turn['start_ms'])
+                                candidates.append(dict(kind='checkpoint', index=i, values=deepcopy(c['values']),
+                                                       observed_at_ms=time, evidence=proof))
+            source_state = _repeated_source_state(readings, fields, channel, turn['start_ms'],
+                                                  action_time, uncertain)
+            if source_state is not None:
+                candidates.append(dict(kind='source', **source_state))
+            chosen = min(candidates, key=lambda p: p['observed_at_ms']) if candidates else None
+            if chosen is None:
+                opening = None
+            elif chosen['kind'] == 'source':
+                opening = dict(source_ref=chosen['source_ref'], values_ref=chosen['values_ref'],
+                               supporting_source_refs=chosen['supporting_source_refs'],
+                               observed_at_ms=chosen['observed_at_ms'],
+                               values=deepcopy(chosen['values']), evidence=_proof(chosen['evidence']),
+                               basis=chosen['basis'], exact_turn_boundary=chosen['exact_turn_boundary'])
+            else:
+                source_ref = _ref(prefix, chosen['index'])
+                opening = dict(source_ref=source_ref, values_ref=f'{source_ref}/values',
+                               observed_at_ms=chosen['observed_at_ms'],
+                               values=deepcopy(chosen['values']), evidence=_proof(chosen['evidence']),
+                               basis='first_observed_state_before_action',
+                               exact_turn_boundary=chosen['observed_at_ms'] == turn['start_ms'])
             turn.setdefault('states', {})[channel] = dict(opening=opening, closing=None,
                 opening_status='observed' if opening else 'not_observed_before_action')
         for index, turn in enumerate(turns[:-1]):
@@ -339,8 +404,10 @@ def build(report):
                           and not uncertain(c['first_seen_ms'], c['first_seen_ms'])]
             if candidates:
                 i, checkpoint = max(candidates, key=lambda p: p[1]['first_seen_ms'])
-                last['states'][channel]['closing'] = dict(source_ref=_ref(prefix, i),
-                    observed_at_ms=checkpoint['first_seen_ms'], values=deepcopy(checkpoint['values']),
+                source_ref = _ref(prefix, i)
+                last['states'][channel]['closing'] = dict(source_ref=source_ref,
+                    values_ref=f'{source_ref}/values', observed_at_ms=checkpoint['first_seen_ms'],
+                    values=deepcopy(checkpoint['values']),
                     evidence=_proof(checkpoint.get('evidence')), basis='last_observed_state_after_action',
                     exact_turn_boundary=False)
                 last['states'][channel]['closing_basis'] = 'last_observed_state_not_inferred_completion'
