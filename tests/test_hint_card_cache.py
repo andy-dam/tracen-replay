@@ -184,6 +184,143 @@ class HintCardCacheTests(unittest.TestCase):
             self.assertEqual(load(self.rows, self.root, SOURCE_SHA, cache_path=output), [self.candidate])
 
 
+class SingleLineHintCardCacheTests(unittest.TestCase):
+    def setUp(self):
+        fixture_class = import_module("tests.test_hint_card_identity").HintCardIdentityTests
+        self.fixture = fixture_class("test_single_line_receipt_recovers_card_with_unknown_suffix")
+        self.fixture.setUp()
+        self.root = self.fixture.root
+        self.rows = self.fixture._single_line_rows()
+        for path in (self.root / "neural").glob("*.json"):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            raw["engine_fingerprint"] = "e" * 64
+            path.write_text(json.dumps(raw), encoding="utf-8")
+        with patch(
+            "tracen_replay.inventory_suffix.detect",
+            side_effect=[None, None],
+        ):
+            self.candidate = self.fixture._patched_recover(
+                self.rows,
+                detect_side_effect=[None, None],
+            )[0]
+        self.candidate["provenance"]["prefix_ocr_model_fingerprint"] = "d" * 64
+        self.cache_path = self.root / "single-line-hint-card-recovery.json"
+        with self._source_pixels():
+            save(
+                self.cache_path,
+                [self.candidate],
+                self.rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+            )
+        self.valid_cache = self.cache_path.read_text(encoding="utf-8")
+
+    def tearDown(self):
+        self.fixture.tearDown()
+
+    def _source_pixels(self, suffixes=None):
+        def overlays(image):
+            index = int(image.getpixel((0, 0))[0]) - 1
+            return [[604 - index * 5, 854, 617 - index * 5, 871]]
+
+        return self._patches(
+            suffixes=[None, None] if suffixes is None else suffixes,
+            overlays=overlays,
+        )
+
+    @staticmethod
+    def _patches(*, suffixes, overlays):
+        class _Patches:
+            def __enter__(self):
+                self.detect = patch("tracen_replay.inventory_suffix.detect", side_effect=suffixes)
+                self.overlay = patch("tracen_replay.receipt_occlusion.overlay_boxes", side_effect=overlays)
+                self.detect.__enter__()
+                self.overlay.__enter__()
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                self.overlay.__exit__(exc_type, exc, traceback)
+                self.detect.__exit__(exc_type, exc, traceback)
+
+        return _Patches()
+
+    def _load(self, *, suffixes=None):
+        with self._source_pixels(suffixes=suffixes), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ):
+            return load(
+                self.rows,
+                self.root,
+                SOURCE_SHA,
+                cache_path=self.cache_path,
+            )
+
+    def _assert_invalid(self, mutate):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        mutate(payload["candidates"][0])
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ), self.assertRaises(ValueError):
+            load(self.rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
+
+    def test_single_line_cache_replays_unknown_rank_without_ocr(self):
+        loaded = self._load()
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["observation_kind"], "single_line_hint_receipt")
+        self.assertEqual(loaded[0]["identity_proof"]["rank_state"], "undetermined")
+        self.assertIsNone(loaded[0]["identity_proof"]["suffix"])
+
+    def test_changed_suffix_interpretation_invalidates_unknown_rank_cache(self):
+        with self._source_pixels(suffixes=["single_circle", None]), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ), self.assertRaises(ValueError):
+            load(self.rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
+
+    def test_tampered_single_line_suffix_state_or_name_invalidates_cache(self):
+        self._assert_invalid(
+            lambda candidate: candidate["observations"][0]["card"].update(
+                suffix="single_circle", suffix_state="present"
+            )
+        )
+        self.cache_path.write_text(self.valid_cache, encoding="utf-8")
+        self._assert_invalid(
+            lambda candidate: candidate["observations"][1]["receipt"].update(
+                raw_name="Other Skill"
+            )
+        )
+
+    def test_tampered_single_line_prefix_text_or_name_invalidates_cache(self):
+        self._assert_invalid(
+            lambda candidate: candidate["observations"][0]["prefix_amount_proof"].update(
+                recognized_text="Gained 2 hint level(s) for Other Skill",
+                raw_name="Other Skill",
+            )
+        )
+        self.cache_path.write_text(self.valid_cache, encoding="utf-8")
+        self._assert_invalid(
+            lambda candidate: candidate["observations"][0]["prefix_amount_proof"].update(
+                raw_name="Other Skill"
+            )
+        )
+
+    def test_tampered_single_line_prefix_proof_hash_or_model_invalidates_cache(self):
+        self._assert_invalid(
+            lambda candidate: candidate["observations"][0]["prefix_amount_proof"].update(
+                pixel_rgb_sha256="f" * 64
+            )
+        )
+        self.cache_path.write_text(self.valid_cache, encoding="utf-8")
+        self._assert_invalid(
+            lambda candidate: candidate["observations"][0]["prefix_amount_proof"].update(
+                model_fingerprint="f" * 64
+            )
+        )
+
+
 class WrappedHintCardCacheTests(unittest.TestCase):
     def setUp(self):
         fixture_class = import_module("tests.test_hint_card_identity").HintCardIdentityTests

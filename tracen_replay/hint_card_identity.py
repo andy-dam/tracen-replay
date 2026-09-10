@@ -15,6 +15,10 @@ standalone HINT card is visible at multiple source timestamps.
 * for the original complete-line path, ``inventory_suffix.detect`` must report
   the same visible suffix at two or more distinct timestamps and a prefix
   crop must corroborate the amount; or
+* for a source-bound single-line receipt, the card remains visible while the
+  suffix detector returns no marker, and an independent prefix crop
+  corroborates the amount at every timestamp.  The suffix remains unknown;
+  no absence claim is made; or
 * for a wrapped line, a standalone card and an amount-only crop must each be
   source-proven at every corroborating timestamp.  The rank may remain
   ``undetermined`` when no marker is visible.
@@ -32,6 +36,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+from difflib import SequenceMatcher
 import hashlib
 import json
 import math
@@ -61,6 +66,10 @@ _MIN_HEADER_CONFIDENCE = 90.0
 _MIN_RECEIPT_CONFIDENCE = 90.0
 _MIN_PREFIX_CONFIDENCE = 90.0
 _WRAPPED_HINT_KIND = "wrapped_hint_receipt"
+_SINGLE_LINE_HINT_KIND = "single_line_hint_receipt"
+_SINGLE_LINE_HINT_BASIS = (
+    "standalone_hint_card_with_single_line_receipt_and_per_row_amount_ocr"
+)
 _WRAPPED_HINT_PREFIX_RE = re.compile(
     r"^\s*Gained\s*(?P<amount>\d{1,2})\s+hint\b(?P<body>.*)$",
     re.IGNORECASE,
@@ -110,6 +119,10 @@ def _box_list(value: Sequence[float]) -> list[float | int]:
 
 def _center_y(box: Sequence[float]) -> float:
     return (box[1] + box[3]) / 2.0
+
+
+def _center_x(box: Sequence[float]) -> float:
+    return (box[0] + box[2]) / 2.0
 
 
 def _geometry_compatible(
@@ -272,6 +285,177 @@ def _word_tokens(text: str) -> list[str]:
 def _literal_fragment(text: str) -> str:
     """Normalize only case and whitespace for a source-visible fragment."""
     return re.sub(r"\s+", " ", text.strip()).casefold()
+
+
+def _single_line_receipt_name_compatible(
+    card_text: Any,
+    receipt_name: Any,
+) -> bool:
+    """Check that a parsed receipt name can belong to its visible card.
+
+    The standalone card is the identity anchor for the single-line mode.  A
+    receipt can still contain a short OCR deletion (``Ustoppable``) or stop at
+    a visible word boundary, but an unrelated name must not be attached to
+    that card.  This compares only the two strings observed in the same
+    source row; it does not rewrite either one or consult a name catalog.
+    """
+    if not isinstance(card_text, str) or not isinstance(receipt_name, str):
+        return False
+    card_text = card_text.strip()
+    receipt_name = receipt_name.strip()
+    if not card_text or not receipt_name:
+        return False
+    card_literal = _literal_fragment(card_text)
+    receipt_literal = _literal_fragment(receipt_name)
+    if card_literal == receipt_literal:
+        return True
+
+    card_spans = list(_WORD_TOKEN_RE.finditer(card_text))
+    receipt_spans = list(_WORD_TOKEN_RE.finditer(receipt_name))
+    card_words = [match.group(0).casefold() for match in card_spans]
+    receipt_words = [match.group(0).casefold() for match in receipt_spans]
+    if not card_words or not receipt_words or card_spans[0].start() != 0:
+        return False
+
+    # A cursor can leave a terminal whole-word prefix in the retained OCR.
+    # Require the literal prefix, including punctuation, to be represented so
+    # a dropped symbol or an invented separator cannot certify the identity.
+    if len(receipt_words) < len(card_words):
+        if receipt_words != card_words[: len(receipt_words)] or len(receipt_literal) < 3:
+            return False
+        card_prefix = card_text[: card_spans[len(receipt_words) - 1].end()]
+        return receipt_literal == _literal_fragment(card_prefix)
+    if len(receipt_words) != len(card_words):
+        return False
+
+    # Preserve meaningful punctuation.  The receipt parser may consume one
+    # terminal sentence mark, but punctuation inside a skill name must agree.
+    card_punctuation = re.sub(r"[A-Za-z0-9\s]", "", card_text)
+    receipt_punctuation = re.sub(r"[A-Za-z0-9\s]", "", receipt_name)
+    if card_punctuation.rstrip(".!?") != receipt_punctuation.rstrip(".!?"):
+        return False
+
+    # Permit the small deletion/substitution errors seen in the source OCR,
+    # while requiring every word to remain in the same position.  The card
+    # itself remains the emitted identity; this is only a contradiction gate.
+    for card_word, receipt_word in zip(card_words, receipt_words):
+        if card_word == receipt_word:
+            continue
+        if (
+            len(card_word) < 4
+            or len(receipt_word) < 4
+            or abs(len(card_word) - len(receipt_word)) > 2
+            or SequenceMatcher(None, card_word, receipt_word, autojunk=False).ratio() < 0.8
+        ):
+            return False
+    return True
+
+
+def _single_line_prefix_name_compatible(
+    card_text: Any,
+    receipt_name: Any,
+    prefix_name: Any,
+) -> bool:
+    """Check a prefix OCR fragment against the same-frame name anchors.
+
+    The independent crop ends at the cursor, so its OCR may contain only one
+    or two leading characters (as in the source ``U``/``Ur`` readings).  It
+    still has to begin at the card/receipt name's first token and cannot add a
+    word or punctuation that the visible anchors do not contain.  The card
+    remains the emitted identity; this function only rejects contradictions.
+    """
+    if not all(isinstance(value, str) for value in (card_text, receipt_name, prefix_name)):
+        return False
+    prefix_name = prefix_name.strip()
+    if not prefix_name:
+        return False
+    prefix_spans = list(_WORD_TOKEN_RE.finditer(prefix_name))
+    if not prefix_spans or prefix_spans[0].start() != 0:
+        return False
+    prefix_words = [match.group(0).casefold() for match in prefix_spans]
+    prefix_punctuation = re.sub(r"[A-Za-z0-9\s]", "", prefix_name)
+    if prefix_punctuation.rstrip(".!?"):
+        return False
+    for authority in (card_text.strip(), receipt_name.strip()):
+        authority_spans = list(_WORD_TOKEN_RE.finditer(authority))
+        authority_words = [match.group(0).casefold() for match in authority_spans]
+        if not authority_words or len(prefix_words) > len(authority_words):
+            continue
+        if any(
+            len(prefix_word) > len(authority_word)
+            or (
+                len(prefix_word) >= 3
+                and not (
+                    authority_word.startswith(prefix_word)
+                    or (
+                        abs(len(prefix_word) - len(authority_word)) <= 2
+                        and SequenceMatcher(
+                            None, prefix_word, authority_word, autojunk=False
+                        ).ratio()
+                        >= 0.8
+                    )
+                )
+            )
+            or (
+                len(prefix_word) < 3
+                and prefix_word[0] != authority_word[0]
+            )
+            for prefix_word, authority_word in zip(prefix_words, authority_words)
+        ):
+            continue
+        # A multi-word fragment must preserve the visible word boundaries.
+        # Tokenization above intentionally keeps internal punctuation in a
+        # token, so ``A-B`` cannot certify ``A B``.
+        if len(prefix_words) > 1:
+            prefix_literal = _literal_fragment(prefix_name)
+            authority_prefix = authority[: authority_spans[len(prefix_words) - 1].end()]
+            if prefix_literal != _literal_fragment(authority_prefix):
+                continue
+        return True
+    return False
+
+
+def _single_line_prefix_proof_supported(
+    proof: Any,
+    *,
+    amount: int,
+    card_text: str,
+    receipt_name: str,
+    model_fingerprint: Any,
+) -> bool:
+    """Validate the model and text metadata of a single-line amount crop."""
+    if not isinstance(proof, Mapping):
+        return False
+    recognized = proof.get("recognized_text")
+    raw_name = proof.get("raw_name")
+    confidence = proof.get("confidence")
+    crop_box = proof.get("crop_box")
+    pixel_sha256 = proof.get("pixel_rgb_sha256")
+    proof_model = proof.get("model_fingerprint")
+    if (
+        type(proof.get("amount")) is not int
+        or proof["amount"] != amount
+        or not isinstance(recognized, str)
+        or not isinstance(raw_name, str)
+        or not raw_name.strip()
+        or not _finite_number(confidence)
+        or float(confidence) < _MIN_PREFIX_CONFIDENCE
+        or float(confidence) > 100.0
+        or proof.get("basis") != "independent_prefix_crop_ocr_to_verified_overlay_boundary"
+        or not isinstance(crop_box, (list, tuple))
+        or _box(crop_box) is None
+        or not isinstance(pixel_sha256, str)
+        or not _SOURCE_SHA_RE.fullmatch(pixel_sha256)
+        or not isinstance(proof_model, str)
+        or not _SOURCE_SHA_RE.fullmatch(proof_model)
+        or proof_model != model_fingerprint
+    ):
+        return False
+    parsed = _parse_hint_text(recognized)
+    return (
+        parsed == (amount, raw_name)
+        and _single_line_prefix_name_compatible(card_text, receipt_name, raw_name)
+    )
 
 
 def _without_one_terminal_sentence_mark(text: str) -> str:
@@ -852,6 +1036,75 @@ def _raw_has_line(raw: Mapping[str, Any], candidate: Mapping[str, Any]) -> bool:
     return False
 
 
+def _raw_context_title_line(line: Mapping[str, Any]) -> tuple[str, tuple[float, ...]] | None:
+    """Return one raw OCR line that the gameplay parser could use as a title.
+
+    ``vision.parse`` derives ``context_title`` only from high-confidence lines
+    in its fixed title band.  Raw-cache text that happens to equal the joined
+    context is not enough: a stale or unrelated line must not certify the
+    event that owns a hint receipt.
+    """
+    text = line.get("text")
+    confidence = _confidence(line)
+    box = _box(line.get("box"))
+    if (
+        not isinstance(text, str)
+        or not text.strip()
+        or confidence is None
+        or confidence < 95.0
+        or box is None
+        or not (240.0 <= _center_x(box) <= 850.0)
+        or not (195.0 <= _center_y(box) <= 245.0)
+        or box[3] > 250.0
+        or text.strip() == "MAX"
+    ):
+        return None
+    return text.strip(), box
+
+
+def _raw_has_context(raw: Mapping[str, Any], context: str) -> bool:
+    """Match a parsed context title to one raw line or its exact line join.
+
+    The gameplay parser keeps a multi-line event title as one context string,
+    while the immutable neural cache retains each OCR line separately.  A
+    contiguous, source-visible join is equivalent evidence; arbitrary text
+    fragments or lines from another region are not.
+    """
+    if not isinstance(context, str) or not context.strip():
+        return False
+    lines = raw.get("lines")
+    if not isinstance(lines, list):
+        return False
+    target = _literal_fragment(context)
+    records = []
+    for index, line in enumerate(lines):
+        if not isinstance(line, Mapping):
+            continue
+        title_line = _raw_context_title_line(line)
+        if title_line is None:
+            continue
+        records.append((index, *title_line))
+    for start in range(len(records)):
+        for width in range(1, 5):
+            window = records[start : start + width]
+            if len(window) != width or any(
+                current[0] != previous[0] + 1
+                for previous, current in zip(window, window[1:])
+            ):
+                continue
+            if _literal_fragment(" ".join(item[1] for item in window)) != target:
+                continue
+            if any(
+                abs(current[2][0] - previous[2][0]) > 30.0
+                or current[2][1] < previous[2][1] - 8.0
+                or current[2][1] - previous[2][3] > 20.0
+                for previous, current in zip(window, window[1:])
+            ):
+                continue
+            return True
+    return False
+
+
 def _raw_supports_item(item: Mapping[str, Any], raw: Mapping[str, Any]) -> bool:
     """Bind card/header/receipt facts to the same immutable neural reading."""
     card = item.get("card")
@@ -869,10 +1122,7 @@ def _raw_supports_item(item: Mapping[str, Any], raw: Mapping[str, Any]) -> bool:
     if (
         not _raw_has_line(raw, card)
         or not _raw_has_line(raw, header)
-        or not any(
-            isinstance(line, Mapping) and line.get("text") == context
-            for line in raw.get("lines", ())
-        )
+        or not _raw_has_context(raw, context)
     ):
         return False
     # Occlusion annotation may set the parsed neural receipt confidence to
@@ -1050,6 +1300,8 @@ def _prefix_amount_ocr(reader: Any, image: Any, crop_box: Sequence[float]) -> di
         "recognized_text": best[2],
         "confidence": round(best[3], 4),
         "crop_box": _box_list(crop_box),
+        "pixel_rgb_sha256": hashlib.sha256(crop.convert("RGB").tobytes()).hexdigest(),
+        "model_fingerprint": getattr(reader, "fingerprint", None),
         "basis": "independent_prefix_crop_ocr_to_verified_overlay_boundary",
     }
 
@@ -1680,6 +1932,106 @@ def _run_is_consistent(run: Sequence[dict[str, Any]]) -> bool:
     return True
 
 
+def _single_line_candidate_from_observations(
+    run: Sequence[dict[str, Any]],
+    observations: Sequence[dict[str, Any]],
+    *,
+    source_sha256: str,
+    capture_manifest_sha256: str,
+    reader: Any,
+) -> dict[str, Any] | None:
+    """Build an unknown-rank candidate from complete single-line receipts.
+
+    This path is deliberately separate from the ranked complete-line path.
+    It is entered only after every source row has been through the same
+    capture, raw-cache, cursor-overlay, card, and receipt gates.  A missing
+    suffix is retained as ``undetermined`` rather than interpreted as proof
+    that the card has no rank marker.
+    """
+    if len(observations) < 2:
+        return None
+    if len({item["timestamp_ms"] for item in observations}) != len(observations):
+        return None
+    if len({item["evidence"] for item in observations}) != len(observations):
+        return None
+    if any(item["card"].get("suffix") is not None for item in observations):
+        return None
+    if any(item["prefix_amount_proof"] is None for item in observations):
+        return None
+    amounts = {item["receipt"]["amount"] for item in observations}
+    if len(amounts) != 1:
+        return None
+    amount = next(iter(amounts))
+    if any(
+        item["prefix_amount_proof"].get("amount") != amount
+        for item in observations
+    ):
+        return None
+    card_names = {item["card"]["text"] for item in observations}
+    if len(card_names) != 1:
+        return None
+    card_name = next(iter(card_names))
+    if any(
+        not _single_line_receipt_name_compatible(
+            card_name, item["receipt"]["raw_name"]
+        )
+        for item in observations
+    ):
+        return None
+    model_fingerprint = getattr(reader, "fingerprint", None)
+    if any(
+        not _single_line_prefix_proof_supported(
+            item["prefix_amount_proof"],
+            amount=amount,
+            card_text=card_name,
+            receipt_name=item["receipt"]["raw_name"],
+            model_fingerprint=model_fingerprint,
+        )
+        for item in observations
+    ):
+        return None
+    contexts = {item.get("context") for item in run}
+    if len(contexts) != 1:
+        return None
+    hashes = {
+        field: [item[field] for item in observations]
+        for field in ("evidence_sha256", "gameplay_sha256", "source_frame_sha256")
+    }
+    if any(len(set(values)) != len(values) for values in hashes.values()):
+        return None
+    for item in observations:
+        item["card"]["suffix_state"] = "undetermined"
+    names = sorted({item["receipt"]["raw_name"] for item in observations})
+    return {
+        "observation_kind": _SINGLE_LINE_HINT_KIND,
+        "kind": "skill_hint_change",
+        "name": card_name,
+        "amount": amount,
+        "source_sha256": source_sha256,
+        "source_timestamps_ms": [item["timestamp_ms"] for item in observations],
+        "raw_receipt_name_candidates": names,
+        "identity_proof": {
+            "basis": _SINGLE_LINE_HINT_BASIS,
+            "card_text": card_name,
+            "suffix": None,
+            "rank_state": "undetermined",
+            "distinct_timestamp_count": len(observations),
+            "same_context": run[0]["context"],
+            "geometry_stable": True,
+        },
+        "provenance": {
+            "source_evidence_type": "decoded_gameplay_png",
+            "capture_manifest_sha256": capture_manifest_sha256,
+            "source_frame_chain": "capture.json -> source frame -> neural cache -> gameplay PNG",
+            "independent_observations": False,
+            "multi_crop_not_counted_as_timestamp": True,
+            "prefix_ocr_model_fingerprint": model_fingerprint,
+            "prefix_crop_count": len(observations),
+        },
+        "observations": observations,
+    }
+
+
 def _candidate_from_run(
     run: Sequence[dict[str, Any]],
     *,
@@ -1776,6 +2128,21 @@ def _candidate_from_run(
     evidence_hashes = [item["evidence_sha256"] for item in observations]
     if len(set(evidence_hashes)) != len(evidence_hashes):
         return None
+    # A visible card with no source-detected suffix is a distinct, safe
+    # recovery mode.  Keep the ranked path below unchanged: any observed
+    # suffix still has to satisfy its original two-timestamp requirement.
+    if not suffixes and all(
+        item["card"]["suffix"] is None for item in observations
+    ):
+        candidate = _single_line_candidate_from_observations(
+            run,
+            observations,
+            source_sha256=source_sha256,
+            capture_manifest_sha256=capture_manifest_sha256,
+            reader=reader,
+        )
+        if candidate is not None:
+            return candidate
     prefix_observations = [item for item in observations if item["prefix_amount_proof"] is not None]
     prefix_timestamps = {item["timestamp_ms"] for item in prefix_observations}
     if len(suffix_timestamps) < 2 or len(prefix_timestamps) < 2:

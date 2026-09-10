@@ -122,7 +122,7 @@ The currency command also rechecks unresolved menu balances with two crops that 
 When a cursor obscures a hint receipt's skill name, repeated readable skill cards
 can establish the identity. Preparation requires matching event context and
 geometry across adjacent source frames, repeated receipt-prefix OCR proving the
-hint amount, and pixel evidence for the circle rank. It preserves the original
+hint amount, and separate pixel evidence for any claimed circle rank. It preserves the original
 receipt spelling; a catalog name, ledger residual, or repeated misspelling does
 not supply missing evidence.
 
@@ -149,6 +149,21 @@ literal receipt fragments and source-bound amount crops. The digit and its
 following delimiter are checked together so a clipped multi-digit amount cannot
 be accepted as one digit. Multiple crops of one frame are correlated evidence.
 An unexposed circle rank stays undetermined; it is not evidence of an unranked skill.
+
+Single-line receipts can also recover the visible card name when the circle
+detector finds no marker. This mode requires a matching card and HINT header at
+each of at least two adjacent timestamps, compatible receipt text, and a separate
+amount-prefix crop for every observation. It retains an undetermined rank and
+rejects replay if the source or symbol interpretation changes. Adding this
+unknown-rank evidence preserves any circle already verified by an existing
+same-skill effect; it does not create a second award.
+
+Each prefix proof records its own preparation-model fingerprint and exact RGB
+crop hash. The preparation pass can have a different fingerprint from the base
+OCR pass; replay checks both identities against their respective provenance.
+Load the cache through `hint_card_cache.load` before event integration. The
+event integration function checks proof structure in memory; the cache loader
+performs the source-image checks.
 
 Validated wrapped receipts enter copied observations before outcome grouping,
 so an unparsed receipt does not itself force an event boundary. Observed screen

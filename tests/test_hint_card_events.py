@@ -106,6 +106,74 @@ def wrapped_fixture():
     return [event], rows, [candidate]
 
 
+def single_line_fixture():
+    """Build a source-shaped unranked receipt with independent amount proof."""
+    rows = []
+    observations = []
+    for time in (1000, 1250):
+        evidence = f'gameplay/{time}.png'
+        header = dict(text='Hint', confidence=99, box=[400, 650, 500, 675])
+        card = dict(
+            text='Example Skill', confidence=99,
+            box=[400, 678, 565, 703], header=deepcopy(header),
+            suffix=None, suffix_state='undetermined',
+        )
+        receipt = dict(
+            text='Gained 2 hint level(s) for Exmple Skill.',
+            raw_name='Exmple Skill', amount=2, confidence=99,
+            box=[316, 853, 731, 881], source='neural',
+        )
+        overlay = [600, 853, 617, 881]
+        row_lines = [deepcopy(card), deepcopy(header), deepcopy(receipt)]
+        row_lines[-1]['overlay_occluded'] = True
+        rows.append(dict(
+            source_timestamp_ms=time, evidence=evidence, screen='event_outcome',
+            context_title='A Present', context_title_candidate='A Present',
+            effects=[], facts={}, ocr={'neural': row_lines},
+        ))
+        observations.append(dict(
+            timestamp_ms=time, evidence=evidence, card=deepcopy(card),
+            receipt=deepcopy(receipt), overlay_box=overlay,
+            prefix_amount_proof={
+                'amount': 2,
+                'recognized_text': 'Gained 2 hint level(s) for Exmple Skill',
+                'raw_name': 'Exmple Skill', 'confidence': 94,
+                'crop_box': [316, 853, 600, 881],
+                'pixel_rgb_sha256': 'e' * 64,
+                'model_fingerprint': 'd' * 64,
+                'basis': 'independent_prefix_crop_ocr_to_verified_overlay_boundary',
+            },
+        ))
+    candidate = dict(
+        observation_kind='single_line_hint_receipt', kind='skill_hint_change',
+        name='Example Skill', amount=2, source_sha256=SOURCE,
+        source_timestamps_ms=[1000, 1250],
+        raw_receipt_name_candidates=['Exmple Skill'],
+        identity_proof={
+            'basis': 'standalone_hint_card_with_single_line_receipt_and_per_row_amount_ocr',
+            'card_text': 'Example Skill', 'suffix': None,
+            'rank_state': 'undetermined', 'distinct_timestamp_count': 2,
+            'same_context': 'A Present', 'geometry_stable': True,
+        },
+        provenance={
+            'source_evidence_type': 'decoded_gameplay_png',
+            'capture_manifest_sha256': 'b' * 64,
+            'source_frame_chain': 'capture.json -> source frame -> neural cache -> gameplay PNG',
+            'independent_observations': False,
+            'multi_crop_not_counted_as_timestamp': True,
+            'prefix_ocr_model_fingerprint': 'd' * 64,
+            'prefix_crop_count': 2,
+        },
+        observations=observations,
+    )
+    event = dict(
+        id='outcome-single-line', kind='outcome', first_seen_ms=900,
+        last_seen_ms=1500, context_title='A Present', effects=[],
+        field_evidence={}, conflicting_readings=[], deltas={},
+    )
+    return [event], rows, [candidate]
+
+
 class HintCardEventTests(unittest.TestCase):
     def test_report_reconstruction_reuses_observations_without_running_ocr(self):
         from unittest.mock import patch
@@ -272,6 +340,51 @@ class HintCardEventTests(unittest.TestCase):
         self.assertEqual(rows, originals[0])
         self.assertEqual(candidates, originals[1])
 
+    def test_attaches_single_line_identity_with_unknown_rank(self):
+        events, rows, candidates = single_line_fixture()
+        originals = deepcopy((rows, candidates))
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['rejected'], [])
+        effect = events[0]['effects'][0]
+        self.assertEqual((effect['name'], effect['amount']), ('Example Skill', 2))
+        self.assertEqual(effect['rank_state'], 'undetermined')
+        self.assertFalse(effect['circle_variant_verified'])
+        self.assertEqual(
+            effect['identity_basis'],
+            'validated_repeated_hint_card_and_single_line_receipt',
+        )
+        self.assertEqual((rows, candidates), originals)
+
+    def test_single_line_mode_rejects_single_frame_or_contradictory_proof(self):
+        for change in (
+            'single_frame', 'suffix', 'name', 'amount', 'prefix_text',
+            'prefix_name', 'prefix_model',
+        ):
+            with self.subTest(change=change):
+                events, rows, candidates = single_line_fixture()
+                if change == 'single_frame':
+                    candidates[0]['observations'].pop()
+                    candidates[0]['source_timestamps_ms'] = [1000]
+                elif change == 'suffix':
+                    candidates[0]['observations'][0]['card']['suffix'] = 'single_circle'
+                elif change == 'name':
+                    candidates[0]['observations'][1]['receipt']['raw_name'] = 'Other Skill'
+                elif change == 'amount':
+                    candidates[0]['observations'][0]['prefix_amount_proof']['amount'] = 3
+                elif change == 'prefix_text':
+                    candidates[0]['observations'][0]['prefix_amount_proof']['recognized_text'] = (
+                        'Gained 2 hint level(s) for Other Skill'
+                    )
+                    candidates[0]['observations'][0]['prefix_amount_proof']['raw_name'] = 'Other Skill'
+                elif change == 'prefix_name':
+                    candidates[0]['observations'][0]['prefix_amount_proof']['raw_name'] = 'Other Skill'
+                else:
+                    candidates[0]['observations'][0]['prefix_amount_proof']['model_fingerprint'] = 'f' * 64
+                before = deepcopy(events)
+                result = apply(events, rows, candidates, source_sha256=SOURCE)
+                self.assertEqual(result['accepted'], [])
+                self.assertEqual(events, before)
+
     def test_wrapped_candidate_rejects_missing_receipt_part(self):
         for missing in ('prefix', 'continuation'):
             with self.subTest(missing=missing):
@@ -325,7 +438,10 @@ class HintCardEventTests(unittest.TestCase):
 
     def test_wrapped_unknown_rank_does_not_duplicate_ranked_existing_effect(self):
         events, rows, candidates = wrapped_fixture()
-        existing = dict(kind='skill_hint_change', name='Wrapped Skill ○', amount=2)
+        existing = dict(
+            kind='skill_hint_change', name='Wrapped Skill ○', amount=2,
+            circle_variant_verified=True,
+        )
         events[0]['effects'] = [existing]
         before = deepcopy(existing)
         result = apply(events, rows, candidates, source_sha256=SOURCE)
@@ -333,7 +449,21 @@ class HintCardEventTests(unittest.TestCase):
         self.assertEqual(len(events[0]['effects']), 1)
         self.assertEqual(events[0]['effects'][0]['name'], before['name'])
         self.assertEqual(events[0]['effects'][0]['amount'], before['amount'])
+        self.assertTrue(events[0]['effects'][0]['circle_variant_verified'])
         self.assertEqual(events[0]['effects'][0]['hint_card_rank_state'], 'undetermined')
+
+    def test_single_line_unknown_rank_preserves_verified_existing_variant(self):
+        events, rows, candidates = single_line_fixture()
+        events[0]['effects'] = [dict(
+            kind='skill_hint_change', name='Example Skill ○', amount=2,
+            circle_variant_verified=True,
+        )]
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['rejected'], [])
+        effect = events[0]['effects'][0]
+        self.assertEqual(effect['name'], 'Example Skill ○')
+        self.assertTrue(effect['circle_variant_verified'])
+        self.assertEqual(effect['hint_card_rank_state'], 'undetermined')
 
     def test_wrapped_source_lines_select_high_confidence_retained_duplicate(self):
         from tracen_replay.hint_card_events import _wrapped_source_lines

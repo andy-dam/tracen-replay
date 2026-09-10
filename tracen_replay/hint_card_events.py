@@ -115,6 +115,206 @@ def _supported_legacy(candidate, rows, source_sha256):
 
 _WRAPPED_BASIS = 'standalone_hint_card_with_wrapped_receipt_and_per_row_amount_ocr'
 _WRAPPED_AMOUNT_BASIS = 'source_bound_amount_digit_crop_ocr'
+_SINGLE_LINE_KIND = 'single_line_hint_receipt'
+_SINGLE_LINE_BASIS = 'standalone_hint_card_with_single_line_receipt_and_per_row_amount_ocr'
+
+
+def _single_line_prefix_crop_box(receipt_box, overlay_box):
+    if (
+            not isinstance(receipt_box, (list, tuple))
+            or len(receipt_box) != 4
+            or not isinstance(overlay_box, (list, tuple))
+            or len(overlay_box) != 4
+            or any(type(value) not in (int, float) or not math.isfinite(float(value))
+                   for value in (*receipt_box, *overlay_box))):
+        return None
+    receipt = tuple(float(value) for value in receipt_box)
+    overlay = tuple(float(value) for value in overlay_box)
+    if (
+            not (148.0 <= receipt[0] < receipt[2] <= 958.0
+                 and 0.0 <= receipt[1] < receipt[3] <= 1080.0)
+            or not (148.0 <= overlay[0] < overlay[2] <= 958.0
+                    and 0.0 <= overlay[1] < overlay[3] <= 1080.0)
+            or overlay[0] <= receipt[0] + 16.0
+            or overlay[0] >= receipt[2]
+            or overlay[1] > (receipt[1] + receipt[3]) / 2.0
+            or overlay[3] < (receipt[1] + receipt[3]) / 2.0):
+        return None
+    return receipt[0], receipt[1], overlay[0], receipt[3]
+
+
+def _single_line_prefix_proof_supported(
+        proof, amount, receipt_box, overlay_box, *, card_text=None,
+        receipt_name=None, model_fingerprint=None):
+    if not isinstance(proof, dict):
+        return False
+    recognized = proof.get('recognized_text')
+    raw_name = proof.get('raw_name')
+    confidence = proof.get('confidence')
+    crop_box = proof.get('crop_box')
+    pixel_sha256 = proof.get('pixel_rgb_sha256')
+    proof_model = proof.get('model_fingerprint')
+    if (
+            type(proof.get('amount')) is not int
+            or proof['amount'] != amount
+            or not isinstance(recognized, str)
+            or not isinstance(raw_name, str)
+            or not raw_name.strip()
+            or type(confidence) not in (int, float)
+            or not math.isfinite(float(confidence))
+            or not 90.0 <= float(confidence) <= 100.0
+            or proof.get('basis') != 'independent_prefix_crop_ocr_to_verified_overlay_boundary'
+            or not isinstance(crop_box, (list, tuple))
+            or len(crop_box) != 4
+            or any(type(value) not in (int, float) or not math.isfinite(float(value))
+                   for value in crop_box)
+            or not isinstance(pixel_sha256, str)
+            or not re.fullmatch(r'[0-9a-fA-F]{64}', pixel_sha256)
+            or not isinstance(proof_model, str)
+            or not re.fullmatch(r'[0-9a-fA-F]{64}', proof_model)
+            or (model_fingerprint is not None and proof_model != model_fingerprint)):
+        return False
+    try:
+        from .hint_card_identity import _parse_hint_text
+        parsed = _parse_hint_text(recognized)
+    except (ImportError, TypeError, ValueError):
+        return False
+    if parsed is None or parsed != (amount, raw_name):
+        return False
+    if card_text is not None or receipt_name is not None:
+        try:
+            from .hint_card_identity import _single_line_prefix_name_compatible
+        except (ImportError, TypeError, ValueError):
+            return False
+        if not _single_line_prefix_name_compatible(card_text, receipt_name, raw_name):
+            return False
+    expected = _single_line_prefix_crop_box(receipt_box, overlay_box)
+    if expected is None:
+        return False
+    saved = tuple(float(value) for value in crop_box)
+    return saved == expected and saved[2] > saved[0] + 32.0
+
+
+def _single_line_supported(candidate, rows, source_sha256):
+    """Validate a source-prepared single-line candidate without OCR."""
+    from .hint_card_identity import _single_line_receipt_name_compatible
+
+    if (
+            not isinstance(candidate, dict)
+            or candidate.get('observation_kind') != _SINGLE_LINE_KIND
+            or candidate.get('kind') != 'skill_hint_change'
+            or candidate.get('source_sha256') != source_sha256
+            or not isinstance(candidate.get('name'), str)
+            or not candidate['name'].strip()
+            or _rank(candidate['name']) is not None
+            or type(candidate.get('amount')) is not int
+            or not 0 < candidate['amount'] <= 99):
+        return None
+    observations = candidate.get('observations')
+    identity = candidate.get('identity_proof')
+    provenance = candidate.get('provenance')
+    raw_names = candidate.get('raw_receipt_name_candidates')
+    times = candidate.get('source_timestamps_ms')
+    if (
+            not isinstance(observations, list)
+            or not isinstance(identity, dict)
+            or not isinstance(provenance, dict)
+            or not isinstance(raw_names, list)
+            or not isinstance(times, list)
+            or len(observations) < 2
+            or len(observations) != len(times)
+            or any(type(value) is not int or value < 0 for value in times)
+            or times != sorted(set(times))
+            or any(not isinstance(value, str) or not value.strip() for value in raw_names)
+            or raw_names != sorted(set(raw_names))
+            or identity.get('basis') != _SINGLE_LINE_BASIS
+            or identity.get('card_text') != candidate['name']
+            or identity.get('suffix') is not None
+            or identity.get('rank_state') != 'undetermined'
+            or identity.get('distinct_timestamp_count') != len(times)
+            or identity.get('geometry_stable') is not True
+            or not isinstance(identity.get('same_context'), str)
+            or not identity.get('same_context')
+            or provenance.get('independent_observations') is not False
+            or provenance.get('multi_crop_not_counted_as_timestamp') is not True
+            or provenance.get('source_evidence_type') != 'decoded_gameplay_png'
+            or not isinstance(provenance.get('prefix_ocr_model_fingerprint'), str)
+            or not re.fullmatch(r'[0-9a-fA-F]{64}', provenance['prefix_ocr_model_fingerprint'])
+            or provenance.get('prefix_crop_count') != len(observations)):
+        return None
+    context = identity['same_context']
+    seen_times = set()
+    seen_paths = set()
+    observed_names = []
+    for observation in observations:
+        if not isinstance(observation, dict):
+            return None
+        time, evidence = observation.get('timestamp_ms'), observation.get('evidence')
+        if (
+                type(time) is not int
+                or time < 0
+                or not isinstance(evidence, str)
+                or not evidence
+                or time in seen_times
+                or evidence in seen_paths):
+            return None
+        seen_times.add(time)
+        seen_paths.add(evidence)
+        row = rows.get((time, evidence))
+        card = observation.get('card')
+        receipt = observation.get('receipt')
+        if (
+                row is None
+                or row.get('screen') != 'event_outcome'
+                or not isinstance(card, dict)
+                or not isinstance(receipt, dict)
+                or card.get('text') != candidate['name']
+                or card.get('suffix') is not None
+                or card.get('suffix_state') != 'undetermined'
+                or receipt.get('amount') != candidate['amount']
+                or not _single_line_receipt_name_compatible(
+                    candidate['name'], receipt.get('raw_name'))):
+            return None
+        row_context_valid, row_context = _wrapped_row_context(row)
+        if not row_context_valid or row_context != context:
+            return None
+        neural = row.get('ocr', {}).get('neural', [])
+        if not isinstance(neural, list):
+            return None
+        header = card.get('header')
+        if not isinstance(header, dict) or sum(_same_line(line, card) for line in neural) != 1:
+            return None
+        if sum(_same_line(line, header) for line in neural) != 1:
+            return None
+        source_lines = list(neural)
+        facts = row.get('facts')
+        retained = facts.get('occluded_receipt_lines') if isinstance(facts, dict) else None
+        if isinstance(retained, list):
+            source_lines.extend(line for line in retained if isinstance(line, dict))
+        if sum(_same_line(line, receipt) for line in source_lines) < 1:
+            return None
+        if not _single_line_prefix_proof_supported(
+                observation.get('prefix_amount_proof'), candidate['amount'],
+                receipt.get('box'), observation.get('overlay_box'),
+                card_text=card.get('text'),
+                receipt_name=receipt.get('raw_name'),
+                model_fingerprint=provenance['prefix_ocr_model_fingerprint']):
+            return None
+        observed_names.append(receipt.get('raw_name'))
+    ordered_times = sorted(seen_times)
+    if (
+            candidate.get('source_timestamps_ms') != ordered_times
+            or any(b - a > 250 for a, b in zip(ordered_times, ordered_times[1:]))
+            or sorted(set(observed_names)) != raw_names):
+        return None
+    # Every source row in the episode must remain the same outcome/context;
+    # this prevents an otherwise valid pair from bridging another event.
+    for (time, _), row in rows.items():
+        if times[0] <= time <= times[-1]:
+            valid, row_context = _wrapped_row_context(row)
+            if not valid or row.get('screen') != 'event_outcome' or row_context != context:
+                return None
+    return context, ordered_times, seen_paths
 
 
 def _wrapped_source_lines(row):
@@ -428,6 +628,8 @@ def _wrapped_supported(candidate, rows, source_sha256):
 
 
 def _supported(candidate, rows, source_sha256):
+    if isinstance(candidate, dict) and candidate.get('observation_kind') == _SINGLE_LINE_KIND:
+        return _single_line_supported(candidate, rows, source_sha256)
     if isinstance(candidate, dict) and candidate.get('observation_kind') == 'wrapped_hint_receipt':
         return _wrapped_supported(candidate, rows, source_sha256)
     return _supported_legacy(candidate, rows, source_sha256)
@@ -469,7 +671,11 @@ not replaced. Raw readings and input candidates remain unchanged.
         name = candidate['name']
         if suffix is not None:
             name = re.sub(r'\s*[○◯◎]$', '', name) + {'single_circle': ' ○', 'double_circle': ' ◎'}[suffix]
-        mode = 'wrapped' if candidate.get('observation_kind') == 'wrapped_hint_receipt' else 'legacy'
+        mode = (
+            'single_line' if candidate.get('observation_kind') == _SINGLE_LINE_KIND
+            else 'wrapped' if candidate.get('observation_kind') == 'wrapped_hint_receipt'
+            else 'legacy'
+        )
         prepared.append((index, candidate, event, paths, name, suffix, mode))
     # Inspect the whole batch before changing any event. Two individually
     # supported episodes can still disagree within one reconstructed outcome;
@@ -505,7 +711,7 @@ not replaced. Raw readings and input candidates remain unchanged.
         affected = {_field(e) for e in replace+exact+same_skill}
         if (
                 len(exact) > 1
-                or (mode == 'wrapped' and suffix is None and len(same_skill) > 1)
+                or (mode in ('wrapped', 'single_line') and suffix is None and len(same_skill) > 1)
                 or any(c.get('field') in affected
                        for c in event.get('conflicting_readings', [])
                        if isinstance(c, dict))
@@ -517,7 +723,7 @@ not replaced. Raw readings and input candidates remain unchanged.
         # ranked variant when it is the only same-skill effect; creating a
         # base duplicate would make the one award look like two awards.
         retained = exact[0] if exact else (
-            same_skill[0] if mode == 'wrapped' and suffix is None and len(same_skill) == 1
+            same_skill[0] if mode in ('wrapped', 'single_line') and suffix is None and len(same_skill) == 1
             else None
         )
         if retained is None:
@@ -526,7 +732,12 @@ not replaced. Raw readings and input candidates remain unchanged.
             event['effects'].append(retained)
         if mode == 'wrapped':
             retained['identity_basis'] = 'validated_repeated_hint_card_and_wrapped_receipt'
-            retained['circle_variant_verified'] = suffix is not None
+            # A wrapped unknown-rank candidate cannot certify a marker, but it
+            # also must not erase a marker already verified by an existing
+            # effect that this candidate is reusing.  New effects still carry
+            # an explicit false value.
+            if suffix is not None or 'circle_variant_verified' not in retained:
+                retained['circle_variant_verified'] = suffix is not None
             rank_state = candidate['identity_proof'].get('rank_state')
             # Keep rank uncertainty explicit.  If a pre-existing ranked effect
             # is reused, its name remains intact and this separate field says
@@ -538,6 +749,18 @@ not replaced. Raw readings and input candidates remain unchanged.
                     retained['hint_card_rank_state'] = 'undetermined'
             else:
                 retained['rank_state'] = rank_state
+        elif mode == 'single_line':
+            retained['identity_basis'] = 'validated_repeated_hint_card_and_single_line_receipt'
+            if 'circle_variant_verified' not in retained:
+                retained['circle_variant_verified'] = False
+            # The card is source-visible, but the suffix detector saw no
+            # marker at either selected timestamp.  Preserve that as an
+            # explicit unknown; a future detector result cannot be inferred
+            # from this candidate.
+            if _rank(retained['name']) is None:
+                retained['rank_state'] = 'undetermined'
+            else:
+                retained['hint_card_rank_state'] = 'undetermined'
         else:
             retained['identity_basis'] = 'validated_repeated_hint_card_and_receipt_prefix'
             retained['circle_variant_verified'] = suffix is not None

@@ -74,7 +74,7 @@ class HintCardIdentityTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        self.reader = type("Reader", (), {"fingerprint": "prefix-engine"})()
+        self.reader = type("Reader", (), {"fingerprint": "d" * 64})()
 
     def tearDown(self):
         shutil.rmtree(self.root, ignore_errors=True)
@@ -138,18 +138,27 @@ class HintCardIdentityTests(unittest.TestCase):
                 if item is None:
                     prefix_side_effect.append(None)
                     continue
+                crop_box = [
+                    item["receipt"]["box"][0],
+                    item["receipt"]["box"][1],
+                    item["overlay"][0],
+                    item["receipt"]["box"][3],
+                ]
+                with Image.open(self.root / row["evidence"]) as opened:
+                    image = opened.convert("RGB")
+                    left, top, right, bottom = (int(value) for value in crop_box)
+                    crop = image.crop((left - 148, top, right - 148, bottom))
+                    pixel_sha256 = hashlib.sha256(crop.tobytes()).hexdigest()
+                raw_name = item["receipt"]["name"].split()[0][:4]
                 prefix_side_effect.append(
                     {
                         "amount": 2,
-                        "raw_name": "Wint",
-                        "recognized_text": "Gained 2 hint level(s) for Wint",
+                        "raw_name": raw_name,
+                        "recognized_text": f"Gained 2 hint level(s) for {raw_name}",
                         "confidence": 94.0,
-                        "crop_box": [
-                            item["receipt"]["box"][0],
-                            item["receipt"]["box"][1],
-                            item["overlay"][0],
-                            item["receipt"]["box"][3],
-                        ],
+                        "crop_box": crop_box,
+                        "pixel_rgb_sha256": pixel_sha256,
+                        "model_fingerprint": self.reader.fingerprint,
                         "basis": "independent_prefix_crop_ocr_to_verified_overlay_boundary",
                     }
                 )
@@ -170,6 +179,21 @@ class HintCardIdentityTests(unittest.TestCase):
             patch("tracen_replay.hint_card_identity._prefix_amount_ocr", side_effect=prefix_side_effect),
         ):
             return recover(rows, self.root, source_sha256=SOURCE_SHA)
+
+    def _single_line_rows(self):
+        """Return two source rows whose visible card has no readable suffix."""
+        rows = deepcopy(self.rows[:2])
+        receipt_names = ("Wintr Runner", "Winnter Runner")
+        for index, row in enumerate(rows):
+            receipt = row["ocr"]["neural"][2]
+            receipt["text"] = f"Gained 2 hint level(s) for {receipt_names[index]}."
+            retained = row["facts"]["occluded_receipt_lines"][0]
+            retained["text"] = receipt["text"]
+            raw_path = self.root / "neural" / f"{Path(row['evidence']).stem}.json"
+            raw = json.loads(raw_path.read_text(encoding="utf-8"))
+            raw["lines"][2]["text"] = receipt["text"]
+            raw_path.write_text(json.dumps(raw), encoding="utf-8")
+        return rows
 
     def _make_wrapped_rows(self, *, card_text="Wrapped Skill", continuation="Skill."):
         rows = deepcopy(self.rows[:2])
@@ -279,6 +303,96 @@ class HintCardIdentityTests(unittest.TestCase):
             {"single_circle"},
         )
         self.assertTrue(all(item["source_frame_sha256"] for item in candidate["observations"]))
+
+    def test_single_line_receipt_recovers_card_with_unknown_suffix(self):
+        rows = self._single_line_rows()
+        candidates = self._patched_recover(
+            rows,
+            detect_side_effect=[None, None],
+        )
+        self.assertEqual(len(candidates), 1)
+        candidate = candidates[0]
+        self.assertEqual(candidate["observation_kind"], "single_line_hint_receipt")
+        self.assertEqual(candidate["name"], "Winter Runner")
+        self.assertEqual(candidate["amount"], 2)
+        self.assertEqual(candidate["source_timestamps_ms"], [1000, 1250])
+        self.assertIsNone(candidate["identity_proof"]["suffix"])
+        self.assertEqual(candidate["identity_proof"]["rank_state"], "undetermined")
+        self.assertTrue(
+            all(
+                item["card"]["suffix"] is None
+                and item["card"]["suffix_state"] == "undetermined"
+                for item in candidate["observations"]
+            )
+        )
+
+    def test_single_line_receipt_requires_two_amount_proven_timestamps(self):
+        rows = self._single_line_rows()
+        self.assertEqual(
+            self._patched_recover(rows, detect_side_effect=[None, None], prefix_side_effect=[None, None]),
+            [],
+        )
+        self.assertEqual(
+            self._patched_recover(rows[:1], detect_side_effect=[None]),
+            [],
+        )
+
+    def test_single_line_receipt_rejects_unrelated_or_ranked_fragments(self):
+        rows = self._single_line_rows()
+        rows[1]["ocr"]["neural"][2]["text"] = "Gained 2 hint level(s) for Other Skill."
+        retained = rows[1]["facts"]["occluded_receipt_lines"][0]
+        retained["text"] = rows[1]["ocr"]["neural"][2]["text"]
+        raw_path = self.root / "neural" / f"{Path(rows[1]['evidence']).stem}.json"
+        raw = json.loads(raw_path.read_text(encoding="utf-8"))
+        raw["lines"][2]["text"] = retained["text"]
+        raw_path.write_text(json.dumps(raw), encoding="utf-8")
+        self.assertEqual(self._patched_recover(rows, detect_side_effect=[None, None]), [])
+        self.assertTrue(
+            hint_card_identity._single_line_receipt_name_compatible(
+                "Straightaway Recovery", "Straightaway Recover"
+            )
+        )
+        self.assertTrue(
+            hint_card_identity._single_line_receipt_name_compatible(
+                "Unstoppable", "Ustoppable"
+            )
+        )
+
+    def test_single_line_card_anchor_is_not_truncated_by_receipt_ocr(self):
+        rows = self._single_line_rows()
+        for row in rows:
+            card = row["ocr"]["neural"][1]
+            card["text"] = "Straightaway Recovery"
+            receipt = row["ocr"]["neural"][2]
+            receipt["text"] = "Gained 2 hint level(s) for Straightaway Recover."
+            row["facts"]["occluded_receipt_lines"][0]["text"] = receipt["text"]
+            raw_path = self.root / "neural" / f"{Path(row['evidence']).stem}.json"
+            raw = json.loads(raw_path.read_text(encoding="utf-8"))
+            raw["lines"][1]["text"] = card["text"]
+            raw["lines"][2]["text"] = receipt["text"]
+            raw_path.write_text(json.dumps(raw), encoding="utf-8")
+        candidates = self._patched_recover(rows, detect_side_effect=[None, None])
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["name"], "Straightaway Recovery")
+
+    def test_raw_context_join_is_bound_to_title_geometry_and_order(self):
+        first = {
+            "text": "Researching the Limits of Running:",
+            "confidence": 99.399,
+            "box": [239, 190, 552, 223],
+        }
+        second = {"text": "Velocity", "confidence": 95.711, "box": [238, 213, 323, 247]}
+        context = "Researching the Limits of Running: Velocity"
+        self.assertTrue(hint_card_identity._raw_has_context({"lines": [first, second]}, context))
+        cases = {
+            "nonadjacent": [first, {"text": "other", "confidence": 99, "box": [300, 300, 350, 325]}, second],
+            "distant": [first, {**second, "box": [500, 500, 585, 534]}],
+            "reversed": [first, {**second, "box": [238, 180, 323, 210]}],
+            "unrelated": [first, {"text": "Velocity", "confidence": 99, "box": [600, 213, 685, 247]}],
+        }
+        for label, lines in cases.items():
+            with self.subTest(label=label):
+                self.assertFalse(hint_card_identity._raw_has_context({"lines": lines}, context))
 
     def test_intervening_unreadable_row_breaks_episode(self):
         rows = list(self.rows)
