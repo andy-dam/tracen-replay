@@ -8,6 +8,97 @@ from pathlib import Path
 from urllib.parse import quote
 
 
+_CONCERT_BONUS_FIELDS = (
+    'friendship_training_effectiveness',
+    'specialty_priority',
+    'support_chain_event_frequency',
+)
+
+
+def _bonus_finding_details(row):
+    """Describe unresolved final bonus evidence without inferring screen absence.
+
+    The review queue is a triage surface.  It may know that a final total is
+    not verified, but it cannot tell whether the panel was never shown or a
+    readable panel was missed by recognition.  Keep that distinction explicit
+    so consumers do not turn ``not_observed`` into an absence or error claim.
+    """
+    snapshot = row.get('later_active_bonus_snapshot')
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    values = snapshot.get('values', {})
+    if not isinstance(values, dict):
+        values = {}
+    observations = snapshot.get('observations', {})
+    if not isinstance(observations, dict):
+        observations = {}
+    unresolved = snapshot.get('unresolved_fields', {})
+    if not isinstance(unresolved, dict):
+        unresolved = {}
+
+    observed_fields = sorted(
+        field for field in _CONCERT_BONUS_FIELDS
+        if isinstance(observations.get(field), list) and observations[field]
+    )
+    supported_fields = sorted(
+        field for field in _CONCERT_BONUS_FIELDS if field in values
+    )
+    field_status = {
+        field: unresolved[field]
+        for field in _CONCERT_BONUS_FIELDS
+        if field in unresolved
+    }
+    complete_three_field_snapshot = (
+        snapshot.get('complete') is True
+        and all(field in values for field in _CONCERT_BONUS_FIELDS)
+    )
+
+    if not supported_fields and not observed_fields:
+        status = 'no_supported_current_bonus_observation'
+    elif any(value == 'conflicting_observations' for value in field_status.values()):
+        status = 'conflicting_observations'
+    elif any(value == 'insufficient_distinct_timestamps' for value in field_status.values()):
+        status = 'insufficient_temporal_support'
+    elif complete_three_field_snapshot:
+        status = 'partial_mechanic_coverage_despite_complete_three_field_snapshot'
+    else:
+        status = 'partial_current_bonus_observation'
+
+    return dict(
+        status=status,
+        source_availability='unadjudicated',
+        screen_absence_proven=False,
+        recognition_failure_proven=False,
+        complete_three_field_snapshot=complete_three_field_snapshot,
+        final_totals_verified=bool(row.get('all_bonus_totals_verified', False)),
+        supported_current_fields=supported_fields,
+        observed_current_fields=observed_fields,
+        unresolved_fields=field_status,
+        planned_values_do_not_establish_current=True,
+    )
+
+
+def _inventory_finding_details(inventory):
+    """Describe a partial visible inventory without requiring user interaction."""
+    return dict(
+        scope=inventory.get('scope'),
+        unresolved=inventory.get('unresolved', []),
+        visible_cards=[dict(name=c['name_text'], level=c.get('level'),
+                            level_verified=c.get('level_verified', False),
+                            variant=c.get('variant'),
+                            variant_verified=c.get('variant_verified', False))
+                       for c in inventory.get('observed_owned_cards', [])],
+        missing_detail_is_not_confirmed_absence=True,
+        observation_status='partial_visible_inventory',
+        source_availability='unadjudicated',
+        unobserved_pages='unknown',
+        screen_absence_proven=False,
+        recognition_failure_proven=False,
+        complete_inventory_verified=False,
+        partial_output_requires_no_additional_interaction=True,
+    )
+
+
 def reviewed_intervals_for_sweep(coverage,max_interval_ms=250):
     """Only sufficiently dense declared reviews retire source-sweep work."""
     if type(max_interval_ms) is not int or max_interval_ms<=0:
@@ -60,7 +151,8 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
             dict(visible_item_reward_snapshots=row.get('visible_item_reward_snapshots',[]),
                  item_identity_verified=False,list_complete=False))
     for row in data.get('concerts',[]):
-        if not row.get('all_bonus_totals_verified',False):add('unverified_active_bonuses',row)
+        if not row.get('all_bonus_totals_verified',False):
+            add('unverified_active_bonuses',row,_bonus_finding_details(row))
     for row in data.get('turn_action_receipts',[]):
         if not row.get('evidence'):add('action_without_evidence',row)
     verification=report.get('verification',{})
@@ -75,12 +167,7 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
             start_ms=min(f['timestamp_ms'] for f in frames),
             end_ms=max(f['timestamp_ms'] for f in frames),
             evidence=list(dict.fromkeys(f['evidence'] for f in frames))),
-            dict(scope=inventory.get('scope'),unresolved=inventory.get('unresolved',[]),
-                 visible_cards=[dict(name=c['name_text'],level=c.get('level'),
-                    level_verified=c.get('level_verified',False),variant=c.get('variant'),
-                    variant_verified=c.get('variant_verified',False))
-                    for c in inventory.get('observed_owned_cards',[])],
-                 missing_detail_is_not_confirmed_absence=True))
+            _inventory_finding_details(inventory))
     for row in readings:
         if conflicts:=row.get('facts',{}).get('owned_skill_panel_conflicts'):
             add('owned_skill_name_conflict',row,conflicts)

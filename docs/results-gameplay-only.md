@@ -5,11 +5,28 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest working-tree test run passes 762 automated tests.
+recording and 130 in the second. The latest working-tree test run passes 811 automated tests.
 All 12 preserved-reference checks in
 `song-star-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
 separate-recording evaluation remains preserved.
+
+A subsequent complete source reparse produced development candidates with 8,387
+merged observations for the original recording and 8,346 for the second. Source
+video hashes and the base, training, native, and receipt inspection layers were
+checked. Both candidates retain the observed stat checkpoints and match all 28
+labeled visible inventory names, all 12 labeled inventory details, and all 48
+historical concert-panel values. The second still matches 78 action labels,
+15 positive/negative race checks, and all 12 preserved regression checks.
+
+These candidates have not replaced the published reports. The stricter cursor
+check exposes two regressions: an unresolved Passion +10 receipt in the original
+run and an SP +105 receipt in the second. The original retains 143 balanced stat
+intervals; the second candidate has 129 balanced intervals and one unresolved
+interval. Its effect diagnostics contain 36 missing or extra entries, with a
+different issue set from the published report. Source-backed hint-cache
+revalidation accepts Winter Runner and Straightaway Recovery without changing
+reference labels. Full semantic recall remains unproven.
 
 The second recording's `action-corpus-v6` selects 50 reference entries with
 non-overlapping scopes within each action kind. All 78 detected actions match

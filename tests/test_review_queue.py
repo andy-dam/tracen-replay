@@ -62,3 +62,79 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertEqual(finding['evidence'],['summary.png'])
         self.assertTrue(finding['details']['missing_detail_is_not_confirmed_absence'])
         self.assertFalse(q['go_ready'])
+
+    def test_optional_bonus_observation_is_unadjudicated_when_not_observed(self):
+        r=report();r['gameplay_tracking']['concerts']=[dict(
+            source_timestamp_ms=1000,evidence=['concert-update.png'],
+            all_bonus_totals_verified=False,
+            later_active_bonus_snapshot=dict(
+                values={},observations={
+                    'friendship_training_effectiveness':[],
+                    'specialty_priority':[],
+                    'support_chain_event_frequency':[],
+                },unresolved_fields={
+                    'friendship_training_effectiveness':'not_observed',
+                    'specialty_priority':'not_observed',
+                    'support_chain_event_frequency':'not_observed',
+                },complete=False))]
+        q=build(r)
+        findings=[f for f in q['findings'] if f['reason']=='unverified_active_bonuses']
+        self.assertEqual(len(findings),1)
+        self.assertEqual(findings[0]['evidence'],['concert-update.png'])
+        details=findings[0]['details']
+        self.assertEqual(details['status'],'no_supported_current_bonus_observation')
+        self.assertEqual(details['source_availability'],'unadjudicated')
+        self.assertFalse(details['screen_absence_proven'])
+        self.assertFalse(details['recognition_failure_proven'])
+        self.assertEqual(set(details['unresolved_fields'].values()),{'not_observed'})
+
+    def test_optional_bonus_conflict_and_temporal_support_are_distinct(self):
+        r=report();r['gameplay_tracking']['concerts']=[
+            dict(source_timestamp_ms=1000,evidence=['conflict.png'],all_bonus_totals_verified=False,
+                 later_active_bonus_snapshot=dict(
+                     values={},observations={'specialty_priority':[dict(timestamp_ms=1000,value=10)]},
+                     unresolved_fields={'specialty_priority':'conflicting_observations'},complete=False)),
+            dict(source_timestamp_ms=2000,evidence=['single.png'],all_bonus_totals_verified=False,
+                 later_active_bonus_snapshot=dict(
+                     values={},observations={'specialty_priority':[dict(timestamp_ms=2000,value=10)]},
+                     unresolved_fields={'specialty_priority':'insufficient_distinct_timestamps'},complete=False)),
+        ]
+        q=build(r)
+        findings=[f for f in q['findings'] if f['reason']=='unverified_active_bonuses']
+        self.assertEqual([f['details']['status'] for f in findings],
+                         ['conflicting_observations','insufficient_temporal_support'])
+        self.assertTrue(all(f['details']['source_availability']=='unadjudicated' for f in findings))
+        self.assertTrue(all(not f['details']['screen_absence_proven'] for f in findings))
+
+    def test_complete_bonus_snapshot_can_still_have_partial_mechanic_coverage(self):
+        fields=('friendship_training_effectiveness','specialty_priority','support_chain_event_frequency')
+        values=dict(zip(fields,(10,20,3)))
+        observations={field: [dict(timestamp_ms=1000,value=value),dict(timestamp_ms=1250,value=value)]
+                      for field,value in values.items()}
+        r=report();r['gameplay_tracking']['concerts']=[dict(
+            source_timestamp_ms=1000,evidence=['complete-panel.png'],all_bonus_totals_verified=False,
+            later_active_bonus_snapshot=dict(values=values,observations=observations,
+                                             unresolved_fields={},complete=True))]
+        q=build(r)
+        finding=next(f for f in q['findings'] if f['reason']=='unverified_active_bonuses')
+        details=finding['details']
+        self.assertEqual(details['status'],
+                         'partial_mechanic_coverage_despite_complete_three_field_snapshot')
+        self.assertTrue(details['complete_three_field_snapshot'])
+        self.assertEqual(details['supported_current_fields'],list(fields))
+        self.assertFalse(details['final_totals_verified'])
+        self.assertFalse(details['screen_absence_proven'])
+
+    def test_partial_inventory_details_do_not_require_scroll_or_claim_absence(self):
+        r=report();r['gameplay_tracking']['owned_skill_inventory']=dict(
+            complete=False,summary_frames=[dict(timestamp_ms=200000,evidence='summary.png')],
+            observed_owned_cards=[dict(name_text='Example',level=None,variant=None)])
+        q=build(r)
+        finding=next(f for f in q['findings'] if f['reason']=='incomplete_owned_inventory')
+        details=finding['details']
+        self.assertEqual(details['observation_status'],'partial_visible_inventory')
+        self.assertEqual(details['source_availability'],'unadjudicated')
+        self.assertEqual(details['unobserved_pages'],'unknown')
+        self.assertFalse(details['screen_absence_proven'])
+        self.assertFalse(details['recognition_failure_proven'])
+        self.assertTrue(details['partial_output_requires_no_additional_interaction'])
