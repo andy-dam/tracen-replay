@@ -83,5 +83,17 @@ class ObservedLessonDebitTests(unittest.TestCase):
         event['effects'].append(dict(kind='named_acquisition',name='Another Lesson'))
         self.assertIsNone(lesson_receipts(rows,[event])[0]['performance_cost'])
 
+    def test_malformed_projection_mapping_stays_unresolved(self):
+        for value in (None,[],42,'unreadable'):
+            with self.subTest(value=value):
+                rows,event=sequence()
+                rows[2]['facts']['projected_performance_points']=value
+                self.assertIsNone(lesson_receipts(rows,[event])[0]['performance_cost'])
+
+    def test_actual_counter_on_unexpected_screen_is_not_ignored(self):
+        rows,event=sequence()
+        rows[4]['facts']['performance_points']=dict(rows[-1]['facts']['performance_points'],visual=80)
+        self.assertIsNone(lesson_receipts(rows,[event])[0]['performance_cost'])
+
 
 if __name__=='__main__':unittest.main()

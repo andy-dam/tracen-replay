@@ -242,7 +242,9 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
     # Every observed projection must agree; a missing number is not replaced
     # with an inferred OCR reading, and contradictory projections cannot vote.
     for r in group:
-        for k,v in r['facts'].get('projected_performance_points',{}).items():
+        projection=r['facts'].get('projected_performance_points',{})
+        if not isinstance(projection,dict):return None
+        for k,v in projection.items():
             if k in CURRENCIES and v is not None and (type(v) is not int or v!=final[k]):return None
     acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
     if len(acquired)!=1 or acquired[0]['name']!=name:return None
@@ -255,6 +257,7 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
         t=r['source_timestamp_ms']
         if r['screen'] not in ('lesson_selection','lesson_confirmation','event_outcome','unknown'):return None
         if r['facts'].get('awarded_performance_gains'):return None
+        if r['facts'].get('performance_points') and r['screen']!='lesson_selection':return None
         if r['screen']=='lesson_confirmation':
             if not first<=t<=last or r['facts'].get('name_candidates') not in ([],[name]):return None
         if last<t<event['first_seen_ms'] and r['screen']=='lesson_selection':returned.append(r)
@@ -347,11 +350,13 @@ def lesson_receipts(readings, outcomes):
                 return result
             initial=balance(before_rows,'performance_points')
             projected={}
+            invalid_projection=any(not isinstance(r['facts'].get('projected_performance_points',{}),dict) for r in group)
             for field in CURRENCIES:
-                seen={r['facts'].get('projected_performance_points',{}).get(field) for r in group}
+                seen={r['facts'].get('projected_performance_points',{}).get(field) for r in group
+                      if isinstance(r['facts'].get('projected_performance_points',{}),dict)}
                 seen.discard(None)
                 projected[field]=seen.pop() if len(seen)==1 else None
-            complete=all(type(projected.get(k)) is int for k in CURRENCIES)
+            complete=not invalid_projection and all(type(projected.get(k)) is int for k in CURRENCIES)
             cost={k:initial[k]-projected[k] for k in CURRENCIES} if before and complete and all(type(v) is int for v in initial.values()) else None
             if cost and any(v<0 for v in cost.values()):cost=None
             after=[]
@@ -361,7 +366,7 @@ def lesson_receipts(readings, outcomes):
                 if row['screen']=='lesson_selection' and all(type(row['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES):after.append(row)
             matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
             observed=None
-            if cost is None and not complete and not partial:
+            if cost is None and not complete and not partial and not invalid_projection:
                 observed=observed_lesson_debit(readings,event,group,before_rows,after,effect['name'])
                 if observed:cost=observed['cost'];matched=observed['matched']
             if partial:
