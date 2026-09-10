@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from .stats import Reader
 from .reconcile import FIELDS, stable_checkpoints, preview_segments, account
+from .stat_receipt_grammar import normalize_fixed_stat_receipt
 
 PANE = (148, 0, 958, 1080)
 CURRENCIES = ('dance', 'passion', 'vocal', 'visual', 'composure')
@@ -79,9 +80,12 @@ def effects_from_lines(lines):
         if line['confidence'] < 60:
             continue
         original_text = line['text'].strip()
+        fixed_receipt = (normalize_fixed_stat_receipt(original_text)
+                         if line['confidence'] >= 90 else None)
+        text = fixed_receipt['text'] if fixed_receipt else original_text
         # Missing whitespace at an explicit award verb/amount boundary is
         # formatting, not evidence for changing digits or recipient names.
-        text = re.sub(r'\b((?:went (?:up|down)|recovered|increased) by)(?=\d)',r'\1 ',original_text)
+        text = re.sub(r'\b((?:went (?:up|down)|recovered|increased) by)(?=\d)',r'\1 ',text)
         effect = None
         if m := CHANGE.fullmatch(text):
             field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
@@ -159,7 +163,18 @@ def effects_from_lines(lines):
         elif m := re.fullmatch(r'(.+?) hint (?:level|Lv\.?) (?:went up by|increased by) (\d+)[.!]?', text, re.I):
             effect = dict(kind='skill_hint_change', name=m[1], amount=int(m[2]))
         if effect:
-            effects.append(dict(effect, raw_text=original_text, confidence=line['confidence']))
+            # Keep the recognizer's actual text in raw_text even when a
+            # bounded fixed-label repair enabled parsing.  Consumers that
+            # need the canonical spelling can use normalized_text; raw_text
+            # remains the source observation for provenance and exact-match
+            # consumers.
+            parsed = dict(effect, raw_text=original_text,
+                          confidence=line['confidence'])
+            if fixed_receipt:
+                parsed.update(normalized_text=text,
+                              original_text=original_text,
+                              text_normalization=fixed_receipt['text_normalization'])
+            effects.append(parsed)
     return effects
 
 
