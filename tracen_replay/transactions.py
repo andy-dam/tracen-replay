@@ -6,6 +6,7 @@ from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, screen_summary
 from .skill_chains import cart_bundles,reconcile_skill_chains
 from .receipt_continuity import collapse_cross_event_hint_duplicates
+from .receipt_stat_continuity import collapse_cross_event_stat_duplicates
 
 
 def skill_point_states(readings,states):
@@ -403,6 +404,56 @@ def lesson_receipts(readings, outcomes):
     return purchases
 
 
+def _training_total_component_candidate(field,observations):
+    """Describe a possible full-result gain against component readings.
+
+    Training-result animations can expose a complete multi-field result and
+    then smaller component badges in the same screen interval.  The shape of
+    the displayed gain set is source-derived evidence for that distinction;
+    numeric size and checkpoint arithmetic are deliberately irrelevant here.
+    Only an exact repeated shape that strictly contains every competing shape
+    is reported. Equal-shape or mixed-shape alternatives remain ambiguous.
+    The result is diagnostic evidence only; it does not establish an effect.
+    """
+    by_value={}
+    for row,value in observations:
+        gains=row.get('facts',{}).get('training_gains',{})
+        shape=frozenset(name for name,amount in gains.items() if type(amount) is int)
+        by_value.setdefault(value,[]).append((row,shape))
+    if len(by_value)<2 or any(len(items)<2 for items in by_value.values()):return None
+    candidates=[]
+    for value,items in by_value.items():
+        shapes=[shape for _,shape in items]
+        counts=Counter(shapes)
+        repeated=[shape for shape,count in counts.items() if count>=2]
+        if len(repeated)!=1 or any(shape!=repeated[0] for shape in shapes):continue
+        total_shape=repeated[0]
+        competitors=[[shape for _,shape in other_items]
+                     for other_value,other_items in by_value.items() if other_value!=value]
+        if not competitors or not all(all(other_shape<total_shape for other_shape in other_shapes)
+                                      for other_shapes in competitors):continue
+        total_times=[row['source_timestamp_ms'] for row,_ in items]
+        component_times=[row['source_timestamp_ms'] for other_items in by_value.values()
+                         if other_items is not items for row,_ in other_items]
+        if max(total_times)>=min(component_times):continue
+        candidates.append(dict(value=value,shape=total_shape,items=items,
+                component_shapes={str(other_value):[list(shape) for shape in sorted({
+                                   tuple(sorted(shape)) for _,shape in other_items},key=str)]
+                                                 for other_value,other_items in by_value.items()
+                                                 if other_value!=value}))
+    if len(candidates)!=1:return None
+    winner=candidates[0]
+    return dict(value=winner['value'],shape=sorted(winner['shape']),
+                evidence=[row['evidence'] for row,_ in winner['items']],
+                component_shapes=winner['component_shapes'],
+                observed_values=sorted(by_value),
+                phase_order='full_before_component',
+                full_last_seen_ms=max(row['source_timestamp_ms'] for row,_ in winner['items']),
+                component_first_seen_ms=min(row['source_timestamp_ms'] for other_items in by_value.values()
+                                            if other_items is not winner['items'] for row,_ in other_items),
+                basis='repeated_full_gain_shape_strictly_contains_all_component_shapes')
+
+
 def training_events(readings,states=()):
     groups=[];current=None
     for row in readings:
@@ -417,7 +468,7 @@ def training_events(readings,states=()):
         current['rows'].append(row)
     events=[]
     for group in groups:
-        deltas={};proofs={};conflicts={}
+        deltas={};proofs={};conflicts={};phase_candidates={}
         for field in FIELDS:
             observations=[(r,r['facts']['training_gains'][field]) for r in group['rows'] if field in r['facts'].get('training_gains',{})]
             values={value for _,value in observations}
@@ -429,12 +480,16 @@ def training_events(readings,states=()):
                 if len(complete)==1:
                     deltas[field]=complete[0];proofs[field]=[r['evidence'] for r,value in observations if value==complete[0]]
                 else:conflicts[field]=sorted(values)
+            if len(values)>1 and field in conflicts:
+                candidate=_training_total_component_candidate(field,observations)
+                if candidate:phase_candidates[field]=candidate
         evidence=next(iter(proofs.values()),[group['rows'][0]['evidence']])[0]
         events.append(dict(id=f'training-{len(events)+1:04d}',kind='training',training_option=group['option'],
             first_seen_ms=group['first_seen_ms'],last_seen_ms=group['last_seen_ms'],deltas=deltas,
             evidence=evidence,field_evidence=proofs,conflicting_readings=conflicts,
             repeated_fields=[field for field,paths in proofs.items() if len(paths)>=2],
             effect_coverage_verified=False,action_time_ms=None))
+        if phase_candidates:events[-1]['gain_phase_candidates']=phase_candidates
         performance={};performance_proofs={}
         for field in CURRENCIES:
             observations=[(r,r['facts']['awarded_performance_gains'][field]) for r in group['rows'] if field in r['facts'].get('awarded_performance_gains',{})]
@@ -685,6 +740,7 @@ def outcome_events(readings):
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
     events=collapse_cross_event_hint_duplicates(events,readings)
+    events=collapse_cross_event_stat_duplicates(events,readings)
     for event in events:
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
