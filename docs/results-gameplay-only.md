@@ -178,6 +178,23 @@ earlier window. The third Power and Stamina activations remain unmatched because
 the current bound does not track distinct lines cumulatively through scrolling.
 This corrects scoring of existing evidence and leaves complete event recall open.
 
+The `spark-symbol-replay-v4` candidate reads inline circle markers from the
+original gameplay pixels. The paired reparse changes 3 original-recording and
+35 third-recording observations; the second report is unchanged. It preserves
+OCR confidence, raw text and source hashes. Filled, double, ambiguous and
+letter-shaped candidates are rejected. Repeated source-proven circle identities
+remain accepted while unmarked variants retain unknown occurrence relationships.
+A corrected line and its stored original text cannot establish two physical lines.
+
+The same timing-adjudicated quarter reference now matches 35/41 effects with
+39 occurrence predictions, recovering Front Runner Straightaways ○ and Long Shot ○.
+The middle reference improves from 35/40 to 36/40. The other 13 preserved
+third-recording source-window checks retain their agreement counts. All numeric
+intervals, action identities, purchases and inventory outputs are preserved
+across the three reconstructions. The third candidate SHA-256 is
+`6ede2e5c73c838ea392477a8b0cd5d2a09c03b1b433e3183f7651da2bf540d1f`.
+These are development improvements within reviewed samples, not complete event recall.
+
 A 24-frame native probe around the brief 662800–663200 ms friendship receipt
 retains conflicting recipient spellings under animated pink/cyan/yellow trails.
 The existing source-pixel checks and standard three-crop rereads do not resolve

@@ -253,9 +253,16 @@ def _simultaneous(left, right, observations):
     """A row displaying both names proves two visible lines, not one variant."""
     left_texts, right_texts = _name_texts(left), _name_texts(right)
     for observation in observations:
-        found = {line.get('text') for line in _lines(observation['row'])}
-        if found & left_texts and found & right_texts:
-            return True
+        lines = _lines(observation['row'])
+        for first in lines:
+            for second in lines:
+                # Neighboring receipt boxes include margins that can overlap.
+                # Separate their text centers by most of a line height; one
+                # line and duplicate OCR boxes cannot satisfy both identities.
+                if (first['text'] in left_texts and second['text'] in right_texts
+                        and abs(_center(first['box']) - _center(second['box']))
+                        >= 0.6 * max(_height(first['box']), _height(second['box']))):
+                    return True
     return False
 
 

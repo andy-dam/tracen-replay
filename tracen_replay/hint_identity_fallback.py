@@ -1,4 +1,4 @@
-"""Keep a source-verified hint circle from being downgraded by a fallback.
+"""Keep a source-verified receipt circle from being downgraded by a fallback.
 
 The normal receipt-name passes can prove that an unmarked OCR line is the
 same sentence as a pixel-corrected circle line when their source observations
@@ -13,6 +13,10 @@ repeated, source-bound ``single_circle`` proof exists, the proven circle
 effect remains accepted and the unmarked effect is moved to an explicit
 possible-duplicate/additional-effect candidate.  Its occurrence count stays
 unknown until a continuity rule proves the relationship.
+
+The default pass handles terminal hint markers. The inheritance-spark pass
+requires its separate inline-marker proof and runs before generic name
+reconciliation, preserving the same uncertainty about the unmarked reading.
 
 The three image hashes are required.  Some older validated reading
 collections do not repeat the recording-level ``source_sha256`` in each
@@ -37,7 +41,7 @@ _IMAGE_PROOF_HASHES = ("gameplay_sha256", "source_frame_sha256", "evidence_sha25
 
 
 def _field_key(effect: Mapping[str, Any]) -> str:
-    return "skill_hint_change||" + str(effect.get("name") or "")
+    return str(effect.get("kind") or "") + "||" + str(effect.get("name") or "")
 
 
 def _valid_timestamp(value: Any) -> bool:
@@ -80,16 +84,23 @@ def _same_context(event: Mapping[str, Any], row: Mapping[str, Any]) -> bool:
     return row.get("screen") == "event_outcome"
 
 
-def _proof_shape(proof: Any) -> bool:
+def _proof_shape(proof: Any, effect_kind: str = "skill_hint_change") -> bool:
     if not isinstance(proof, Mapping):
         return False
-    if proof.get("method") != _STRICT_METHOD:
+    method = {"skill_hint_change": _STRICT_METHOD,
+              "inheritance_spark": "inline_spark_ring_geometry"}.get(effect_kind)
+    if method is None or proof.get("method") != method:
         return False
     if proof.get("kind") != "single_circle" or proof.get("symbol") != "○":
         return False
     if proof.get("coordinate_space") != "gameplay_crop":
         return False
-    if not _valid_box(proof.get("box")):
+    if effect_kind == "inheritance_spark":
+        center = proof.get("center")
+        if (not isinstance(center, (list, tuple)) or len(center) != 2
+                or not all(_finite_number(value) for value in center)):
+            return False
+    elif not _valid_box(proof.get("box")):
         return False
     if any(not _valid_hash(proof.get(key)) for key in _IMAGE_PROOF_HASHES):
         return False
@@ -100,8 +111,8 @@ def _proof_shape(proof: Any) -> bool:
     return True
 
 
-def _proof_matches_row(proof: Any, row: Mapping[str, Any]) -> bool:
-    if not _proof_shape(proof):
+def _proof_matches_row(proof: Any, row: Mapping[str, Any], effect_kind: str) -> bool:
+    if not _proof_shape(proof, effect_kind):
         return False
     if not _valid_timestamp(row.get("source_timestamp_ms")):
         return False
@@ -129,6 +140,23 @@ def _proof_box_in_line_space(proof: Mapping[str, Any], line: Mapping[str, Any]) 
         return [proof_box[0] + _GAMEPLAY_PANE_X, proof_box[1],
                 proof_box[2] + _GAMEPLAY_PANE_X, proof_box[3]]
     return None
+
+
+def _proof_in_line(proof: Mapping[str, Any], line: Mapping[str, Any], effect_kind: str) -> bool:
+    if effect_kind != "inheritance_spark":
+        return _box_contains(line.get("box"), _proof_box_in_line_space(proof, line))
+    # Inline detection exposes an observed center, not a contour bounding box.
+    # Validate that point in the detector's supported marker slot without
+    # inventing a box or accepting a hint/inventory proof for a spark.
+    left, top, right, bottom = line["box"]
+    space = line.get("coordinate_space", "source_frame")
+    if space == "gameplay_crop":
+        left, right = left + _GAMEPLAY_PANE_X, right + _GAMEPLAY_PANE_X
+    elif space not in ("source_frame", "full_frame"):
+        return False
+    from .receipt_symbols import spark_slot_geometry
+    geometry = spark_slot_geometry([left, top, right, bottom], proof["center"])
+    return geometry is not None and all(proof.get(key) == value for key, value in geometry.items())
 
 
 def _event_time_contains(event: Mapping[str, Any], timestamp: int) -> bool:
@@ -173,15 +201,17 @@ def _valid_visual_rows(event: Mapping[str, Any], effect: Mapping[str, Any],
             continue
         candidates = [candidate for candidate in row_effects
                       if isinstance(candidate, Mapping)
-                      and candidate.get("kind") == "skill_hint_change"
+                      and candidate.get("kind") == effect.get("kind")
                       and candidate.get("name") == effect.get("name")
                       and candidate.get("amount") == effect.get("amount")
-                      and _proof_shape(candidate.get("visual_symbol_observation"))]
+                      and all(candidate.get(field) == effect.get(field)
+                              for field in ("field", "direction", "value"))
+                      and _proof_shape(candidate.get("visual_symbol_observation"), effect.get("kind"))]
         if len(candidates) != 1:
             continue
         candidate = candidates[0]
         proof = candidate.get("visual_symbol_observation")
-        if not _proof_matches_row(proof, row):
+        if not _proof_matches_row(proof, row, effect.get("kind")):
             continue
 
         neural = row.get("ocr", {}).get("neural", [])
@@ -193,8 +223,8 @@ def _valid_visual_rows(event: Mapping[str, Any], effect: Mapping[str, Any],
                           and _finite_number(line.get("confidence"))
                           and 95 <= line.get("confidence") <= 100
                           and _valid_box(line.get("box"))
-                          and _box_contains(line.get("box"),
-                                            _proof_box_in_line_space(proof, line))
+                          and _proof_in_line(proof, line, effect.get("kind"))
+                          and not line.get("overlay_occluded")
                           and line.get("visual_symbol_observation") == proof]
         if len(matching_lines) != 1:
             continue
@@ -261,12 +291,15 @@ def _unresolved_candidate(weak: Mapping[str, Any], strong: Mapping[str, Any],
         identity_status="possible_duplicate_or_additional_effect",
         continuity_proven=False,
         occurrence_count=None,
-        basis="repeated_strict_terminal_circle_proof_without_base_continuity",
+        basis=("repeated_inline_spark_circle_proof_without_base_continuity"
+               if strong.get("kind") == "inheritance_spark" else
+               "repeated_strict_terminal_circle_proof_without_base_continuity"),
     )
 
 
 def preserve_valid_circle_effect(event: Mapping[str, Any],
-                                 rows_by_evidence: Mapping[str, Any]) -> Mapping[str, Any]:
+                                 rows_by_evidence: Mapping[str, Any], *,
+                                 effect_kind: str = "skill_hint_change") -> Mapping[str, Any]:
     """Protect a repeated pixel-verified ``Name ○`` effect from fallback loss.
 
     The function mutates the supplied event in the same style as the existing
@@ -277,7 +310,8 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
     effect.  No name spelling is changed and no continuity is inferred.
     """
 
-    if not isinstance(event, dict) or not isinstance(rows_by_evidence, Mapping):
+    if (effect_kind not in ("skill_hint_change", "inheritance_spark")
+            or not isinstance(event, dict) or not isinstance(rows_by_evidence, Mapping)):
         return event
     effects = event.get("effects")
     field_evidence = event.get("field_evidence")
@@ -286,7 +320,7 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
 
     active = [effect for effect in effects
               if isinstance(effect, dict)
-              and effect.get("kind") == "skill_hint_change"
+              and effect.get("kind") == effect_kind
               and isinstance(effect.get("name"), str)]
     if not active:
         return event
@@ -294,8 +328,12 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
     removed: set[int] = set()
     for strong in active:
         match = _CIRCLE_NAME.fullmatch(strong["name"])
-        if (match is None or type(strong.get("amount")) is not int
-                or strong["amount"] < 0):
+        if match is None:
+            continue
+        if (effect_kind == "skill_hint_change"
+                and (type(strong.get("amount")) is not int or strong["amount"] < 0)):
+            continue
+        if effect_kind == "inheritance_spark" and strong.get("amount") is not None:
             continue
         if _effect_conflicted(event, strong):
             continue
@@ -308,6 +346,10 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
             continue
 
         base_name = match.group("base")
+        # A missing inline marker leaves boundary whitespace in the parser's
+        # name. Compare that boundary only; preserve the original payload.
+        name_of = lambda effect: (effect["name"].strip() if effect_kind == "inheritance_spark"
+                                  else effect["name"])
         strong_key = _field_key(strong)
         strong_evidence = list(dict.fromkeys(field_evidence.get(strong_key, [])
                                              if isinstance(field_evidence.get(strong_key), list) else []))
@@ -319,13 +361,13 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
         # leave an unverified ``Name O`` as a second active award.
         weak_candidates = [weak for weak in active
                            if weak is not strong and id(weak) not in removed
-                           and weak.get("name") == base_name]
+                           and name_of(weak) == base_name]
         weak_candidates = [*weak_candidates,
                            *[weak for weak in active
                              if weak is not strong and id(weak) not in removed
-                             and weak.get("name") == f"{base_name} O"]]
+                             and name_of(weak) == f"{base_name} O"]]
         base_anchor = next((weak for weak in weak_candidates
-                            if weak.get("name") == base_name
+                            if name_of(weak) == base_name
                             and weak.get("amount") == strong.get("amount")
                             and not any(weak.get(field) != strong.get(field)
                                         for field in ("field", "direction", "value"))), None)

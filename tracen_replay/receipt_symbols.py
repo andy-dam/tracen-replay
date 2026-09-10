@@ -1,8 +1,8 @@
 """Recover a visible skill-circle suffix from one gameplay receipt.
 
 The game renders a small ``○`` after some skill names.  The compact dialogue
-font can make that glyph look like a terminal ``O`` to OCR.  This module is
-intentionally limited to the evidence shape that supports that correction:
+font can make that glyph look like a terminal ``O`` to OCR. Hint receipts
+require the following evidence before correction:
 
 * the target is a confident, complete hint receipt whose OCR either emits a
   standalone uppercase ``O`` or leaves the suffix as whitespace before the
@@ -16,6 +16,11 @@ The same checks also cover a receipt whose name wraps onto a second OCR line.
 The accepted representation joins those two source lines and retains the
 original parts in provenance metadata so the downstream parser can see one
 receipt without guessing a name.
+
+Inheritance spark receipts use a separate shape: an explicit O or whitespace
+slot before ``spark activated!``, plus an isolated source-pixel ring at that
+slot's fixed-layout position. They need no hint heading. Ordinary unmarked
+receipts, double markers, conflicting rings and obscured lines stay unchanged.
 
 The detector does not consult a skill catalog, expected text, or another
 receipt.  ``annotate`` binds the decision to the original gameplay-pixel hash
@@ -42,6 +47,7 @@ _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 # the period. A no-space ``Name.`` is a different receipt shape and abstains.
 _HINT_RECEIPT = re.compile(r"^Gained (\d+) hint level\(s\) for (.+?)(?: O| )\.$")
 _HINT_PREFIX = re.compile(r"^Gained \d+ hint level\(s\) for .+$")
+_SPARK_RECEIPT = re.compile(r"^(\S(?:.*?\S)?)(?: O| ) spark activated!$")
 
 
 def _box(box: Sequence[Any]) -> tuple[int, int, int, int] | None:
@@ -272,6 +278,96 @@ def _hint_match(text: Any):
     return _HINT_RECEIPT.fullmatch(_clean(text))
 
 
+def _spark_match(text: Any):
+    # A double space or explicit standalone O occupies the missing-marker
+    # slot. Ordinary complete names without that slot are not rewritten.
+    match = _SPARK_RECEIPT.fullmatch(text.strip()) if isinstance(text, str) else None
+    return match if match and not any(s in match.group(1) for s in (SINGLE_CIRCLE, DOUBLE_CIRCLE)) else None
+
+
+def spark_slot_geometry(line_box: Sequence[Any], center: Sequence[Any]) -> dict[str, Any] | None:
+    """Bind a marker to the fixed receipt tail in the supported 1080p layout."""
+    box = _box(line_box)
+    if box is None or not isinstance(center, (list, tuple)) or len(center) != 2:
+        return None
+    if any(type(value) not in (int, float)
+           or (type(value) is float and not math.isfinite(value)) for value in center):
+        return None
+    left, top, right, bottom = box
+    x, y = center
+    distance = right - GAMEPLAY_X_OFFSET - x
+    # Source markers lie 168--171px before the OCR right edge. Ten pixels
+    # around the fixed 170px tail allow box padding without searching letters
+    # elsewhere in the name. Other fonts/layouts must establish their own slot.
+    if not (250 <= left < right <= 850 and 770 <= top < bottom <= 970
+            and left - GAMEPLAY_X_OFFSET < x < right - GAMEPLAY_X_OFFSET
+            and top <= y <= bottom and abs(y - (top + bottom) / 2) <= 5.5
+            and 160 <= distance <= 180):
+        return None
+    return dict(ocr_line_box=list(box), ocr_line_coordinate_space='source_frame',
+                slot_distance_px=distance)
+
+
+def detect_spark_circle(pane: Any, line_box: Sequence[Any]) -> dict[str, Any] | None:
+    """Read a ring before the fixed 'spark activated!' tail in the 1080p layout.
+
+    Reuse the inventory detector's ring-versus-letter geometry. Search views
+    share pixels and never count as separate observations. The tail distance
+    limits the search to the marker slot, not other letters in the skill name.
+    """
+    from .inventory_suffix import _candidates, _THRESHOLDS as thresholds
+
+    box = _box(line_box)
+    if box is None:
+        return None
+    left, top, right, bottom = box
+    if not (250 <= left < right <= 850 and 770 <= top < bottom <= 970):
+        return None
+    _, gray = _image_and_gray(pane)
+    if gray is None:
+        return None
+    votes = []
+    for threshold in thresholds:
+        found = []
+        for offset in (128, 160, 192):
+            for kind, x, y in _candidates(gray, (left, top, right - offset, bottom), threshold):
+                # Inspect a wider neighborhood solely to reject competing
+                # rings. Only the shared narrow slot can accept a marker.
+                if not (130 <= right - GAMEPLAY_X_OFFSET - x <= 205
+                        and left - GAMEPLAY_X_OFFSET < x
+                        and abs(y - (top + bottom) / 2) <= 5.5):
+                    continue
+                # A disconnected inner ring can share an outer contour with
+                # a single marker. Require a clear center in the receipt's
+                # source pixels rather than trusting the contour class alone.
+                cx, cy = round(x), round(y)
+                inner = gray[cy - 5:cy + 5, cx - 5:cx + 5]
+                if (kind != 'single_circle' or inner.shape != (10, 10)
+                        or float((inner < threshold).mean()) > 0.10):
+                    return None
+                if not any(old[0] == kind and max(abs(old[1] - x), abs(old[2] - y)) <= 3 for old in found):
+                    found.append((kind, x, y))
+        if len(found) > 1:
+            return None
+        if found:
+            votes.append(dict(kind=found[0][0], center=list(found[0][1:]), threshold=threshold))
+    if len(votes) < 3:
+        return None
+    anchor = votes[len(votes) // 2]
+    if any(v['kind'] != anchor['kind'] or max(abs(v['center'][i] - anchor['center'][i])
+                                            for i in (0, 1)) > 3 for v in votes):
+        return None
+    # Double markers need their own receipt-layout validation; do not borrow
+    # an inventory-only observation to claim a different spark identity.
+    geometry = spark_slot_geometry(box, anchor['center'])
+    if anchor['kind'] != 'single_circle' or geometry is None:
+        return None
+    return dict(kind='single_circle', symbol=SINGLE_CIRCLE, center=anchor['center'],
+                threshold_observations=votes, votes=len(votes),
+                method='inline_spark_ring_geometry', coordinate_space='gameplay_crop',
+                **geometry)
+
+
 def _hint_text(match: re.Match[str], symbol: Mapping[str, Any]) -> str:
     return f"Gained {match.group(1)} hint level(s) for {_clean(match.group(2))} {symbol['symbol']}."
 
@@ -343,7 +439,7 @@ def has_eligible_receipt(lines: Sequence[Mapping[str, Any]]) -> bool:
     for line in materialized:
         if line.get("confidence", 0) < 95 or not isinstance(line.get("text"), str):
             continue
-        if _hint_match(line["text"]):
+        if _hint_match(line["text"]) or _spark_match(line["text"]):
             return True
     for first, second in zip(materialized, materialized[1:]):
         if not _is_hint_continuation(first, second):
@@ -355,7 +451,7 @@ def has_eligible_receipt(lines: Sequence[Mapping[str, Any]]) -> bool:
 
 
 def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dict[str, Any]:
-    """Apply the proven terminal ``○`` correction to one OCR observation.
+    """Apply a source-proven ``○`` correction to one OCR observation.
 
     The returned mapping is a copy. Every accepted line retains its original
     confidence and gets ``original_text``, ``visual_symbol_observation``, and
@@ -370,6 +466,16 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
     changed = False
     for index, line in enumerate(lines):
         if line.get("confidence", 0) < 95 or not isinstance(line.get("text"), str):
+            continue
+        spark = _spark_match(line['text'])
+        if spark and not line.get('overlay_occluded'):
+            symbol = detect_spark_circle(pane, line.get('box', ()))
+            if symbol is not None:
+                lines[index] = dict(line, text=f"{_clean(spark.group(1))} {SINGLE_CIRCLE} spark activated!",
+                                    original_text=line['text'], original_symbol_text=line['text'],
+                                    visual_symbol_observation=_symbol_observation(raw, proof, symbol),
+                                    text_normalization='spark_circle_suffix')
+                changed = True
             continue
         match = _hint_match(line["text"])
         if not match:
@@ -448,4 +554,4 @@ def annotate(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -> dic
     return dict(raw, lines=lines) if changed else dict(raw, lines=lines)
 
 
-__all__ = ["annotate", "detect_circle_marker", "has_eligible_receipt"]
+__all__ = ["annotate", "detect_circle_marker", "detect_spark_circle", "has_eligible_receipt"]

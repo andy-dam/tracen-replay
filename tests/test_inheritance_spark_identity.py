@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import unittest
 
-from tracen_replay.inheritance_spark_identity import resolve
+from tracen_replay.inheritance_spark_identity import resolve, _simultaneous
 
 
 def line(text, box, confidence=99):
@@ -37,6 +37,29 @@ def event(effects, proofs):
 
 
 class InheritanceSparkIdentityTests(unittest.TestCase):
+    def test_corrected_line_and_its_original_text_do_not_prove_two_receipts(self):
+        plain = spark('Example Skill ')
+        marked = spark('Example Skill ○')
+        marked['original_text'] = plain['raw_text']
+        source = row(1000, 'one', [plain], anchor=False)
+        self.assertFalse(_simultaneous(marked, plain, [dict(row=source)]))
+        # Duplicate OCR observations of the same physical line still prove one.
+        source['ocr']['neural'].append(copy.deepcopy(source['ocr']['neural'][0]))
+        self.assertFalse(_simultaneous(marked, plain, [dict(row=source)]))
+
+    def test_simultaneous_identity_requires_disjoint_receipt_lines(self):
+        plain = spark('Example Skill ')
+        marked = spark('Example Skill ○')
+        marked['original_text'] = plain['raw_text']
+        source = row(1000, 'both', [marked], anchor=False)
+        source['ocr']['neural'].append(line(plain['raw_text'], (316, 900, 695, 929)))
+        self.assertTrue(_simultaneous(marked, plain, [dict(row=source)]))
+        # Real neighboring lines have small overlaps in OCR-box margins.
+        source['ocr']['neural'][1]['box'] = [316, 854, 695, 883]
+        self.assertTrue(_simultaneous(marked, plain, [dict(row=source)]))
+        source['ocr']['neural'][1]['box'] = [316, 834, 695, 863]
+        self.assertFalse(_simultaneous(marked, plain, [dict(row=source)]))
+
     def test_current_recording_retains_repeated_recovery_and_audits_recover(self):
         fixture = json.loads(Path('tests/fixtures/inheritance-spark-identity-real.json')
                              .read_text(encoding='utf-8'))

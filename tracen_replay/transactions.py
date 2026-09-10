@@ -721,6 +721,8 @@ def outcome_events(readings):
         flag_friendship_identity_conflicts(event,rows_by_evidence)
         from .receipt_names import flag_inheritance_identity_conflicts
         flag_inheritance_identity_conflicts(event,rows_by_evidence)
+        from .hint_identity_fallback import preserve_valid_circle_effect
+        preserve_valid_circle_effect(event,rows_by_evidence,effect_kind='inheritance_spark')
         from .inheritance_spark_identity import resolve as resolve_spark_identity
         resolve_spark_identity(event,rows_by_evidence)
         from .receipt_names import collapse_visual_hint_variants
