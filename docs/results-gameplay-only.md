@@ -5,7 +5,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 ## Latest regression checks
 
 The current reports retain 143 balanced six-field intervals in the original
-recording and 130 in the second. The latest working-tree test run passes 837 automated tests.
+recording and 130 in the second. The latest working-tree test run passes 872 automated tests.
 All 12 preserved-reference checks in
 `sp-receipt-validation-v1/preserved-regression.json` pass against the
 published second report. These are development regressions; the original
@@ -132,6 +132,72 @@ Class. Post-prediction review of all 41 quarter-second samples from 14:08.750 to
 adjudication, not another independent result. All 139 lesson records in the first
 two reports remain unchanged. The selected third-run transaction check still
 fails on the missing musical note in Present March's identity.
+
+A bounded development probe inspects 23 frames over 750 ms around the duplicated
+hint. Multiple clear symbol observations let the existing reconstruction rule
+retain one circle-marked award and preserve the alternate OCR spelling as
+uncertain evidence. This improves the window's component score from two extra
+effects to one, with 13 of 14 labels still matched. The remaining discrepancy is
+the song's musical note. The source labels and frozen baseline are unchanged.
+
+The automatic receipt planner now detects this unresolved symbol/OCR identity
+pair without sending either spelling or an expected amount to OCR. Replaying
+the planner on the frozen baseline selects its interval within the default
+30-second/480-frame budget: nine windows total 29.002 seconds and an estimated
+475 frames. This is a scheduling check; the successful 750 ms probe was selected
+manually before the planner change, not executed by that plan. Existing dense
+coverage remains excluded from subsequent work.
+
+A full cached-source reparse, followed by both source-bound dense inspections
+and complete reconstruction, confirms the hint recovery and all three lesson
+costs together. The third-run candidate has 53 balanced performance intervals
+and eight unresolved, compared with 50 balanced and eleven unresolved in the
+baseline. Stat accounting remains 89 balanced and 42 unresolved. Dense training
+inspection restores the Wit action using repeated result identities, improving
+the quarter-window action match from one of three to two of three. Its SP gain
+readings remain conflicted; recovering an action does not verify all its rewards.
+The replay preserves the frozen baseline and passes exact reconstruction. These
+counts describe a development candidate, not a fully verified recording or a
+passing Go readiness gate.
+
+A subsequent automatic pass starts from that reconstructed candidate and selects
+nine different uncertain windows, totaling 29.253 seconds with a 480-frame cap.
+It decodes 442 new frames, rechecks their source evidence, and reconstructs a
+separate candidate. Neither ledger improves. Additional OCR name variants and
+duplicate hint identities appear, so this output is retained as a diagnostic
+candidate. The quarter-window effect match drops from 17/41 to 9/41 when the
+inheritance receipt's start shifts 33 ms earlier; the twenty effect identities
+in that receipt are unchanged. This exposes a mismatch between event-start
+scoring and sampled reference bounds, alongside real identity/grouping problems
+elsewhere. The original references and all prior results remain preserved;
+denser sampling alone is not an accuracy guarantee.
+
+The extra hint copies revealed a general grouping bug: high-confidence malformed
+receipt text was classified as narrative and split one continuous award into
+four events. Damaged hint-receipt grammar can preserve continuity only when its
+full visible name and amount match an unconflicted accepted award. Plausible
+companion receipt lines remain uncertainty; they supply no accepted names or
+amounts. Different names or amounts cannot establish continuity. Narrative, other
+screens and gaps over 500 ms still end the sequence. Replaying the same dense
+observations counts Pace Strategy +3 once instead of four times. A remaining
+friendship-name variant still needs identity review, and neither numeric ledger
+changes; this correction does not make the diagnostic candidate ready to publish.
+
+The complete automatic training inspection captures 5,878 observations across
+57 windows (195.5 seconds of footage), reusing the earlier Wit probe. Source
+revalidation and reconstruction improve stat accounting from 89 balanced and
+42 unresolved intervals to 127 balanced and four unresolved. Checkpoint bounds
+remain identical, and none of the matched intervals has a larger absolute
+residual in any field. Performance accounting stays at 53 balanced and eight
+unresolved. These are accounting diagnostics, not a full event-recall score.
+
+The remaining stat gaps occur at 660250–686000 ms (SP +11),
+1300000–1359250 ms (SP +67), 1645750–1658500 ms (SP −4), and
+2226000–2282500 ms (Speed +8, Power +5, Guts +32, SP +18).
+Residuals are recorded for investigation; they are not invented awards.
+The combined candidate remains separate from the frozen baseline and published
+reports. Inventory, effect identity, timing conventions and coverage still
+require review before the Go gate can pass.
 
 The same window has no false training, rest or outing actions. Its Arima Kinen
 goal-completion screen does not locate the earlier race action, and its Grand
