@@ -79,8 +79,28 @@ window has now been source-labeled from all 360 samples and compared with that
 baseline. It produces no false run actions, effect receipts, lesson/concert
 transactions, skill purchases, race results, stat checkpoints, or owned-skill
 attributions while the user browses setup menus, support skill descriptions,
-and an older character's inventory. This is a negative-window result; the
-remaining selected windows and whole-recording accuracy are not yet validated.
+and an older character's inventory. This is a negative-window result.
+
+The preselected 31:33.250–33:03.250 window now has source-first labels for all
+360 quarter-second samples, with full-width checks where the cinematic changes
+the gameplay layout. Its frozen baseline matches 13 of 14 explicit receipt
+effects and emits two extras: a duplicate hint with an OCR `O` suffix and a song
+name missing its visible musical note. All three completed lesson purchases are
+found, with correct reviewed stat awards, but one readable cost remains unknown
+and the song identity lacks its note. Each expected cost is independently bound
+to visible before/after balances for all five performance currencies. The
+unknown cost follows a missing Dance reading in the confirmation even though
+the surrounding observed balances are readable.
+
+The same window has no false training, rest or outing actions. Its Arima Kinen
+goal-completion screen does not locate the earlier race action, and its Grand
+Concert lobby does not establish a completed concert or rewards. The last lesson
+confirmation crosses the window boundary, so the closed-transaction score ends
+at 33:02.500 and leaves that purchase unassessed. The source-visible song bonus
+is queued until the concert; optional Concert Info and owned-skill panels are
+not opened. These limitations remain separate from the readable recognition
+failures. Other selected windows and whole-recording accuracy are not yet fully
+validated; these initial failures are preserved before further fixes.
 
 Race references match all twelve results, all 118 labeled identity, course,
 placing and fan fields, and all twelve exact-frame item-quantity comparisons.
