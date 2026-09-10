@@ -1,6 +1,6 @@
 # Roadmap
 
-Tracen Replay has a local evidence pipeline with experimental gameplay-only recognition and checkpoint accounting. The active priority is [gameplay-only reconstruction](gameplay-only.md), including training, events, races, skill purchases, lessons and concerts. Its reliability gates must pass before the Go application and hosted processing become the next milestone.
+Tracen Replay has a local evidence pipeline with gameplay-only recognition and checkpoint accounting. The bounded [first Go integration gate](first-go-acceptance.md) is complete; exhaustive recognition remains unfinished. The next milestone is the [local Go application](milestone-go-app.md), followed by hosted processing.
 
 ## Initial scope
 
@@ -38,7 +38,10 @@ Analysis will distinguish visible facts from inferred events. A stat change with
 
 ## 3. Application foundation
 
-Start after the gameplay-only validation gates, including independent-recording evaluation. The existing log-assisted results do not satisfy this prerequisite.
+The bounded gameplay-only prerequisite is complete. Follow the phased
+[Go application implementation plan](milestone-go-app.md), including its viewer,
+worker, persistence and end-to-end acceptance checks. Historical log-assisted
+results do not substitute for the accepted gameplay-only reports.
 
 - [ ] Build a Go service and a report viewer using reports from the local pipeline.
 - [ ] Add bounded local uploads and connect video processing to the viewer.
