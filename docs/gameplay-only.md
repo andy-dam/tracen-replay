@@ -227,6 +227,13 @@ sequence must connect the animation to its detail panel. The separate
 `first_seen_ms` still dates the detail panel used for fan and item accounting.
 An animation alone does not create a race or establish its rewards.
 
+A result panel resumed after a canceled playback dialog can remain one race.
+This requires repeated matching result identities on both sides and a continuous
+source sequence through the observed dialog. Navigation to another recognized
+screen breaks the initial grouping. Dialogs interrupt item visibility, so reward
+snapshots on either side remain separate and quantities are never summed.
+Missing or contradictory identity evidence leaves the association unresolved.
+
 Inheritance events preserve simultaneous receipt lines in
 `inheritance_occurrence_evidence`. Each exact label has a source-supported
 `minimum_observed_count`; `total_count` remains unknown. Repeated frames are

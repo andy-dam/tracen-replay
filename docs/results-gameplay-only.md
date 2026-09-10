@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 999 automated tests and retains
+The latest development reconstruction passes 1,010 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -65,7 +65,7 @@ between variants. The incomplete middle effect reference improves from 34/40
 to 35/40 matches; the quarter reference stays 9/41, with timing and identity
 mismatches still open. These are scoped label-agreement results, not global recall.
 
-The latest candidates use `event-evidence-replay-v2`, reconstructed from the
+The event-evidence candidates use `event-evidence-replay-v2`, reconstructed from the
 previously source-validated readings without rerunning OCR. Numeric event
 effects, interval accounting, actions, purchases, concerts, fan accounting,
 readings and inventories match the preceding race-timing candidates. All twelve
@@ -82,6 +82,22 @@ These are development regressions; the original reports and initial scores are
 preserved. Other sampled action/effect checks remain incomplete or failing, and
 full action/effect recall and the remaining mechanics gates are still open.
 Balanced accounting does not establish a fully verified recording or Go readiness.
+
+The subsequent `race-dialog-replay-v2` reconstruction preserves one race across
+an observed, canceled victory-song playback dialog. Both sides require repeated,
+matching result identities, and the intervening source sequence must remain
+continuous. Known navigation screens prevent the initial grouping from swallowing
+separate visits. Conflicting facts block continuation; incomplete extra frames
+do not erase repeated complete observations. Item snapshots remain separate.
+
+This removes a duplicate Arima Kinen action in the third recording: 14 race
+records become 13, total actions become 76, and two unresolved fan intervals
+become one. The remaining finale result return lacks repeated complete identity
+on its second display and remains unresolved. All other tracking fields are
+unchanged, including both numeric ledgers, event effects, purchases and inventory.
+The first two reports are byte-for-byte unchanged. The latest third report has
+SHA-256 `e014cf074877c37e5349c98357aa42a9ce65aa1620430e87b572e13b541a5107`.
+These action corrections do not establish complete action or event recall.
 
 The preceding stat/currency snapshot retained 143 balanced six-field intervals
 in the original recording and 130 in the second, with 894 passing automated tests.

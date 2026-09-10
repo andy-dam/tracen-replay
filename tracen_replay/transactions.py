@@ -996,13 +996,18 @@ def performance_accounting(readings,events,lessons):
 
 def races(readings,reward_observations=()):
     from .race_reward_sections import annotate as annotate_reward_sections
-    groups=[]
+    groups=[];interrupted=False
     for row in readings:
-        if row['screen']!='race_result':continue
+        if row['screen']!='race_result':
+            if row['screen']!='unknown':interrupted=True
+            continue
         facts=row['facts'];key=(facts.get('fans'),facts.get('fans_gained'))
-        if not groups or row['source_timestamp_ms']-groups[-1]['last_seen_ms']>1000 or key!=groups[-1]['_key']:
+        if not groups or interrupted or row['source_timestamp_ms']-groups[-1]['last_seen_ms']>1000 or key!=groups[-1]['_key']:
             groups.append(dict(id=f'race-{len(groups)+1:03d}',first_seen_ms=row['source_timestamp_ms'],last_seen_ms=row['source_timestamp_ms'],_key=key,rows=[]))
         groups[-1]['last_seen_ms']=row['source_timestamp_ms'];groups[-1]['rows'].append(row)
+        interrupted=False
+    from .race_result_continuity import join_dialog_returns
+    groups=join_dialog_returns(groups,readings)
     for group in groups:
         rows=group.pop('rows');group.pop('_key');fields={};conflicts={}
         for field in ('race_name','placing','fans','fans_gained','course'):
@@ -1020,7 +1025,8 @@ def races(readings,reward_observations=()):
         # Preserve stable visible snapshots; scrolling cannot establish item identity
         # or authorize summing repeated quantities into an inventory transaction.
         snapshots=[];pending=[]
-        reward_rows=rows
+        interruptions=group.pop('_visibility_interruptions',[])
+        reward_rows=rows+[dict(r,facts=dict(r.get('facts',{}),visible_item_quantities=[])) for r in interruptions]
         if reward_observations:
             from .race_reward_inspection import merge_reward_rows
             extras=[]
@@ -1032,7 +1038,7 @@ def races(readings,reward_observations=()):
                 else:
                     # A non-result or different race interrupts quantity continuity.
                     extras.append(dict(observation,facts=dict(facts,visible_item_quantities=[])))
-            reward_rows=merge_reward_rows(rows,extras)
+            reward_rows=merge_reward_rows(reward_rows,extras)
         def finish_items():
             if len({r['source_timestamp_ms'] for r in pending})<2:return
             snapshots.append(dict(first_seen_ms=pending[0]['source_timestamp_ms'],
