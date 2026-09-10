@@ -5,6 +5,126 @@ import json
 from pathlib import Path
 
 
+_INHERITANCE_KINDS = frozenset(("inheritance_spark", "inheritance_inspiration"))
+_INHERITANCE_PAYLOAD_FIELDS = ("kind", "field", "name", "amount", "direction", "value")
+
+
+def _effect_key(effect):
+    return "|".join(str(value or "") for value in
+                    (effect.get("kind"), effect.get("field"), effect.get("name")))
+
+
+def _same_inheritance_payload(left, right):
+    return isinstance(left, dict) and all(left.get(field) == right.get(field)
+                                          for field in _INHERITANCE_PAYLOAD_FIELDS)
+
+
+def _active_occurrence_conflict(event, key):
+    conflicts = event.get("conflicting_readings", [])
+    if conflicts is None:
+        return False
+    if not isinstance(conflicts, (list, tuple)):
+        return True
+    return any(not isinstance(conflict, dict) or conflict.get("field") == key
+               for conflict in conflicts)
+
+
+def _snapshot_witnesses(summary):
+    grouped = {}
+    for observation in summary.get("observations", []):
+        if not isinstance(observation, dict):
+            continue
+        timestamp = observation.get("source_timestamp_ms")
+        evidence = observation.get("evidence")
+        if type(timestamp) is not int or not isinstance(evidence, str):
+            continue
+        grouped.setdefault((timestamp, evidence), []).append(observation)
+
+    witnesses = []
+    for (timestamp, evidence), observations in sorted(grouped.items()):
+        observations.sort(key=lambda item: (item.get("line_index", 2**31 - 1),
+                                             tuple(item.get("box", ()))))
+        witnesses.append(dict(source_timestamp_ms=timestamp, evidence=evidence,
+                              minimum_observed_count=len(observations),
+                              count_complete=False,
+                              line_indices=[item.get("line_index") for item in observations]))
+    return witnesses
+
+
+def _inheritance_occurrence_item(event, effect, summary):
+    if effect.get("kind") not in _INHERITANCE_KINDS:
+        return None
+    key = _effect_key(effect)
+    event_effects = event.get("effects", [])
+    if (not isinstance(event_effects, (list, tuple))
+            or sum(_effect_key(candidate) == key for candidate in event_effects) != 1
+            or _active_occurrence_conflict(event, key)):
+        return None
+    item = summary.get("by_key", {}).get(key) if isinstance(summary, dict) else None
+    if not isinstance(item, dict):
+        return None
+    variants = item.get("variants")
+    if (item.get("uncertain") is not False
+            or item.get("conflicting_payloads") is not False
+            or not isinstance(variants, list) or len(variants) != 1):
+        return None
+    variant = variants[0]
+    if not isinstance(variant, dict) or not _same_inheritance_payload(
+        variant.get("payload"), effect
+    ):
+        return None
+    count = item.get("minimum_observed_count")
+    if type(count) is not int or count < 1:
+        return None
+    if (variant.get("minimum_observed_count") != count
+            or item.get("total_count") is not None
+            or item.get("count_complete") is not False):
+        return None
+    witnesses = _snapshot_witnesses(item)
+    if (not witnesses
+            or max(witness["minimum_observed_count"] for witness in witnesses) < count):
+        return None
+    return {"key": key, "count": count, "witnesses": witnesses}
+
+
+def _inheritance_prediction_units(
+    event,
+    effect,
+    base_prediction,
+    summary,
+    timing_basis,
+    start,
+    end,
+):
+    item = _inheritance_occurrence_item(event, effect, summary)
+    if item is None:
+        return [base_prediction] if start <= base_prediction["time"] < end else []
+
+    units = []
+    for ordinal in range(1, item["count"] + 1):
+        witness = next((candidate for candidate in item["witnesses"]
+                        if candidate["minimum_observed_count"] >= ordinal), None)
+        if witness is None:
+            return [base_prediction] if start <= base_prediction["time"] < end else []
+        if ordinal == 1:
+            unit_time = base_prediction["time"]
+            if not start <= unit_time < end:
+                continue
+        elif timing_basis == "first_exact_effect_observation":
+            unit_time = witness["source_timestamp_ms"]
+            if not start <= unit_time < end:
+                continue
+        else:
+            unit_time = base_prediction["time"]
+        unit = base_prediction if ordinal == 1 else dict(base_prediction)
+        unit["time"] = unit_time
+        unit["inheritance_occurrence"] = dict(semantic_key=item["key"], ordinal=ordinal,
+                                               minimum_observed_count=item["count"],
+                                               count_complete=False, witness=witness)
+        units.append(unit)
+    return units
+
+
 def evaluate(reference,report,root=None):
     reference_complete=reference.get('reference_complete',True)
     if type(reference_complete) is not bool:
@@ -20,13 +140,21 @@ def evaluate(reference,report,root=None):
     include_training=reference.get('include_training_results',False)
     if type(include_training) is not bool:
         raise ValueError('Training result inclusion must be a boolean.')
+    include_inheritance=reference.get('include_inheritance_occurrences',False)
+    if type(include_inheritance) is not bool:
+        raise ValueError('Inheritance occurrence inclusion must be a boolean.')
     if include_training and timing_basis!='event_start':
         raise ValueError('Typed training results require event-start timing; derived deltas are not exact receipt observations.')
     rows={r['evidence']:r for r in data.get('readings',[])}
     timing_errors=[]
     predictions=[]
+    occurrence_diagnostics=[]
     for event in data['events']:
         if timing_basis=='event_start' and not start<=event['first_seen_ms']<end:continue
+        occurrence_summary=None
+        if include_inheritance:
+            from .inheritance_occurrences import summarize
+            occurrence_summary=summarize(event,rows)
         for effect in event.get('effects',[]):
             key='|'.join(str(v or '') for v in (effect['kind'],effect.get('field'),effect.get('name')))
             time=event['first_seen_ms']
@@ -45,9 +173,19 @@ def evaluate(reference,report,root=None):
                             reason='no_exact_effect_observation_for_window_ownership'))
                     continue
                 time=min(times)
-                if not start<=time<end:continue
-            predictions.append(dict(event_id=event['id'],time=time,effect=effect,
-                conflicted=any(c.get('field')==key for c in event.get('conflicting_readings',[]))))
+                if not start<=time<end and not include_inheritance:continue
+            base_prediction=dict(event_id=event['id'],time=time,effect=effect,
+                conflicted=any(c.get('field')==key for c in event.get('conflicting_readings',[])))
+            units=([base_prediction] if not include_inheritance else
+                   _inheritance_prediction_units(event,effect,base_prediction,occurrence_summary,
+                                                 timing_basis,start,end))
+            for unit in units:
+                predictions.append(unit)
+                if include_inheritance and 'inheritance_occurrence' in unit:
+                    occurrence_diagnostics.append(dict(
+                        event_id=unit['event_id'],time=unit['time'],effect=unit['effect'],
+                        conflicted=unit['conflicted'],
+                        occurrence=unit['inheritance_occurrence']))
         if include_training and event.get('kind')=='training':
             for field_key,kind in (('deltas','stat_change'),('performance_deltas','performance_change')):
                 for field,amount in event.get(field_key,{}).items():
@@ -115,7 +253,7 @@ def evaluate(reference,report,root=None):
         proof_times=item.get('source_timestamps_ms')
         if not isinstance(proof_times,list) or not proof_times or any(type(t) is not int or t not in times or not group['start_ms']<=t<=group['end_ms'] for t in proof_times):
             raise ValueError('Observability exception requires reviewed same-group samples.')
-    return dict(scope=reference['scope'],source_sha256=reference['source_sha256'],start_ms=start,end_ms=end,
+    result=dict(scope=reference['scope'],source_sha256=reference['source_sha256'],start_ms=start,end_ms=end,
         expected=expected,predicted=len(predictions),matched=matched,precision=matched/len(predictions) if predictions else None,
         recall=matched/expected if expected else None,missing=missing,extra_predictions=extras,evidence_errors=evidence_errors,
         passed=reference_complete and not missing and not extras and not evidence_errors and not timing_errors,reviewed_samples=len(samples),
@@ -129,6 +267,10 @@ def evaluate(reference,report,root=None):
         reference_observability='known_exceptions' if exceptions else 'not_adjudicated',
         scoring_basis='agreement_with_preserved_reference',
         independent_recording=False)
+    if include_inheritance:
+        result['include_inheritance_occurrences']=True
+        result['inheritance_occurrence_diagnostics']=occurrence_diagnostics
+    return result
 
 
 if __name__=='__main__':

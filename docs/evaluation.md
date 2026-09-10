@@ -57,6 +57,23 @@ OCR quality will be measured independently of screen classification. Visible sta
 
 Results will include representative errors, class counts by recording/split, hardware details, sampling settings, and variability across training runs where available. The deployed method will be selected from measured quality and resource use; fine-tuning is not assumed to outperform the baseline.
 
+## Inheritance occurrence scoring
+
+Effect references may explicitly set `include_inheritance_occurrences: true`
+to score source-proven minimum counts for inheritance sparks and inspirations.
+The default preserves one prediction per canonical effect and the existing
+score format. The opt-in mode recomputes occurrence evidence from the report's
+source readings; it does not trust a cached count or change the extraction report.
+
+Only unambiguous, disjoint lines within one source frame establish multiplicity.
+Repeated frames and alternate crops cannot be added together. With
+`first_exact_effect_observation` timing, each additional unit belongs to the
+earliest frame that proves its ordinal, even if the first unit falls in a
+different evaluation window. Event-start timing retains its explicit shared
+event-time convention. Diagnostics retain the source witness and the event's
+minimum count; total activation counts remain unknown. This scores an observed
+lower bound, not complete scrolling coverage or inferred numeric awards.
+
 ## Corrections and dataset versions
 
 User corrections will be stored separately from predictions and reviewed before becoming training labels. Contributing data to model development will require opt-in. Existing test recordings will remain excluded from subsequent training sets used for the same reported comparison.

@@ -4,7 +4,7 @@ The original English Our Grand Concert recording was processed from 00:00 throug
 
 ## Latest regression checks
 
-The latest development reconstruction passes 1,044 automated tests and retains
+The latest development reconstruction passes 1,055 automated tests and retains
 these accounting results from the complete source reparses:
 
 | Recording | Balanced stat intervals | Balanced performance intervals |
@@ -167,6 +167,16 @@ current report matches 31/41 with no timing or evidence errors, leaving ten
 recognition/occurrence misses. The reference remains incomplete and the frozen
 9/41 score remains preserved. This measures agreement under corrected timing,
 not an improvement to recognition or a full-recording accuracy score.
+
+The optional inheritance-occurrence evaluation counts the two simultaneously
+visible Power lines and the two Stamina lines already proved by source readings.
+The same 41-label timing-adjudicated reference then matches 33/41 effects with
+39 predictions. The default score remains 31/41 with 37 predictions, and neither
+the report nor the reference is modified. Each additional unit retains its own
+first multiplicity witness; a later observation cannot be backdated into an
+earlier window. The third Power and Stamina activations remain unmatched because
+the current bound does not track distinct lines cumulatively through scrolling.
+This corrects scoring of existing evidence and leaves complete event recall open.
 
 A 24-frame native probe around the brief 662800–663200 ms friendship receipt
 retains conflicting recipient spellings under animated pink/cyan/yellow trails.
