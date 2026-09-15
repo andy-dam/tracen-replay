@@ -17,19 +17,67 @@ looks like. The design behind the learned readers is in
       run roots hold frames whose reports are preserved elsewhere). Done: the
       handoff lists what was removed and what stays as the acceptance record.
 
-## 2. Product gaps the end-to-end run showed
+## 2. Gaps the six end-to-end reports show
 
-- [ ] A race-day turn's opening is carried from the previous turn's entries
-      and shown as an estimate. Read the Full Stats panel when the player
-      opens it on that screen, so the turn gets a real observation. Done: a
-      recording where Full Stats was opened on a race day shows an observed
-      opening, not an estimate.
+Read from the latest report of each recording in the acceptance account
+(four recorders, six careers). Across them 33 turns ask for a review; the
+first four items below account for 31 of those. Ordered by how much
+reviewer work each removes.
+
+- [ ] **Performance points earned by training are not read.** A training
+      result shows the performance stat it raised beside the five stat
+      badges; the report reads the five and leaves the sixth, so the turn
+      ends with one unexplained performance change of training size (16 of
+      the 33 turns). Done: a training turn whose result raised a
+      performance stat balances on that field without a correction.
+- [ ] **Purchases are not always debited.** Skill purchases and lesson
+      purchases sometimes leave the points they cost unexplained (a negative
+      gap the size of the price) because the purchased list was cut off or
+      the price was never on screen. Done: a purchase turn whose price was
+      shown balances; one whose price was never shown says so on the entry
+      rather than as an unexplained change.
+- [ ] **The digits at the end of an award receipt are not read.** "Skill
+      Pts went up by", "Stamina went up by", "Power cap went up by": the
+      line is recognized and its number is missing, so the award becomes an
+      unparsed receipt and the field an unexplained change. This is the
+      first target of the learned readers below. Done: award receipts with
+      a visible number are counted; the unparsed count per career drops
+      below ten.
+- [ ] **Stat badges partly unread on some training turns.** One or two of
+      the five badges on a training result are missed or misread, leaving
+      a small stat gap on a turn whose training was committed. Done: the
+      dataset builder below reports these as hard cases, and the badge
+      reader closes them.
+- [ ] **Receipts that need no review are listed for review.** Friendship
+      lines and "joined your club" lines are out of scope; "Learned the
+      song" duplicates the song entry; one receipt captured as many OCR
+      fragments becomes many entries. Done: out-of-scope receipts are kept
+      but not flagged, duplicates fold into the entry they repeat, and
+      fragments of one receipt become one entry.
+- [ ] **A training result without a committed action.** When the training
+      commit was not seen but the result screen was, the turn says "no
+      action seen" although the training happened. Done: the ledger takes
+      the result as the turn's action and says the commit was not seen.
+- [ ] **Race-day and finale openings are estimates.** A race-day turn's
+      opening is carried from the previous turn's entries. Read the Full
+      Stats panel when the player opens it on that screen, so the turn gets
+      a real observation. Where the recorder never opens it, the estimate is
+      the right answer. Done: a recording where Full Stats was opened on a
+      race day shows an observed opening, not an estimate.
+- [ ] **Ambiguous effects.** Circle base variants, recipient identity and
+      inheritance spark identity are the three reasons left. Done: each has
+      a rule or is presented with the two candidates to choose from.
+- [ ] **Entries before the first turn.** The inheritance and initial hints
+      before the career starts are listed as "outside every observed turn".
+      Done: the check screen calls them what they are.
 - [ ] A report keeps the ledger of the analyzer that made it. Show the
       analyzer version on the report page and offer "Analyze again" when the
       installed analyzer is newer. Done: an old report says so and the button
       is one click.
 - [x] The dashboard tile says "queued or running" for the analyses it
       counts.
+- [x] The runs page shows one row per recording, with earlier analyses of
+      the same recording kept under it rather than as rows of their own.
 - [ ] Re-assemble a finished report without a new OCR pass when the working
       data was kept (`-keep-working-data`), so a parser change refreshes old
       reports in minutes. Done: a job option that runs the analyzer's
