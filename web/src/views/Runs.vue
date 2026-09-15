@@ -191,7 +191,7 @@ function hideBroken(e: Event) {
   <div v-if="reports.length" class="dash">
     <div class="dash-tiles">
       <div class="dash-tile"><b>{{ dashboard.runs }}</b><span>career{{ dashboard.runs === 1 ? "" : "s" }} analyzed · {{ dashboard.turns }} turns</span></div>
-      <div class="dash-tile"><b>{{ dashboard.minutes }}<small>min</small></b><span>of recording read{{ dashboard.active ? `, ${dashboard.active} analysis running` : "" }}</span></div>
+      <div class="dash-tile"><b>{{ dashboard.minutes }}<small>min</small></b><span>of recording read{{ dashboard.active ? `, ${dashboard.active} ${dashboard.active === 1 ? "analysis" : "analyses"} queued or running` : "" }}</span></div>
       <div class="dash-tile up"><b>{{ dashboard.pct }}<small>%</small></b><span>of stat changes fully explained</span><div class="bar"><i :style="{ width: dashboard.pct + '%' }"></i></div></div>
       <div class="dash-tile" :class="{ warn: dashboard.toCheck }"><b>{{ dashboard.toCheck }}</b><span>turn{{ dashboard.toCheck === 1 ? "" : "s" }} waiting for your review</span></div>
     </div>
