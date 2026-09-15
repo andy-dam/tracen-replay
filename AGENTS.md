@@ -1,5 +1,11 @@
 # Repository instructions
 
+## Agent coordination
+
+- Use the internal collaboration tools for subagent assignments, progress updates, and results within the current task.
+- Do not use the Codex app's `send_message_to_thread` tool for subagent-to-parent updates. It creates a user-visible task message and can trigger a separate model request.
+- When explicitly setting a model's reasoning effort, use a value supported by that exact model. Do not send `minimal` for `gpt-6-astra`.
+
 ## Commits
 
 - All commits must use Conventional Commits: `<type>[optional scope][!]: <description>`.
