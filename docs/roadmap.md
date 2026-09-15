@@ -1,5 +1,9 @@
 # Roadmap
 
+The ordered list of concrete next steps, with what "done" means for each,
+is [TODO.md](../TODO.md) at the repository root; this page is the longer
+horizon.
+
 ## 1. Release 0.1.0 of the local application
 
 An end-to-end acceptance run: a recording uploaded through the client,

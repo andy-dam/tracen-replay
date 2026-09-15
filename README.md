@@ -64,7 +64,7 @@ absent.
 - [Analysis job](docs/analysis-job.md): the process contract between the service and the analyzer.
 - [Evaluation](docs/evaluation.md): how the analyzer is validated, and the plan for learned readers.
 - [OCR performance](docs/ocr-performance.md): sampling rates, worker pools and device selection.
-- [Roadmap](docs/roadmap.md) and [hosting later](docs/deployment.md).
+- [To do](TODO.md), the [roadmap](docs/roadmap.md) and [hosting later](docs/deployment.md).
 
 Repository conventions for contributors and coding agents are in
 [AGENTS.md](AGENTS.md).
