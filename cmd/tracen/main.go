@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -24,7 +23,6 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/runner"
-	"github.com/andy-dam/tracen-replay/internal/sources"
 	"github.com/andy-dam/tracen-replay/internal/store"
 	"github.com/andy-dam/tracen-replay/internal/webassets"
 )
@@ -53,7 +51,6 @@ func defaultPython() string {
 func run() error {
 	addr := flag.String("addr", "127.0.0.1:8765", "listen address (loopback only)")
 	dataDir := flag.String("data", filepath.Join(".local", "tracen-data"), "directory for the database, job outputs and frame cache")
-	sourcesDir := flag.String("sources", "", "folder with the recordings the browser may choose from (required)")
 	python := flag.String("python", defaultPython(), "python interpreter with the analyzer dependencies")
 	workDir := flag.String("workdir", "analyzer", "directory containing the tracen_replay package")
 	modelDir := flag.String("model-dir", filepath.Join(".local", "models", "rapidocr"), "OCR model directory")
@@ -64,17 +61,10 @@ func run() error {
 	ocrDevice := flag.String("ocr-device", "auto", "OCR device for the analyzer: auto (DirectML, then CUDA, then CPU), cpu, dml or cuda")
 	keepWorkingData := flag.Bool("keep-working-data", false, "keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); by default only the report, timeline, viewer page and log are kept")
 	flag.Parse()
-	if *sourcesDir == "" {
-		return errors.New("-sources is required")
-	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
 
 	if err := os.MkdirAll(*dataDir, 0o755); err != nil {
-		return err
-	}
-	folder, err := sources.NewFolder(*sourcesDir)
-	if err != nil {
 		return err
 	}
 	db, err := store.Open(filepath.Join(*dataDir, "tracen.db"))
@@ -88,7 +78,7 @@ func run() error {
 	}
 	manager, err := jobs.NewManager(jobs.Config{DataDir: *dataDir, Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
-		Recordings: db, Logger: logger}, db, runner.Exec{Logger: logger}, folder)
+		Recordings: db, Logger: logger}, db, runner.Exec{Logger: logger})
 	if err != nil {
 		return err
 	}
@@ -124,18 +114,17 @@ func run() error {
 				_, err := os.Stat(filepath.Join(workDirAbs, "tracen_replay", "analysis_job.py"))
 				return err
 			}),
-			check("sources", folder.Root(), func() error { _, err := folder.List(); return err }),
 			{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"},
 		}
 	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
-		Sources: folder, Ready: ready, Logger: logger,
+		Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
 		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, Static: webassets.Handler()})
 	server := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.ListenAndServe() }()
-	logger.Info("tracen listening", "addr", "http://"+*addr, "sources", folder.Root(), "data", *dataDir)
+	logger.Info("tracen listening", "addr", "http://"+*addr, "data", *dataDir)
 
 	select {
 	case err := <-serveErr:

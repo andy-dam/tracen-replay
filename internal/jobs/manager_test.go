@@ -24,22 +24,14 @@ const miniTimeline = `{"schema_version":"tracen-replay/timeline-v1","report_sche
 "entries":[{"id":"entry-0001","kind":"outcome","turn_id":"turn-001","first_seen_ms":1,"last_seen_ms":2}],
 "summary":{"field_status_counts":{},"action_statuses":{},"observed_turn_windows":1,"entry_counts":{"outcome":1},"stage_failures":[]}}`
 
-// fakeSources serves one temporary recording.
-type fakeSources struct{ path string }
+// oneUpload serves one temporary recording as user u1's upload "src-1".
+type oneUpload struct{ path string }
 
-func (f fakeSources) List() ([]jobs.Source, error) {
-	return sourceList(f), nil
-}
-
-func sourceList(f fakeSources) []jobs.Source {
-	return []jobs.Source{{ID: "src-1", Name: filepath.Base(f.path), Path: f.path, Size: 4}}
-}
-
-func (f fakeSources) Resolve(id string) (jobs.Source, error) {
+func (f oneUpload) GetRecording(ctx context.Context, id string) (jobs.Recording, error) {
 	if id != "src-1" {
-		return jobs.Source{}, &jobs.NotFoundError{Kind: "source", ID: id}
+		return jobs.Recording{}, &jobs.NotFoundError{Kind: "recording", ID: id}
 	}
-	return sourceList(f)[0], nil
+	return jobs.Recording{ID: "src-1", UserID: "u1", Name: filepath.Base(f.path), Path: f.path, Size: 4}, nil
 }
 
 // scriptedRunner behaves like the worker as far as the manager can see.
@@ -100,7 +92,7 @@ func newHarness(t *testing.T, queueLimit int) *harness {
 		t.Fatal(err)
 	}
 	runner := &scriptedRunner{started: make(chan string, 8)}
-	manager, err := jobs.NewManager(jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 2, QueueLimit: queueLimit}, st, runner, fakeSources{path: recording})
+	manager, err := jobs.NewManager(jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 2, QueueLimit: queueLimit, Recordings: oneUpload{path: recording}}, st, runner)
 	if err != nil {
 		t.Fatal(err)
 	}

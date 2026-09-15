@@ -39,8 +39,7 @@ type Config struct {
 	// inputs in the job directory (about 1 GB per analysis). By default only
 	// the report, the timeline, the viewer page and the log are kept.
 	KeepWorkingData bool
-	// Recordings resolves uploaded recordings by id; nil means only the
-	// sources folder can be analyzed.
+	// Recordings resolves the uploaded recordings a job may analyze.
 	Recordings Recordings
 	// Clock and NewID are replaceable for tests.
 	Clock func() time.Time
@@ -70,12 +69,11 @@ func (e *TransitionError) Error() string {
 
 // Manager runs one analyzer job at a time from a durable queue.
 type Manager struct {
-	cfg     Config
-	store   Store
-	runner  Runner
-	sources Sources
-	hub     *Hub
-	log     *slog.Logger
+	cfg    Config
+	store  Store
+	runner Runner
+	hub    *Hub
+	log    *slog.Logger
 
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
@@ -85,10 +83,10 @@ type Manager struct {
 
 // NewManager validates the configuration and prepares the manager. Call
 // Recover before Run when the service starts.
-func NewManager(cfg Config, store Store, runner Runner, sources Sources) (*Manager, error) {
+func NewManager(cfg Config, store Store, runner Runner) (*Manager, error) {
 	switch {
-	case store == nil || runner == nil || sources == nil:
-		return nil, errors.New("jobs: store, runner and sources are required")
+	case store == nil || runner == nil || cfg.Recordings == nil:
+		return nil, errors.New("jobs: store, runner and recordings are required")
 	case cfg.DataDir == "" || cfg.Python == "" || cfg.WorkDir == "":
 		return nil, errors.New("jobs: data directory, python and working directory are required")
 	case cfg.Workers < 1:
@@ -105,7 +103,7 @@ func NewManager(cfg Config, store Store, runner Runner, sources Sources) (*Manag
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
-	return &Manager{cfg: cfg, store: store, runner: runner, sources: sources, hub: NewHub(), log: cfg.Logger,
+	return &Manager{cfg: cfg, store: store, runner: runner, hub: NewHub(), log: cfg.Logger,
 		cancels: map[string]context.CancelFunc{}, done: map[string]chan struct{}{}, wake: make(chan struct{}, 1)}, nil
 }
 
@@ -138,8 +136,8 @@ func (m *Manager) Recover(ctx context.Context) ([]Job, error) {
 	return interrupted, err
 }
 
-// Submit queues an analysis for a user. The source is a server-issued id:
-// a recording of the sources folder, or an upload that belongs to the user.
+// Submit queues an analysis for a user. The source is the server-issued id
+// of an upload that belongs to the user.
 func (m *Manager) Submit(ctx context.Context, userID, sourceID string) (Job, error) {
 	source, err := m.resolve(ctx, userID, sourceID)
 	if err != nil {
@@ -172,17 +170,9 @@ func (m *Manager) Submit(ctx context.Context, userID, sourceID string) (Job, err
 	return job, nil
 }
 
-// resolve finds the recording behind a source id: the sources folder first,
-// then the user's own uploads. Another user's upload is not found.
+// resolve finds the recording behind a source id among the user's own
+// uploads. Another user's upload is not found.
 func (m *Manager) resolve(ctx context.Context, userID, sourceID string) (Source, error) {
-	source, err := m.sources.Resolve(sourceID)
-	if err == nil {
-		return source, nil
-	}
-	var nf *NotFoundError
-	if !errors.As(err, &nf) || m.cfg.Recordings == nil {
-		return Source{}, err
-	}
 	recording, rerr := m.cfg.Recordings.GetRecording(ctx, sourceID)
 	if rerr != nil || recording.UserID != userID {
 		return Source{}, &NotFoundError{Kind: "source", ID: sourceID}

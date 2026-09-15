@@ -93,16 +93,6 @@ func (f fakeReports) GetReport(ctx context.Context, id string) (jobs.Report, err
 	return r, nil
 }
 
-type fakeSources struct{}
-
-func (fakeSources) List() ([]jobs.Source, error) {
-	return []jobs.Source{{ID: "src-1", Name: "clip.mp4", Path: "x", Size: 1}}, nil
-}
-
-func (fakeSources) Resolve(id string) (jobs.Source, error) {
-	return jobs.Source{ID: "src-1", Name: "clip.mp4", Path: "x"}, nil
-}
-
 func fixtureReport(t *testing.T) jobs.Report {
 	t.Helper()
 	root := t.TempDir()
@@ -125,7 +115,7 @@ func newServer(t *testing.T) (*Server, *fakeJobs) {
 	t.Helper()
 	fj := &fakeJobs{jobs: map[string]jobs.Job{}, hub: jobs.NewHub()}
 	report := fixtureReport(t)
-	srv := New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}}, Sources: fakeSources{},
+	srv := New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}},
 		Ready: func() []Check { return []Check{{Name: "python", OK: true}} }})
 	return srv, fj
 }
@@ -167,8 +157,8 @@ func TestHealthReadyAndHostChecks(t *testing.T) {
 
 func TestJobsEndpoints(t *testing.T) {
 	srv, fj := newServer(t)
-	if code, body := do(t, srv, "GET", "/api/sources", ""); code != 200 || len(body["sources"].([]any)) != 1 {
-		t.Fatalf("sources %d %v", code, body)
+	if code, _ := do(t, srv, "GET", "/api/sources", ""); code != 404 {
+		t.Fatalf("the shared-folder listing is gone from the API, got %d", code)
 	}
 	if code, _ := do(t, srv, "POST", "/api/jobs", `{"source_id":"nope"}`); code != 404 {
 		t.Fatalf("unknown source %d", code)

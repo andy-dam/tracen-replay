@@ -74,7 +74,6 @@ type Config struct {
 	Recordings Recordings
 	// Corrections stores what viewers fill in per turn; nil disables the feature.
 	Corrections Corrections
-	Sources     jobs.Sources
 	Frames      artifacts.Frames
 	// Auth gates every /api route; nil (tests) serves an anonymous user.
 	Auth Auth
@@ -129,7 +128,6 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/auth/login", s.login)
 	m.HandleFunc("POST /api/auth/logout", s.logout)
 	m.HandleFunc("GET /api/auth/me", s.me)
-	m.HandleFunc("GET /api/sources", s.listSources)
 	m.HandleFunc("GET /api/recordings", s.listRecordings)
 	m.HandleFunc("POST /api/recordings", s.uploadRecording)
 	m.HandleFunc("DELETE /api/recordings/{id}", s.deleteRecording)
@@ -365,19 +363,7 @@ func clientAddress(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-// ---- sources, uploads ----
-
-func (s *Server) listSources(w http.ResponseWriter, r *http.Request) {
-	list, err := s.cfg.Sources.List()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "sources_unavailable", err.Error())
-		return
-	}
-	if list == nil {
-		list = []jobs.Source{}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"sources": list})
-}
+// ---- uploads ----
 
 func (s *Server) noRecordings(w http.ResponseWriter) bool {
 	if s.cfg.Recordings == nil || s.cfg.RecordingsDir == "" {

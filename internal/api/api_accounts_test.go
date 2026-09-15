@@ -147,7 +147,7 @@ func newAccountServer(t *testing.T) (*Server, *memoryRecordings, string) {
 	report := fixtureReport(t)
 	recs := &memoryRecordings{recs: map[string]jobs.Recording{}}
 	dir := t.TempDir()
-	srv := New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}}, Sources: fakeSources{},
+	srv := New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}},
 		Auth: auth.New(newMemoryAuth()), Recordings: recs, RecordingsDir: dir, UploadLimit: 1 << 20,
 		Ready: func() []Check { return []Check{{Name: "python", OK: true}} }})
 	return srv, recs, dir
@@ -198,7 +198,7 @@ func register(t *testing.T, srv http.Handler, email string) string {
 
 func TestApiRoutesRequireASession(t *testing.T) {
 	srv, _, _ := newAccountServer(t)
-	for _, path := range []string{"/api/jobs", "/api/reports", "/api/sources", "/api/recordings", "/api/reports/rep-1/summary"} {
+	for _, path := range []string{"/api/jobs", "/api/reports", "/api/recordings", "/api/reports/rep-1/summary"} {
 		if rec := call(t, srv, "GET", path, nil, "", ""); rec.Code != http.StatusUnauthorized {
 			t.Fatalf("%s without a session: %d", path, rec.Code)
 		}

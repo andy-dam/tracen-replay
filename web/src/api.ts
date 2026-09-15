@@ -9,12 +9,6 @@ export interface User {
   created_at: string;
 }
 
-export interface Source {
-  id: string;
-  name: string;
-  size: number;
-}
-
 export interface Recording {
   id: string;
   user_id: string;
@@ -266,7 +260,6 @@ export const api = {
   register: (email: string, password: string, display_name: string) =>
     request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }).then((r) => r.user),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
-  sources: () => request<{ sources: Source[] }>("/api/sources").then((r) => r.sources),
   recordings: () => request<{ recordings: Recording[] }>("/api/recordings").then((r) => r.recordings),
   deleteRecording: (id: string) => request<void>(`/api/recordings/${enc(id)}`, { method: "DELETE" }),
   jobs: () => request<{ jobs: Job[] }>("/api/jobs").then((r) => r.jobs),

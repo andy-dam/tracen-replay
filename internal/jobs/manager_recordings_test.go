@@ -13,13 +13,6 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/worker"
 )
 
-type noSources struct{}
-
-func (noSources) List() ([]jobs.Source, error) { return nil, nil }
-func (noSources) Resolve(id string) (jobs.Source, error) {
-	return jobs.Source{}, &jobs.NotFoundError{Kind: "source", ID: id}
-}
-
 type idleRunner struct{}
 
 func (idleRunner) Run(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
@@ -49,7 +42,7 @@ func TestSubmitResolvesOnlyTheUsersOwnUpload(t *testing.T) {
 	recording := filepath.Join(dir, "clip.mp4")
 	os.WriteFile(recording, []byte("x"), 0o644)
 	recs := recordingsOf{recs: map[string]jobs.Recording{"up-1": {ID: "up-1", UserID: "andy", Name: "clip.mp4", Path: recording, Size: 1}}}
-	manager, err := jobs.NewManager(jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 1, QueueLimit: 2, Recordings: recs}, st, idleRunner{}, noSources{})
+	manager, err := jobs.NewManager(jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 1, QueueLimit: 2, Recordings: recs}, st, idleRunner{})
 	if err != nil {
 		t.Fatal(err)
 	}

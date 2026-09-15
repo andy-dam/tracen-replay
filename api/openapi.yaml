@@ -17,24 +17,17 @@ paths:
         "200": {description: alive}
   /readyz:
     get:
-      summary: Readiness probes (python, ffmpeg, models, analyzer, sources)
+      summary: Readiness probes (python, ffmpeg, models, analyzer, ocr-device)
       responses:
         "200": {description: ready, content: {application/json: {schema: {$ref: "#/components/schemas/Readiness"}}}}
         "503": {description: not ready, content: {application/json: {schema: {$ref: "#/components/schemas/Readiness"}}}}
-  /api/sources:
-    get:
-      summary: Recordings the service may analyze, with server-issued ids
-      responses:
-        "200":
-          description: sources
-          content: {application/json: {schema: {type: object, properties: {sources: {type: array, items: {$ref: "#/components/schemas/Source"}}}}}}
   /api/jobs:
     get:
       summary: Every job, newest first
       responses:
         "200": {description: jobs, content: {application/json: {schema: {type: object, properties: {jobs: {type: array, items: {$ref: "#/components/schemas/Job"}}}}}}}
     post:
-      summary: Queue an analysis of a source
+      summary: Queue an analysis of one of the caller's uploaded recordings (its server-issued id)
       requestBody:
         required: true
         content: {application/json: {schema: {type: object, required: [source_id], properties: {source_id: {type: string}}}}}
@@ -167,9 +160,6 @@ components:
       properties:
         ready: {type: boolean}
         checks: {type: array, items: {type: object, properties: {name: {type: string}, ok: {type: boolean}, note: {type: string}}}}
-    Source:
-      type: object
-      properties: {id: {type: string}, name: {type: string}, size: {type: integer}}
     Job:
       type: object
       description: One analysis attempt. Status values: queued, running, succeeded, completed_with_stage_failures, failed, cancelled, interrupted.

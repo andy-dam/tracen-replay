@@ -45,7 +45,7 @@ func newCorrectionServer(t *testing.T) *Server {
 	t.Helper()
 	fj := &fakeJobs{jobs: map[string]jobs.Job{}, hub: jobs.NewHub()}
 	report := fixtureReport(t)
-	return New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}}, Sources: fakeSources{},
+	return New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}},
 		Corrections: &fakeCorrections{rows: map[string]timeline.Correction{}},
 		Ready:       func() []Check { return []Check{{Name: "python", OK: true}} }})
 }

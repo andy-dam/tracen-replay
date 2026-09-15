@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { api, ApiError, type Job, type Recording, type Report, type Source } from "../api";
+import { api, ApiError, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, elapsed, when } from "../format";
 import UploadBox from "../components/UploadBox.vue";
 
@@ -9,18 +9,16 @@ import UploadBox from "../components/UploadBox.vue";
 const reports = ref<Report[]>([]);
 const jobs = ref<Job[]>([]);
 const recordings = ref<Recording[]>([]);
-const sources = ref<Source[]>([]);
 const error = ref("");
 const busy = ref("");
 let timer: number | undefined;
 
 async function load() {
   try {
-    const [r, j, u, s] = await Promise.all([api.reports(), api.jobs(), api.recordings().catch(() => []), api.sources().catch(() => [])]);
+    const [r, j, u] = await Promise.all([api.reports(), api.jobs(), api.recordings().catch(() => [])]);
     reports.value = r;
     jobs.value = j;
     recordings.value = u;
-    sources.value = s;
     error.value = "";
   } catch (e) {
     error.value = (e as Error).message;
@@ -66,7 +64,7 @@ onUnmounted(() => window.clearInterval(timer));
 
 interface Run {
   key: string;
-  kind: "upload" | "shared" | "imported";
+  kind: "upload" | "imported";
   name: string;
   date: string;
   size: number | null;
@@ -90,12 +88,6 @@ const runs = computed<Run[]>(() => {
     if (report) used.add(report.id);
     out.push({ key: "u:" + u.id, kind: "upload", name: u.name, date: u.created_at, size: u.size, sourceId: u.id, recording: u, job, report, thumb: report ? api.frameUrl(report.id, 30000) : api.recordingFrameUrl(u.id, 30000) });
   }
-  for (const s of sources.value) {
-    const job = latestJob(s.id);
-    const report = reportOf(job);
-    if (report) used.add(report.id);
-    out.push({ key: "s:" + s.id, kind: "shared", name: s.name, date: job?.created_at ?? "", size: s.size, sourceId: s.id, recording: null, job, report, thumb: report ? api.frameUrl(report.id, 30000) : "" });
-  }
   for (const r of reports.value) {
     if (used.has(r.id)) continue;
     out.push({ key: "r:" + r.id, kind: "imported", name: r.source_name, date: r.created_at, size: null, sourceId: "", recording: null, job: null, report: r, thumb: api.frameUrl(r.id, 30000) });
@@ -112,7 +104,7 @@ function status(run: Run): { text: string; cls: string } {
   if (run.job?.status === "failed") return { text: "Analysis failed", cls: "bad" };
   if (run.job?.status === "interrupted") return { text: "Analysis interrupted", cls: "bad" };
   if (run.job?.status === "cancelled") return { text: "Analysis cancelled", cls: "" };
-  return { text: run.kind === "shared" ? "In the shared folder" : "Uploaded", cls: "" };
+  return { text: "Uploaded", cls: "" };
 }
 
 function meta(run: Run): string[] {
@@ -150,8 +142,7 @@ function hideBroken(e: Event) {
         <div class="run-name">
           <a v-if="run.report" :href="`#/reports/${encodeURIComponent(run.report.id)}`">{{ run.name }}</a>
           <span v-else>{{ run.name }}</span>
-          <span v-if="run.kind === 'shared'" class="tag grey">shared folder</span>
-          <span v-else-if="run.kind === 'imported'" class="tag grey">imported</span>
+          <span v-if="run.kind === 'imported'" class="tag grey">imported</span>
         </div>
         <div class="muted small">{{ meta(run).join(" · ") }}</div>
       </div>
