@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Mapping
+from fractions import Fraction
 
 
 FULL_RECORDING_SCHEMA = "tracen-replay/full-recording-v1"
@@ -123,9 +124,10 @@ def _validate_clip(report, source_duration):
                         "report.clip.duration_ms", minimum=1)
     if start + duration > source_duration:
         _error("report.clip", "source interval exceeds report.source.duration_ms")
+    return start, duration
 
 
-def _validate_frames(report, source_duration):
+def _validate_frames(report, source_duration, clip_start, clip_duration):
     sampling = _object(_required(report, "sampling", "report"), "report.sampling")
     _number(_required(sampling, "requested_fps", "report.sampling"),
             "report.sampling.requested_fps", positive=True)
@@ -144,6 +146,7 @@ def _validate_frames(report, source_duration):
     ids = set()
     evidence = set()
     previous_timestamp = None
+    previous_clip_timestamp = None
     for index, frame in enumerate(frames):
         path = f"report.frames[{index}]"
         frame_id = _text(_required(frame, "id", path), f"{path}.id")
@@ -158,16 +161,36 @@ def _validate_frames(report, source_duration):
                              f"{path}.source_timestamp_ms", minimum=0)
         if timestamp > source_duration:
             _error(f"{path}.source_timestamp_ms", "exceeds source duration")
+        if not clip_start <= timestamp <= clip_start + clip_duration:
+            _error(f"{path}.source_timestamp_ms", "falls outside the report clip")
         if previous_timestamp is not None and timestamp <= previous_timestamp:
             _error(f"{path}.source_timestamp_ms", "must be strictly increasing")
         previous_timestamp = timestamp
-        _integer(_required(frame, "clip_timestamp_ms", path),
-                 f"{path}.clip_timestamp_ms", minimum=0)
-        _integer(_required(frame, "source_pts", path), f"{path}.source_pts")
+        clip_timestamp = _integer(_required(frame, "clip_timestamp_ms", path),
+                                  f"{path}.clip_timestamp_ms", minimum=0)
+        if clip_timestamp > clip_duration:
+            _error(f"{path}.clip_timestamp_ms", "exceeds report.clip.duration_ms")
+        if (previous_clip_timestamp is not None
+                and clip_timestamp <= previous_clip_timestamp):
+            _error(f"{path}.clip_timestamp_ms", "must be strictly increasing")
+        previous_clip_timestamp = clip_timestamp
+        expected_clip_timestamp = timestamp - clip_start
+        if abs(clip_timestamp - expected_clip_timestamp) > 1:
+            _error(f"{path}.clip_timestamp_ms", "does not match source_timestamp_ms and report.clip.source_start_ms")
+        source_pts = _integer(_required(frame, "source_pts", path), f"{path}.source_pts")
         time_base = _text(_required(frame, "time_base", path), f"{path}.time_base")
         match = _TIME_BASE.fullmatch(time_base)
         if not match or int(match[1]) <= 0 or int(match[2]) <= 0:
             _error(f"{path}.time_base", "must be a positive rational such as '1/60'")
+        try:
+            decoded_timestamp = round(
+                (float(source_pts * Fraction(int(match[1]), int(match[2])))
+                 - report["source"]["timeline_origin_seconds"]) * 1000
+            )
+        except (OverflowError, ValueError):
+            _error(f"{path}.source_pts", "does not map to source_timestamp_ms")
+        if abs(decoded_timestamp - timestamp) > 1:
+            _error(f"{path}.source_pts", "does not map to source_timestamp_ms")
 
 
 def _validate_recognition(report):
@@ -240,24 +263,66 @@ def _validate_gameplay(report, *, required):
                 "report.gameplay_tracking.owned_skill_inventory.unresolved")
 
 
-def validate(report, *, require_gameplay=False):
+def validate(report, *, require_gameplay=False, source_root=None):
     """Validate and return a full-recording report without changing its values.
 
     The default validates the persisted capture envelope. ``require_gameplay``
     additionally requires the analyzed gameplay section used by the report
-    viewer. The function intentionally accepts null/unknown semantic fields.
+    viewer. ``source_root`` is the immutable worker/cache root used to verify
+    persisted source-bound preview recovery; when omitted, a declared
+    ``evaluation_context.evidence_root`` is used if present. The function
+    intentionally accepts null/unknown semantic fields.
     """
     report = _object(report, "report")
     schema = _required(report, "schema_version", "report")
     if schema != FULL_RECORDING_SCHEMA:
         _error("report.schema_version", f"unsupported value {schema!r}")
     source_duration = _validate_source(report)
-    _validate_clip(report, source_duration)
-    _validate_frames(report, source_duration)
+    clip_start, clip_duration = _validate_clip(report, source_duration)
+    _validate_frames(report, source_duration, clip_start, clip_duration)
     _object_array(_required(report, "observations", "report"), "report.observations")
     _text_array(_required(report, "limitations", "report"), "report.limitations")
     _validate_recognition(report)
     _validate_gameplay(report, required=require_gameplay)
+    gameplay = report.get('gameplay_tracking')
+    if source_root is None:
+        context = report.get('evaluation_context')
+        if isinstance(context, Mapping):
+            source_root = context.get('evidence_root')
+    if isinstance(gameplay, dict) and 'skill_menu_observations' in gameplay:
+        from .skill_menu_observations import build_observations as build_skill_menus
+        try:
+            expected_skill_menus = build_skill_menus(gameplay.get('readings', []))
+        except (ValueError, TypeError, KeyError) as exc:
+            _error('report.gameplay_tracking.skill_menu_observations', f'cannot project source skill menus: {exc}')
+        if gameplay['skill_menu_observations'] != expected_skill_menus:
+            _error('report.gameplay_tracking.skill_menu_observations', 'does not match the source skill menus')
+    if isinstance(gameplay, dict) and 'preview_observations' in gameplay:
+        from .preview_observations import build_preview_observations
+        try:
+            expected_previews = build_preview_observations(
+                gameplay.get('readings', []), source_root=source_root
+            )
+        except (ValueError, TypeError, KeyError) as exc:
+            _error('report.gameplay_tracking.preview_observations', f'cannot project source readings: {exc}')
+        if gameplay['preview_observations'] != expected_previews:
+            _error('report.gameplay_tracking.preview_observations', 'does not match the source preview facts')
+    if isinstance(gameplay, dict) and 'status_observations' in gameplay:
+        from .status_badges import build_observations
+        try:
+            expected_statuses = build_observations(gameplay.get('readings', []))
+        except (ValueError, TypeError, KeyError) as exc:
+            _error('report.gameplay_tracking.status_observations', f'cannot project source readings: {exc}')
+        if gameplay['status_observations'] != expected_statuses:
+            _error('report.gameplay_tracking.status_observations', 'does not match the source status badges')
+    if isinstance(gameplay, dict) and 'state_observations' in gameplay:
+        from .source_state_observations import build_observations
+        try:
+            expected_states = build_observations(gameplay.get('readings', []))
+        except (ValueError, TypeError, KeyError) as exc:
+            _error('report.gameplay_tracking.state_observations', f'cannot project source readings: {exc}')
+        if gameplay['state_observations'] != expected_states:
+            _error('report.gameplay_tracking.state_observations', 'does not match the source state readings')
     for key in ("verification", "evidence_integrity_snapshot"):
         if key in report and report[key] is not None:
             _object(report[key], f"report.{key}")
@@ -269,4 +334,23 @@ def validate(report, *, require_gameplay=False):
             _error('report.turn_ledger', f'cannot project core report records: {exc}')
         if report['turn_ledger'] != expected:
             _error('report.turn_ledger', 'does not match the source report collections')
+    if 'causal_accounting' in report:
+        from .causal_accounting import build as build_causal_accounting
+        actual = _object(report['causal_accounting'], 'report.causal_accounting')
+        try:
+            expected = build_causal_accounting(report)
+        except (ValueError, KeyError, TypeError, AttributeError, IndexError) as exc:
+            _error('report.causal_accounting', f'cannot project core report records: {exc}')
+        transitions = _array(actual.get('turn_transitions'), 'report.causal_accounting.turn_transitions')
+        # These additive v1 fields were absent from historical reports. Check
+        # them when supplied while preserving readability of the frozen baseline.
+        if 'terminal_observations' not in actual:
+            expected.pop('terminal_observations')
+        for supplied, projected in zip(transitions, expected['turn_transitions']):
+            _object(supplied, 'report.causal_accounting.turn_transitions[]')
+            for key in ('transition_kind', 'endpoint_availability', 'terminal_observation'):
+                if key not in supplied:
+                    projected.pop(key)
+        if actual != expected:
+            _error('report.causal_accounting', 'does not match the source report collections')
     return report

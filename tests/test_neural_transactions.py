@@ -106,3 +106,19 @@ class TransactionTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class ReceiptTitleWhitespaceTests(unittest.TestCase):
+    def test_a_trailing_space_in_the_title_does_not_split_one_receipt(self):
+        from tracen_replay.transactions import outcome_events
+        def frame(t, title, effects):
+            return dict(source_timestamp_ms=t, screen='event_outcome', evidence=f'{t}.png', context_title=title,
+                        facts={}, stats={}, effects=[dict(kind='stat_change', field=f, amount=a) for f, a in effects],
+                        ocr={'neural': []})
+        rows = [frame(211000, 'Some Crafty Research', [('speed', 9)]),
+                frame(211250, 'Some Crafty Research ', [('guts', 9)]),
+                frame(211500, 'Some Crafty Research ', [('speed', 9), ('guts', 9)]),
+                frame(211750, 'Some Crafty Research', [('speed', 9), ('guts', 9)])]
+        events = [e for e in outcome_events(rows) if e.get('kind') == 'outcome']
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]['deltas'], dict(speed=9, guts=9))

@@ -1,12 +1,43 @@
 """Evidence-linked transactions and state transitions; no balancing by invented deltas."""
 from collections import Counter
 from copy import deepcopy
+import math
 import re
+import unicodedata
 from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, screen_summary
 from .skill_chains import cart_bundles,reconcile_skill_chains
 from .receipt_continuity import collapse_cross_event_hint_duplicates
 from .receipt_stat_continuity import collapse_cross_event_stat_duplicates
+from .training_gain_phases import (
+    direct_gain_proof,
+    distinct_gain_observations,
+    resolve_full_component_phase,
+    resolve_source_temporal_phase,
+    source_gain_observations,
+    source_result_projection_proof,
+    source_result_projection_belongs_to_group,
+    is_committed_training_result_row,
+    stable_trailing_result_counter_suffix,
+    stable_trailing_result_suffix,
+)
+from .training_identity import summarize as summarize_training_identity
+from .training_gain_resolution import candidate_recovery_policy
+from .ocr_confidence import confidence_percent
+
+
+_RACE_GRADE_RE = re.compile(r'^(?:DEBUT|G[123]|OP|PRE[- ]?OP|EX)$', re.I)
+
+
+def _normalized_race_grade(value):
+    """Accept only the finite grade vocabulary emitted by result OCR."""
+
+    if not isinstance(value, str):
+        return None
+    value = re.sub(r'\s+', ' ', value.strip()).upper()
+    if value == 'PRE OP':
+        value = 'PRE-OP'
+    return value if _RACE_GRADE_RE.fullmatch(value) else None
 
 
 def skill_point_states(readings,states):
@@ -30,6 +61,271 @@ def skill_point_states(readings,states):
         if eligible:group.append(row)
     finish()
     return sorted(result,key=lambda s:(s['last_seen_ms'],s['first_seen_ms']))
+
+
+def _skill_evidence(value):
+    """Return unique source paths without reducing them to basenames."""
+    if isinstance(value,str): values=[value]
+    elif isinstance(value,(list,tuple)): values=value
+    else: values=[]
+    return list(dict.fromkeys(v.replace('\\','/') for v in values if isinstance(v,str) and v.strip()))
+
+
+def _skill_physical_ids(row):
+    """Return stable source identities for repetition checks.
+
+    A timestamp or copied evidence path alone is not a second observation.
+    Prefer image digests when a reader provides one; otherwise use the
+    normalized source path as the physical identity.
+    """
+    if not isinstance(row,dict):return set()
+    for key in ('source_frame_sha256','source_image_sha256','evidence_sha256'):
+        value=row.get(key)
+        if isinstance(value,str) and value.strip():return {f'{key}:{value.strip()}'}
+    return {f'path:{path}' for path in _skill_evidence(row.get('evidence'))}
+
+
+def _skill_ocr_lines(row):
+    ocr=row.get('ocr') if isinstance(row,dict) else None
+    if isinstance(ocr,dict):
+        lines=ocr.get('neural',ocr.get('lines',[]))
+    else: lines=ocr
+    return lines if isinstance(lines,list) else []
+
+
+def _skill_card_rows(row):
+    facts=row.get('facts') if isinstance(row,dict) else None
+    cards=facts.get('skill_cards',[]) if isinstance(facts,dict) else []
+    return cards if isinstance(cards,list) else []
+
+
+def _receipt_text_candidates(readings,span):
+    """Read exact receipt wording only inside the committed receipt span.
+
+    The first frame in a modal can clip the leading ``Y`` (``our`` versus
+    ``Your``).  These two spellings are retained as observations, while the
+    earliest exact source line is the canonical value.  Other wording is not
+    normalized into a receipt claim.
+    """
+    start,end=span.get('first_seen_ms'),span.get('last_seen_ms')
+    if type(start) is not int or type(end) is not int or start>end:return []
+    pattern=re.compile(r'^(?:our|your)\s+trainee\s+learned\s+new\s+skills!$',re.I)
+    result=[]
+    for row in readings:
+        timestamp=row.get('source_timestamp_ms') if isinstance(row,dict) else None
+        if (row.get('screen')!='skill_receipt' or type(timestamp) is not int
+                or not start<=timestamp<=end):continue
+        for line in _skill_ocr_lines(row):
+            if not isinstance(line,dict) or not isinstance(line.get('text'),str):continue
+            value=' '.join(line['text'].split()).strip()
+            if not pattern.fullmatch(value):continue
+            confidence=line.get('confidence')
+            if type(confidence) not in (int,float) or confidence<90:continue
+            result.append(dict(text=value,confidence=confidence,
+                               source_timestamp_ms=timestamp,
+                               evidence=_skill_evidence(row.get('evidence')),
+                               box=line.get('box')))
+    return result
+
+
+def _post_learn_obtained_provenance(readings,confirmation,span,confirmation_names):
+    """Find obtained inventory cards after the committed receipt.
+
+    The parser's ``obtained_or_selected`` status deliberately does not claim
+    whether a card was selected in a draft cart or already owned.  A card is
+    therefore eligible here only in the bounded inventory context after the
+    receipt span, where its status is retained as an unresolved parser fact.
+    This field describes visible post-learn inventory; it is not an individual
+    charge or a proof that the card was absent before the purchase.
+    """
+    receipt_end=span.get('last_seen_ms')
+    if type(receipt_end) is not int:return []
+    upper=receipt_end+1500
+    grouped={}
+    for row in readings:
+        timestamp=row.get('source_timestamp_ms') if isinstance(row,dict) else None
+        if (row.get('screen')!='skill_selection' or type(timestamp) is not int
+                or not receipt_end<timestamp<=upper):continue
+        evidence=_skill_evidence(row.get('evidence'))
+        for card in _skill_card_rows(row):
+            if not isinstance(card,dict) or card.get('menu_status')!='obtained_or_selected':continue
+            name=card.get('name')
+            if not isinstance(name,str) or not name.strip() or not evidence:continue
+            grouped.setdefault(name.strip(),[]).append(dict(
+                source_timestamp_ms=timestamp,evidence=evidence,
+                physical_ids=_skill_physical_ids(row),
+                name_box=card.get('name_box'),menu_status=card.get('menu_status')))
+    result=[]
+    for name,observations in grouped.items():
+        times={item['source_timestamp_ms'] for item in observations}
+        evidence={path for item in observations for path in item['evidence']}
+        physical_ids={source_id for item in observations for source_id in item['physical_ids']}
+        if not times or not evidence or not physical_ids:continue
+        result.append(dict(name=name,first_seen_ms=min(times),last_seen_ms=max(times),
+                           observation_count=len(observations),
+                           evidence=sorted(evidence),
+                           basis='post_receipt_inventory_obtained_or_selected_card',
+                           observed_menu_status='obtained_or_selected',
+                           ownership_status='post_receipt_inventory_observed',
+                           acquisition_verified=False))
+    return sorted(result,key=lambda item:(item['first_seen_ms'],item['name']))
+
+
+def _partial_price_provenance(readings,confirmation,span,before,allowed_names):
+    """Record committed and pre-commit price visibility separately.
+
+    A status read from the confirmation or receipt belongs to the committed
+    batch.  Card prices read while the selection menu is open are preview
+    evidence, even when they later help identify a selected card.  The latter
+    is kept as provenance without turning a menu offer into a batch price or
+    charge.  An absent OCR price never becomes ``unreadable`` by inference.
+    """
+    confirm_start=confirmation.get('first_seen_ms')
+    receipt_end=span.get('last_seen_ms') if isinstance(span,dict) else None
+    if type(confirm_start) is not int or type(receipt_end) is not int:return None
+    lower=before.get('last_seen_ms') if isinstance(before,dict) else None
+    if type(lower) is not int:lower=confirm_start-15000
+    explicit_committed=[]
+    explicit_precommit=[]
+    valid_statuses={'partially_visible','unreadable','unknown'}
+    for row in readings:
+        timestamp=row.get('source_timestamp_ms') if isinstance(row,dict) else None
+        if type(timestamp) is not int or not lower<timestamp<=receipt_end:continue
+        screen=row.get('screen')
+        if screen not in ('skill_selection','skill_confirmation','skill_receipt'):continue
+        # A committed status must be observed after this batch's confirmation
+        # begins.  The broad transaction span can contain a canceled/previous
+        # confirmation or receipt; accepting it would attach that status to
+        # the current purchase.  Selection rows remain preview-only.
+        if screen == 'skill_selection':
+            if timestamp >= confirm_start:continue
+        elif timestamp < confirm_start:
+            continue
+        facts=row.get('facts')
+        status=facts.get('price_status') if isinstance(facts,dict) else None
+        if status not in valid_statuses:continue
+        item=dict(status=status,source_timestamp_ms=timestamp,
+                  evidence=_skill_evidence(row.get('evidence')))
+        (explicit_precommit if screen == 'skill_selection'
+         else explicit_committed).append(item)
+
+    result={}
+
+    def explicit_record(items):
+        statuses={item['status'] for item in items}
+        if len(statuses)!=1:
+            return None
+        evidence=list(dict.fromkeys(path for item in items for path in item['evidence']))
+        if not evidence:
+            return None
+        return dict(status=next(iter(statuses)),evidence=evidence,
+                    basis='explicit_source_price_status',observed_card_count=0,
+                    observed_timestamps=sorted({item['source_timestamp_ms'] for item in items}))
+
+    committed=explicit_record(explicit_committed) if explicit_committed else None
+    if committed:
+        result['committed']=committed
+
+    # A selection-screen status is scoped to the preview.  Conflicting
+    # explicit statuses stay unresolved and suppress the derived fallback.
+    precommit=explicit_record(explicit_precommit) if explicit_precommit else None
+    if precommit:
+        result['precommit']=precommit
+        return result
+    elif explicit_precommit:
+        return result or None
+
+    allowed={name.strip() for name in allowed_names if isinstance(name,str) and name.strip()}
+    if not allowed:return result or None
+    grouped={}
+    for row in readings:
+        timestamp=row.get('source_timestamp_ms') if isinstance(row,dict) else None
+        if (row.get('screen')!='skill_selection' or type(timestamp) is not int
+                or not lower<timestamp<confirm_start):continue
+        facts=row.get('facts')
+        if not isinstance(facts,dict) or facts.get('item_list_complete') is not False:continue
+        evidence=_skill_evidence(row.get('evidence'))
+        for card in _skill_card_rows(row):
+            if not isinstance(card,dict) or type(card.get('displayed_cost')) is not int:continue
+            cost=card['displayed_cost']
+            if cost<=0:continue
+            name=card.get('name') if isinstance(card.get('name'),str) else None
+            if name is None or name.strip() not in allowed:continue
+            key=(name,cost)
+            grouped.setdefault(key,[]).append(dict(source_timestamp_ms=timestamp,evidence=evidence,
+                                                    physical_ids=_skill_physical_ids(row)))
+    if not grouped:return result or None
+    timestamps={item['source_timestamp_ms'] for rows in grouped.values() for item in rows}
+    evidence_paths={path for rows in grouped.values() for item in rows for path in item['evidence']}
+    physical_ids={source_id for rows in grouped.values() for item in rows for source_id in item['physical_ids']}
+    if len(timestamps)<2 or len(evidence_paths)<2 or len(physical_ids)<2:return result or None
+    evidence=[]
+    for key in sorted(grouped,key=lambda item:(item[0] or '',item[1])):
+        rows=grouped[key]
+        evidence.extend(rows[0]['evidence'])
+        if len(rows)>1:evidence.extend(rows[-1]['evidence'])
+    evidence=list(dict.fromkeys(evidence))
+    result['precommit']=dict(status='partially_visible',evidence=evidence,
+                             basis='visible_skill_card_prices_with_incomplete_item_list',
+                             observed_card_count=len(grouped),
+                             observed_timestamps=sorted(timestamps))
+    return result
+
+
+def _attach_skill_batch_metadata(transaction,readings,confirmation,span,before):
+    """Attach source-bound metadata that the receipt transaction already owns."""
+    names=transaction.get('visible_confirmation_names',[])
+    metadata_evidence=[]
+    if names and transaction.get('purchased_list_complete') is False:
+        evidence=_skill_evidence(confirmation.get('supporting_frames',confirmation.get('evidence')))
+        if evidence:
+            transaction.update(identity_status='ambiguous',
+                               identity_status_evidence=evidence,
+                               identity_status_basis='incomplete_skill_confirmation_list')
+            metadata_evidence.extend(evidence)
+
+    obtained=_post_learn_obtained_provenance(readings,confirmation,span,names)
+    if obtained:
+        transaction['post_learn_obtained_names']=[item['name'] for item in obtained]
+        transaction['post_learn_obtained_name_evidence']={item['name']:item['evidence'] for item in obtained}
+        transaction['post_learn_obtained_name_provenance']=obtained
+        metadata_evidence.extend(path for item in obtained for path in item['evidence'])
+
+    allowed_names=set(names)
+    allowed_names.update(item.get('name') for item in transaction.get('selected_item_candidates',[]))
+    prices=_partial_price_provenance(readings,confirmation,span,before,allowed_names)
+    if prices:
+        committed=prices.get('committed')
+        if committed:
+            transaction['price_status']=committed['status']
+            transaction['price_status_evidence']=committed['evidence']
+            transaction['price_status_basis']=committed['basis']
+            transaction['price_status_observed_card_count']=committed['observed_card_count']
+            transaction['price_status_observed_timestamps']=committed['observed_timestamps']
+            metadata_evidence.extend(committed['evidence'])
+        precommit=prices.get('precommit')
+        if precommit:
+            transaction['precommit_price_visibility'] = dict(
+                phase='preview', status=precommit['status'],
+                evidence=precommit['evidence'], basis=precommit['basis'],
+                observed_card_count=precommit['observed_card_count'],
+                observed_timestamps=precommit['observed_timestamps'])
+            metadata_evidence.extend(precommit['evidence'])
+
+    receipt_texts=_receipt_text_candidates(readings,span)
+    if receipt_texts:
+        receipt_texts=sorted(receipt_texts,key=lambda item:(item['source_timestamp_ms'],-item['confidence'],item['text']))
+        chosen=receipt_texts[0]
+        if chosen['evidence']:
+            transaction['confirmation_text']=chosen['text']
+            transaction['confirmation_text_evidence']=chosen['evidence']
+            transaction['confirmation_text_basis']='skill_receipt_exact_text'
+            transaction['confirmation_text_observations']=receipt_texts
+            transaction['confirmation_text_variants']=list(dict.fromkeys(item['text'] for item in receipt_texts))
+            metadata_evidence.extend(chosen['evidence'])
+
+    if metadata_evidence:
+        transaction['evidence']=list(dict.fromkeys(_skill_evidence(transaction.get('evidence'))+metadata_evidence))
 
 
 def skill_transactions(readings,states):
@@ -70,6 +366,15 @@ def skill_transactions(readings,states):
                 if difference>0:
                     spent=difference;counter_proofs=[cart[-1]['evidence'],post[0]['evidence'],post[-1]['evidence']]
                     basis='receipt_with_matching_cart_and_post_receipt_balance'
+                    # Preserve the same post-receipt observation that already
+                    # supports this debit; consumers must not reconstruct it
+                    # by subtracting the charge from the opening balance.
+                    after=dict(first_seen_ms=post[0]['source_timestamp_ms'],
+                               last_seen_ms=post[-1]['source_timestamp_ms'],
+                               values={'skill_points':value},
+                               evidence=post[0]['evidence'],
+                               supporting_frames=[r['evidence'] for r in post],
+                               basis='receipt_with_matching_cart_and_post_receipt_balance')
             if spent is None:
                 completed=[r for r in readings if r['screen']=='career_completion_hub' and 0<r['source_timestamp_ms']-span['last_seen_ms']<=10000 and type(r['facts'].get('current_skill_points')) is int]
                 values={r['facts']['current_skill_points'] for r in completed}
@@ -177,6 +482,7 @@ def skill_transactions(readings,states):
                               for role,state in (('before',before),('after',after)) if state],
             evidence=[s['evidence'] for s in (before,confirmation,span,after) if s]+counter_proofs,
             cost_basis=basis))
+        _attach_skill_batch_metadata(transactions[-1],readings,confirmation,span,before)
     return reconcile_skill_chains(transactions,readings,spans)
 
 
@@ -199,9 +505,23 @@ def source_song_alias(effect):
     proof=effect.get('visual_symbol_observation',{})
     if not isinstance(proof,dict):return None
     method=proof.get('method')
+    original=effect.get('original_text')
+    if method=='isolated_note_stem_flag_head_and_closing_quote':
+        # The direct source-pixel path proves an omitted note at the receipt's
+        # suffix.  Preserve the raw OCR title as an alias for a confirmation
+        # that still omits the glyph; do not accept a generic UI arrow or a
+        # marker without the exact source-symbol proof envelope.
+        if proof.get('symbol')!='♪' or proof.get('independent_observations') is not False:
+            return None
+        if not isinstance(original,str):return None
+        match=re.fullmatch(r'Learned the song (?:["“])(.+?)(?:["”])([.!])',original)
+        if not match:return None
+        raw_title=match[1]
+        name=re.sub(r'\s*[>▶→]\s*$','',raw_title).rstrip()
+        if not name or effect.get('name')!=name+' ♪':return None
+        return name
     title=proof.get('title_evidence',{})
     if not isinstance(title,dict):return None
-    original=effect.get('original_text')
     if method=='strict_note_and_independently_read_title':
         if not isinstance(original,str) or title.get('line',{}).get('text')!=original:return None
         name=title.get('title')
@@ -229,6 +549,59 @@ def source_song_alias(effect):
     return raw_title
 
 
+def _receipt_name_key(value):
+    if not isinstance(value,str):return ''
+    normalized=unicodedata.normalize('NFKD',value).casefold()
+    return ''.join(char for char in normalized if char.isalnum())
+
+
+def _recoverable_receipt_name_variant(canonical,variant):
+    """Recognize a bounded OCR typo beside an exact source name.
+
+    The exact name must already be present in the receipt/request pair.  This
+    helper only decides whether an additional spelling can be retained as an
+    OCR variant; it never turns two unrelated acquisitions into one purchase.
+    """
+    if not isinstance(canonical,str) or not isinstance(variant,str) or canonical==variant:return False
+    canonical_key=_receipt_name_key(canonical);variant_key=_receipt_name_key(variant)
+    if not canonical_key or not variant_key:return False
+    if canonical.casefold().split()[0]!=variant.casefold().split()[0]:return False
+    previous=list(range(len(variant_key)+1))
+    for index,char in enumerate(canonical_key,1):
+        current=[index]
+        for other_index,other in enumerate(variant_key,1):
+            current.append(min(current[-1]+1,previous[other_index]+1,
+                               previous[other_index-1]+(char!=other)))
+        previous=current
+    distance=previous[-1]
+    return distance<=max(2,min(4,(max(len(canonical_key),len(variant_key))+8)//9))
+
+
+def _collapse_recoverable_acquisition_variants(event,canonical):
+    """Collapse exact-name plus bounded OCR variants on a committed receipt."""
+    acquired=[effect for effect in event.get('effects',[])
+              if effect.get('kind') in ('named_acquisition','song_learned')]
+    exact=[effect for effect in acquired if effect.get('name')==canonical]
+    variants=[effect for effect in acquired if effect.get('name')!=canonical]
+    if len(exact)!=1 or not variants or not all(
+            _recoverable_receipt_name_variant(canonical,effect.get('name')) for effect in variants):
+        return False
+    variant_ids={id(effect) for effect in variants}
+    event['effects']=[effect for effect in event.get('effects',[])
+                      if id(effect) not in variant_ids]
+    variant_evidence=[]
+    field_evidence=event.get('field_evidence',{})
+    for effect in variants:
+        key='|'.join(str(effect.get(k) or '') for k in ('kind','field','name'))
+        variant_evidence.append(dict(name=effect.get('name'),
+                                     evidence=list(field_evidence.get(key,[]))))
+    event.setdefault('resolved_acquisition_name_variants',[]).append(dict(
+        canonical_name=canonical,discarded_names=[effect.get('name') for effect in variants],
+        discarded_evidence=variant_evidence,
+        evidence=event.get('evidence'),basis='exact_receipt_name_with_bounded_ocr_variants'))
+    return True
+
+
 def observed_lesson_debit(readings, event, group, before_rows, after_rows, name):
     """Recover a debit from repeated actual balances, without filling projections."""
     if len(before_rows)<2 or len(after_rows)<2:return None
@@ -248,7 +621,9 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
         for k,v in projection.items():
             if k in CURRENCIES and v is not None and (type(v) is not int or v!=final[k]):return None
     acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
-    if len(acquired)!=1 or acquired[0]['name']!=name:return None
+    exact=[e for e in acquired if e.get('name')==name]
+    variants=[e for e in acquired if e.get('name')!=name]
+    if len(exact)!=1 or any(not _recoverable_receipt_name_variant(name,e.get('name')) for e in variants):return None
     first=min(r['source_timestamp_ms'] for r in group)
     last=max(r['source_timestamp_ms'] for r in group)
     span=[r for r in readings if before[-1]['source_timestamp_ms']<=r['source_timestamp_ms']<=after[-1]['source_timestamp_ms']]
@@ -280,6 +655,16 @@ def lesson_receipts(readings, outcomes):
     purchases=[];used=set()
     for event in outcomes:
         acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
+        # A committed request gives us the canonical owner.  Keep an exact
+        # acquisition and collapse only bounded OCR variants beside it; a
+        # second unrelated acquisition remains a hard ownership conflict.
+        for effect in list(acquired):
+            exact_confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
+                and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
+                and r['facts'].get('name_candidates')==[effect.get('name')]]
+            if exact_confirmations and _collapse_recoverable_acquisition_variants(event,effect.get('name')):
+                acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
+                break
         for effect in acquired:
             partial=False;symbol_alias=False;requested=effect['name'];request_names={requested}
             confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
@@ -305,7 +690,11 @@ def lesson_receipts(readings, outcomes):
                     # Use the source alias when the corrected symbol is the
                     # only way to relate the names, or when mixed spellings
                     # need to be retained for auditability.
-                    symbol_alias=compatible and alias in names and (not partial_match or len(names)>1)
+                    symbol_alias=compatible and alias in names and (
+                        isinstance(effect.get('visual_symbol_observation'),dict)
+                        and effect['visual_symbol_observation'].get('method')
+                        == 'isolated_note_stem_flag_head_and_closing_quote'
+                        or not partial_match or len(names)>1)
                     if partial_match or symbol_alias:
                         request_names=names if compatible else {requested}
                         confirmations=[r for r in nearby if len(r['facts'].get('name_candidates',[]))==1
@@ -350,6 +739,30 @@ def lesson_receipts(readings, outcomes):
                     result[field]=suffix[0] if suffix and (len(suffix)>=2 or len(set(values))==1) else None
                 return result
             initial=balance(before_rows,'performance_points')
+            initial_fill=[]
+            if before and any(initial.get(k) is None for k in CURRENCIES):
+                # A menu balance field hidden by the cursor keeps its value
+                # from the last complete performance panel shown before this
+                # menu visit, provided nothing was bought in between and every
+                # field readable on both agrees.
+                # Candidates, latest first: another frame of the same menu
+                # visit (including the single transition frame between the
+                # request and the receipt), then a complete performance panel
+                # shown before the visit.  Every field readable on both the
+                # candidate and the menu must agree.
+                same_visit=[r for r in readings if r['screen']=='lesson_selection'
+                            and baseline_start<r['source_timestamp_ms']<event['first_seen_ms']
+                            and all(type(r['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES)]
+                earlier=[r for r in readings if r['screen'] in ('unknown','training_preview')
+                         and r['source_timestamp_ms']>baseline_start
+                         and 0<before_rows[0]['source_timestamp_ms']-r['source_timestamp_ms']<=20000
+                         and all(type(r['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES)]
+                for candidate in [*reversed(same_visit),*reversed(earlier)]:
+                    panel=candidate['facts']['performance_points']
+                    if all(initial.get(k) is None or initial[k]==panel[k] for k in CURRENCIES):
+                        initial_fill=[k for k in CURRENCIES if initial.get(k) is None]
+                        initial={k:(panel[k] if initial.get(k) is None else initial[k]) for k in CURRENCIES}
+                        break
             projected={}
             invalid_projection=any(not isinstance(r['facts'].get('projected_performance_points',{}),dict) for r in group)
             for field in CURRENCIES:
@@ -363,8 +776,14 @@ def lesson_receipts(readings, outcomes):
             after=[]
             for row in readings:
                 if row['source_timestamp_ms']<=event['last_seen_ms']:continue
-                if row['source_timestamp_ms']-event['last_seen_ms']>5000 or row['screen']=='lesson_confirmation':break
-                if row['screen']=='lesson_selection' and all(type(row['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES):after.append(row)
+                # A later request dialog does not move the balance; a later
+                # receipt does, so the search ends at the next acquisition.
+                if (row['source_timestamp_ms']-event['last_seen_ms']>8000
+                        or any(e.get('kind') in ('named_acquisition','song_learned') for e in row.get('effects',[]))):break
+                if row['screen']=='lesson_selection' and all(type(row['facts'].get('performance_points',{}).get(k)) is int for k in CURRENCIES):
+                    if not after and all(row['facts']['performance_points'].get(k)==initial.get(k) for k in CURRENCIES):
+                        continue  # the menu still shows the pre-purchase balance
+                    after.append(row)
             matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
             observed=None
             if cost is None and not complete and not partial and not invalid_projection:
@@ -375,6 +794,13 @@ def lesson_receipts(readings, outcomes):
                 from .lesson_offer_costs import join_lesson_cost
                 offered=join_lesson_cost(readings,event,group,before_rows,initial)
                 if offered:cost=offered['cost']
+            state_confirmed=None
+            if cost is None and not partial and not invalid_projection:
+                # The player left the menu before a second menu balance was
+                # shown; the next repeated performance panel confirms the drop.
+                from .state_confirmed_lesson_debit import state_confirmed_lesson_debit
+                state_confirmed=state_confirmed_lesson_debit(readings,event,group,before_rows,effect['name'],initial=initial)
+                if state_confirmed:cost=state_confirmed['cost'];matched=state_confirmed['matched']
             if partial:
                 agreeing=[r for r in after if complete and r['facts']['performance_points']==projected]
                 between=[r for r in readings if first['source_timestamp_ms']<r['source_timestamp_ms']<event['first_seen_ms']]
@@ -394,13 +820,16 @@ def lesson_receipts(readings, outcomes):
                     if effect_key not in effect_keys:projected_effects.append(projected_effect);effect_keys.add(effect_key)
             purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
-                performance_cost=cost,cost_basis='receipt_request_and_observed_offer_prices' if offered else 'receipt_and_repeated_observed_balances' if observed else 'observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
+                performance_cost=cost,cost_basis='receipt_request_and_observed_offer_prices' if offered else 'receipt_and_repeated_observed_balances' if observed else 'state_confirmed_balance_drop' if state_confirmed else 'observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
                 requested_name=requested,receipt_name=effect['name'],name_identity_verified=False,
                 name_match_basis='source_symbol_alias_and_repeated_observed_debit' if symbol_alias else 'partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
                 after_balance_observed=matched is not None,awarded_stats=event['deltas'],
+                initial_balance_fill_fields=initial_fill,
                 projected_effects=projected_effects,
                 evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],
                 complete_transaction_verified=False))
+            if event.get('resolved_acquisition_name_variants'):
+                purchases[-1]['receipt_name_variants_resolved']=deepcopy(event['resolved_acquisition_name_variants'])
             if symbol_alias:purchases[-1]['observed_request_names']=sorted(request_names)
             if offered:
                 purchases[-1]['offer_cost_evidence']=offered
@@ -422,52 +851,608 @@ def _training_total_component_candidate(field,observations):
     numeric size and checkpoint arithmetic are deliberately irrelevant here.
     Only an exact repeated shape that strictly contains every competing shape
     is reported. Equal-shape or mixed-shape alternatives remain ambiguous.
-    The result is diagnostic evidence only; it does not establish an effect.
+    The result carries the source-only phase decision.  The caller may promote
+    its unique full value as a direct gain while retaining the component rows
+    as diagnostic evidence.
     """
-    by_value={}
-    for row,value in observations:
-        gains=row.get('facts',{}).get('training_gains',{})
-        shape=frozenset(name for name,amount in gains.items() if type(amount) is int)
-        by_value.setdefault(value,[]).append((row,shape))
-    if len(by_value)<2 or any(len(items)<2 for items in by_value.values()):return None
-    candidates=[]
-    for value,items in by_value.items():
-        shapes=[shape for _,shape in items]
-        counts=Counter(shapes)
-        repeated=[shape for shape,count in counts.items() if count>=2]
-        if len(repeated)!=1 or any(shape!=repeated[0] for shape in shapes):continue
-        total_shape=repeated[0]
-        competitors=[[shape for _,shape in other_items]
-                     for other_value,other_items in by_value.items() if other_value!=value]
-        if not competitors or not all(all(other_shape<total_shape for other_shape in other_shapes)
-                                      for other_shapes in competitors):continue
-        total_times=[row['source_timestamp_ms'] for row,_ in items]
-        component_times=[row['source_timestamp_ms'] for other_items in by_value.values()
-                         if other_items is not items for row,_ in other_items]
-        if max(total_times)>=min(component_times):continue
-        candidates.append(dict(value=value,shape=total_shape,items=items,
-                component_shapes={str(other_value):[list(shape) for shape in sorted({
-                                   tuple(sorted(shape)) for _,shape in other_items},key=str)]
-                                                 for other_value,other_items in by_value.items()
-                                                 if other_value!=value}))
-    if len(candidates)!=1:return None
-    winner=candidates[0]
-    return dict(value=winner['value'],shape=sorted(winner['shape']),
-                evidence=[row['evidence'] for row,_ in winner['items']],
-                component_shapes=winner['component_shapes'],
-                observed_values=sorted(by_value),
-                phase_order='full_before_component',
-                full_last_seen_ms=max(row['source_timestamp_ms'] for row,_ in winner['items']),
-                component_first_seen_ms=min(row['source_timestamp_ms'] for other_items in by_value.values()
-                                            if other_items is not winner['items'] for row,_ in other_items),
-                basis='repeated_full_gain_shape_strictly_contains_all_component_shapes')
+    resolution=resolve_full_component_phase(observations)
+    if resolution is None:
+        source_observations=source_gain_observations(
+            [row for row,_value in observations], field)
+        if source_observations:
+            resolution=resolve_source_temporal_phase(source_observations, field)
+    if resolution is None:return None
+    # The crop resolver may retain a canonical field amount even when the
+    # merged OCR field list on that same row omitted the field.  Project that
+    # field into the serialized phase observation only when the row already
+    # carries the source crop resolver's complete, field-specific metadata.
+    # This preserves the source proof; it does not infer a value or add a
+    # frame.  Malformed crop metadata remains omitted and is rejected by the
+    # evaluator.
+    for key in ('full_observations','component_observations',
+                'ignored_unproven_observations'):
+        for proof in resolution.get(key,[]):
+            if not isinstance(proof,dict):continue
+            shape=proof.get('shape')
+            if not isinstance(shape,list) or field in shape:continue
+            candidates=proof.get('crop_candidate_amounts')
+            if (proof.get('crop_basis') not in {
+                    'source_crop_family_geometry',
+                    'source_crop_family_geometry_prefix_resolution',
+                    'same_family_scaled_crop_prefix_consensus'}
+                    or proof.get('crop_conflict_state') not in {
+                        'resolved_same_amount_across_source_crops',
+                        'resolved_broader_prefix',
+                        'resolved_same_family_prefix'}
+                    or not isinstance(proof.get('crop_region'),str)
+                    or not proof['crop_region'].endswith(f'.{field}')
+                    or not isinstance(candidates,list) or not candidates
+                    or any(type(amount) is not int or amount < 0 for amount in candidates)
+                    or proof.get('value') not in candidates):
+                continue
+            proof['shape']=sorted(set(shape)|{field})
+    value=resolution['accepted_amount']
+    component_shapes={}
+    for item in resolution.get('component_observations',[]):
+        observed=item['value']
+        component_shapes.setdefault(str(observed),[]).append(item['shape'])
+    for observed,shapes in component_shapes.items():
+        component_shapes[observed]=sorted({tuple(shape) for shape in shapes},key=str)
+        component_shapes[observed]=[list(shape) for shape in component_shapes[observed]]
+    return dict(value=value,shape=resolution['full_shape'],
+                evidence=[item['evidence'] for item in resolution['full_observations']],
+                component_shapes=component_shapes,
+                observed_values=resolution['observed_amounts'],
+                phase_order=resolution['phase_order'],
+                full_last_seen_ms=resolution['full_last_seen_ms'],
+                component_first_seen_ms=resolution['component_first_seen_ms'],
+                basis=('repeated_full_gain_shape_strictly_contains_all_component_shapes'
+                       if resolution.get('basis') ==
+                       'repeated_full_gain_before_repeated_component_phase'
+                       else resolution.get('basis')),
+                source_resolution=resolution,accepted=True)
+
+
+def _training_result_group(group):
+    """Retain the bounded source-reading group used by phase proofs.
+
+    Training action identity is intentionally a smaller set: it identifies
+    the selected option, while the result animation may contain component
+    frames from a different crop family.  Preserve those source readings as
+    a separate envelope so evaluators can bind nested phase proofs to the
+    event's own timestamps and option without treating every component frame
+    as an identity proof.
+    """
+    observations = []
+    for row in group['rows']:
+        observation = dict(
+            source_timestamp_ms=row.get('source_timestamp_ms'),
+            evidence=row.get('evidence'),
+            training_option=row.get('training_option'),
+            screen=row.get('screen'),
+        )
+        for key in ('turn_id', 'actual_turn_id', 'owner_turn_id', 'report_turn_id'):
+            if key in row:
+                observation[key] = row[key]
+        observations.append(observation)
+    result = dict(
+        interval_ms=[group['first_seen_ms'], group['last_seen_ms']],
+        training_option=group['option'],
+        observations=observations,
+    )
+    for key in ('turn_id', 'actual_turn_id', 'owner_turn_id', 'report_turn_id'):
+        values = {
+            row[key] for row in observations
+            if isinstance(row.get(key), str) and row[key]
+        }
+        if len(values) == 1:
+            result[key] = next(iter(values))
+    return result
+
+
+def _performance_gain_candidate(row, field):
+    """Return one strict weak performance crop without awarding it.
+
+    The dedicated sidebar crop is useful when a later independently parsed
+    panel repeats the same value, but its amount is not safe on its own.  Keep
+    this predicate deliberately narrower than the normal performance parser:
+    the source region, signed text, confidence band, timestamp and evidence
+    path must all be present and internally consistent.
+    """
+    if row.get('screen') != 'training_result':
+        return None
+    facts = row.get('facts', {})
+    if not is_committed_training_result_row(row):
+        return None
+    candidates = facts.get('performance_gain_candidates', {})
+    if not isinstance(candidates, dict):
+        return None
+    candidate = candidates.get(field)
+    if not isinstance(candidate, dict):
+        return None
+    if candidate.get('region') != 'performance_gain.' + field:
+        return None
+    text = candidate.get('text', candidate.get('raw_text'))
+    confidence = candidate.get('confidence')
+    amount = candidate.get('amount')
+    box = candidate.get('box')
+    timestamp = row.get('source_timestamp_ms')
+    evidence = row.get('evidence')
+    if (not isinstance(text, str) or not re.fullmatch(r'\+\d{1,3}', text.strip())
+            or type(amount) is not int or amount < 0 or amount > 999
+            or int(text.strip()[1:]) != amount
+            or type(confidence) not in (int, float) or not 90 <= confidence < 97
+            or not isinstance(box, (list, tuple)) or len(box) != 4
+            or any(type(value) not in (int, float) for value in box)
+            or type(timestamp) is not int or not isinstance(evidence, str) or not evidence):
+        return None
+    return dict(row=row, source_timestamp_ms=timestamp, evidence=evidence,
+                value=amount, text=text.strip(), confidence=confidence,
+                box=list(box), basis=candidate.get('basis',
+                    'dedicated_performance_gain_region_below_canonical_threshold'))
+
+
+def _verified_performance_observation(row, field):
+    """Return a source-backed applied performance reading for corroboration."""
+    if row.get('screen') != 'training_result':
+        return None
+    facts = row.get('facts', {})
+    if not is_committed_training_result_row(row):
+        return None
+    awards = facts.get('awarded_performance_gains', {})
+    provenances = facts.get('performance_panel_provenance', {})
+    if not isinstance(awards, dict) or not isinstance(provenances, dict):
+        return None
+    amount = awards.get(field)
+    provenance = provenances.get(field)
+    if type(amount) is not int or amount < 0 or not isinstance(provenance, dict):
+        return None
+    if provenance.get('field') != field:
+        return None
+    if provenance.get('status') not in (
+            'resolved_merged_panel_value',
+            'resolved_separate_panel_values',
+            'resolved_separate_component_panel_values'):
+        return None
+    projected = provenance.get('projected')
+    observation = projected.get('observation') if isinstance(projected, dict) else None
+    if not isinstance(projected, dict) or projected.get('value') != amount:
+        return None
+    if not isinstance(observation, dict):
+        return None
+    text = re.sub(r'\s+', '', str(observation.get('text', '')).strip())
+    match = re.fullmatch(r'(?:\d{1,4})?\+(\d{1,3})', text)
+    confidence = observation.get('confidence')
+    box = observation.get('box')
+    timestamp = row.get('source_timestamp_ms')
+    evidence = row.get('evidence')
+    if (not match or int(match[1]) != amount
+            or type(confidence) not in (int, float) or confidence < 97
+            or not isinstance(box, (list, tuple)) or len(box) != 4
+            or any(type(value) not in (int, float) for value in box)
+            or type(timestamp) is not int or not isinstance(evidence, str) or not evidence):
+        return None
+    return dict(row=row, source_timestamp_ms=timestamp, evidence=evidence,
+                value=amount, text=text, confidence=confidence, box=list(box),
+                status=provenance.get('status'),
+                basis=provenance.get('basis'))
+
+
+def _corroborated_performance_gain(group, field, observations):
+    """Resolve a weak sidebar amount only from two later physical readings.
+
+    The weak amount remains the selected value; later readings only corroborate
+    it.  This prevents a repeated balance from inventing an award or choosing
+    between conflicting amounts, while retaining the weak source frame in the
+    eventual field evidence.
+    """
+    candidates = [_performance_gain_candidate(row, field)
+                  for row in group['rows']]
+    candidates = [candidate for candidate in candidates if candidate is not None]
+    if not candidates:
+        return None
+    candidate_values = {candidate['value'] for candidate in candidates}
+    if len(candidate_values) != 1:
+        return None
+    value = next(iter(candidate_values))
+    if group.get('option') is not None and any(
+            candidate['row'].get('training_option') != group['option']
+            for candidate in candidates):
+        return None
+    verified = [_verified_performance_observation(row, field)
+                for row, observed_value in observations
+                if observed_value == value]
+    verified = [observation for observation in verified if observation is not None]
+    # Any direct amount that is not this candidate value is a conflict, even if
+    # the candidate has two matching rows beside it.
+    if any(observed_value != value for _, observed_value in observations):
+        return None
+    candidate_time = min(candidate['source_timestamp_ms'] for candidate in candidates)
+    later = [observation for observation in verified
+             if observation['source_timestamp_ms'] > candidate_time
+             and (group.get('option') is None
+                  or observation['row'].get('training_option') == group['option'])]
+    physical = {}
+    for observation in later:
+        physical.setdefault(observation['evidence'], observation)
+    if len(physical) < 2 or len({item['source_timestamp_ms'] for item in physical.values()}) < 2:
+        return None
+    # If explicit turn metadata is available, the weak source and all
+    # corroborating frames must agree on every populated identity key.
+    for key in ('turn_id', 'actual_turn_id', 'owner_turn_id', 'report_turn_id'):
+        identities = {row.get(key) for row in [candidate['row'] for candidate in candidates]
+                      + [item['row'] for item in physical.values()]
+                      if isinstance(row.get(key), str) and row[key]}
+        if len(identities) > 1:
+            return None
+    weak = sorted(candidates, key=lambda candidate: candidate['source_timestamp_ms'])
+    strong = sorted(physical.values(), key=lambda observation: observation['source_timestamp_ms'])
+    evidence = []
+    for observation in weak + strong:
+        if observation['evidence'] not in evidence:
+            evidence.append(observation['evidence'])
+    return dict(value=value, evidence=evidence,
+                weak_observations=[dict(source_timestamp_ms=item['source_timestamp_ms'],
+                                        evidence=item['evidence'], value=item['value'],
+                                        text=item['text'], confidence=item['confidence'],
+                                        box=item['box']) for item in weak],
+                corroborating_observations=[dict(source_timestamp_ms=item['source_timestamp_ms'],
+                                                 evidence=item['evidence'], value=item['value'],
+                                                 text=item['text'], confidence=item['confidence'],
+                                                 box=item['box'], status=item['status'],
+                                                 basis=item['basis']) for item in strong],
+                basis='same_result_group_two_later_physical_frames_corroborate_weak_performance_region')
+
+
+_CANDIDATE_GAIN_RECOVERY_BASES = frozenset({
+    'repeated_source_gain_badge_same_phase',
+    'same_frame_nested_source_gain_crop_agreement',
+})
+_CANDIDATE_GAIN_FAMILIES = frozenset({'gain', 'wide_gain', 'expanded_gain'})
+def _candidate_gain_box(value):
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None
+    try:
+        if any(
+            isinstance(part, bool)
+            or type(part) not in (int, float)
+            or not math.isfinite(float(part))
+            for part in value
+        ):
+            return None
+        box = tuple(float(part) for part in value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return None
+    return box
+
+
+def _candidate_gain_policy(value):
+    """Accept only the producer policy or bounds that are strictly tighter."""
+
+    reference = candidate_recovery_policy()
+    if not isinstance(value, dict) or set(value) != set(reference):
+        return None
+    result = dict(reference)
+    confidence_keys = {
+        'minimum_tight_confidence',
+        'minimum_broad_confidence',
+    }
+    integer_keys = {
+        'minimum_repeated_frames',
+        'maximum_span_ms',
+        'maximum_gap_ms',
+    }
+    for key, expected in reference.items():
+        actual = value.get(key)
+        if key in confidence_keys:
+            normalized = confidence_percent(actual)
+            if normalized is None:
+                return None
+            if normalized < float(expected):
+                return None
+            result[key] = normalized
+        elif key in integer_keys:
+            if type(actual) is not int or actual < 0:
+                return None
+            if key == 'minimum_repeated_frames' and actual < int(expected):
+                return None
+            if key in {'maximum_span_ms', 'maximum_gap_ms'} and actual > int(expected):
+                return None
+            result[key] = actual
+        elif type(actual) is not type(expected) or actual != expected:
+            return None
+    return result
+
+
+def _candidate_gain_observation_is_valid(observation, field, option, policy):
+    if not isinstance(observation, dict):
+        return False
+    if observation.get('field') != field:
+        return False
+    amount = observation.get('amount')
+    if type(amount) is not int or amount < 0 or amount > 999:
+        return False
+    timestamp = observation.get('source_timestamp_ms')
+    if type(timestamp) is not int or timestamp < 0:
+        return False
+    evidence = observation.get('evidence')
+    if not isinstance(evidence, str) or not evidence.strip():
+        return False
+    phase = observation.get('phase_signature')
+    if (not isinstance(phase, list) or len(phase) != 3
+            or phase[0] != 'training_result' or phase[1] != option
+            or phase[2] is not False):
+        return False
+    family = observation.get('crop_family')
+    region = observation.get('region')
+    if family not in _CANDIDATE_GAIN_FAMILIES or region != f'{family}.{field}':
+        return False
+    role = observation.get('source_role')
+    if family == 'gain' and role != 'amount_crop_candidate':
+        return False
+    if family in {'wide_gain', 'expanded_gain'} and role not in {
+        'amount_crop_candidate', 'unparsed_crop_candidate',
+    }:
+        return False
+    if _candidate_gain_box(observation.get('box')) is None:
+        return False
+    confidence = confidence_percent(observation.get('confidence'))
+    if confidence is None:
+        return False
+    if family == 'gain':
+        minimum = float(policy['minimum_tight_confidence'])
+        text = re.fullmatch(r'\s*\+\s*(\d{1,3})\s*', str(observation.get('raw_text', '')))
+    else:
+        minimum = float(policy['minimum_broad_confidence'])
+        text = re.fullmatch(r"\s*\+\s*(\d{1,3})([:.,'’)\]}])?\s*", str(observation.get('raw_text', '')))
+    return bool(text and confidence >= minimum and int(text.group(1)) == amount)
+
+
+def _candidate_gain_provenance(group_rows, field, option, canonical_observations):
+    """Validate one accepted candidate-recovery proof for a training event.
+
+    Candidate recovery is a separate source channel.  This adapter consumes
+    only its accepted typed crop proof, verifies every physical source identity
+    against the event's result rows, and emits the normal event-level direct
+    provenance shape.  It never derives an amount from checkpoints, balances,
+    result totals, or a state residual.
+    """
+
+    records = []
+    for row in group_rows:
+        if not is_committed_training_result_row(row):
+            continue
+        facts = row.get('facts', {})
+        if not isinstance(facts, dict):
+            continue
+        recoveries = facts.get('training_gain_candidate_recovery', {})
+        candidate = recoveries.get(field) if isinstance(recoveries, dict) else None
+        if isinstance(candidate, dict):
+            records.append(candidate)
+    if len(records) != 1 or not isinstance(option, str) or not option.strip():
+        return None
+    candidate = records[0]
+    if candidate.get('field') != field:
+        return None
+    if candidate.get('basis') not in _CANDIDATE_GAIN_RECOVERY_BASES:
+        return None
+    if candidate.get('status') not in (None, 'accepted'):
+        return None
+    for key in ('conflict_state', 'resolution_status'):
+        if candidate.get(key) not in (None, 'resolved', 'accepted'):
+            return None
+    amount = candidate.get('accepted_amount')
+    if type(amount) is not int or amount < 0 or amount > 999:
+        return None
+    phase_key = candidate.get('phase_key')
+    if not isinstance(phase_key, (str, int)) or (isinstance(phase_key, str) and not phase_key.strip()):
+        return None
+    observations = candidate.get('accepted_observations')
+    if not isinstance(observations, list) or not observations:
+        return None
+    all_observations = candidate.get('observations')
+    if not isinstance(all_observations, list) or not all_observations:
+        return None
+    policy = _candidate_gain_policy(candidate.get('policy'))
+    if policy is None:
+        return None
+
+    identities = []
+    observations_by_identity = {}
+    families_by_identity = {}
+    for observation in observations:
+        if not _candidate_gain_observation_is_valid(observation, field, option, policy):
+            return None
+        if observation.get('amount') != amount:
+            return None
+        identity = (observation['source_timestamp_ms'], observation['evidence'].strip())
+        prior = observations_by_identity.get(identity)
+        if prior is not None:
+            # Nested tight/broad crops are deliberately two views of one
+            # physical frame.  A second view from the same crop family remains
+            # ambiguous and cannot be treated as corroboration.
+            families = families_by_identity.setdefault(identity, set())
+            if (candidate.get('basis') != 'same_frame_nested_source_gain_crop_agreement'
+                    or observation.get('crop_family') in families):
+                return None
+        else:
+            identities.append(identity)
+            families_by_identity[identity] = set()
+        families_by_identity[identity].add(observation.get('crop_family'))
+        observations_by_identity[identity] = observation
+    phases = {
+        tuple(observation['phase_signature'])
+        for observation in observations
+    }
+    if len(phases) != 1:
+        return None
+    accepted_phase = next(iter(phases))
+    relaxed_policy = dict(policy)
+    relaxed_policy['minimum_tight_confidence'] = 0.0
+    relaxed_policy['minimum_broad_confidence'] = 0.0
+    for observation in all_observations:
+        if not _candidate_gain_observation_is_valid(
+                observation, field, option, relaxed_policy):
+            return None
+        family = observation['crop_family']
+        threshold = (float(policy['minimum_tight_confidence'])
+                     if family == 'gain'
+                     else float(policy['minimum_broad_confidence']))
+        confidence = confidence_percent(observation.get('confidence'))
+        if confidence is None:
+            return None
+        if (confidence >= threshold
+                and (observation['amount'] != amount
+                     or tuple(observation['phase_signature']) != accepted_phase)):
+            return None
+
+    if candidate.get('basis') == 'repeated_source_gain_badge_same_phase':
+        tight = [observation for observation in observations if observation['crop_family'] == 'gain']
+        times = sorted({identity[0] for identity in identities})
+        minimum_frames = int(policy['minimum_repeated_frames'])
+        if (len(tight) < minimum_frames or len(identities) < minimum_frames
+                or len(times) < minimum_frames
+                or times[-1] - times[0] > int(policy['maximum_span_ms'])
+                or any(later - earlier > int(policy['maximum_gap_ms'])
+                       for earlier, later in zip(times, times[1:]))):
+            return None
+    else:
+        tight = [observation for observation in observations if observation['crop_family'] == 'gain']
+        broad = [observation for observation in observations
+                 if observation['crop_family'] in {'wide_gain', 'expanded_gain'}]
+        if not tight or not broad:
+            return None
+        if not any(
+            same['source_timestamp_ms'] == wide['source_timestamp_ms']
+            and same['evidence'] == wide['evidence']
+            and _candidate_gain_box(wide['box'])[0] <= _candidate_gain_box(same['box'])[0]
+            and _candidate_gain_box(wide['box'])[1] <= _candidate_gain_box(same['box'])[1]
+            and _candidate_gain_box(wide['box'])[2] >= _candidate_gain_box(same['box'])[2]
+            and _candidate_gain_box(wide['box'])[3] >= _candidate_gain_box(same['box'])[3]
+            for same in tight for wide in broad
+        ):
+            return None
+
+    # Every accepted proof must be bound to one unique report-owned result
+    # row.  Duplicate path/timestamp rows are ambiguous source identity.
+    source_rows = {}
+    preview_identities = set()
+    for row in group_rows:
+        if row.get('screen') != 'training_result':
+            continue
+        timestamp = row.get('source_timestamp_ms')
+        evidence = row.get('evidence')
+        if type(timestamp) is not int or not isinstance(evidence, str) or not evidence.strip():
+            continue
+        if row.get('training_option') not in (None, option):
+            continue
+        identity = (timestamp, evidence.strip())
+        if identity in source_rows:
+            return None
+        stats = row.get('stats', {})
+        if isinstance(stats, dict) and stats.get('training_preview') is True:
+            preview_identities.add(identity)
+        source_rows[identity] = row
+    if any(identity not in source_rows or identity in preview_identities for identity in identities):
+        return None
+
+    # Canonical facts may coexist with the recovery proof on its representative
+    # row.  They must agree, or the candidate channel remains unresolved.
+    if any(value != amount for _row, value in canonical_observations):
+        return None
+    proof_rows = [
+        dict(source_timestamp_ms=observation['source_timestamp_ms'],
+             evidence=observation['evidence'], value=amount)
+        for observation in observations
+    ]
+    evidence = list(dict.fromkeys(item['evidence'] for item in proof_rows))
+    return dict(
+        value=amount,
+        basis='candidate_only_training_gain',
+        candidate_recovery_basis=candidate['basis'],
+        candidate_phase_key=phase_key,
+        candidate_policy=deepcopy(policy),
+        observations=proof_rows,
+        source_timestamps_ms=[item['source_timestamp_ms'] for item in proof_rows],
+        evidence=evidence,
+        observation_count=len(proof_rows),
+        independent_effect_verification=True,
+        candidate_all_observations=deepcopy(all_observations),
+        candidate_observations=deepcopy(observations),
+    )
+
+
+_RESULT_CONTINUATION_GAP_MS=3000
+
+
+def _result_continuation_group(group,option):
+    """True for a result-screen group carrying nothing a training could use.
+
+    After the result cards, the training's own receipt (energy, friendship)
+    overlays the screen; when it fades the result grid is detected again but
+    the badges are gone.  Such frames have no outcome, no gains, no awards,
+    no badges and no totals.  The heading of the same training (its option
+    and name) may still be visible on the first of them; a different option
+    is another training's result.
+    """
+    if group.get('option') and group.get('option')!=option:
+        return False
+    for row in group['rows']:
+        if row.get('training_option') and row.get('training_option')!=option:
+            return False
+        facts=row.get('facts') if isinstance(row.get('facts'),dict) else {}
+        if facts.get('training_outcome') or facts.get('animation_gain_badges'):
+            return False
+        # A parsed-but-unread field is stored as None (for example
+        # ``result_values: {'skill_points': None}``); only an integer reading
+        # is a payload.
+        for key in ('training_gains','awarded_performance_gains','result_values'):
+            values=facts.get(key)
+            if isinstance(values,dict) and any(type(v) is int for v in values.values()):
+                return False
+            if values and not isinstance(values,dict):
+                return False
+    return True
+
+
+def _fold_result_continuations(groups):
+    """Attach empty trailing result groups to the training they belong to.
+
+    Two trainings cannot be committed within a few seconds of each other, so
+    an empty option-less result group that starts within
+    ``_RESULT_CONTINUATION_GAP_MS`` of a preceding option-bearing group, and
+    names no other option, is the tail of that result, not a new training.  Its rows are kept on the
+    preceding group as ``continuation_rows`` (recorded on the event, never
+    used as gain evidence) and the event window is left unchanged.
+    """
+    kept=[]
+    for group in groups:
+        previous=kept[-1] if kept else None
+        if (previous is not None and previous.get('option') and _result_continuation_group(group,previous['option'])
+                and 0<=group['first_seen_ms']-previous['last_seen_ms']<=_RESULT_CONTINUATION_GAP_MS):
+            previous.setdefault('continuation_rows',[]).extend(group['rows'])
+            continue
+        kept.append(group)
+    return kept
 
 
 def training_events(readings,states=()):
+    from .preview_confirmed_gains import preview_confirmed_gains, preview_only_training_groups
     groups=[];current=None
     for row in readings:
-        if row['screen']!='training_result':
-            if current and row['source_timestamp_ms']-current['last_seen_ms']>500:current=None
+        # Source timestamps are untrusted parser metadata.  Filter malformed
+        # values before the grouping arithmetic so a negative row cannot be
+        # promoted as a repeated gain and a string/float cannot raise before
+        # the numeric resolver gets a chance to abstain.
+        if not isinstance(row,dict):
+            continue
+        time=row.get('source_timestamp_ms')
+        if type(time) is not int or time < 0:
+            continue
+        if row.get('screen')!='training_result':
+            if current and time-current['last_seen_ms']>500:current=None
             continue
         option=row.get('training_option');time=row['source_timestamp_ms']
         if current is None or time-current['last_seen_ms']>500 or (option and current['option'] and option!=current['option']):
@@ -475,36 +1460,286 @@ def training_events(readings,states=()):
         current['last_seen_ms']=time
         if option:current['option']=option
         current['rows'].append(row)
+    groups=_fold_result_continuations(groups)
     events=[]
     for group in groups:
-        deltas={};proofs={};conflicts={};phase_candidates={}
+        deltas={};proofs={};conflicts={};phase_candidates={};prefix_resolutions={};direct_provenance={}
+        candidate_recovery_provenance={}
+        source_clipped_resolutions={}
         for field in FIELDS:
-            observations=[(r,r['facts']['training_gains'][field]) for r in group['rows'] if field in r['facts'].get('training_gains',{})]
+            observations=source_gain_observations(group['rows'], field)
+            from .training_gain_resolution import resolve_source_clipped_gain
+            clipping=resolve_source_clipped_gain(
+                group['rows'], field,
+                phase_key=f"{group['option']}:{group['first_seen_ms']}:{group['last_seen_ms']}",
+            )
+            if clipping.get('status') == 'accepted':
+                value=clipping['accepted_amount']
+                # Several crops can expose one badge in the same physical
+                # frame. Preserve all crop proof in the resolution, but emit
+                # one observation per frame for the single applied effect.
+                full={}
+                for item in clipping['accepted_observations']:
+                    identity=(item['source_timestamp_ms'], item['evidence'])
+                    full[identity]=(dict(source_timestamp_ms=identity[0],
+                                         evidence=identity[1]), value)
+                proof=direct_gain_proof(
+                    value, list(full.values()), basis='source_clipped_training_gain')
+                proof['source_clipping_resolution']=deepcopy(clipping)
+                deltas[field]=value
+                proofs[field]=proof['evidence']
+                direct_provenance[field]=proof
+                source_clipped_resolutions[field]=clipping
+                continue
+            # A malformed signed-crop candidate is a source-integrity failure,
+            # not an ordinary missing crop.  Do not let the legacy prefix or
+            # direct-value fallback promote the same field from canonical
+            # values after the clipped resolver has rejected that metadata.
+            if clipping.get('reason') in {
+                    'invalid_source_confidence', 'invalid_source_identity',
+                    'duplicate_source_frame_identity'}:
+                values={value for _,value in observations if type(value) is int and value >= 0}
+                if values:
+                    conflicts[field]=sorted(values)
+                source_clipped_resolutions[field]=clipping
+                continue
             values={value for _,value in observations}
-            if len(values)==1 and len(observations)>=2:
-                deltas[field]=next(iter(values));proofs[field]=[r['evidence'] for r,_ in observations]
+            if len(values) == 1:
+                short=next(iter(values))
+                from .crop_provenance import source_geometry_overlaps
+                crop_rows=clipping.get('observations', [])
+                policy=clipping.get('policy', {})
+                tight=[item for item in crop_rows
+                       if item.get('crop_family') == 'gain'
+                       and item.get('amount') == short
+                       and item.get('confidence', 0) >= policy.get('minimum_tight_confidence', 90)]
+                longer=set()
+                for item in crop_rows:
+                    amount=item.get('amount')
+                    family=item.get('crop_family')
+                    threshold=(policy.get('minimum_overlay_confidence', 90)
+                               if family == 'result'
+                               else policy.get('minimum_broad_confidence', 75))
+                    if (family not in {'result', 'wide_gain', 'expanded_gain'}
+                            or type(amount) is not int
+                            or len(str(amount)) <= len(str(short))
+                            or not str(amount).startswith(str(short))
+                            or item.get('confidence', 0) < threshold):
+                        continue
+                    if any(item.get('source_timestamp_ms') == narrow.get('source_timestamp_ms')
+                           and item.get('evidence') == narrow.get('evidence')
+                           and source_geometry_overlaps(item.get('box'), narrow.get('box'))
+                           for narrow in tight):
+                        longer.add(amount)
+                if longer:
+                    # The full value is not established, but a repeatedly
+                    # clipped prefix is no longer an unopposed observation.
+                    # Preserve uncertainty rather than silently returning it.
+                    conflicts[field]=sorted({short, *longer})
+                    source_clipped_resolutions[field]=clipping
+                    continue
+            candidate_provenance=_candidate_gain_provenance(
+                group['rows'], field, group['option'], observations,
+            )
+            if candidate_provenance is not None:
+                value=candidate_provenance['value']
+                deltas[field]=value
+                proofs[field]=candidate_provenance['evidence']
+                direct_provenance[field]=candidate_provenance
+                candidate_recovery_provenance[field]=candidate_provenance
+                continue
+            values={value for _,value in observations}
+            distinct_observations=distinct_gain_observations(observations)
+            if len(values)==1 and len(distinct_observations)>=2:
+                value=next(iter(values));deltas[field]=value;proofs[field]=[r['evidence'] for r,_ in distinct_observations]
+                direct_provenance[field]=direct_gain_proof(value,distinct_observations)
+            elif len(values)==1 and len(distinct_observations)==1:
+                # A committed-result recovery window is source-bound by its
+                # owner, option, success banner, and exact reread identity.
+                # That proof shape permits one clear direct badge while the
+                # ordinary unproven one-frame fallback still abstains.
+                row, value = distinct_observations[0]
+                result_proof = source_result_projection_proof(row, value, field)
+                if (result_proof is not None
+                        and source_result_projection_belongs_to_group(
+                            result_proof, row, group)):
+                    deltas[field] = value
+                    proofs[field] = [row['evidence']]
+                    direct_provenance[field] = direct_gain_proof(
+                        value, [(row, value)], basis='training_gain_source_phase',
+                    )
+                    direct_provenance[field]['source_result_projection'] = result_proof
             elif len(values)>1:
                 counts=Counter(value for _,value in observations)
-                complete=[value for value,count in counts.items() if count>=3 and all(str(value).startswith(str(other)) for other in values)]
-                if len(complete)==1:
-                    deltas[field]=complete[0];proofs[field]=[r['evidence'] for r,value in observations if value==complete[0]]
-                else:conflicts[field]=sorted(values)
-            if len(values)>1 and field in conflicts:
                 candidate=_training_total_component_candidate(field,observations)
-                if candidate:phase_candidates[field]=candidate
+                if candidate:
+                    # Keep the public source-inspection helper diagnostic when
+                    # no checkpoint context was supplied.  Full reconstruction
+                    # passes checkpoints and may promote the source-only phase
+                    # decision; this preserves the historical inspection API
+                    # without using a missing balance to choose an amount.
+                    if not states:
+                        conflicts[field]=sorted(values)
+                        phase_candidates[field]=candidate
+                        continue
+                    value=candidate['value']
+                    full=[
+                        (dict(source_timestamp_ms=item['source_timestamp_ms'],
+                              evidence=item['evidence']), item['value'])
+                        for item in candidate['source_resolution'].get('full_observations', [])
+                    ]
+                    deltas[field]=value;proofs[field]=[r['evidence'] for r,n in full]
+                    direct_provenance[field]=direct_gain_proof(
+                        value,full,basis='training_gain_full_phase')
+                    phase_candidates[field]=candidate
+                else:
+                    from .training_gain_resolution import resolve_prefix
+                    resolution=resolve_prefix(observations)
+                    # A compact synthetic/source window can have sub-frame
+                    # timestamps while still carrying three complete badges
+                    # and two brief prefixes.  Keep the normal temporal span
+                    # guard first; this bounded fallback still requires the
+                    # stronger count pattern and source-only shape checks.
+                    if (resolution is None and len(distinct_observations)>=5
+                            and max(Counter(value for _,value in distinct_observations).values())>=3):
+                        resolution=resolve_prefix(observations,minimum_span_ms=0)
+                    if resolution:
+                        deltas[field]=resolution['accepted_amount']
+                        proofs[field]=[p['evidence'] for p in resolution['complete_observations']]
+                        complete=[(r,n) for r,n in distinct_observations if n==resolution['accepted_amount']]
+                        direct_provenance[field]=direct_gain_proof(
+                            resolution['accepted_amount'],complete,
+                            basis='training_gain_prefix_recovered')
+                        prefix_resolutions[field]=resolution
+                    else:
+                        from .training_gain_resolution import resolve_occluded_prefix
+                        occluded=resolve_occluded_prefix(observations)
+                        if occluded:
+                            deltas[field]=occluded['accepted_amount']
+                            proofs[field]=[p['evidence'] for p in occluded['complete_observations']]
+                            complete=[(r,n) for r,n in distinct_observations if n==occluded['accepted_amount']]
+                            direct_provenance[field]=direct_gain_proof(
+                                occluded['accepted_amount'],complete,
+                                basis='training_gain_occluded_prefix_recovered')
+                            prefix_resolutions[field]=occluded
+                        else:conflicts[field]=sorted(values)
         evidence=next(iter(proofs.values()),[group['rows'][0]['evidence']])[0]
         events.append(dict(id=f'training-{len(events)+1:04d}',kind='training',training_option=group['option'],
             first_seen_ms=group['first_seen_ms'],last_seen_ms=group['last_seen_ms'],deltas=deltas,
             evidence=evidence,field_evidence=proofs,conflicting_readings=conflicts,
             repeated_fields=[field for field,paths in proofs.items() if len(paths)>=2],
+            direct_gain_provenance=direct_provenance,
+            result_group=_training_result_group(group),
             effect_coverage_verified=False,action_time_ms=None))
+        if group.get('continuation_rows'):
+            events[-1]['result_continuation_observations']=[
+                dict(source_timestamp_ms=r.get('source_timestamp_ms'),evidence=r.get('evidence'),screen=r.get('screen'))
+                for r in group['continuation_rows']]
+        identity = summarize_training_identity(group['rows'], group['option'], source_rows=readings)
+        if identity:
+            events[-1].update(identity)
         if phase_candidates:events[-1]['gain_phase_candidates']=phase_candidates
-        performance={};performance_proofs={}
+        if prefix_resolutions:events[-1]['gain_prefix_resolutions']=prefix_resolutions
+        if candidate_recovery_provenance:
+            events[-1]['candidate_gain_recovery_provenance']=candidate_recovery_provenance
+        if source_clipped_resolutions:
+            events[-1]['source_clipped_gain_resolutions']=source_clipped_resolutions
+        # A skipped result animation can leave no badge at all.  The committed
+        # card's preview, confirmed field by field against the surrounding
+        # totals, supplies the remaining gains as state-derived contributions.
+        confirmed=preview_confirmed_gains(readings,group,deltas)
+        # A field whose direct badge readings disagree keeps its recorded
+        # conflict unless the preview amount is itself one of those readings
+        # and the surrounding totals confirm it: then two independent
+        # witnesses (the card preview and the result/home totals) agree with
+        # one of the badge readings, and the others are recorded as
+        # superseded rather than left as an open conflict.  A preview amount
+        # that matches none of the readings never overrides them.
+        superseded={}
+        kept={}
+        for f,p in confirmed.items():
+            readings_for_field=conflicts.get(f)
+            if f not in conflicts:
+                kept[f]=p
+            elif isinstance(readings_for_field,list) and p.get('value') in readings_for_field:
+                superseded[f]=list(readings_for_field)
+                kept[f]=dict(p,superseded_conflicting_readings=list(readings_for_field))
+        confirmed=kept
+        for f in superseded:
+            conflicts.pop(f,None)
+        if superseded:
+            events[-1]['conflicting_readings_superseded_by_preview_confirmation']=superseded
+        if confirmed:
+            derived=events[-1].setdefault('result_state_derived_fields',[])
+            # The applied result is observed on the group's own result frames;
+            # the preview frames are the supporting witnesses.  Listing the
+            # result frames first gives the accounting a field timing inside
+            # the event window instead of a parent-window-only placement.
+            applied=[r['evidence'] for r in group['rows'] if isinstance(r.get('evidence'),str)]
+            for field,proof in confirmed.items():
+                deltas[field]=proof['value']
+                proofs[field]=applied+[e for e in proof['evidence'] if e not in applied]
+                direct_provenance[field]=dict(proof,applied_result_evidence=applied)
+                if field not in derived:derived.append(field)
+            events[-1]['preview_confirmed_gains']=confirmed
+            events[-1]['repeated_fields']=[field for field,paths in proofs.items() if len(paths)>=2]
+        # A badge that reads more than the panels before and after the training
+        # allow is a misread digit, not a gain: it becomes a conflict, which
+        # the dense re-read revisits and the review queue shows.
+        from .preview_confirmed_gains import badge_contradictions
+        contradicted=badge_contradictions(readings,group,{f:v for f,v in deltas.items() if f not in confirmed})
+        for field,proof in contradicted.items():
+            conflicts[field]=sorted({deltas.pop(field),proof['allowed']})
+            proofs.pop(field,None);direct_provenance.pop(field,None)
+            events[-1].setdefault('gain_contradictions',{})[field]=proof
+        # The badges can be hidden by the outcome animation on every sampled
+        # frame while the panel's totals are readable: those totals minus the
+        # last full snapshot before the training are the applied gains.
+        from .preview_confirmed_gains import result_total_gains
+        totals=result_total_gains(readings,group,deltas)
+        totals={f:p for f,p in totals.items() if f not in conflicts}
+        if totals:
+            derived=events[-1].setdefault('result_state_derived_fields',[])
+            applied=[r['evidence'] for r in group['rows'] if isinstance(r.get('evidence'),str)]
+            for field,proof in totals.items():
+                deltas[field]=proof['value']
+                proofs[field]=applied+[e for e in proof['evidence'] if e not in applied]
+                direct_provenance[field]=dict(proof,applied_result_evidence=applied)
+                if field not in derived:derived.append(field)
+            events[-1]['result_total_gains']=totals
+            events[-1]['repeated_fields']=[field for field,paths in proofs.items() if len(paths)>=2]
+        events[-1]['_group_rows']=group['rows']
+        performance={};performance_proofs={};performance_candidates={}
         for field in CURRENCIES:
-            observations=[(r,r['facts']['awarded_performance_gains'][field]) for r in group['rows'] if field in r['facts'].get('awarded_performance_gains',{})]
+            candidates=[_performance_gain_candidate(row, field)
+                        for row in group['rows']]
+            candidates=[candidate for candidate in candidates if candidate is not None]
+            if candidates:
+                performance_candidates[field]=[
+                    dict(source_timestamp_ms=candidate['source_timestamp_ms'],
+                         evidence=candidate['evidence'], value=candidate['value'],
+                         text=candidate['text'], confidence=candidate['confidence'],
+                         box=candidate['box'], basis=candidate['basis'])
+                    for candidate in candidates]
+            observations=[
+                (r, r['facts']['awarded_performance_gains'][field])
+                for r in group['rows']
+                if is_committed_training_result_row(r)
+                and field in r.get('facts', {}).get('awarded_performance_gains', {})
+            ]
             values={value for _,value in observations}
             if len(values)==1:
-                performance[field]=values.pop();performance_proofs[field]=[r['evidence'] for r,_ in observations]
+                value=next(iter(values));performance[field]=value
+                performance_proofs[field]=[r['evidence'] for r,_ in observations]
+                resolution=_corroborated_performance_gain(group,field,observations)
+                if resolution:
+                    performance_proofs[field]=resolution['evidence']
+                    events[-1].setdefault('performance_reading_resolutions',{})[field]=dict(
+                        observed_amounts=sorted(values|{candidate['value'] for candidate in candidates}),
+                        accepted_amount=value,
+                        basis=resolution['basis'],
+                        weak_observations=resolution['weak_observations'],
+                        corroborating_observations=resolution['corroborating_observations'])
             elif len(values)>1:
                 by_value={v:{r['source_timestamp_ms'] for r,n in observations if n==v} for v in values}
                 complete=[v for v,times in by_value.items() if len(times)>=3 and max(times)-min(times)>=50
@@ -518,76 +1753,412 @@ def training_events(readings,states=()):
                         basis='repeated_complete_digits_with_single_truncated_outlier',
                         outlier_evidence=[r['evidence'] for r,n in observations if n!=value])
                 else:events[-1].setdefault('performance_reading_conflicts',{})[field]=sorted(values)
+        if performance_candidates:
+            events[-1]['performance_reading_candidates']=performance_candidates
+        performance_confirmed=preview_confirmed_gains(readings,group,performance,channel='performance')
+        performance_conflicts=events[-1].get('performance_reading_conflicts',{})
+        performance_superseded={}
+        performance_kept={}
+        for f,p in performance_confirmed.items():
+            readings_for_field=performance_conflicts.get(f) if isinstance(performance_conflicts,dict) else None
+            if f not in performance_conflicts:
+                performance_kept[f]=p
+            elif isinstance(readings_for_field,list) and p.get('value') in readings_for_field:
+                performance_superseded[f]=list(readings_for_field)
+                performance_kept[f]=dict(p,superseded_conflicting_readings=list(readings_for_field))
+        performance_confirmed=performance_kept
+        if performance_superseded and isinstance(performance_conflicts,dict):
+            for f in performance_superseded:
+                performance_conflicts.pop(f,None)
+            events[-1]['performance_reading_conflicts_superseded_by_preview_confirmation']=performance_superseded
+        if performance_confirmed:
+            applied=[r['evidence'] for r in group['rows'] if isinstance(r.get('evidence'),str)]
+            derived=events[-1].setdefault('result_state_derived_fields',[])
+            for field,proof in performance_confirmed.items():
+                performance[field]=proof['value']
+                performance_proofs[field]=applied+[e for e in proof['evidence'] if e not in applied]
+                if field not in derived:derived.append(field)
+            events[-1]['preview_confirmed_performance_gains']=performance_confirmed
         events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs,
                          action_identity_evidence=[r['evidence'] for r in group['rows']
                              if group['option'] is not None and r.get('training_option')==group['option']],
                          action_identity_observations=len({r['source_timestamp_ms'] for r in group['rows']
                              if group['option'] is not None and r.get('training_option')==group['option']}))
-        failures=[r for r in group['rows'] if r['facts'].get('training_outcome')=='failure']
+        from .training_outcome import summarize as summarize_training_outcome
+        events[-1].update(summarize_training_outcome(group['rows']))
+        failures=[r for r in group['rows'] if r['facts'].get('training_outcome')=='failure'
+                  or r['facts'].get('failure_banner')]
         if failures:
-            events[-1].update(training_outcome='failure',failure_evidence=[r['evidence'] for r in failures],
+            events[-1].update(failure_evidence=[r['evidence'] for r in failures],
                              unawarded_performance_projection=dict(performance),performance_deltas={},performance_evidence={})
             for row in failures:events[-1]['unawarded_performance_projection'].update(row['facts'].get('unawarded_performance_projection',{}))
         before=[s for s in states if 0<group['first_seen_ms']-s['last_seen_ms']<=5000]
         before=before[-1] if before else None
         earlier_awards=before and any(before['last_seen_ms']<r['source_timestamp_ms']<group['first_seen_ms'] and any(e['kind']=='stat_change' for e in r.get('effects',[])) for r in readings)
+        state_crosschecks={};state_derived_provenance={};state_constrained_provenance={}
         if before and not earlier_awards:
             for field in FIELDS:
-                gain_observations=[(row,value) for row in group['rows'] for value in row['facts'].get('training_gain_candidates',{}).get(field,[])]
-                if gain_observations:
-                    last_gain=max(row['source_timestamp_ms'] for row,_ in gain_observations)
-                    qualified=[]
-                    for gain in {value for _,value in gain_observations}:
-                        gain_rows=[row for row,value in gain_observations if value==gain]
-                        expected_total=before['values'][field]+gain
-                        complete_totals=[row for row in group['rows'] if row['source_timestamp_ms']>last_gain
-                                         and row['facts'].get('result_values',{}).get(field)==expected_total]
-                        after_rows=[row for row in group['rows'] if row['source_timestamp_ms']>last_gain and (
-                            row['facts'].get('result_value_candidates',{}).get(field)==expected_total
-                            or (row['facts'].get('result_numerator_candidates',{}).get(field)==[expected_total]
-                                and any(full['source_timestamp_ms']>=row['source_timestamp_ms'] for full in complete_totals)))]
-                        times={row['source_timestamp_ms'] for row in gain_rows+after_rows}
-                        strict_gain=any(row['facts'].get('training_gains',{}).get(field)==gain for row in gain_rows)
-                        strict_total=any(row['facts'].get('result_values',{}).get(field)==before['values'][field]+gain for row in after_rows)
-                        # A short result can expose the gain in just one frame.
-                        # A stable before state plus an explicit high-confidence
-                        # gain and a later high-confidence total are three
-                        # separately displayed observations of that transition.
-                        corroborated=len(times)>=3 or (len(times)>=2 and strict_gain and strict_total)
-                        if after_rows and corroborated and max(times)-min(times)>=50:qualified.append((gain,gain_rows,after_rows))
-                    if len(qualified)==1:
-                        gain,gain_rows,after_rows=qualified[0]
-                        if field in conflicts or (field in deltas and deltas[field]!=gain):
-                            events[-1].setdefault('gain_reading_disagreements',{})[field]=dict(animated_candidates=sorted({v for _,v in gain_observations}),cross_checked_change=gain)
-                        deltas[field]=gain;proofs[field]=[before['evidence']]+[r['evidence'] for r in gain_rows+after_rows]
+                before_value=before.get('values',{}).get(field)
+                if type(before_value) is not int or before_value<0:continue
+                # Select the final source counter first. The claimed gain is
+                # recomputed only after that selection; it cannot choose an
+                # earlier matching intermediate total.
+                suffix=stable_trailing_result_suffix(group['rows'],field)
+                counter=stable_trailing_result_counter_suffix(
+                    group['rows'],field,require_complete_after_partial=True)
+                selected=suffix or counter
+                candidate_observations=[(row,value) for row in group['rows']
+                    for value in row.get('facts',{}).get('training_gain_candidates',{}).get(field,[])
+                    if type(value) is int and value>=0]
+                candidate_values=sorted({value for _,value in candidate_observations})
+                # A single complete result total may support a single visible
+                # gain candidate when it is later in time and independently
+                # bound to its own result-value candidate.  Select that total
+                # before comparing arithmetic; never search for a total that
+                # matches the claimed amount.  Repeated/partial result totals
+                # continue through the stable-suffix helpers below.
+                if selected is None and len(candidate_values)==1:
+                    result_rows=[row for row in group['rows']
+                        if type(row.get('facts',{}).get('result_values',{}).get(field)) is int
+                        and row.get('facts',{}).get('result_value_candidates',{}).get(field)
+                           == row.get('facts',{}).get('result_values',{}).get(field)]
+                    if len(result_rows)==1:
+                        result_row=result_rows[0]
+                        if (all(result_row['source_timestamp_ms']>row['source_timestamp_ms']
+                                for row,_ in candidate_observations)
+                                and result_row['source_timestamp_ms']>before['last_seen_ms']):
+                            selected=dict(
+                                value=result_row['facts']['result_values'][field],
+                                observations=[dict(source_timestamp_ms=result_row['source_timestamp_ms'],
+                                                   evidence=result_row['evidence'],
+                                                   value=result_row['facts']['result_values'][field])],
+                                first_seen_ms=result_row['source_timestamp_ms'],
+                                last_seen_ms=result_row['source_timestamp_ms'],
+                                observation_count=1,
+                                basis='single_source_result_total_after_visible_gain_candidate')
+                if selected is None:continue
+                selected_value=selected['value']
+                delta=selected_value-before_value
+                if delta<=0 or selected['first_seen_ms']<=before['last_seen_ms']:continue
+                direct_value=deltas.get(field)
+                crosscheck=dict(
+                    field=field,amount=delta,before_value=before_value,
+                    after_value=selected_value,before_evidence=before.get('evidence'),
+                    before_supporting_evidence=before.get('supporting_frames',[]),
+                    after_source_timestamp_ms=selected['first_seen_ms'],
+                    after_evidence=selected['observations'][0]['evidence'],
+                    after_observations=selected['observations'],
+                    basis=selected['basis'],
+                    source_timestamp_order=selected['first_seen_ms']>before['last_seen_ms'],
+                )
+                if direct_value is not None:
+                    if direct_value==delta:
+                        crosscheck['status']='agrees_with_direct'
+                        state_crosschecks[field]=crosscheck
                         events[-1].setdefault('cross_checked_gain_fields',[]).append(field)
-                        partial_proofs=[dict(source_timestamp_ms=r['source_timestamp_ms'],
-                            evidence=r.get('supplemental_evidence',r['evidence']),
-                            readings=r['facts']['partial_result_counter_readings'][field]) for r in after_rows
-                            if r['facts'].get('result_numerator_candidates',{}).get(field)==[before['values'][field]+gain]
-                            and field in r['facts'].get('partial_result_counter_readings',{})]
-                        if partial_proofs:events[-1].setdefault('partial_result_counter_evidence',{})[field]=partial_proofs
-                        if field not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(field)
-                suffix=[]
-                for row in reversed(group['rows']):
-                    value=row['facts'].get('result_values',{}).get(field)
-                    if type(value) is not int:
-                        if suffix:break
-                        continue
-                    if suffix and value!=suffix[-1][1]:break
-                    suffix.append((row,value))
-                if len(suffix)>=3 and suffix[0][0]['source_timestamp_ms']-suffix[-1][0]['source_timestamp_ms']>=60:
-                    delta=suffix[0][1]-before['values'][field]
-                    if delta>0:
-                        if field in deltas and deltas[field]!=delta:
-                            events[-1].setdefault('gain_reading_disagreements',{})[field]=dict(animated_gain=deltas[field],stable_result_change=delta)
-                            # A truncated gain prefix can lose a trailing digit. Other
-                            # disagreements cannot be resolved by preferring arithmetic.
-                            if not str(delta).startswith(str(deltas[field])):continue
-                        deltas[field]=delta;proofs[field]=[before['evidence']]+[r['evidence'] for r,_ in suffix]
-                        events[-1].setdefault('result_state_derived_fields',[]).append(field)
-                        if field not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(field)
+                    else:
+                        crosscheck['status']='disagrees_with_direct'
+                        state_crosschecks[field]=crosscheck
+                        events[-1].setdefault('gain_reading_disagreements',{})[field]=dict(
+                            animated_gain=direct_value,stable_result_change=delta,
+                            animated_candidates=sorted(set(
+                                [direct_value]+candidate_values)))
+                    # A state comparison cannot replace a direct source proof.
+                    continue
+                if field in conflicts:
+                    crosscheck['status']='blocked_by_conflicting_gain_observations'
+                    state_crosschecks[field]=crosscheck
+                    continue
+                if candidate_values and delta not in candidate_values:
+                    # A visible candidate that disagrees with the independently
+                    # selected suffix remains an explicit mismatch.
+                    crosscheck['status']='candidate_disagrees_with_recomputed_change'
+                    crosscheck['candidate_values']=candidate_values
+                    state_crosschecks[field]=crosscheck
+                    continue
+                deltas[field]=delta
+                proofs[field]=[before['evidence']]+[
+                    observation['evidence'] for observation in selected['observations']]
+                constrained=bool(candidate_values)
+                state_crosschecks[field]=dict(crosscheck,
+                    status='state_constrained_candidate' if constrained else 'state_only')
+                provenance=dict(
+                    amount=delta,before=dict(value=before_value,
+                        source_timestamp_ms=before.get('last_seen_ms'),
+                        evidence=before.get('evidence')),
+                    after=dict(value=selected_value,
+                        source_timestamp_ms=selected['first_seen_ms'],
+                        evidence=selected['observations'][0]['evidence'],
+                        observations=selected['observations']),
+                    recomputed_amount=delta,basis=selected['basis'],
+                    candidate_values=candidate_values,
+                    independent_effect_verification=False)
+                if constrained:
+                    state_constrained_provenance[field]=provenance
+                else:
+                    state_derived_provenance[field]=provenance
+                    events[-1].setdefault('result_state_derived_fields',[]).append(field)
+                if field not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(field)
+                if counter and selected is counter:
+                    partial_proofs=[]
+                    for observation in counter['observations']:
+                        readings_for_field=next((row.get('facts',{}).get('partial_result_counter_readings',{}).get(field)
+                            for row in group['rows']
+                            if row.get('source_timestamp_ms')==observation['source_timestamp_ms']
+                            and field in row.get('facts',{}).get('partial_result_counter_readings',{})),None)
+                        if readings_for_field:
+                            partial_proofs.append(dict(
+                                source_timestamp_ms=observation['source_timestamp_ms'],
+                                evidence=observation['evidence'],readings=readings_for_field))
+                    if partial_proofs:
+                        events[-1].setdefault('partial_result_counter_evidence',{})[field]=partial_proofs
+                if candidate_values:
+                    events[-1].setdefault('state_supported_candidate_resolutions',[]).append(dict(
+                        field=field,amount=delta,visual_candidates=candidate_values,
+                        gain_evidence=[row['evidence'] for row,_ in candidate_observations],
+                        before_evidence=before['evidence'],
+                        after_evidence=[observation['evidence'] for observation in selected['observations']],
+                        basis='visible_gain_candidate_and_stable_result_counter' if counter and selected is counter
+                              else 'visible_gain_candidate_and_stable_result_suffix',
+                        independent_effect_verification=False))
+        for field,resolution in prefix_resolutions.items():
+            if deltas.get(field)!=resolution['accepted_amount']:
+                conflicts[field]=sorted(set(resolution['observed_amounts']+[deltas[field]]))
+                continue
+            # A later counter cross-check does not turn an already observed
+            # badge into a gain inferred from those counters.
+            resolution['counter_crosscheck_evidence']=list(proofs.get(field,[]))
+            proofs[field]=[p['evidence'] for p in resolution['complete_observations']]
+            derived=events[-1].get('result_state_derived_fields',[])
+            if field in derived:derived.remove(field)
+        if state_crosschecks:events[-1]['state_crosschecks']=state_crosschecks
+        if state_derived_provenance:events[-1]['state_derived_provenance']=state_derived_provenance
+        if state_constrained_provenance:events[-1]['state_constrained_provenance']=state_constrained_provenance
+    for event in events:event.pop('_group_rows',None)
+    # A training committed so fast that no result frame was sampled leaves
+    # only its preview run and the next panels.  When those confirm the
+    # preview, the training is recorded with its preview frames as the
+    # evidence window and an explicit marker that no result screen was seen.
+    confirmed_panels=set()
+    for group in preview_only_training_groups(readings,events):
+        confirmed=preview_confirmed_gains(readings,group,{})
+        if not confirmed:continue
+        # Two preview runs of the same option confirmed by the same after
+        # panel are one training browsed twice; keep only the later run.
+        panel_key=(group['option'],next(iter(confirmed.values()))['after'].get('source_timestamp_ms'))
+        if panel_key in confirmed_panels:
+            events[:]=[e for e in events if not (e.get('preview_only') and e['training_option']==panel_key[0]
+                       and next(iter(e['preview_confirmed_gains'].values()))['after'].get('source_timestamp_ms')==panel_key[1])]
+        confirmed_panels.add(panel_key)
+        performance_confirmed=preview_confirmed_gains(readings,group,{},channel='performance')
+        # The gain is applied when the card is clicked, i.e. after the last
+        # preview frame.  The first reading sampled after the run stands for
+        # that moment: it keeps the contribution inside the state comparison
+        # that starts at the last preview panel instead of crossing it.
+        last_preview=group['preview_rows'][-1]['source_timestamp_ms']
+        following=[r for r in readings if type(r.get('source_timestamp_ms')) is int and r['source_timestamp_ms']>last_preview]
+        applied_row=min(following,key=lambda r:r['source_timestamp_ms']) if following else group['preview_rows'][-1]
+        applied=[applied_row['evidence']] if isinstance(applied_row.get('evidence'),str) else []
+        deltas={f:p['value'] for f,p in confirmed.items()}
+        proofs={f:applied+[e for e in p['evidence'] if e not in applied] for f,p in confirmed.items()}
+        performance={f:p['value'] for f,p in performance_confirmed.items()}
+        performance_proofs={f:applied+[e for e in p['evidence'] if e not in applied] for f,p in performance_confirmed.items()}
+        events.append(dict(id=f'training-{len(events)+1:04d}',kind='training',training_option=group['option'],
+            first_seen_ms=applied_row['source_timestamp_ms'],last_seen_ms=applied_row['source_timestamp_ms'],deltas=deltas,
+            preview_window_ms=[group['first_seen_ms'],group['last_seen_ms']],
+            evidence=applied_row.get('evidence'),field_evidence=proofs,conflicting_readings={},
+            repeated_fields=[f for f,paths in proofs.items() if len(paths)>=2],
+            direct_gain_provenance=dict(confirmed),result_group=None,
+            effect_coverage_verified=False,action_time_ms=None,
+            result_screen_observed=False,preview_only=True,
+            preview_confirmed_gains=confirmed,preview_confirmed_performance_gains=performance_confirmed,
+            result_state_derived_fields=sorted(set(deltas)|set(performance)),
+            performance_deltas=performance,performance_evidence=performance_proofs))
+    events.extend(_banner_only_training_events(readings,events))
+    events.sort(key=lambda e:e['first_seen_ms'])
     return events
+
+
+_BANNER_FOLLOW_MS=8000
+_BANNER_RUN_GAP_MS=1500
+_BANNER_BREAK_SCREENS=('training_preview','lesson_selection','lesson_confirmation','rest_confirmation','outing_selection',
+                       'outing_confirmation','race_selection','skill_selection','career_hub')
+
+
+def _banner_heading_option(row):
+    """The option named by the identity heading itself ("Guts Lvl 1")."""
+    proof=(row.get('facts') or {}).get('training_identity_evidence')
+    heading=proof.get('heading') if isinstance(proof,dict) else None
+    text=heading.get('text','') if isinstance(heading,dict) else ''
+    m=re.match(r'(Speed|Stamina|Power|Guts|Wit)\b',text.strip())
+    return m[1].lower() if m else None
+
+
+def _banner_runs(readings):
+    """Consecutive frames reading the same training heading and name outside a preview or result screen."""
+    rows=[]
+    for r in readings:
+        if not isinstance(r,dict) or type(r.get('source_timestamp_ms')) is not int:continue
+        if r.get('screen') not in ('unknown','training','training_result_candidate'):continue
+        facts=r.get('facts') or {}
+        name=facts.get('training_name');proof=facts.get('training_identity_evidence')
+        if (not isinstance(name,str) or not name.strip() or not isinstance(proof,dict)
+                or proof.get('basis')!='same_frame_training_heading_and_name'):continue
+        option=_banner_heading_option(r)
+        if option is None:continue
+        rows.append((r['source_timestamp_ms'],name.strip(),option,r))
+    rows.sort(key=lambda x:x[0])
+    runs=[];current=None
+    for t,name,option,row in rows:
+        if current and t-current['last']<=_BANNER_RUN_GAP_MS and (name,option)==(current['name'],current['option']):
+            current['rows'].append(row);current['last']=t
+        else:
+            current=dict(name=name,option=option,first=t,last=t,rows=[row]);runs.append(current)
+    return runs
+
+
+def _banner_follower(readings,run):
+    """What completes the banner: a result, a result candidate, or the training's own after-event.
+
+    The same heading and name are shown while the player browses the menu, so
+    another heading before the follower, or a follower naming another option
+    or training, means the run was a browse and nothing is returned. A result
+    candidate inside the run is its own follower. The after-event is the one
+    titled with the training's name, or the untitled energy-cost receipt that
+    follows a training directly.
+    """
+    inside=[r for r in run['rows'] if r.get('screen')=='training_result_candidate']
+    if inside:return inside[-1]
+    for r in sorted((r for r in readings if isinstance(r,dict) and type(r.get('source_timestamp_ms')) is int
+                     and run['last']<r['source_timestamp_ms']<=run['last']+_BANNER_FOLLOW_MS),key=lambda r:r['source_timestamp_ms']):
+        screen=r.get('screen');facts=r.get('facts') or {}
+        name=facts.get('training_name');name=name.strip() if isinstance(name,str) else None
+        proof=facts.get('training_identity_evidence')
+        identified=isinstance(proof,dict) and proof.get('basis')=='same_frame_training_heading_and_name'
+        if screen in ('unknown','training'):
+            if identified and (name,_banner_heading_option(r))!=(run['name'],run['option']):return None
+            continue
+        if screen=='training_result':
+            if r.get('training_option') not in (None,run['option']) or (name and name!=run['name']):return None
+            return r
+        if screen=='training_result_candidate':
+            if (name and name!=run['name']) or (identified and _banner_heading_option(r) not in (None,run['option'])):return None
+            return r
+        if screen=='event_outcome':
+            title=r.get('context_title')
+            if _same_title(title or '',run['name']):return r
+            if not title and any(isinstance(e,dict) and e.get('kind')=='energy_change' and type(e.get('amount')) is int
+                                 and e['amount']<0 for e in r.get('effects') or ()):return r
+            return None
+        return None
+    return None
+
+
+def _banner_only_training_events(readings,events):
+    """A training whose animation banner was read but whose result card never classified as a result.
+
+    The option heading and the training name at the top left are shown while
+    the chosen training plays. Three or more frames of one heading/name pair,
+    followed by a result, a result candidate or the training's own after-event
+    with nothing else between, identify the action; the gains stay unread
+    unless a panel supplied them. A run next to a result group of the same
+    option lends the group its name instead of becoming a second training.
+    """
+    found=[]
+    for run in _banner_runs(readings):
+        frames=len({r['source_timestamp_ms'] for r in run['rows']})
+        if frames<2:continue
+        follower=_banner_follower(readings,run)
+        if follower is None:continue
+        named_follower=(follower.get('screen')=='event_outcome' and _same_title(follower.get('context_title') or '',run['name'])
+                        or (follower.get('screen')=='training_result_candidate'
+                            and (follower.get('facts') or {}).get('training_name','').strip()==run['name']))
+        if frames<3 and not named_follower:continue
+        observations=[dict(name=run['name'],source_timestamp_ms=r['source_timestamp_ms'],evidence=r.get('evidence'),
+                           proof=deepcopy(r['facts']['training_identity_evidence']),basis='training_banner')
+                      for r in run['rows']]
+        follower_time=follower['source_timestamp_ms']
+        # The heading stays on screen a moment after the result and is shown
+        # while the same card is browsed before it: a run next to a training
+        # event of the same option belongs to that event. A result that starts
+        # well after the run's own follower is another training.
+        def same_training(e):
+            if e.get('kind')!='training' or e.get('banner_only'):return False
+            if e.get('training_option') not in (None,run['option']) or e.get('training_name') not in (None,run['name']):return False
+            if e['first_seen_ms']<=follower_time+2000 and e['last_seen_ms']+3000>=run['first']:return True
+            # A preview-only training is dated at the first reading after its
+            # previews, which can lie a few seconds past the banner; when its
+            # previews precede the banner it is this training.
+            window=e.get('preview_window_ms') if e.get('preview_only') else None
+            return (isinstance(window,(list,tuple)) and len(window)==2 and window[1]<=run['first']
+                    and run['last']<e['first_seen_ms']<=run['last']+10000)
+        compatible=[e for e in events if same_training(e)]
+        if compatible:
+            owner=min(compatible,key=lambda e:abs(e['first_seen_ms']-run['first']))
+            if owner.get('training_name_conflicts'):continue
+            if owner.get('training_option') is None:
+                owner['training_option']=run['option'];owner['training_option_basis']='training_banner'
+            existing=owner.setdefault('training_name_observations',[])
+            seen={o.get('source_timestamp_ms') for o in existing if isinstance(o,dict)}
+            existing.extend(o for o in observations if o['source_timestamp_ms'] not in seen)
+            owner['training_name']=run['name']
+            owner['training_name_evidence']=list(dict.fromkeys(list(owner.get('training_name_evidence') or [])
+                                                           +[o['evidence'] for o in observations]))
+            # A preview-only training is dated by the first reading after its
+            # previews, which is where its gains were applied; the animation
+            # banner is the earlier witness of the decision itself and puts
+            # the action inside its own turn without moving the gains.
+            if owner.get('preview_only') and run['first']<=owner['first_seen_ms']:
+                owner['action_time_ms']=run['first'];owner['action_time_basis']='training_banner'
+            continue
+        if follower.get('screen')=='training_result':continue
+        if any(e.get('kind')=='training' and not e.get('banner_only') and e['first_seen_ms']<=follower_time<=e['last_seen_ms']
+               for e in events):continue
+        found.append(dict(id=f'training-{len(events)+len(found)+1:04d}',kind='training',training_option=run['option'],
+            first_seen_ms=run['first'],last_seen_ms=run['last'],deltas={},evidence=run['rows'][0].get('evidence'),
+            field_evidence={},conflicting_readings={},repeated_fields=[],direct_gain_provenance={},result_group=None,
+            effect_coverage_verified=False,action_time_ms=None,result_screen_observed=False,banner_only=True,
+            training_name=run['name'],training_name_evidence=[r.get('evidence') for r in run['rows']],
+            training_name_observations=observations,training_outcome='unknown'))
+        # The result card was never read, but the card's own preview, confirmed
+        # field by field by the next home panel, supplies the gains exactly as
+        # it does for a preview-only training.
+        from .preview_confirmed_gains import preview_confirmed_gains
+        pseudo=dict(option=run['option'],first_seen_ms=run['first'],last_seen_ms=run['last'],rows=[])
+        confirmed=preview_confirmed_gains(readings,pseudo,{})
+        event=found[-1]
+        event['action_time_ms']=run['first'];event['action_time_basis']='training_banner'
+        if confirmed:
+            # The gains were applied after the animation: date the event at the
+            # first reading after the banner, as a preview-only training is,
+            # so its contributions carry their timing; the decision keeps the
+            # banner's time.
+            following=[r for r in readings if isinstance(r,dict) and type(r.get('source_timestamp_ms')) is int and r['source_timestamp_ms']>run['last']]
+            applied_row=min(following,key=lambda r:r['source_timestamp_ms']) if following else run['rows'][-1]
+            event['first_seen_ms']=event['last_seen_ms']=applied_row['source_timestamp_ms']
+            event['banner_window_ms']=[run['first'],run['last']]
+            if isinstance(applied_row.get('evidence'),str):event['evidence']=applied_row['evidence']
+            applied=[applied_row['evidence']] if isinstance(applied_row.get('evidence'),str) else []
+            event['deltas']={f:p['value'] for f,p in confirmed.items()}
+            # The applied frame leads each field's evidence so the accounting
+            # can time the contribution inside the event window.
+            event['field_evidence']={f:applied+[e for e in p['evidence'] if e not in applied] for f,p in confirmed.items()}
+            event['direct_gain_provenance']=dict(confirmed)
+            event['preview_confirmed_gains']=confirmed
+            event['result_state_derived_fields']=sorted(confirmed)
+            event['repeated_fields']=[f for f,paths in event['field_evidence'].items() if len(paths)>=2]
+        performance=preview_confirmed_gains(readings,pseudo,{},channel='performance')
+        if performance:
+            applied=[event['evidence']] if isinstance(event.get('evidence'),str) else []
+            found[-1]['performance_deltas']={f:p['value'] for f,p in performance.items()}
+            found[-1]['performance_evidence']={f:applied+[e for e in p['evidence'] if e not in applied] for f,p in performance.items()}
+            found[-1]['preview_confirmed_performance_gains']=performance
+    return found
+
+
+def _same_title(left,right):
+    """One receipt title read with and without stray whitespace is one title."""
+    return ' '.join(str(left).split())==' '.join(str(right).split())
 
 
 def continued_title(current,row):
@@ -645,7 +2216,7 @@ def outcome_events(readings):
             narrative=bool(long_lines) and (not anchored or any(
                 not repeats_receipt(l) and not uncertain_companion(l) for l in long_lines))
             changed_title=(current and row.get('context_title') and current['context_title']
-                           and row['context_title']!=current['context_title'] and not continued_title(current,row))
+                           and not _same_title(row['context_title'],current['context_title']) and not continued_title(current,row))
             if current and (narrative or changed_title or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
             elif current and long_lines:
                 current.setdefault('receipt_continuity_evidence',[]).append(dict(
@@ -656,7 +2227,7 @@ def outcome_events(readings):
         title=row.get('context_title')
         continuation=continued_title(current,row)
         if continuation:title=continuation
-        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and title!=current['context_title'] and not continuation):
+        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and not _same_title(title,current['context_title']) and not continuation):
             current=dict(id=f'outcome-{len(events)+1:04d}',kind='outcome',first_seen_ms=time,last_seen_ms=time,evidence=row['evidence'],
                          context_title=title,effects={},field_evidence={},conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
             events.append(current)
@@ -715,6 +2286,8 @@ def outcome_events(readings):
         reconcile_animated_performance(event,readings)
         reconcile_animated_performance(event,readings,stat=True,receipt_observations=receipt_observations)
         event['effects']=list(event['effects'].values())
+        from .condition_removal_banner import normalize_condition_removal_event
+        event.update(normalize_condition_removal_event(event,rows_by_evidence))
         from .friendship_suffix import resolve as resolve_friendship_suffix
         resolve_friendship_suffix(event,rows_by_evidence)
         from .receipt_names import flag_friendship_identity_conflicts
@@ -770,7 +2343,34 @@ def outcome_events(readings):
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
         attach_inheritance_occurrences(event,rows_by_evidence)
+    attach_supplemental_receipt_evidence(events,readings)
+    from .receipt_evidence_projection import project_numeric_receipt_evidence
+    project_numeric_receipt_evidence(events,readings)
     return events
+
+
+def attach_supplemental_receipt_evidence(events,readings):
+    """Expose exact alternate proofs without counting OCR views as observations."""
+    def signature(effect):
+        return tuple(effect.get(k) for k in ('kind','field','name','amount','direction','value'))
+    supplemental=[]
+    for row in readings:
+        sources=list(row.get('supplemental_receipt_observations',[]))
+        recovery=row.get('facts',{}).get('numeric_receipt_recovery')
+        if recovery:sources.append(recovery)
+        for source in list(sources):
+            nested=source.get('facts',{}).get('numeric_receipt_recovery')
+            if nested:sources.append(nested)
+        for source in sources:
+            for effect in source.get('effects',[]):
+                supplemental.append((row['source_timestamp_ms'],signature(effect),source['evidence']))
+    for event in events:
+        for effect in event['effects']:
+            key='|'.join(str(effect.get(k) or '') for k in ('kind','field','name'))
+            proofs=[proof for time,identity,proof in supplemental
+                    if event['first_seen_ms']<=time<=event['last_seen_ms'] and identity==signature(effect)]
+            if proofs:
+                event['field_evidence'][key]=list(dict.fromkeys(event['field_evidence'].get(key,[])+proofs))
 
 
 def attach_inheritance_occurrences(event,rows_by_evidence):
@@ -845,14 +2445,36 @@ def reconcile_visible_training_candidates(before,after,events,readings):
         # their unexplained amount to choose between training observations.
         if any(e.get('conflicting_readings') for e in scoped if e['kind']!='training'):continue
         observations=[(r,r['facts']['training_gains'][field]) for r in rows if field in r['facts'].get('training_gains',{})]
-        values={value for _,value in observations}
+        values={value for _,value in observations if type(value) is int and value>0}
+        if not values:continue
+        # Prefer an independent source-only phase decision when one exists.
+        # The endpoint residual validates it; it never chooses a member of an
+        # unresolved numeric set.
+        from .training_gain_resolution import resolve_prefix
+        phase=resolve_full_component_phase(observations) or resolve_prefix(observations)
         target=event['deltas'].get(field,0)+residual
-        if target not in values or target<=0 or not all(str(target).startswith(str(v)) for v in values):continue
-        proofs=[r['evidence'] for r,value in observations if value==target]
-        event['deltas'][field]=target;event['field_evidence'][field]=proofs
-        resolution=dict(field=field,amount=target,visual_candidates=sorted(values),
+        if phase is not None:
+            accepted=phase['accepted_amount']
+            if accepted!=target or accepted<=0:continue
+            proofs=[r['evidence'] for r,value in observations if value==accepted]
+            event['deltas'][field]=accepted;event['field_evidence'][field]=proofs
+            event.setdefault('direct_gain_provenance',{})[field]=direct_gain_proof(
+                accepted,[(r,value) for r,value in observations if value==accepted],
+                basis='training_gain_source_phase')
+            resolutions.append(dict(field=field,amount=accepted,visual_candidates=sorted(values),
+                gain_evidence=proofs,before_evidence=before['evidence'],after_evidence=after['evidence'],
+                basis='visible_complete_gain_and_source_phase_with_state_crosscheck',
+                independent_effect_verification=False))
+            continue
+        # A singleton visible candidate can be checked against the endpoint;
+        # two or more same-shape alternatives remain ambiguous even if one is
+        # numerically larger or happens to balance the interval.
+        if len(values)!=1 or target!=next(iter(values)):continue
+        accepted=next(iter(values));proofs=[r['evidence'] for r,value in observations if value==accepted]
+        event['deltas'][field]=accepted;event['field_evidence'][field]=proofs
+        resolution=dict(field=field,amount=accepted,visual_candidates=sorted(values),
                         gain_evidence=proofs,before_evidence=before['evidence'],after_evidence=after['evidence'],
-                        basis='visible_complete_gain_and_surrounding_state_constraints',independent_effect_verification=False)
+                        basis='single_visible_gain_candidate_and_surrounding_state_constraints',independent_effect_verification=False)
         event.setdefault('state_supported_candidate_resolutions',[]).append(resolution);resolutions.append(resolution)
     return resolutions
 
@@ -865,6 +2487,8 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hi
         outcome_readings,eligible_hints,hint_row_audit=prepare_hint_rows(
             readings,hint_card_observations,source_sha256=source_sha256)
     states=checkpoints(readings);events=training_events(readings,states)+outcome_events(outcome_readings)
+    from .concert_bonus_info import concert_bonus_events
+    events+=concert_bonus_events(readings)
     if hint_card_observations:
         from .hint_card_events import apply as apply_hint_cards
         hint_card_audit=apply_hint_cards(events,readings,eligible_hints,source_sha256=source_sha256)
@@ -896,9 +2520,8 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hi
     actions+=infirmary_actions(readings,events)
     from .race_completion import annotate as annotate_race_completion
     race_results=annotate_race_completion(races(readings,race_reward_observations),readings)
-    actions += [dict(kind='race',source_timestamp_ms=r.get('completion_first_seen_ms',r['first_seen_ms']),
-                     evidence=list(dict.fromkeys(r.get('completion_evidence',[])+r['evidence'])),
-                     race_id=r['id'],click_timestamp_ms=None) for r in race_results]
+    from .race_action_receipts import assemble_race_action_receipts
+    actions += assemble_race_action_receipts(race_results)
     actions.sort(key=lambda a:a['source_timestamp_ms'])
     from .mechanics_audit import fan_accounting,song_acquisitions,unparsed_receipt_candidates
     from .choice_evidence import reconstruct as reconstruct_choices,collect as collect_choices
@@ -913,15 +2536,51 @@ def reconstruct(readings,choice_observations=(),race_reward_observations=(),*,hi
                 lesson_debit_observations=lesson_transitions(readings))
 
 
+def _named_identity_observations(event):
+    """Distinct frames on which the completed training's own name was read."""
+    name=event.get('training_name')
+    if not name:return 0
+    return len({o.get('source_timestamp_ms') for o in event.get('training_name_observations') or []
+                if isinstance(o,dict) and o.get('name')==name and o.get('source_timestamp_ms') is not None})
+
+
 def training_actions(events):
-    """Completed training identity does not depend on readable reward digits."""
-    return [dict(kind='training',training_option=e['training_option'],source_timestamp_ms=e['first_seen_ms'],
-                 evidence=e['evidence'],event_id=e['id'],click_timestamp_ms=None,
-                 action_identity_evidence=e.get('action_identity_evidence',[]),
-                 training_outcome=e.get('training_outcome','unknown'),failure_evidence=e.get('failure_evidence',[]),
-                 effect_coverage_verified=e['effect_coverage_verified'])
-            for e in events if e['kind']=='training' and e['training_option']
-            and (e['deltas'] or e.get('action_identity_observations',0)>=2)]
+    """Completed training identity does not depend on readable reward digits.
+
+    A completed training is the turn's action when its gains were read, when
+    its result card was sampled on two frames, or when the card's own training
+    name was read on two frames: a result card skipped after a single sample
+    still names the training it belongs to.
+    """
+    actions=[]
+    for e in events:
+        if e['kind']!='training' or not e['training_option']:
+            continue
+        result_frames=e.get('action_identity_observations',0)>=2
+        named_frames=_named_identity_observations(e)>=2
+        if not (e['deltas'] or result_frames or named_frames):
+            continue
+        decided=e.get('action_time_ms') if type(e.get('action_time_ms')) is int else e['first_seen_ms']
+        action=dict(kind='training',training_option=e['training_option'],source_timestamp_ms=decided,
+                    identity_basis='observed_gains' if e['deltas'] else 'repeated_result_frames' if result_frames
+                    else 'training_banner' if e.get('banner_only') else 'repeated_training_name',
+                    evidence=e['evidence'],event_id=e['id'],click_timestamp_ms=None,
+                    action_identity_evidence=e.get('action_identity_evidence',[]),
+                    training_outcome=e.get('training_outcome','unknown'),failure_evidence=e.get('failure_evidence',[]),
+                    success_evidence=e.get('success_evidence',[]),outcome_observations=e.get('outcome_observations',[]),
+                    training_outcome_conflicts=e.get('training_outcome_conflicts',[]),
+                    direct_gain_provenance=e.get('direct_gain_provenance',{}),
+                    state_derived_provenance=e.get('state_derived_provenance',{}),
+                    state_constrained_provenance=e.get('state_constrained_provenance',{}),
+                    effect_coverage_verified=e['effect_coverage_verified'])
+        for field in ('training_name','training_level','training_name_evidence',
+                      'training_name_observations','training_name_conflicts'):
+            if field in e:
+                action[field]=deepcopy(e[field])
+        if 'result_group' in e:
+            action['result_group']=deepcopy(e['result_group'])
+        actions.append(action)
+    return actions
 
 
 def outing_actions(readings,events):
@@ -937,7 +2596,8 @@ def outing_actions(readings,events):
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
         if any(r['screen'] in ('training_result','training_preview','race_result','rest_confirmation') for r in intervening):continue
-        hubs=[r for r in intervening if r['screen']=='unknown' and r.get('stats',{}).get('values')]
+        # A titled scene is the outing's own dialogue over the hub, not a return to it.
+        hubs=[r for r in intervening if r['screen']=='unknown' and r.get('stats',{}).get('values') and not r.get('context_title')]
         if any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
                for a,b in zip(hubs,hubs[1:])):continue
         if time in used:continue
@@ -946,11 +2606,21 @@ def outing_actions(readings,events):
             extra=outing_turn_evidence(readings,event,request)
             if not extra:continue
         used.add(time)
-        actions.append(dict(kind='outing',source_timestamp_ms=event['first_seen_ms'],event_id=event['id'],
+        action=dict(kind='outing',source_timestamp_ms=event['first_seen_ms'],event_id=event['id'],
                             companion=companions.pop() if len(companions)==1 else None,
                             evidence=list(dict.fromkeys([request['evidence'],event['evidence']]+extra)),click_timestamp_ms=None,
                             basis='outing_request_followed_by_recovery_receipt_without_another_turn_action' if recovery else
-                                  'outing_request_support_event_and_observed_next_date'))
+                                  'outing_request_support_event_and_observed_next_date')
+        # A visible confirmation is a request, not proof of the click. Keep
+        # the receipt as the execution witness and preserve both source times.
+        action['request_observed_at_ms']=time
+        action['execution_observed_at_ms']=event['first_seen_ms']
+        title=event.get('context_title')
+        if isinstance(title,str) and title.strip():
+            action['name']=title.strip()
+            action['name_basis']='linked_outcome_context_title'
+            action['name_evidence']=[event['evidence']]
+        actions.append(action)
     return actions
 
 
@@ -1012,6 +2682,72 @@ def performance_accounting(readings,events,lessons):
     return dict(checkpoints=states,intervals=intervals)
 
 
+PANEL_REAPPEARANCE_MS=10000
+
+
+def _same_settled_panel(group,row,gap_ms):
+    """The result panel is read again after frames the classifier could not read.
+
+    Nothing else was shown in between (an interruption starts a new group
+    before this is asked), the gap is short, and the race name, the fan total
+    and the gained fans are the settled values already on record. A fan total
+    cannot repeat after another race, so this is the same panel.
+    """
+    if gap_ms>PANEL_REAPPEARANCE_MS:return False
+    fans,gained=group['_key'];facts=row['facts']
+    if type(fans) is not int or type(gained) is not int or gained<=0:return False
+    if (facts.get('fans'),facts.get('fans_gained'))!=(fans,gained):return False
+    name=facts.get('race_name')
+    return name is None or group['_name'] is None or name==group['_name']
+
+
+def _counts_on(earlier,later):
+    """`later` continues the fan counter that `earlier` caught mid-count.
+
+    The result panel's fan total counts up when it appears: each intermediate
+    total is on screen for one sampled frame, the gained-fans figure does not
+    change, and nothing else is shown in between.
+    """
+    if later.get('_interrupted') or len(earlier['rows'])!=1:return False
+    if later['first_seen_ms']-earlier['last_seen_ms']>1000:return False
+    fans_a,gained_a=earlier['_key'];fans_b,gained_b=later['_key']
+    return (type(fans_a) is int and type(fans_b) is int and type(gained_a) is int
+            and gained_a==gained_b and fans_b>fans_a)
+
+
+def _settled(group):
+    """The panel's final total stayed on screen for more than one frame."""
+    totals=[r['facts'].get('fans') for r in group['rows']]
+    return len(totals)>=2 and totals[-1]==totals[-2] and type(totals[-1]) is int
+
+
+def _merge_fan_counters(groups):
+    """Fold the single frames of a counting fan total into the settled panel that follows."""
+    out=[];i=0
+    while i<len(groups):
+        chain=[groups[i]];j=i+1
+        while j<len(groups) and _counts_on(chain[-1],groups[j]):
+            chain.append(groups[j]);j+=1
+        if len(chain)>1 and _settled(chain[-1]):
+            merged=chain[0]
+            for g in chain[1:]:
+                merged['rows'].extend(g['rows']);merged['last_seen_ms']=g['last_seen_ms'];merged['_key']=g['_key']
+            out.append(merged);i=j
+        else:
+            out.append(groups[i]);i+=1
+    for index,group in enumerate(out,1):group['id']=f'race-{index:03d}'
+    return out
+
+
+def _settled_fan_total(rows):
+    """The last fan total of a non-decreasing counter, with the earlier readings kept."""
+    observed=[(r['source_timestamp_ms'],r['facts'].get('fans'),r['evidence']) for r in rows if type(r['facts'].get('fans')) is int]
+    if len({v for _,v,_ in observed})<2:return None
+    values=[v for _,v,_ in observed]
+    if any(b<a for a,b in zip(values,values[1:])):return None
+    return dict(fans=values[-1],observations=[dict(source_timestamp_ms=t,fans=v,evidence=e) for t,v,e in observed])
+
+
 def races(readings,reward_observations=()):
     from .race_reward_sections import annotate as annotate_reward_sections
     groups=[];interrupted=False
@@ -1020,38 +2756,76 @@ def races(readings,reward_observations=()):
             if row['screen']!='unknown':interrupted=True
             continue
         facts=row['facts'];key=(facts.get('fans'),facts.get('fans_gained'))
-        if not groups or interrupted or row['source_timestamp_ms']-groups[-1]['last_seen_ms']>1000 or key!=groups[-1]['_key']:
-            groups.append(dict(id=f'race-{len(groups)+1:03d}',first_seen_ms=row['source_timestamp_ms'],last_seen_ms=row['source_timestamp_ms'],_key=key,rows=[]))
+        gap=row['source_timestamp_ms']-groups[-1]['last_seen_ms'] if groups else None
+        if (not groups or interrupted or key!=groups[-1]['_key']
+                or (gap>1000 and not _same_settled_panel(groups[-1],row,gap))):
+            groups.append(dict(id=f'race-{len(groups)+1:03d}',first_seen_ms=row['source_timestamp_ms'],last_seen_ms=row['source_timestamp_ms'],
+                               _key=key,_name=facts.get('race_name'),_interrupted=bool(interrupted or not groups),rows=[]))
+        elif groups[-1]['_name'] is None:groups[-1]['_name']=facts.get('race_name')
         groups[-1]['last_seen_ms']=row['source_timestamp_ms'];groups[-1]['rows'].append(row)
         interrupted=False
+    groups=_merge_fan_counters(groups)
     from .race_result_continuity import join_dialog_returns
     groups=join_dialog_returns(groups,readings)
     for group in groups:
-        rows=group.pop('rows');group.pop('_key');fields={};conflicts={}
-        for field in ('race_name','placing','fans','fans_gained','course'):
-            observations=[r['facts'].get(field) for r in rows if r['facts'].get(field) is not None]
+        rows=group.pop('rows');group.pop('_key');group.pop('_name',None);group.pop('_interrupted',None);fields={};conflicts={}
+        grade_provenance=[]
+        for field in ('race_name','placing','fans','fans_gained','course','race_grade'):
+            raw_observations=[r['facts'].get(field) for r in rows if r['facts'].get(field) is not None]
+            invalid_grade = []
+            if field == 'race_grade':
+                observations=[]
+                for value in raw_observations:
+                    normalized = _normalized_race_grade(value)
+                    if normalized is None:
+                        invalid_grade.append(value)
+                    else:
+                        observations.append(normalized)
+                for row in rows:
+                    facts = row.get('facts', {})
+                    value = facts.get('race_grade') if isinstance(facts, dict) else None
+                    if _normalized_race_grade(value) is None:
+                        continue
+                    proof = dict(source_timestamp_ms=row.get('source_timestamp_ms'),
+                                 evidence=deepcopy(row.get('evidence')))
+                    if isinstance(facts, dict) and isinstance(facts.get('race_grade_provenance'), dict):
+                        proof['observation'] = deepcopy(facts['race_grade_provenance'])
+                    grade_provenance.append(proof)
+            else:
+                observations=raw_observations
             unique=[]
             for value in observations:
                 if value not in unique:unique.append(value)
-            fields[field]=unique[0] if len(unique)==1 else None
-            if len(unique)>1:conflicts[field]=unique
+            fields[field]=unique[0] if len(unique)==1 and not invalid_grade else None
+            if field=='fans' and len(unique)>1:
+                settled=_settled_fan_total(rows)
+                if settled is not None:
+                    fields['fans']=settled['fans']
+                    group['fan_counter_observations']=settled['observations']
+                    continue
+            if len(unique)>1 or invalid_grade:
+                conflicts[field]=raw_observations if field == 'race_grade' else unique
         conditions=list(dict.fromkeys(r['facts']['course_condition'] for r in rows if r['facts'].get('course_condition')))
         if fields['course'] is not None:
             fields['course']=dict(fields['course'],condition=conditions[0] if len(conditions)==1 else None)
         if len(conditions)>1:conflicts['course.condition']=conditions
         group.update(fields,evidence=[r['evidence'] for r in rows],conflicting_readings=conflicts,completed_action='race',item_rewards_complete=False,verified=False)
+        if grade_provenance:
+            group['race_grade_provenance'] = grade_provenance
         # Preserve stable visible snapshots; scrolling cannot establish item identity
         # or authorize summing repeated quantities into an inventory transaction.
         snapshots=[];pending=[]
         interruptions=group.pop('_visibility_interruptions',[])
         reward_rows=rows+[dict(r,facts=dict(r.get('facts',{}),visible_item_quantities=[])) for r in interruptions]
+        group_fan_totals={o['fans'] for o in group.get('fan_counter_observations',[])}
         if reward_observations:
             from .race_reward_inspection import merge_reward_rows
             extras=[]
             for observation in reward_observations:
                 if not group['first_seen_ms']<=observation['source_timestamp_ms']<=group['last_seen_ms']:continue
                 facts=observation.get('facts',{})
-                if observation['screen']=='race_result' and (facts.get('fans'),facts.get('fans_gained'))==(group['fans'],group['fans_gained']):
+                if (observation['screen']=='race_result' and facts.get('fans_gained')==group['fans_gained']
+                        and (facts.get('fans')==group['fans'] or facts.get('fans') in group_fan_totals)):
                     extras.append(observation)
                 else:
                     # A non-result or different race interrupts quantity continuity.

@@ -11,6 +11,7 @@ import math
 import re
 from .calendar_coverage import date_key
 from .turn_boundary import (
+    _rows_between, ordered_rows,
     _finite_time, _time, _evidence, _calendar_text, _same_date_boundary,
     _repeated_observation, _observation_record, _phase_turn_boundary,
 )
@@ -166,7 +167,7 @@ def _event_time(event, key, fallback=None):
 
 
 def _blocked_between(rows, start, end, *, allow_confirmation=True):
-    for row in rows:
+    for row in _rows_between(rows, start, end):
         time = _time(row)
         if time is None or not start < time < end:
             continue
@@ -221,7 +222,7 @@ def _matching_events(events, result_rows, confirmation_time):
 
 def _result_interval_clean(rows, first, last):
     """Reject a result interval containing another recognized action screen."""
-    for row in rows:
+    for row in _rows_between(rows, first, last):
         time = _time(row)
         if time is None or not first <= time <= last:
             continue
@@ -247,7 +248,7 @@ def _turns_stable_through_result(rows, confirmation_time, result_end):
     """Reject calendar, phase, or counter changes before the visit's result."""
     known_before = []
     calendar_before = None
-    for row in rows:
+    for row in _rows_between(rows, confirmation_time-_MAX_RESULT_DELAY_MS, confirmation_time):
         time = _time(row)
         if time is None or not confirmation_time-_MAX_RESULT_DELAY_MS <= time <= confirmation_time:
             continue
@@ -259,7 +260,7 @@ def _turns_stable_through_result(rows, confirmation_time, result_end):
         if type(value) is int and value >= 0:
             known_before.append(value)
     current = known_before[-1] if known_before else None
-    for row in rows:
+    for row in _rows_between(rows, confirmation_time, result_end):
         time = _time(row)
         if time is None or not confirmation_time < time <= result_end:
             continue
@@ -290,8 +291,7 @@ def reconstruct(readings, events):
     """
     if not isinstance(readings, (list, tuple)) or not isinstance(events, (list, tuple)):
         return []
-    ordered = sorted((row for row in readings if isinstance(row, dict) and _time(row) is not None),
-                     key=_time)
+    ordered = ordered_rows(readings)
     confirmations = [row for row in ordered if _is_confirmation(row)]
     if not confirmations:
         return []
@@ -309,7 +309,7 @@ def reconstruct(readings, events):
             continue
         if _is_cancel_status(confirmation):
             continue
-        candidates = [row for row in ordered
+        candidates = [row for row in _rows_between(ordered, confirmation_time, confirmation_time + _MAX_RESULT_DELAY_MS)
                       if _time(row) is not None and confirmation_time < _time(row) <= confirmation_time + _MAX_RESULT_DELAY_MS
                       and _is_named_result(row)]
         candidate_events = _matching_events(events, candidates, confirmation_time)

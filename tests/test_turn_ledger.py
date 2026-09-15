@@ -29,6 +29,81 @@ def report():
 
 
 class TurnLedgerTests(unittest.TestCase):
+    def test_acquisition_conflict_propagates_to_event_and_linked_transaction_only(self):
+        source=report(); data=source['gameplay_tracking']
+        data['events']=[dict(id='song',kind='outcome',first_seen_ms=500,last_seen_ms=1000,evidence='500.png',effects=[])]
+        data['song_acquisitions']=[dict(event_id='song',source_timestamp_ms=500,evidence='500.png',
+            name_conflicted=True,observed_name_candidates=['Title','Damaged Title'])]
+        data['lesson_purchases']=[dict(id='purchase',receipt_event_id='song',source_timestamp_ms=500,evidence='500.png'),
+                                  dict(id='unrelated',source_timestamp_ms=1000,evidence='1000.png')]
+        original=copy.deepcopy(source)
+        rows=build(source)['timeline']
+        linked=[r for r in rows if r.get('event_id')=='song']
+        self.assertEqual(len(linked),3)
+        self.assertTrue(all(r['conflicts_present'] for r in linked))
+        self.assertTrue(all(r['acquisition_conflicts'][0]['source_ref']=='/gameplay_tracking/song_acquisitions/0' for r in linked))
+        self.assertEqual(linked[0]['acquisition_conflicts'][0]['evidence'],['500.png'])
+        self.assertFalse(next(r for r in rows if r.get('transaction_id')=='unrelated')['conflicts_present'])
+        self.assertEqual(source,original)
+
+    def corroborated_fixture(self):
+        source = report(); data = source['gameplay_tracking']
+        full = complete_values(10, PERFORMANCE_FIELDS)
+        for row, omitted in zip(data['readings'][:4], [('dance',), (), ('passion',), ('dance', 'passion')]):
+            row['facts'] = {'performance_points': {k: v for k, v in full.items() if k not in omitted}}
+            row['screen'] = 'training_preview'
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=1500)]
+        return source
+
+    def test_complete_snapshot_can_be_corroborated_by_partial_frames(self):
+        source = self.corroborated_fixture(); original = copy.deepcopy(source)
+        opening = build(source)['turns'][0]['states']['performance']['opening']
+        self.assertEqual(opening['values_ref'], '/gameplay_tracking/readings/1/facts/performance_points')
+        self.assertEqual(opening['observed_at_ms'], 200)
+        self.assertEqual(opening['basis'], 'complete_source_snapshot_with_repeated_field_corroboration')
+        self.assertEqual(set(opening['field_corroboration']), set(PERFORMANCE_FIELDS))
+        self.assertTrue(all(len({p['observed_at_ms'] for p in proofs}) >= 2 for proofs in opening['field_corroboration'].values()))
+        self.assertEqual(source, original)
+
+    def test_partial_frames_never_manufacture_a_complete_snapshot(self):
+        source = self.corroborated_fixture()
+        del source['gameplay_tracking']['readings'][1]['facts']['performance_points']['vocal']
+        state=build(source)['turns'][0]['states']['performance']
+        self.assertEqual(state['opening_status'],'partially_observed')
+        opening=state['opening']
+        original=source
+        for token in opening['values_ref'].strip('/').split('/'):
+            original=original[int(token)] if isinstance(original,list) else original[token]
+        self.assertEqual(opening['values'],original)
+        self.assertLess(len(opening['values']),5)
+        self.assertTrue(all(len({p['observed_at_ms'] for p in proofs})>=2 for proofs in opening['field_corroboration'].values()))
+
+    def test_corroboration_rejects_conflicts_and_intervening_events(self):
+        for case in ('conflict', 'effect', 'purchase', 'late', 'duplicate_timestamp'):
+            with self.subTest(case=case):
+                source = self.corroborated_fixture(); data = source['gameplay_tracking']
+                if case == 'conflict':
+                    data['readings'][2]['facts']['performance_points']['dance'] = 11
+                elif case == 'effect':
+                    data['events'] = [dict(id='effect', kind='outcome', first_seen_ms=300, last_seen_ms=400,
+                        evidence='300.png', effects=[dict(kind='performance_change', field='dance', amount=1)])]
+                elif case == 'purchase':
+                    data['lesson_purchases'] = [dict(id='purchase', source_timestamp_ms=300, evidence='300.png')]
+                elif case == 'late':
+                    data['turn_action_receipts'][0]['source_timestamp_ms'] = 500
+                else:
+                    data['readings'][2]['source_timestamp_ms'] = 200
+                opening=build(source)['turns'][0]['states']['performance']['opening']
+                if case in ('effect','purchase'):
+                    self.assertIsNone(opening)
+                else:
+                    # The uncorroborated Dance value stays missing; independently
+                    # repeated fields may survive as one actual partial frame.
+                    self.assertIsNone(opening['values'].get('dance'))
+                    for proofs in opening['field_corroboration'].values():
+                        self.assertGreaterEqual(len({p['observed_at_ms'] for p in proofs}),2)
+                        if case=='late':self.assertTrue(all(p['observed_at_ms']<500 for p in proofs))
+
     def test_ambiguous_hint_names_remain_visible_without_counting_as_awards(self):
         source = report()
         source['gameplay_tracking']['events'] = [dict(id='hint-event', kind='outcome',
@@ -321,6 +396,44 @@ class TurnLedgerTests(unittest.TestCase):
         source['gameplay_tracking']['turn_action_receipts'] = [dict(kind='preview', source_timestamp_ms=500)]
         with self.assertRaisesRegex(ReportContractError, 'Unknown committed action kind'):
             validate(source, require_gameplay=True)
+
+    def test_finale_races_advance_the_phase_turn_and_the_ending_is_not_a_turn(self):
+        # The finale keeps one calendar label for three turns: train, Qualifier;
+        # train, Semifinal; train, Finals. Each race ends its turn; the screens
+        # after the Finals carry the label but no training menu.
+        def race(time, name):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='race_result', stats={}, facts=dict(race_name=name))
+
+        def menu(time):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='training_preview',
+                        stats=dict(calendar_text='Finale Underway', turns_remaining_to_goal=None))
+        source = report()
+        source['source']['duration_ms'] = 10000
+        source['gameplay_tracking']['readings'] = [
+            reading(100, 'Senior Year Late Dec'), reading(200, 'Senior Year Late Dec'),
+            reading(1000, 'Finale Underway', 1), reading(1100, 'Finale Underway', 1), menu(1200),
+            race(2000, 'URA Finale Qualifier'), race(2100, 'URA Finale Qualifier'),
+            reading(3000, 'Finale Underway'), reading(3100, 'Finale Underway'), menu(3200),
+            race(4000, 'URA Finale Semifinal'), race(4100, None),
+            reading(5000, 'Finale Underway', 1), reading(5100, 'Finale Underway', 1), menu(5200),
+            race(6000, 'URA Finale Finals'),
+            reading(7000, 'Finale Underway'), reading(7100, 'Finale Underway')]
+        source['gameplay_tracking']['turn_action_receipts'] = [
+            dict(kind='training', source_timestamp_ms=1500), dict(kind='race', source_timestamp_ms=2000),
+            dict(kind='training', source_timestamp_ms=3500), dict(kind='race', source_timestamp_ms=4000),
+            dict(kind='training', source_timestamp_ms=5500), dict(kind='race', source_timestamp_ms=6000)]
+        turns = build(source)['turns']
+        self.assertEqual(len(turns), 4)
+        self.assertEqual([t['label'] for t in turns[1:]],
+                         ['Finale Underway · URA Finale Qualifier', 'Finale Underway · URA Finale Semifinal', 'Finale Underway · URA Finale Finals'])
+        self.assertEqual([(t['start_ms'], t['end_ms']) for t in turns[1:]], [(1000, 3000), (3000, 5000), (5000, 10000)])
+        self.assertEqual([t['window_kind'] for t in turns[1:]], ['phase_race_turn'] * 3)
+        self.assertEqual([t['scheduled_race'] for t in turns[1:]], ['URA Finale Qualifier', 'URA Finale Semifinal', 'URA Finale Finals'])
+        self.assertEqual([t['action_status'] for t in turns[1:]], ['one_action'] * 3)
+        self.assertEqual([t['scheduled_race_actions'] for t in turns[1:]], [1, 1, 1])
+        self.assertEqual(turns[2]['boundary_basis'], 'finale_race_advance')
+        self.assertIn('2000.png', turns[2]['evidence'])
+        self.assertTrue(all(t['expects_one_action'] for t in turns[1:]))
 
 
 if __name__ == '__main__':

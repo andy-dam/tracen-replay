@@ -1,4 +1,5 @@
 """Shared source observations for dated and countdown-based turn advancement."""
+from bisect import bisect_left, bisect_right
 from copy import deepcopy
 from .calendar_coverage import date_key
 
@@ -15,6 +16,41 @@ def _finite_time(value):
 def _time(row):
     value = row.get('source_timestamp_ms') if isinstance(row, dict) else None
     return value if _finite_time(value) else None
+
+
+class TimeOrdered(list):
+    """Rows sorted by finite ``source_timestamp_ms`` with a bisect index.
+
+    It is the plain sorted list callers already iterate.  ``window(lo, hi)``
+    returns the contiguous slice whose timestamps lie in ``[lo, hi]``, in the
+    same order, so a loop over the slice visits exactly the rows a full scan
+    with that time filter would have kept.
+    """
+
+    def __init__(self, rows):
+        super().__init__(rows)
+        self.times = [_time(row) for row in self]
+
+    def window(self, lo, hi):
+        if hi < lo:
+            return []
+        return self[bisect_left(self.times, lo):bisect_right(self.times, hi)]
+
+
+def ordered_rows(readings):
+    """Sort the finite-timestamp readings once, with a window index."""
+    return TimeOrdered(sorted((row for row in readings if isinstance(row, dict) and _time(row) is not None),
+                              key=_time))
+
+
+def _rows_between(rows, lo, hi):
+    """The rows a scan limited to ``lo <= time <= hi`` visits, in order.
+
+    An indexed list answers with its window; a plain list is returned whole so
+    the caller's own time condition keeps doing the filtering.
+    """
+    window = getattr(rows, 'window', None)
+    return window(lo, hi) if window is not None else rows
 
 
 def _evidence(row):
@@ -37,7 +73,7 @@ def _same_date_boundary(rows, result_end):
     lookback_start = result_end - _MAX_NEXT_DATE_DELAY_MS
     dated = []
     invalid = []
-    for row in rows:
+    for row in _rows_between(rows, lookback_start, result_end):
         time = _time(row)
         if time is None or time < lookback_start or time > result_end:
             continue
@@ -70,7 +106,7 @@ def _same_date_boundary(rows, result_end):
     next_key = current_key + 1
     next_rows = []
     future_started = False
-    for row in rows:
+    for row in _rows_between(rows, result_end + 1, result_end + _MAX_NEXT_DATE_DELAY_MS):
         time = _time(row)
         if time is None or time <= result_end:
             continue
@@ -146,7 +182,7 @@ def _phase_turn_boundary(rows, confirmation_time, result_end):
     """Use a repeated phase countdown when no dated calendar exists."""
     lookback_start = confirmation_time - _MAX_RESULT_DELAY_MS
     phase_rows = []
-    for row in rows:
+    for row in _rows_between(rows, lookback_start, result_end):
         time = _time(row)
         if time is None or time < lookback_start or time > result_end:
             continue
@@ -177,7 +213,7 @@ def _phase_turn_boundary(rows, confirmation_time, result_end):
         return None
     after = []
     target_started = False
-    for row in rows:
+    for row in _rows_between(rows, result_end + 1, result_end + _MAX_NEXT_DATE_DELAY_MS):
         time = _time(row)
         if time is None or time <= result_end or time - result_end > _MAX_NEXT_DATE_DELAY_MS:
             if time is not None and time - result_end > _MAX_NEXT_DATE_DELAY_MS:

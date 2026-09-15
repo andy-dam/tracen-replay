@@ -6,7 +6,7 @@ import copy
 import unittest
 
 from tracen_replay.gameplay import CURRENCIES
-from tracen_replay.lesson_offer_costs import join_lesson_cost
+from tracen_replay.lesson_offer_costs import _offer_title, join_lesson_cost
 
 
 NAME = "Zero Is Where the Center Stands!"
@@ -70,6 +70,24 @@ def sequence(*, offer_values=None, offer_name=NAME):
 
 
 class LessonOfferCostTests(unittest.TestCase):
+    def test_source_proven_song_offer_alias_is_the_join_title(self):
+        card = offer()
+        card.update(
+            name="Present March ♪",
+            title={"text": "Present March >", "confidence": 99.5},
+            source_symbol={
+                "method": "source_title_note_stem_flag_head",
+                "symbol": "♪",
+                "independent_observations": False,
+            },
+        )
+        self.assertEqual(_offer_title(card), "Present March ♪")
+
+        # A display-name field without the shared source proof cannot alter
+        # the raw title used by cost matching.
+        card["source_symbol"]["independent_observations"] = True
+        self.assertEqual(_offer_title(card), "Present March >")
+
     def test_joins_projection_and_repeated_offer_price_without_creating_purchase(self):
         readings, event, group, before, initial = sequence()
         got = join_lesson_cost(readings, event, group, before, initial)

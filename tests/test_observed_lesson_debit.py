@@ -83,6 +83,21 @@ class ObservedLessonDebitTests(unittest.TestCase):
         event['effects'].append(dict(kind='named_acquisition',name='Another Lesson'))
         self.assertIsNone(lesson_receipts(rows,[event])[0]['performance_cost'])
 
+    def test_exact_receipt_owner_survives_bounded_ocr_name_variant(self):
+        rows,event=sequence()
+        event['effects'].append(dict(kind='named_acquisition',name='Makeup Advnaced Class'))
+        purchases=lesson_receipts(rows,[event])
+        self.assertEqual(len(purchases),1)
+        self.assertEqual(purchases[0]['performance_cost']['visual'],24)
+        self.assertEqual([effect['name'] for effect in event['effects']],['Makeup Advanced Class'])
+        self.assertTrue(purchases[0]['receipt_name_variants_resolved'])
+
+    def test_unrelated_receipt_owner_is_not_collapsed_as_a_typo(self):
+        rows,event=sequence()
+        event['effects'].append(dict(kind='named_acquisition',name='Dance Training Advanced Class'))
+        purchases=lesson_receipts(rows,[event])
+        self.assertTrue(not purchases or purchases[0]['performance_cost'] is None)
+
     def test_malformed_projection_mapping_stays_unresolved(self):
         for value in (None,[],42,'unreadable'):
             with self.subTest(value=value):
@@ -97,3 +112,34 @@ class ObservedLessonDebitTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class HiddenMenuBalanceTests(unittest.TestCase):
+    """A cursor can hide one menu balance field; the same visit still shows it."""
+
+    def test_hidden_menu_field_is_filled_from_the_transition_frame(self):
+        rows,event=sequence()
+        for r in rows[:2]:r['facts']['performance_points']['dance']=None
+        # projection complete, so the cost comes from initial - projected
+        for r in rows[2:4]:r['facts']['projected_performance_points']['dance']=43
+        rows.insert(4,row(875,'lesson_selection',{'performance_points':dict(zip(CURRENCIES,(43,112,86,95,154)))}))
+        got=lesson_receipts(rows,[event])[0]
+        self.assertEqual(got['performance_cost']['visual'],24)
+        self.assertEqual(got['performance_cost']['dance'],0)
+        self.assertEqual(got['initial_balance_fill_fields'],['dance'])
+
+    def test_fill_needs_every_readable_field_to_agree(self):
+        rows,event=sequence()
+        for r in rows[:2]:r['facts']['performance_points']['dance']=None
+        for r in rows[2:4]:r['facts']['projected_performance_points']['dance']=43
+        rows.insert(4,row(875,'lesson_selection',{'performance_points':dict(zip(CURRENCIES,(43,112,86,90,154)))}))
+        self.assertIsNone(lesson_receipts(rows,[event])[0]['performance_cost'])
+
+    def test_stale_menu_frame_after_the_receipt_is_skipped(self):
+        rows,event=sequence()
+        for r in rows[2:4]:r['facts']['projected_performance_points']['visual']=None
+        stale=row(1375,'lesson_selection',{'performance_points':dict(zip(CURRENCIES,(43,112,86,95,154)))})
+        rows.insert(6,stale)
+        got=lesson_receipts(rows,[event])[0]
+        self.assertEqual(got['performance_cost']['visual'],24)
+        self.assertEqual(got['cost_basis'],'receipt_and_repeated_observed_balances')

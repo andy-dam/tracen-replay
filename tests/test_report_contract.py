@@ -94,6 +94,72 @@ def valid_report():
 
 
 class ReportContractTests(unittest.TestCase):
+    def accounting_report(self):
+        from tests.test_turn_ledger import report as ledger_fixture, checkpoint
+        from tracen_replay.turn_ledger import build as ledger
+        from tracen_replay.causal_accounting import build as accounting
+        report = valid_report()
+        source = ledger_fixture()
+        report['source']['duration_ms'] = report['clip']['duration_ms'] = source['source']['duration_ms']
+        data = report['gameplay_tracking']
+        data.update(source['gameplay_tracking'])
+        data['checkpoints'] = [checkpoint('before',100,100),checkpoint('after',2200,105)]
+        data['events'] = [dict(id='award',kind='outcome',first_seen_ms=500,last_seen_ms=500,
+            evidence='500.png',effects=[dict(kind='stat_change',field='speed',amount=5)],
+            field_evidence={'stat_change|speed|':['500.png']},deltas={'speed':5})]
+        report['turn_ledger'] = ledger(report)
+        report['causal_accounting'] = accounting(report)
+        return report
+
+    def test_accounting_projection_preserves_partial_and_historical_reports(self):
+        report = self.accounting_report()
+        original = copy.deepcopy(report)
+        self.assertIs(validate(report,require_gameplay=True),report)
+        self.assertEqual(report,original)
+        for transition in report['causal_accounting']['turn_transitions']:
+            for key in ('transition_kind','endpoint_availability','terminal_observation'):
+                transition.pop(key)
+        report['causal_accounting'].pop('terminal_observations')
+        self.assertIs(validate(report,require_gameplay=True),report)
+
+    def test_terminal_observation_values_and_completion_claims_are_source_checked(self):
+        from tracen_replay.turn_ledger import build as ledger
+        from tracen_replay.causal_accounting import build as accounting
+        report = self.accounting_report()
+        row = copy.deepcopy(report['gameplay_tracking']['readings'][-1])
+        row.update(source_timestamp_ms=2500, evidence='terminal.png', screen='career_summary',
+                   facts={'final_attributes': {'speed': 105}})
+        report['gameplay_tracking']['readings'].append(row)
+        report['turn_ledger'] = ledger(report)
+        report['causal_accounting'] = accounting(report)
+        self.assertIs(validate(report, require_gameplay=True), report)
+        self.assertEqual(len(report['causal_accounting']['terminal_observations']), 1)
+        for mutation in ('value', 'completion', 'timestamp', 'pointer'):
+            with self.subTest(mutation=mutation):
+                modified = copy.deepcopy(report)
+                observation = modified['causal_accounting']['terminal_observations'][0]
+                if mutation == 'value': observation['values']['speed'] = 999
+                elif mutation == 'completion': observation['run_completion_verified'] = True
+                elif mutation == 'timestamp': observation['observed_at_ms'] = 2600
+                else: observation['value_refs']['speed'] = ['/gameplay_tracking/readings/999/facts/speed']
+                with self.assertRaisesRegex(ReportContractError, 'causal_accounting.*does not match'):
+                    validate(modified, require_gameplay=True)
+
+    def test_accounting_cannot_relabel_or_duplicate_a_source_contribution(self):
+        for mutation in ('basis','amount','duplicate','source','status','terminal'):
+            with self.subTest(mutation=mutation):
+                report = self.accounting_report()
+                accounting = report['causal_accounting']
+                contribution = accounting['contributions'][0]
+                if mutation=='basis': contribution['basis'] = 'state_derived'
+                elif mutation=='amount': contribution['amount'] = 50
+                elif mutation=='duplicate': accounting['contributions'].append(copy.deepcopy(contribution))
+                elif mutation=='source': contribution['source_ref'] = '/gameplay_tracking/events/999'
+                elif mutation=='status': accounting['turn_transitions'][0]['fields'][0]['status'] = 'fully_verified'
+                else: accounting['turn_transitions'][0]['endpoint_availability'][0]['next_turn'] = 'no_next_turn'
+                with self.assertRaisesRegex(ReportContractError,'causal_accounting.*does not match'):
+                    validate(report,require_gameplay=True)
+
     def test_full_recording_capture_persists_its_schema(self):
         with workspace_temp() as root:
             source = root / "run.mp4"
@@ -229,6 +295,52 @@ class ReportContractTests(unittest.TestCase):
         report["frames"][1]["source_timestamp_ms"] = 0
         with self.assertRaisesRegex(ReportContractError, "strictly increasing"):
             validate(report)
+
+    def test_frame_clip_and_pts_timestamps_are_source_consistent(self):
+        cases = {
+            "clip_after_duration": lambda report: report["frames"][1].update(
+                clip_timestamp_ms=report["clip"]["duration_ms"] + 1,
+            ),
+            "clip_source_mismatch": lambda report: report["frames"][1].update(
+                clip_timestamp_ms=0,
+            ),
+            "source_pts_mismatch": lambda report: report["frames"][1].update(
+                source_pts=16,
+            ),
+            "source_outside_clip": lambda report: (
+                report["clip"].update(source_start_ms=1000, duration_ms=1000),
+                report["frames"][0].update(source_timestamp_ms=0),
+            ),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(case=name):
+                report = valid_report()
+                mutate(report)
+                with self.assertRaises(ReportContractError):
+                    validate(report)
+
+    def test_frame_clip_timestamps_must_be_strictly_increasing(self):
+        report = valid_report()
+        report["frames"][0].update(
+            source_timestamp_ms=1, clip_timestamp_ms=1, source_pts=1, time_base="1/1000"
+        )
+        report["frames"][1].update(
+            source_timestamp_ms=2, clip_timestamp_ms=0, source_pts=2, time_base="1/1000"
+        )
+        with self.assertRaisesRegex(ReportContractError, "clip_timestamp_ms.*strictly increasing"):
+            validate(report)
+
+    def test_frame_clip_timestamp_allows_decoder_rounding_at_nonzero_clip_start(self):
+        report = valid_report()
+        report["clip"].update(source_start_ms=500, duration_ms=1500)
+        report["frames"][0].update(source_timestamp_ms=500, clip_timestamp_ms=0, source_pts=30)
+        report["frames"][1].update(
+            source_timestamp_ms=833,
+            clip_timestamp_ms=333,
+            source_pts=5,
+            time_base="1/6",
+        )
+        self.assertIs(validate(report), report)
 
     def test_unknown_semantic_values_are_preserved(self):
         report = valid_report()

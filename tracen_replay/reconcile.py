@@ -35,7 +35,41 @@ def stable_checkpoints(readings, minimum_samples=3, maximum_gap_ms=500):
             group = []
         group.append(reading)
     finish()
-    return checkpoints
+    return _without_transient_misreads(checkpoints)
+
+
+# A stat never moves by this much between two consecutive stable states and
+# back again; a checkpoint that does is a misread the frames repeated.
+TRANSIENT_STEP = 100
+
+
+def _without_transient_misreads(checkpoints):
+    """Drop a checkpoint that contradicts both of its neighbours on a field.
+
+    Values can be hidden or cut for several frames (a cursor over the first
+    digit reads 876 as 76) and still form a repeated group. When the
+    checkpoints before and after agree within a plausible step and this one
+    is far from both, it is the misread, not the stats.
+    """
+    kept = []
+    for index, checkpoint in enumerate(checkpoints):
+        previous = kept[-1] if kept else None
+        following = checkpoints[index + 1] if index + 1 < len(checkpoints) else None
+        if previous is not None and following is not None:
+            transient = False
+            for field in FIELDS:
+                a, b, c = previous['values'].get(field), checkpoint['values'].get(field), following['values'].get(field)
+                if not all(type(v) is int for v in (a, b, c)):
+                    continue
+                if abs(b - a) > TRANSIENT_STEP and abs(b - c) > TRANSIENT_STEP and abs(c - a) <= TRANSIENT_STEP:
+                    transient = True
+                    break
+            if transient:
+                continue
+        kept.append(checkpoint)
+    for index, checkpoint in enumerate(kept, 1):
+        checkpoint['id'] = f'checkpoint-{index:03d}'
+    return kept
 
 
 def account(before, after, events):

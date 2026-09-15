@@ -1,0 +1,635 @@
+"""Evidence-linked accounting, separate from arithmetic and coverage claims.
+
+Canonical events own awards. Action, lesson and song summaries are references
+to those awards, not new credits. Purchases contribute only their debit here.
+An observed state difference never manufactures a missing receipt, with one
+explicit and flagged exception: a turn's remaining difference for a field goes
+to its only possible owner, the sole training whose gain for the field was
+not read, the one receipt that named the field but lost its number, or the
+one lesson without an observed cost (basis ``turn_difference``). Boundary
+source probes may make a turn opening available after reassembly, but this
+module never promotes a terminal observation or a later state into an endpoint.
+"""
+import re
+from collections import Counter, defaultdict
+from copy import deepcopy
+
+from .reconcile import FIELDS
+from .gameplay import CURRENCIES
+
+
+CHANNELS = {'stats': tuple(FIELDS), 'performance': tuple(CURRENCIES)}
+
+_STATE_CONSTRAINED_BASES = frozenset({
+    'visible_complete_gain_and_surrounding_state_constraints',
+    'visible_gain_candidate_and_stable_result_counter',
+    'visible_gain_candidate_and_stable_result_suffix',
+    'single_visible_gain_candidate_and_surrounding_state_constraints',
+})
+
+
+def _proof(value):
+    if isinstance(value, str):
+        value = [value]
+    return list(dict.fromkeys(value or []))
+
+
+def _source_proof_paths(value):
+    """Return only source path strings from a possibly nested proof value."""
+
+    paths = []
+
+    def visit(item):
+        if isinstance(item, str):
+            if item and item not in paths:
+                paths.append(item)
+            return
+        if isinstance(item, (list, tuple)):
+            for child in item:
+                visit(child)
+
+    visit(value)
+    return paths
+
+
+def _state_constrained_gain_proof(event, field, amount):
+    """Propagate a selected candidate's source paths without selecting it.
+
+    ``state_supported_candidate_resolutions`` is an upstream, field-scoped
+    selection.  Causal accounting may cite its already selected gain frames,
+    but it must not use those frames to choose an amount or to turn the
+    candidate into an observed receipt.  Ambiguous or amount-inconsistent
+    resolutions therefore contribute no paths.
+    """
+
+    resolutions = [
+        resolution
+        for resolution in event.get('state_supported_candidate_resolutions', [])
+        if isinstance(resolution, dict) and resolution.get('field') == field
+    ]
+    if len(resolutions) != 1:
+        return []
+    resolution = resolutions[0]
+    if (type(amount) is not int or type(resolution.get('amount')) is not int
+            or resolution.get('amount') != amount
+            or resolution.get('basis') not in _STATE_CONSTRAINED_BASES):
+        return []
+    return _source_proof_paths(resolution.get('gain_evidence'))
+
+
+def _lesson_cost_basis(purchase, receipt, readings):
+    """A committed, source-priced purchase differs from a browsed projection.
+
+    Offer/request joins remain derived costs: this does not claim observation
+    of the resulting balance or an independently measured debit.
+    """
+    if purchase.get('cost_basis')=='observed_debit':return 'observed_balance_debit'
+    if purchase.get('cost_basis')=='state_confirmed_balance_drop':return 'state_derived_debit'
+    if purchase.get('cost_basis')!='receipt_request_and_observed_offer_prices':return 'projected_debit'
+    proof=purchase.get('offer_cost_evidence',{}); name=purchase.get('name')
+    if (not receipt or not name or purchase.get('name_conflicted') or proof.get('cost')!=purchase.get('performance_cost')
+        or proof.get('receipt',{}).get('event_id')!=receipt.get('id')
+        or proof.get('receipt_name')!=name or proof.get('request',{}).get('title')!=name
+        or proof.get('offer',{}).get('title')!=name):return 'projected_debit'
+    awards=[e for e in receipt.get('effects',[]) if e.get('kind') in ('song_learned','named_acquisition')]
+    if len(awards)!=1 or awards[0].get('name')!=name or receipt.get('conflicting_readings'):return 'projected_debit'
+    times={r['evidence']:r['source_timestamp_ms'] for r in readings}
+    for section in ('offer','request'):
+        group=proof[section]; stamps=group.get('timestamps_ms',[]); paths=_proof(group.get('evidence'))
+        if (len(set(stamps))<2 or not paths or any(p not in times or times[p] not in stamps for p in paths)
+            or {times[p] for p in paths if p in times}!=set(stamps)
+            or max(stamps)>=receipt['first_seen_ms']):return 'projected_debit'
+    if max(proof['offer']['timestamps_ms'])>=min(proof['request']['timestamps_ms']):return 'projected_debit'
+    return 'committed_offer_cost_derived'
+
+
+def _field_conflicts(event, channel, field):
+    """Keep a disagreement attached to its declared field, not every award.
+
+    Training readers use plain stat-field keys; receipt readers use typed
+    kind|field|name keys. Unscoped or malformed conflicts stay conservative.
+    This does not resolve the disputed field, even when its total balances.
+    """
+    performance_conflicts = event.get('performance_reading_conflicts', {})
+    if performance_conflicts and channel == 'performance':
+        if not isinstance(performance_conflicts, dict) or any(k not in CHANNELS[channel] for k in performance_conflicts):
+            return True
+        if field in performance_conflicts:
+            return True
+    conflicts = event.get('conflicting_readings', [])
+    if not conflicts:
+        return False
+    if isinstance(conflicts, dict):
+        if event.get('kind') != 'training' or any(k not in FIELDS for k in conflicts):
+            return True
+        return channel == 'stats' and field in conflicts
+    if not isinstance(conflicts, list):
+        return True
+    expected_kind = 'stat_change' if channel == 'stats' else 'performance_change'
+    for conflict in conflicts:
+        key = conflict.get('field') if isinstance(conflict, dict) else None
+        parts = key.split('|') if isinstance(key, str) else []
+        if len(parts) != 3 or not parts[0]:
+            return True
+        kind, affected, name = parts
+        if kind in ('stat_change', 'performance_change'):
+            target_channel = 'stats' if kind == 'stat_change' else 'performance'
+            if affected not in CHANNELS[target_channel] or name:
+                return True
+            if kind == expected_kind and affected == field:
+                return True
+        elif kind in ('stat_cap_change', 'performance_cap_change', 'training_modifier_change'):
+            cap_channel = 'performance' if kind == 'performance_cap_change' else 'stats'
+            if affected not in CHANNELS[cap_channel] or name:
+                return True
+        elif kind in ('friendship_change', 'friendship_status', 'skill_hint_change',
+                      'inheritance_inspiration', 'inheritance_spark', 'condition_acquired', 'condition_removed'):
+            if affected or not name:
+                return True
+        elif kind in ('energy_change', 'max_energy_change', 'energy_status',
+                      'mood_change', 'mood_status', 'fan_change'):
+            if affected or name:
+                return True
+        else:
+            return True
+    return False
+
+
+_FIELD_WORDS = {'speed': 'speed', 'stamina': 'stamina', 'power': 'power', 'guts': 'guts', 'wit': 'wit',
+                'skill_points': 'skill', 'dance': 'dance', 'passion': 'passion', 'vocal': 'vocal', 'visual': 'visual',
+                'composure': 'composure'}
+
+
+def _resolve_pointer(report, ref):
+    if not isinstance(ref, str) or not ref.startswith('/'):
+        return None
+    node = report
+    for token in ref.lstrip('/').split('/'):
+        token = token.replace('~1', '/').replace('~0', '~')
+        try:
+            node = node[int(token)] if isinstance(node, list) else node[token]
+        except (KeyError, IndexError, ValueError, TypeError):
+            return None
+    return node
+
+
+def _caption_direction(field, raw_text):
+    """'up' or 'down' when the line is this field's own receipt caption, else None.
+
+    Only ``<field> went up/down`` counts: a friendship line containing the
+    letters of a stat, or a ``Power Bonus`` modifier line, is not the field's
+    receipt.
+    """
+    word = _FIELD_WORDS.get(field, field)
+    text = ' '.join(str(raw_text or '').split())
+    match = re.match(rf'{word}(?:s|\s*p(?:ts|oints))?\s+went\s*(up|down)\b', text, re.I)
+    return match[1].lower() if match else None
+
+
+def _unparsed_mentions(candidates, field, start, end):
+    """The unparsed receipt captions of the field inside the window."""
+    found = []
+    for candidate in candidates or ():
+        if not isinstance(candidate, dict):
+            continue
+        time = candidate.get('first_seen_ms')
+        if type(time) is not int or not start <= time <= end:
+            continue
+        if _caption_direction(field, candidate.get('raw_text')):
+            found.append(candidate)
+    return found
+
+
+_CONFUSABLE_DIGITS = str.maketrans({'T': '1', 'I': '1', 'l': '1', 'i': '1', 'O': '0', 'o': '0', 'S': '5', 'B': '8'})
+
+
+def _caption_digits(raw_text):
+    """The digits a number-cut caption still shows after ``by``; '' when none, None when unreadable."""
+    text = ' '.join(str(raw_text or '').split())
+    match = re.search(r'by\b(.*)$', text, re.I)
+    if not match:
+        return ''
+    tail = match[1].strip().rstrip('.!').strip()
+    if not tail:
+        return ''
+    digits = tail.translate(_CONFUSABLE_DIGITS)
+    return digits if digits.isdigit() else None
+
+
+def _training_can_own(event, read_key, field):
+    """Whether a training's gain for the field is unknown rather than absent."""
+    read = event.get(read_key) or {}
+    if field in read:
+        return False
+    if not read:
+        return True
+    conflicts = event.get('conflicting_readings') or {}
+    names = set(conflicts) if isinstance(conflicts, dict) else {c.get('field') for c in conflicts if isinstance(c, dict)}
+    return field in names or field in (event.get('gain_conflicts') or {})
+
+
+def _caption_owner(data, candidate, field, channel, event_refs):
+    """The one outcome event a number-cut caption belongs to, or None.
+
+    A caption whose event already read a value for the field is a duplicate
+    line, not a lost number; it neither owns nor blocks the difference.
+    """
+    time = candidate.get('first_seen_ms')
+    read_key = 'effects'
+    owners = []
+    for index, event in enumerate(data['events']):
+        if event.get('kind') != 'outcome':
+            continue
+        if not event['first_seen_ms'] - 500 <= time <= event['last_seen_ms'] + 500:
+            continue
+        kind = 'stat_change' if channel == 'stats' else 'performance_change'
+        if any(e.get('kind') == kind and e.get('field') == field and type(e.get('amount')) is int
+               for e in event.get(read_key) or []):
+            return 'represented'
+        owners.append(index)
+    return owners[0] if len(owners) == 1 else None
+
+
+def build(report):
+    data = report['gameplay_tracking']
+    if data.get('auxiliary_log_used') is not False:
+        raise ValueError('Causal accounting requires explicit gameplay-only input')
+    times = {}
+    for row in data['readings']:
+        proof, time = row['evidence'], row['source_timestamp_ms']
+        if proof in times and times[proof] != time:
+            raise ValueError('One evidence identity has contradictory timestamps')
+        times[proof] = time
+    contributions, issues, context = [], [], []
+    event_refs = {}
+    owners = {e['source_ref']: e for e in report.get('turn_ledger', {}).get('timeline', [])}
+
+    def add(ref, parent, event, channel, field, amount, evidence, basis, *, conflicts=False):
+        if field not in CHANNELS[channel]:
+            raise ValueError(f'Unsupported {channel} field: {field}')
+        if amount is not None and type(amount) is not int:
+            raise ValueError(f'Noninteger contribution at {ref}')
+        start = event.get('first_seen_ms', event.get('source_timestamp_ms'))
+        end = event.get('last_seen_ms', start)
+        proof = _proof(evidence)
+        positive = [times[p] for p in proof if p in times and start <= times[p] <= end]
+        owner = owners.get(parent, {})
+        contributions.append(dict(id=ref, source_ref=ref, event_ref=parent,
+            event_id=event.get('id'), channel=channel, field=field, amount=amount,
+            observation_start_ms=min(positive) if positive else start,
+            observation_end_ms=max(positive) if positive else end,
+            evidence=proof, timing_basis='field_observations' if positive else 'parent_window_only',
+            basis=basis, conflicts_present=conflicts,
+            turn_id=owner.get('turn_id'), candidate_turn_ids=owner.get('candidate_turn_ids', []),
+            turn_assignment_basis=owner.get('assignment_basis', 'unresolved'),
+            independent_effect_verification=False))
+
+    for index, event in enumerate(data['events']):
+        parent = f'/gameplay_tracking/events/{index}'
+        identity = event.get('id')
+        if not identity or identity in event_refs:
+            raise ValueError('Canonical event IDs must be unique')
+        event_refs[identity] = parent
+        represented = set()
+        effect_totals = defaultdict(int)
+        for ei, effect in enumerate(event.get('effects', [])):
+            ref = f'{parent}/effects/{ei}'
+            kind, field = effect.get('kind'), effect.get('field')
+            channel = {'stat_change': 'stats', 'performance_change': 'performance'}.get(kind)
+            key = '|'.join(str(effect.get(k) or '') for k in ('kind', 'field', 'name'))
+            evidence = event.get('field_evidence', {}).get(key, [])
+            if channel:
+                represented.add((channel, field))
+                amount = effect.get('amount')
+                if type(amount) is int:
+                    effect_totals[(channel, field)] += amount
+                add(ref, parent, event, channel, field, amount, evidence,
+                    'observed_receipt', conflicts=_field_conflicts(event, channel, field))
+            else:
+                context.append(dict(source_ref=ref, event_ref=parent, effect=deepcopy(effect),
+                                    evidence=_proof(evidence), accounting_role='outside_reconciled_numeric_channels'))
+        for channel, key in (('stats', 'deltas'), ('performance', 'performance_deltas')):
+            for field, amount in event.get(key, {}).items():
+                if (channel, field) in represented:
+                    if amount != effect_totals[(channel, field)]:
+                        issues.append(dict(kind='summary_effect_disagreement', source_ref=f'{parent}/{key}/{field}',
+                            summary_amount=amount, receipt_sum=effect_totals[(channel, field)]))
+                    continue
+                basis = ('state_derived' if field in event.get('result_state_derived_fields', []) else
+                         'state_constrained' if field in {r.get('field') for r in event.get('state_supported_candidate_resolutions', [])} else
+                         'observed_training_gain' if event['kind'] == 'training' else
+                         'committed_skill_debit' if event['kind'] == 'skill_purchase_batch' else 'summary_only')
+                proof_key = 'field_evidence' if channel == 'stats' else 'performance_evidence'
+                evidence = event.get(proof_key, {}).get(field, [])
+                if basis == 'state_constrained':
+                    evidence = [
+                        *_proof(evidence),
+                        *_state_constrained_gain_proof(event, field, amount),
+                    ]
+                if basis == 'committed_skill_debit':
+                    evidence = event.get('evidence', [])
+                add(f'{parent}/{key}/{field}', parent, event, channel, field, amount, evidence,
+                    basis, conflicts=_field_conflicts(event, channel, field))
+    for index, purchase in enumerate(data.get('lesson_purchases', [])):
+        parent = f'/gameplay_tracking/lesson_purchases/{index}'
+        receipt = event_refs.get(purchase.get('receipt_event_id'))
+        if receipt is None:
+            issues.append(dict(kind='missing_purchase_receipt', source_ref=parent))
+        cost = purchase.get('performance_cost')
+        if cost is None:
+            issues.append(dict(kind='unobserved_purchase_debit', source_ref=parent))
+            continue
+        for field, amount in cost.items():
+            if type(amount) is not int or amount < 0:
+                raise ValueError('Purchase cost must be a nonnegative integer')
+            if amount:
+                basis = _lesson_cost_basis(purchase, next((e for e in data['events']
+                    if e['id']==purchase.get('receipt_event_id')),None), data['readings'])
+                add(f'{parent}/performance_cost/{field}', parent, purchase, 'performance', field,
+                    -amount, purchase.get('evidence'), basis, conflicts=receipt is None)
+
+    by_id = {c['id']: c for c in contributions}
+    claims = defaultdict(list)
+    for c in contributions:
+        claims[(c['event_ref'], c['channel'], c['field'])].append(c)
+    for rows in claims.values():
+        if len(rows) > 1:
+            issues.append(dict(kind='multiple_effect_claims_for_one_event_field',
+                               contribution_refs=[c['id'] for c in rows]))
+            for c in rows:
+                c['conflicts_present'] = True
+    physical_claims = defaultdict(list)
+    for c in contributions:
+        for proof in c['evidence']:
+            if proof in times and c['observation_start_ms'] <= times[proof] <= c['observation_end_ms']:
+                physical_claims[(c['channel'],c['field'],c['basis'],proof)].append(c)
+    duplicate_groups = set()
+    for rows in physical_claims.values():
+        if len({c['event_ref'] for c in rows}) < 2:
+            continue
+        identities = tuple(sorted(c['id'] for c in rows))
+        if identities not in duplicate_groups:
+            issues.append(dict(kind='shared_source_effect_claim',contribution_refs=list(identities)))
+            duplicate_groups.add(identities)
+        for c in rows:
+            c['conflicts_present'] = True
+    assigned = set()
+    def compare_fields(channel, before, after, start, end, *, assign=False):
+        accepted, uncertain = [], []
+        for c in contributions:
+            if c['channel'] != channel:
+                continue
+            first, last = c['observation_start_ms'], c['observation_end_ms']
+            if not (last > start and first <= end):
+                continue
+            reasons = []
+            if not start < first <= last <= end:
+                reasons.append('crosses_observed_endpoint')
+            if c['timing_basis'] != 'field_observations':
+                reasons.append('missing_field_timing')
+            if c['amount'] is None:
+                reasons.append('unobserved_amount')
+            if c['conflicts_present']:
+                reasons.append('conflicting_evidence')
+            if c['basis'] in ('projected_debit', 'summary_only'):
+                reasons.append('no_observed_resource_change')
+            if reasons:
+                uncertain.append(dict(contribution_ref=c['id'], reasons=reasons))
+            else:
+                accepted.append(c)
+                if assign: assigned.add(c['id'])
+        resource_rows = []
+        for field in CHANNELS[channel]:
+            left, right = before['values'].get(field), after['values'].get(field)
+            observed = right - left if type(left) is int and type(right) is int else None
+            parts = [c for c in accepted if c['field'] == field]
+            direct = sum(c['amount'] for c in parts if c['basis'] in ('observed_receipt', 'observed_training_gain', 'committed_skill_debit'))
+            derived = sum(c['amount'] for c in parts if c['basis'] not in ('observed_receipt', 'observed_training_gain', 'committed_skill_debit'))
+            residual = observed - direct - derived if observed is not None else None
+            ambiguous = [x for x in uncertain if by_id[x['contribution_ref']]['field'] == field]
+            resource_rows.append(dict(field=field, before=left, after=right, observed_change=observed,
+                direct_change=direct, derived_or_summary_change=derived,
+                unresolved_change=residual, contribution_refs=[c['id'] for c in parts],
+                ambiguous_contributions=ambiguous,
+                status='missing_endpoint' if observed is None else 'unresolved_attribution' if ambiguous else
+                       'unexplained_change' if residual else 'balanced_with_derived_changes' if any(c['basis'] not in ('observed_receipt', 'observed_training_gain', 'committed_skill_debit') for c in parts) else 'balanced_observations'))
+        return resource_rows
+
+    def checkpoint_comparisons():
+        out = []
+        assigned.clear()
+        for channel, fields in CHANNELS.items():
+            key = 'checkpoints' if channel == 'stats' else 'performance_accounting/checkpoints'
+            checkpoints = data['checkpoints'] if channel == 'stats' else data['performance_accounting']['checkpoints']
+            if len(checkpoints) < 2 and not any(i.get('kind') == 'insufficient_observed_endpoints' and i.get('channel') == channel for i in issues):
+                issues.append(dict(kind='insufficient_observed_endpoints', channel=channel, checkpoint_count=len(checkpoints)))
+            for i, (before, after) in enumerate(zip(checkpoints, checkpoints[1:])):
+                start, end = before['last_seen_ms'], after['first_seen_ms']
+                if not start < end:
+                    raise ValueError('Observed checkpoint intervals must be ordered and nonoverlapping')
+                resource_rows = compare_fields(channel,before,after,start,end,assign=True)
+                out.append(dict(id=f'{channel}-{i:04d}', channel=channel, start_ms=start, end_ms=end,
+                    before_state_ref=f'/gameplay_tracking/{key}/{i}', after_state_ref=f'/gameplay_tracking/{key}/{i+1}',
+                    fields=resource_rows, complete_event_history=False, independent_effect_verification=False))
+        return out
+    comparisons = checkpoint_comparisons()
+    def observed_state(state):
+        if state is None:
+            return None
+        value = report
+        for token in state['values_ref'].lstrip('/').split('/'):
+            token = token.replace('~1','/').replace('~0','~')
+            value = value[int(token)] if isinstance(value,list) else value[token]
+        # A promoted opening endpoint keeps only the fields that were read as
+        # integers on its source row, while the row itself may still carry
+        # an unreadable field as ``None``.  The summary is source-bound when
+        # every value it states equals the referenced row's value; it must not
+        # claim a field the row does not carry.
+        summary = state['values']
+        if (not isinstance(value, dict) or not isinstance(summary, dict)
+                or any(field not in value or value[field] != amount for field, amount in summary.items())):
+            raise ValueError(
+                'Turn state summary disagrees with its source reference: '
+                f"{state['values_ref']} at {state.get('observed_at_ms')} ms; "
+                f"ledger {summary!r} vs report {value!r}")
+        return dict(values=value,observed_at_ms=state['observed_at_ms'],values_ref=state['values_ref'])
+
+    turns = report.get('turn_ledger',{}).get('turns',[])
+    def turn_comparisons():
+      turn_transitions = []
+      for i, turn in enumerate(turns):
+        following = turns[i+1] if i+1<len(turns) else None
+        for channel, fields in CHANNELS.items():
+            before = observed_state(turn['states'][channel].get('opening'))
+            after = observed_state(following['states'][channel].get('opening') if following else
+                                   turn['states'][channel].get('closing'))
+            start = before['observed_at_ms'] if before else None
+            end = after['observed_at_ms'] if after else None
+            usable = start is not None and end is not None and start < end
+            if usable:
+                resource_rows = compare_fields(channel,before,after,start,end)
+            else:
+                resource_rows = [dict(field=field,before=before['values'].get(field) if before else None,
+                    after=after['values'].get(field) if after else None,observed_change=None,direct_change=None,
+                    derived_or_summary_change=None,unresolved_change=None,contribution_refs=[],ambiguous_contributions=[],
+                    status='missing_endpoint' if before is None or after is None else 'unordered_endpoints') for field in fields]
+            cause_refs = [f'/gameplay_tracking/events/{index}' for index,event in enumerate(data['events'])
+                          if usable and event['last_seen_ms']>start and event['first_seen_ms']<=end]
+            # Applicability is separate from the historical arithmetic status.
+            # A final observation is not a next-turn endpoint or proof that
+            # purchases and other changes later in the recording were seen.
+            endpoint_availability = []
+            for field in fields:
+                endpoint_availability.append(dict(field=field,
+                    opening='observed' if before and type(before['values'].get(field)) is int else 'not_observed',
+                    next_turn=('no_next_turn' if following is None else
+                               'observed' if after and type(after['values'].get(field)) is int else 'not_observed'),
+                    terminal_observation=('not_applicable' if following else
+                                          'observed' if after and type(after['values'].get(field)) is int else 'not_observed')))
+            terminal_observation = None
+            if following is None and after is not None:
+                terminal_observation = dict(values_ref=after['values_ref'], observed_at_ms=end,
+                    later_numeric_contribution_refs=[c['id'] for c in contributions
+                        if c['channel']==channel and c['observation_end_ms']>end],
+                    run_completion_verified=False)
+            turn_transitions.append(dict(turn_id=turn['id'],next_turn_id=following['id'] if following else None,
+                channel=channel,start_ms=start,end_ms=end,before_state_ref=before['values_ref'] if before else None,
+                after_state_ref=after['values_ref'] if after else None,fields=resource_rows,cause_refs=cause_refs,
+                transition_kind='between_turn_openings' if following else 'terminal_observation_window',
+                endpoint_availability=endpoint_availability, terminal_observation=terminal_observation,
+                endpoint_basis='observed_turn_openings' if following else 'last_observed_closing_state',
+                accounting_role='comparison_view_only_not_additional_changes',complete_event_history=False,
+                exact_award_times_verified=False,independent_effect_verification=False))
+      return turn_transitions
+    turn_transitions = turn_comparisons()
+
+    # The one explicit extrapolation: a turn difference goes to its only
+    # possible owner. Inside one turn window a field's remaining difference
+    # can belong to the turn's sole training whose gain for that field was not
+    # read, or to the one outcome whose receipt named the field but lost its
+    # number (cut, covered, or misread), and a negative performance
+    # difference to the one lesson bought in the window whose cost was not
+    # observed. Two possible owners, an ambiguous contribution, or a caption
+    # whose remaining digits contradict the difference leave it open with its
+    # window. Each assignment is recorded on the owner and as a derived
+    # contribution with its own basis, never as a receipt, so every consumer
+    # shows it as worked out from the difference and a viewer can replace it.
+    actions_by_turn = defaultdict(list)
+    for entry in report.get('turn_ledger', {}).get('timeline', []):
+        if isinstance(entry, dict) and entry.get('kind') == 'committed_action' and entry.get('turn_id'):
+            actions_by_turn[entry['turn_id']].append(entry)
+    lessons = data.get('lesson_purchases') or []
+    extrapolated = 0
+    for transition in turn_transitions:
+        start, end = transition.get('start_ms'), transition.get('end_ms')
+        if start is None or end is None:
+            continue
+        actions = actions_by_turn.get(transition['turn_id'], [])
+        decisions = [a for a in actions if a.get('action_kind') != 'race']
+        trainings = [a for a in decisions if a.get('action_kind') == 'training']
+        training_event = training_parent = None
+        if len(decisions) == 1 and trainings:
+            receipt = _resolve_pointer(report, trainings[0].get('source_ref'))
+            training_parent = event_refs.get(receipt.get('event_id')) if isinstance(receipt, dict) else None
+            if training_parent is not None:
+                training_event = data['events'][int(training_parent.rsplit('/', 1)[1])]
+        elif not decisions:
+            # A training whose identity was never read is not a committed
+            # decision, but it is still the turn's only training.
+            seen = [(i, e) for i, e in enumerate(data['events']) if e.get('kind') == 'training'
+                    and e['last_seen_ms'] > start and e['first_seen_ms'] <= end]
+            if len(seen) == 1:
+                trainings = [seen[0][1]]
+                training_parent, training_event = f'/gameplay_tracking/events/{seen[0][0]}', seen[0][1]
+        channel = transition['channel']
+        read_key = 'deltas' if channel == 'stats' else 'performance_deltas'
+        store = 'turn_difference_gains' if channel == 'stats' else 'turn_difference_performance_gains'
+        race_in_turn = any(a.get('action_kind') == 'race' for a in actions)
+        open_lessons = [(i, l) for i, l in enumerate(lessons) if isinstance(l, dict) and l.get('performance_cost') is None
+                        and type(l.get('source_timestamp_ms')) is int and start < l['source_timestamp_ms'] <= end]
+        for row in transition['fields']:
+            field, residual = row['field'], row.get('unresolved_change')
+            if row.get('status') != 'unexplained_change' or type(residual) is not int or residual == 0:
+                continue
+            if row.get('ambiguous_contributions'):
+                continue
+            if race_in_turn and field == 'skill_points':
+                continue
+            possible = []
+            # The sole training takes a positive difference when its result was
+            # not read at all or its reading of the field conflicted. A result
+            # panel read without a row for the field did not raise it.
+            if residual > 0 and trainings:
+                if training_event is None:
+                    possible.append(('unresolved', None, None))
+                elif _training_can_own(training_event, read_key, field):
+                    possible.append(('training', training_parent, training_event))
+            # The one outcome whose receipt named the field but lost its number.
+            captions = _unparsed_mentions(data.get('unparsed_receipt_candidates'), field, start, end)
+            caption_events = {}
+            for candidate in captions:
+                owner = _caption_owner(data, candidate, field, channel, event_refs)
+                if owner == 'represented':
+                    continue
+                if owner is None:
+                    possible.append(('unresolved', None, None))
+                    continue
+                caption_events.setdefault(owner, []).append(candidate)
+            for index, found in caption_events.items():
+                possible.append(('outcome', f'/gameplay_tracking/events/{index}', data['events'][index], found))
+            # The one lesson bought in the window whose cost was not observed
+            # takes a negative performance difference.
+            if residual < 0 and channel == 'performance' and open_lessons:
+                for index, lesson in open_lessons:
+                    possible.append(('lesson', f'/gameplay_tracking/lesson_purchases/{index}', lesson))
+            if len(possible) != 1 or possible[0][0] == 'unresolved':
+                continue
+            kind, parent, owner = possible[0][:3]
+            if kind == 'training':
+                owner.setdefault(store, {})[field] = residual
+                owner['turn_difference_basis'] = 'sole_training_takes_turn_residual'
+                add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, owner.get('evidence'),
+                    'turn_difference')
+            elif kind == 'outcome':
+                found = possible[0][3]
+                shown = {_caption_digits(c.get('raw_text')) for c in found}
+                if any(d and not str(abs(residual)).startswith(d) for d in shown):
+                    continue
+                directions = {_caption_direction(field, c.get('raw_text')) for c in found}
+                if directions != {'up' if residual > 0 else 'down'}:
+                    continue
+                owner.setdefault(store, {})[field] = residual
+                owner['turn_difference_basis'] = 'sole_number_cut_receipt_takes_turn_residual'
+                owner.setdefault('turn_difference_captions', {})[field] = [
+                    dict(raw_text=c.get('raw_text'), first_seen_ms=c.get('first_seen_ms'),
+                         evidence=list(c.get('evidence') or [])[:1]) for c in found]
+                proof = [owner.get('evidence'), *(e for c in found for e in (c.get('evidence') or []))]
+                add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, [e for e in proof if e],
+                    'turn_difference')
+            else:
+                owner.setdefault('turn_difference_cost', {})[field] = -residual
+                owner['turn_difference_basis'] = 'sole_unpriced_lesson_takes_turn_residual'
+                add(f'{parent}/turn_difference_cost/{field}', parent, owner, 'performance', field, residual,
+                    owner.get('evidence'), 'turn_difference')
+            extrapolated += 1
+    if extrapolated:
+        by_id.update({c['id']: c for c in contributions})
+        comparisons = checkpoint_comparisons()
+        turn_transitions = turn_comparisons()
+    counts = Counter(f['status'] for interval in comparisons for f in interval['fields'])
+    turn_counts = Counter(f['status'] for interval in turn_transitions for f in interval['fields'])
+    from .terminal_observations import build as build_terminal_observations
+    return dict(schema_version='tracen-replay/causal-accounting-v1', source_sha256=report['source']['sha256'],
+        contributions=contributions, comparisons=comparisons,turn_transitions=turn_transitions,
+        terminal_observations=build_terminal_observations(report, contributions),
+        other_effects=context, issues=issues,
+        unassigned_contribution_refs=[c['id'] for c in contributions if c['id'] not in assigned],
+        summary=dict(contributions=len(contributions), comparisons=len(comparisons), field_status_counts=dict(counts),
+                     turn_comparisons=len(turn_transitions),turn_field_status_counts=dict(turn_counts)),
+        limitations=['Arithmetic closure does not verify every individual effect or exclude offsetting recognition errors.',
+                     'State-derived and projected changes are not independent receipt evidence.',
+                     'A turn_difference is the turn difference assigned to its only possible owner (the sole training, the one receipt that lost its number, or the one lesson without an observed cost); it is flagged, not observed, and a viewer may replace it.',
+                     'Observation windows constrain attribution; they do not establish the exact award time.',
+                     'Missing opening or final checkpoints leave recording coverage incomplete.',
+                     'Turn and checkpoint comparisons are overlapping views; sum canonical contributions only once.',
+                     'Other effects, including energy, hints and conditions, retain source references and are not summed as stats.'])

@@ -19,8 +19,10 @@ from .turn_boundary import (
     _observation_record,
     _phase_turn_boundary,
     _repeated_observation,
+    _rows_between,
     _same_date_boundary,
     _time,
+    ordered_rows,
 )
 
 
@@ -154,7 +156,7 @@ def _event_times(event):
 
 
 def _confirmation_group(ordered, event_first):
-    candidates = [row for row in ordered
+    candidates = [row for row in _rows_between(ordered, event_first - _MAX_CONFIRMATION_DELAY_MS, event_first)
                   if _time(row) is not None
                   and event_first - _MAX_CONFIRMATION_DELAY_MS <= _time(row) < event_first
                   and _is_confirmation(row)]
@@ -169,10 +171,15 @@ def _confirmation_group(ordered, event_first):
 
 
 def _blocked_between(ordered, start, end, *, allow_event_dialogue=False,
-                     allow_action_screens=()):
-    """Reject cancellation, navigation, or another action in a source path."""
+                     allow_action_screens=(), own_title=None):
+    """Reject cancellation, navigation, or another action in a source path.
+
+    The result dialogue's own frames, titled like the Rest event, can precede
+    the frame on which its receipt text was read; they are part of the path.
+    """
     allowed = frozenset(allow_action_screens)
-    for row in ordered:
+    own = " ".join(str(own_title).split()).casefold() if isinstance(own_title, str) and own_title.strip() else None
+    for row in _rows_between(ordered, start, end):
         time = _time(row)
         if time is None or not start < time < end:
             continue
@@ -182,6 +189,9 @@ def _blocked_between(ordered, start, end, *, allow_event_dialogue=False,
             return True
         screen = row.get("screen")
         if screen == "event_outcome":
+            title = row.get("context_title")
+            if own and isinstance(title, str) and " ".join(title.split()).casefold() == own:
+                continue
             if not allow_event_dialogue:
                 return True
             # Event dialogue after a Rest result is allowed.  A non-empty
@@ -208,7 +218,7 @@ def _goal_countdown_before_result(ordered, confirmation_time, result_first):
     confirmation and the recovery result.
     """
     rows = []
-    for row in ordered:
+    for row in _rows_between(ordered, confirmation_time, result_first):
         time = _time(row)
         if time is None or not confirmation_time < time < result_first:
             continue
@@ -235,7 +245,7 @@ def _goal_race_followup(ordered, result_end, boundary_time,
     if not countdown:
         return None
     race_rows = []
-    for row in ordered:
+    for row in _rows_between(ordered, result_end, boundary_time):
         time = _time(row)
         if time is None or not result_end < time < boundary_time:
             continue
@@ -248,7 +258,7 @@ def _goal_race_followup(ordered, result_end, boundary_time,
 
 def _result_rows(ordered, first, last):
     rows = []
-    for row in ordered:
+    for row in _rows_between(ordered, first, last):
         time = _time(row)
         if time is None or not first <= time <= last:
             continue
@@ -261,7 +271,7 @@ def _result_rows(ordered, first, last):
 
 
 def _clean_result_interval(ordered, first, last):
-    for row in ordered:
+    for row in _rows_between(ordered, first, last):
         time = _time(row)
         if time is None or not first <= time <= last:
             continue
@@ -286,7 +296,7 @@ def _boundary(ordered, confirmation_time, result_end):
     # Some recordings expose a phase label before a turn and then the next
     # concrete calendar date, without exposing a numeric countdown.  Treat
     # that as a boundary only when both sides are repeated source readings.
-    phase_rows = [row for row in ordered
+    phase_rows = [row for row in _rows_between(ordered, result_end - _MAX_BOUNDARY_DELAY_MS, result_end)
                   if _time(row) is not None
                   and result_end - _MAX_BOUNDARY_DELAY_MS <= _time(row) <= result_end
                   and _calendar_text(row) in _PHASE_LABELS]
@@ -294,7 +304,7 @@ def _boundary(ordered, confirmation_time, result_end):
         return None
     next_rows = []
     next_key = None
-    for row in ordered:
+    for row in _rows_between(ordered, result_end + 1, result_end + _MAX_BOUNDARY_DELAY_MS):
         time = _time(row)
         if time is None or time <= result_end:
             continue
@@ -389,9 +399,7 @@ def reconstruct(readings, events):
     """Return completed Rest actions proved by source readings."""
     if not isinstance(readings, (list, tuple)) or not isinstance(events, (list, tuple)):
         return []
-    ordered = sorted((row for row in readings
-                      if isinstance(row, dict) and _time(row) is not None),
-                     key=_time)
+    ordered = ordered_rows(readings)
     result = []
     used_events = set()
     used_spans = []
@@ -426,7 +434,7 @@ def reconstruct(readings, events):
             continue
         if _is_cancel_status(event) or not _clean_result_interval(ordered, first, last):
             continue
-        if _blocked_between(ordered, confirmation_time, first):
+        if _blocked_between(ordered, confirmation_time, first, own_title=event.get("context_title")):
             continue
         boundary = _boundary(ordered, confirmation_time, last)
         if boundary is None:

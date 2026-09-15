@@ -91,6 +91,62 @@ def _repeated_source_state(readings, fields, channel, start_ms, action_time, unc
                 exact_turn_boundary=first['time'] == start_ms)
 
 
+def _corroborated_source_state(readings, fields, channel, start_ms, action_time, uncertain, timeline, *, partial=False):
+    """Corroborate one complete source snapshot with nearby partial readings.
+
+    Every value still comes from the same actual snapshot. Each field must
+    repeat at another distinct source timestamp within one second of it.
+    Conflicting values, intervening events and calendar uncertainty prevent
+    this fallback; a tuple assembled from different frames is never emitted.
+    """
+    observations = []
+    for index, row in enumerate(readings):
+        time = row.get('source_timestamp_ms')
+        if type(time) is not int or not start_ms <= time < action_time:
+            continue
+        if channel == 'stats':
+            values = row.get('stats', {}).get('values')
+            source_ref = f'/gameplay_tracking/readings/{index}/stats'
+            values_ref = source_ref+'/values'
+        else:
+            values = row.get('facts', {}).get('performance_points')
+            source_ref = f'/gameplay_tracking/readings/{index}/facts'
+            values_ref = source_ref+'/performance_points'
+        if not isinstance(values, dict) or not _proof(row.get('evidence')):
+            continue
+        if any(value is not None and type(value) is not int for field, value in values.items() if field in fields):
+            continue
+        observations.append(dict(time=time, values=values, source_ref=source_ref,
+                                 values_ref=values_ref, evidence=_proof(row['evidence'])))
+    candidates=sorted(observations,key=lambda r:(-sum(type(r['values'].get(f)) is int for f in fields),r['time'])) if partial else observations
+    for snapshot in candidates:
+        observed_fields=[f for f in fields if type(snapshot['values'].get(f)) is int]
+        if (not observed_fields or (not partial and len(observed_fields)!=len(fields))
+            or (partial and len(observed_fields)==len(fields))):
+            continue
+        witnesses = [r for r in observations if abs(r['time']-snapshot['time']) <= 1000]
+        first, last = min(r['time'] for r in witnesses), max(r['time'] for r in witnesses)
+        if uncertain(first, last) or any(e['first_seen_ms'] <= last and e['last_seen_ms'] >= first for e in timeline):
+            continue
+        evidence = {}
+        for field in observed_fields:
+            seen = [r for r in witnesses if type(r['values'].get(field)) is int]
+            if (len({r['time'] for r in seen}) < 2
+                    or any(r['values'][field] != snapshot['values'][field] for r in seen)):
+                break
+            evidence[field] = [dict(value_ref=r['values_ref']+'/'+field,
+                                    observed_at_ms=r['time'], evidence=r['evidence']) for r in seen]
+        if len(evidence) != len(observed_fields):
+            continue
+        return dict(source_ref=snapshot['source_ref'], values_ref=snapshot['values_ref'],
+                    supporting_source_refs=[r['source_ref'] for r in witnesses],
+                    field_corroboration=evidence, observed_at_ms=snapshot['time'],
+                    values=deepcopy(snapshot['values']), evidence=snapshot['evidence'],
+                    basis=('partial' if partial else 'complete')+'_source_snapshot_with_repeated_field_corroboration',
+                    exact_turn_boundary=snapshot['time'] == start_ms)
+    return None
+
+
 def _calendar_identity(row):
     stats = row.get('stats', {})
     text = stats.get('calendar_text')
@@ -105,12 +161,45 @@ def _calendar_identity(row):
     return None, None
 
 
+_FINALE = 'Finale Underway'
+# Screens that show a turn was played (a training menu or result); the
+# screens after the Finals carry the finale label but none of these.
+_ACTION_SCREENS = frozenset({'training_preview', 'training_result', 'training_result_candidate'})
+
+
+def _race_name(row):
+    facts = row.get('facts') if isinstance(row, dict) else None
+    name = facts.get('race_name') if isinstance(facts, dict) else None
+    return name.strip() if isinstance(name, str) and name.strip() else None
+
+
 def _windows(readings, duration):
-    """Use successive repeated calendar/countdown observations, not action count."""
+    """Use successive repeated calendar/countdown observations, not action count.
+
+    The finale keeps one calendar label and one countdown for its three turns
+    (train, then the Qualifier; train, then the Semifinal; train, then the
+    Finals), so there the finale race ends the turn: the next home observation
+    after a finale race result opens the following turn. The screens after the
+    Finals still carry the label but offer no training menu; they stay in the
+    last turn's window instead of becoming a turn of their own.
+    """
     groups = []
+    pending_race = None
     for row in readings:
+        if row.get('screen') == 'race_result' and groups and groups[-1]['key'][0] == _FINALE:
+            if pending_race is None and _race_name(row):
+                pending_race = row
         key, label = _calendar_identity(row)
         if key is None:
+            continue
+        if (key[0] == _FINALE and groups and groups[-1]['key'][0] == _FINALE
+                and (pending_race is not None or groups[-1].get('race_advance') is not None)):
+            # From the first finale race on, the calendar text and countdown
+            # no longer separate turns; the race advance does.
+            if pending_race is not None:
+                groups.append(dict(key=(_FINALE, None, len(groups)), label=label, rows=[], race_advance=pending_race))
+                pending_race = None
+            groups[-1]['rows'].append(row)
             continue
         # A newly observed phase closes the previous dated turn even before
         # its countdown is readable. Missing countdown text within an already
@@ -120,6 +209,15 @@ def _windows(readings, duration):
         if not groups or groups[-1]['key'] != key:
             groups.append(dict(key=key, label=label, rows=[]))
         groups[-1]['rows'].append(row)
+    merged = []
+    for group in groups:
+        acted = any(r.get('completed_action') or r.get('screen') in _ACTION_SCREENS for r in group['rows'])
+        if group.get('race_advance') is not None and merged and not acted:
+            merged[-1]['rows'].extend(group['rows'])
+            continue
+        merged.append(group)
+    groups = merged
+    race_rows = [r for r in readings if r.get('screen') == 'race_result' and _race_name(r)]
     confirmed, rejected = [], []
     for group in groups:
         rows = group['rows']
@@ -128,6 +226,31 @@ def _windows(readings, duration):
                                  reason='single_calendar_observation', evidence=_proof(rows[0].get('evidence'))))
         else:
             confirmed.append(group)
+    # A countdown or date read for a moment that contradicts both of its
+    # neighbours (11, then 0, then 10) is the transition animation misread,
+    # not a window of its own. It stays visible as noise; the neighbours it
+    # separated are joined again when they carry the same value.
+    kept = []
+    for index, group in enumerate(confirmed):
+        key = group['key']
+        prev_key = kept[-1]['key'] if kept else None
+        next_key = confirmed[index + 1]['key'] if index + 1 < len(confirmed) else None
+        if (key[1] is not None and prev_key and next_key and prev_key[0] == key[0] == next_key[0]
+                and prev_key[1] is not None and next_key[1] is not None):
+            low, high = sorted((prev_key[1], next_key[1]))
+            if not low <= key[1] <= high:
+                rows = group['rows']
+                rejected.append(dict(label=group['label'], first_seen_ms=rows[0]['source_timestamp_ms'],
+                                     start_ms=rows[0]['source_timestamp_ms'],
+                                     end_ms=confirmed[index + 1]['rows'][0]['source_timestamp_ms'],
+                                     reason='calendar_transient_misread',
+                                     evidence=_proof(rows[0].get('evidence')) + _proof(rows[-1].get('evidence'))))
+                continue
+        if kept and kept[-1]['key'] == key and kept[-1].get('race_advance') is None and group.get('race_advance') is None:
+            kept[-1]['rows'].extend(group['rows'])
+            continue
+        kept.append(group)
+    confirmed = kept
     windows = []
     for issue in rejected:
         issue['start_ms'] = issue['first_seen_ms']
@@ -156,14 +279,24 @@ def _windows(readings, duration):
             issues.append('unconfirmed_calendar_transition')
         if index + 1 == len(confirmed):
             issues.append('next_turn_boundary_unobserved')
-        windows.append(dict(id=f'turn-{index + 1:03d}', label=group['label'],
-                            phase=key[0], calendar_value=key[1], start_ms=start, end_ms=end,
-                            window_kind='calendar_turn' if key[0] == 'dated' else
-                            'countdown_segment' if key[1] is not None else 'unresolved_phase',
-                            end_exclusive=index + 1 < len(confirmed),
-                            boundary_basis='repeated_calendar_observations',
-                            evidence=list(dict.fromkeys(p for r in group['rows'][:2] for p in _proof(r.get('evidence')))),
-                            issues=issues, timeline_refs=[], ambiguous_timeline_refs=[], comparisons=dict(stats=[], performance=[])))
+        label = group['label']
+        kind = ('calendar_turn' if key[0] == 'dated' else
+                'countdown_segment' if key[1] is not None else 'unresolved_phase')
+        advance = group.get('race_advance')
+        evidence_rows = ([advance] if advance is not None else []) + group['rows'][:2]
+        window = dict(id=f'turn-{index + 1:03d}', label=label,
+                      phase=key[0], calendar_value=key[1], start_ms=start, end_ms=end,
+                      window_kind=kind, end_exclusive=index + 1 < len(confirmed),
+                      boundary_basis='finale_race_advance' if advance is not None else 'repeated_calendar_observations',
+                      evidence=list(dict.fromkeys(p for r in evidence_rows for p in _proof(r.get('evidence')))),
+                      issues=issues, timeline_refs=[], ambiguous_timeline_refs=[], comparisons=dict(stats=[], performance=[]))
+        if key[0] == _FINALE:
+            # A finale turn is named by the race that ends it; its training is
+            # the decision, the race is scheduled by the game.
+            scheduled = next((_race_name(r) for r in race_rows if start <= r['source_timestamp_ms'] < end), None)
+            if scheduled:
+                window.update(label=f'{_FINALE} · {scheduled}', window_kind='phase_race_turn', scheduled_race=scheduled)
+        windows.append(window)
     return windows, rejected
 
 
@@ -231,6 +364,18 @@ def build(report):
                     turn['ambiguous_timeline_refs'].append(entry['id'])
         return entry
 
+    # Acquisition identities can be disputed even when the underlying event
+    # has no numeric conflict. Keep those source objects visible to consumers.
+    acquisition_conflicts = {}
+    for collection in TRANSACTIONS:
+        for index, transaction in enumerate(data.get(collection, [])):
+            if transaction.get('name_conflicted'):
+                event_id = transaction.get('receipt_event_id', transaction.get('event_id'))
+                if event_id:
+                    acquisition_conflicts.setdefault(event_id, []).append(dict(
+                        source_ref=_ref(collection, index), kind='acquisition_name_conflict',
+                        observed_name_candidates=deepcopy(transaction.get('observed_name_candidates', [])),
+                        evidence=_proof(transaction.get('evidence'))))
     event_ids = {}
     for index, event in enumerate(data['events']):
         identity = event.get('id')
@@ -244,7 +389,9 @@ def build(report):
             performance_changes=_changes(event.get('performance_deltas', {}), PERFORMANCE_FIELDS, identity),
             field_evidence=deepcopy(event.get('field_evidence', {})),
             changes_are_additional_to_effects=False,
-            conflicts_present=bool(event.get('conflicting_readings') or event.get('ambiguous_effect_candidates')))
+            conflicts_present=bool(event.get('conflicting_readings') or event.get('ambiguous_effect_candidates')
+                                   or event.get('performance_reading_conflicts') or acquisition_conflicts.get(identity)),
+            acquisition_conflicts=deepcopy(acquisition_conflicts.get(identity, [])))
         for effect_index, effect in enumerate(event.get('effects', [])):
             # Hint awards need their own entries; numeric effects remain on the
             # event reference so consumers cannot sum both forms of one award.
@@ -283,8 +430,12 @@ def build(report):
         for index, transaction in enumerate(data.get(collection, [])):
             start = transaction.get('source_timestamp_ms', transaction.get('first_seen_ms'))
             end = transaction.get('last_seen_ms', start)
+            event_id = transaction.get('receipt_event_id', transaction.get('event_id'))
             add(_ref(collection, index), collection, start, end, transaction.get('evidence'),
-                transaction_id=transaction.get('id'), event_id=transaction.get('receipt_event_id', transaction.get('event_id')),
+                transaction_id=transaction.get('id'), event_id=event_id,
+                conflicts_present=bool(transaction.get('name_conflicted') or transaction.get('conflicting_readings')
+                                       or acquisition_conflicts.get(event_id)),
+                acquisition_conflicts=deepcopy(acquisition_conflicts.get(event_id, [])),
                 accounting_role='reference_only_not_an_additional_award')
     for index, candidate in enumerate(data.get('unparsed_receipt_candidates', [])):
         add(_ref('unparsed_receipt_candidates', index), 'unparsed_receipt',
@@ -369,6 +520,12 @@ def build(report):
                                                        observed_at_ms=time, evidence=proof))
             source_state = _repeated_source_state(readings, fields, channel, turn['start_ms'],
                                                   action_time, uncertain)
+            if source_state is None and not candidates:
+                source_state = _corroborated_source_state(readings, fields, channel, turn['start_ms'],
+                                                          action_time, uncertain, timeline)
+            if source_state is None and not candidates:
+                source_state = _corroborated_source_state(readings, fields, channel, turn['start_ms'],
+                                                          action_time, uncertain, timeline, partial=True)
             if source_state is not None:
                 candidates.append(dict(kind='source', **source_state))
             chosen = min(candidates, key=lambda p: p['observed_at_ms']) if candidates else None
@@ -380,6 +537,8 @@ def build(report):
                                observed_at_ms=chosen['observed_at_ms'],
                                values=deepcopy(chosen['values']), evidence=_proof(chosen['evidence']),
                                basis=chosen['basis'], exact_turn_boundary=chosen['exact_turn_boundary'])
+                if 'field_corroboration' in chosen:
+                    opening['field_corroboration'] = deepcopy(chosen['field_corroboration'])
             else:
                 source_ref = _ref(prefix, chosen['index'])
                 opening = dict(source_ref=source_ref, values_ref=f'{source_ref}/values',
@@ -388,7 +547,8 @@ def build(report):
                                basis='first_observed_state_before_action',
                                exact_turn_boundary=chosen['observed_at_ms'] == turn['start_ms'])
             turn.setdefault('states', {})[channel] = dict(opening=opening, closing=None,
-                opening_status='observed' if opening else 'not_observed_before_action')
+                opening_status=('observed' if all(type(opening['values'].get(f)) is int for f in fields)
+                                else 'partially_observed') if opening else 'not_observed_before_action')
         for index, turn in enumerate(turns[:-1]):
             following = turns[index + 1]['states'][channel]['opening']
             turn['states'][channel]['closing'] = deepcopy(following)
@@ -415,11 +575,18 @@ def build(report):
                 last['states'][channel]['closing_basis'] = 'unavailable'
     for turn in turns:
         actions = [e for e in timeline if e['turn_id'] == turn['id'] and e['kind'] == 'committed_action']
-        turn['action_status'] = 'one_action' if len(actions) == 1 else 'missing_action' if not actions else 'multiple_actions'
-        turn['action_count'] = len(actions)
-        turn['expects_one_action'] = turn['window_kind'] == 'calendar_turn'
+        if turn['window_kind'] == 'phase_race_turn':
+            # The finale race is scheduled by the game, not chosen; the turn's
+            # decision is what the player did before it.
+            decisions = [e for e in actions if e.get('action_kind') != 'race']
+            turn['scheduled_race_actions'] = len(actions) - len(decisions)
+        else:
+            decisions = actions
+        turn['action_status'] = 'one_action' if len(decisions) == 1 else 'missing_action' if not decisions else 'multiple_actions'
+        turn['action_count'] = len(decisions)
+        turn['expects_one_action'] = turn['window_kind'] in ('calendar_turn', 'phase_race_turn')
         turn['complete_event_history'] = False
-    return dict(schema_version=SCHEMA, source_sha256=report['source']['sha256'], source_duration_ms=duration,
+    result = dict(schema_version=SCHEMA, source_sha256=report['source']['sha256'], source_duration_ms=duration,
                 turns=turns, timeline=sorted(timeline, key=lambda e: (e['first_seen_ms'], e['id'])),
                 comparisons=comparisons, calendar_issues=calendar_issues,
                 unassigned_entry_refs=[e['id'] for e in timeline if e['turn_id'] is None],
@@ -431,3 +598,12 @@ def build(report):
                              'Shared resource comparisons must be counted once by source_ref, not once per turn.',
                              'Timeline proximity does not prove an event was caused by the committed action.',
                              'Missing, ambiguous and unparsed effects are not converted into zero changes.'])
+    # Resolve openings inside the canonical builder so worker validation and
+    # causal accounting rebuild exactly the same source-backed ledger.
+    from .boundary_state_recovery import promote_existing_endpoints, apply_opening_endpoint_projections
+    projections = promote_existing_endpoints(dict(report, turn_ledger=result), readings)
+    result, accepted, rejected = apply_opening_endpoint_projections(
+        result, projections, source_sha256=report['source']['sha256'])
+    if accepted or rejected:
+        result['opening_endpoint_projection'] = dict(accepted=accepted, rejected=rejected)
+    return result
