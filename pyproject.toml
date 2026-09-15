@@ -7,11 +7,11 @@ name = "tracen-replay"
 version = "0.1.0"
 description = "Local timestamped video evidence for Tracen Replay"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["psutil>=5.9"]
 
 [project.optional-dependencies]
 analysis = ["Pillow>=10,<14"]
-vision = ["Pillow>=10,<14", "rapidocr==3.9.2", "onnxruntime==1.29.0"]
+vision = ["Pillow>=10,<14", "rapidocr==3.9.2", "onnxruntime-directml==1.24.4; sys_platform == 'win32'", "onnxruntime==1.29.0; sys_platform != 'win32'"]
 
 [project.scripts]
 tracen-replay = "tracen_replay.cli:main"
