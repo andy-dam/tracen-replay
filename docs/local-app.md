@@ -37,14 +37,13 @@ One command, run from the repository root so the analyzer package and the
 default paths resolve:
 
 ```powershell
-.\tracen.exe -sources "$env:USERPROFILE\Videos"
+.\tracen.exe
 ```
 
 Then open http://127.0.0.1:8765/ and create an account (see "Accounts and
-uploads"). `-sources` names a shared folder whose recordings anyone signed in
-may analyze; it is optional once recordings are uploaded through the browser.
-The browser refers to recordings by a server-issued identifier, never by a
-path.
+uploads"). Recordings reach the service only through the browser upload; the
+browser refers to them by a server-issued identifier, never by a path, so the
+page does not depend on where or how the service stores them.
 
 Flags and their defaults (all relative paths resolve against the working
 directory, so no user path is hardcoded):
@@ -52,7 +51,7 @@ directory, so no user path is hardcoded):
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `-addr` | `127.0.0.1:8765` | listen address; keep it on loopback |
-| `-data` | `.local/tracen-data` | database, job outputs (`jobs/<id>/`), frame cache |
+| `-data` | `.local/tracen-data` | database, uploads (`recordings/<user>/`), job outputs (`jobs/<id>/`), frame cache |
 | `-python` | `.venv/Scripts/python.exe` (`.venv/bin/python` elsewhere) | interpreter with the analyzer installed |
 | `-workdir` | `analyzer` | directory containing the `tracen_replay` package |
 | `-model-dir` | `.local/models/rapidocr` | OCR models |
@@ -66,13 +65,13 @@ directory, so no user path is hardcoded):
 Example with everything explicit, as a configuration you can keep in a script:
 
 ```powershell
-.\tracen.exe -addr 127.0.0.1:8765 -data .local\tracen-data -sources D:\recordings `
+.\tracen.exe -addr 127.0.0.1:8765 -data .local\tracen-data `
   -python .venv\Scripts\python.exe -workdir analyzer -model-dir .local\models\rapidocr `
   -workers 4 -dense-workers 2 -queue 2 -ocr-device auto
 ```
 
 `/readyz` lists the checks the server makes (python, ffmpeg, model-dir,
-analyzer, sources, ocr-device); the client shows the result as the pill in
+analyzer, ocr-device); the client shows the result as the pill in
 the header. A failed check names the path it looked at. The checks are
 advisory: a job submitted while one fails is accepted and then ends as
 `failed` with the worker's own message (for example `invalid_paths` when the
@@ -146,8 +145,6 @@ home:
   and can be cancelled. The stored file is hashed on arrival, and its size,
   name and hash are shown on the recording card. Uploads and the reports made
   from them are visible only to the account that made them.
-- **Shared folder.** Recordings in the `-sources` folder are listed for every
-  account and can be analyzed by anyone signed in.
 - **Analyze.** Queues one analysis of the recording; the job page shows the
   stage, the OCR progress and the elapsed time, and it can be cancelled.
   Deleting an upload removes the file; reports already made from it stay.
@@ -177,7 +174,7 @@ recorded; it never derives a value of its own. It reads like a replay:
   seeks the video to the turn's start and any time in the log seeks there;
   scrubbing or playing the video selects the turn whose window holds that
   moment, so the log follows the recording. The video is served from the
-  upload or the shared folder with range requests, so nothing is copied. A
+  upload with range requests, so nothing is copied. A
   report whose recording is not on this machine (an import without
   `-recording`) shows the analyzer's extracted frame instead.
 - **This turn.** The action the ledger recorded for the turn (with a link to
@@ -267,7 +264,7 @@ message next to the control that caused it.
 | Situation | Code | What to do |
 | --- | --- | --- |
 | a required tool or folder is missing | `/readyz` check `ok: false` with the path | fix the path or install the tool before queueing work |
-| the chosen recording is not in the sources folder any more | `unknown_source` | refresh the list |
+| the chosen recording was deleted or belongs to another account | `unknown_source` | refresh the list |
 | too many jobs are waiting | `queue_full` (HTTP 429) | wait for a job to finish or start with a larger `-queue` |
 | the analyzer refused its inputs or failed | job status `failed` with `error.code` and `error.message` from the worker (`source_not_found`, `invalid_paths`, `source_unreadable`, `producer_failed`, `report_missing`, `source_mismatch`) | open the job's log (`/api/jobs/{id}/log`, the "Worker log" link on the job page) |
 | the worker's answer did not meet the contract | job status `failed` with a verification code (`bad_terminal_output`, `schema_mismatch`, `status_exit_mismatch`, `report_missing`, `report_hash_mismatch`, `timeline_missing`, `timeline_invalid`) | the report is never shown as successful in that case; the log tells what the worker wrote |

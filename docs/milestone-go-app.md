@@ -225,7 +225,7 @@ showing an extracted frame.
 - [x] Turn summaries carry the committed action kind, the training option and
   the opening values so the season strip and the stat chart need one request.
 - [x] Client rebuilt in Vue: welcome/sign-in, "Your runs" (upload with
-  progress, recordings, shared folder, analyses, reports), the report page
+  progress, recordings, analyses, reports), the report page
   (season strip, stat chart, year-grouped turn list, opening state, entries
   with orange gains and blue losses, `j`/`k`), the job page, and the recording
   panel that seeks the uploaded video to the picked timestamp with a one-frame
@@ -284,7 +284,6 @@ Paths may change during implementation, but their responsibilities are fixed.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /healthz`, `GET /readyz` | Service liveness and readiness to accept analysis |
-| `GET /api/sources` | Eligible recordings under the configured source folder |
 | `POST /api/jobs` | Queue analysis for a server-issued source identifier |
 | `GET /api/jobs`, `GET /api/jobs/{id}` | List jobs or inspect status, stage, elapsed time and result links |
 | `POST /api/jobs/{id}/cancel` | Request cancellation with an explicit resulting state |

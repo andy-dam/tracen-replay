@@ -79,7 +79,7 @@ internal/worker/       the Python contract: argv builder, stderr progress parser
 internal/store/        SQLite access for jobs and reports; migrations embedded
 internal/artifacts/    confined access to a job's directory (timeline, report download, log tails), frame extraction via ffmpeg with caching
 internal/timeline/     typed model of timeline-v1, loading, turn/entry queries used by the API
-internal/sources/      the configured recordings folder: listing, server-issued source ids, hashing
+internal/sources/      (removed 2026-09-15: recordings arrive only by upload, so the client never learns how they are stored)
 web/                   frontend (see section 4); built output embedded into the binary via embed.FS for the local milestone
 api/openapi.yaml       the HTTP contract
 testdata/              synthetic worker outputs (stdout/stderr transcripts), a small timeline fixture, malformed cases
@@ -178,7 +178,6 @@ and `golang.org/x/sys`:
 | `internal/store` | SQLite jobs and reports, embedded migrations, restart marking | round trips, queue order, reopen |
 | `internal/jobs` | queue, single worker loop, cancel, interrupt, stale-completion discard, SSE hub | scripted runner: success, worker failure, contract violation, hash mismatch, queue limit, cancel before/during, shutdown, recover |
 | `internal/runner` | `os/exec` runner, stderr streaming, stdout capture, process-tree kill (a Windows job object with kill-on-close, `taskkill /T` as the fallback; process group elsewhere). The worker also gets `--owner-pid` and ends itself when the service is gone, on every platform | a fake worker built from the test binary; a grandchild is proven dead after cancel and after the job handle closes (what a crash of the service does) |
-| `internal/sources` | recordings folder with server-issued ids, symlink and traversal rejection | listing and resolution |
 | `internal/artifacts` | confined file access, log tail, ffmpeg frame extraction with cache | includes a real ffmpeg extraction from a generated clip |
 | `internal/api` | the HTTP surface in section 2, host/origin checks, SSE | httptest against fakes and the fixture timeline |
 | `cmd/tracen` | the binary: flags, readiness probes, graceful shutdown; `tracen import RUN_DIR` registers an existing bundle | smoke test below |
