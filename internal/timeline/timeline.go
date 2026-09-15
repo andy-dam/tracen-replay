@@ -272,21 +272,34 @@ type TurnSummary struct {
 	OpeningEstimateBasis string   `json:"opening_estimate_basis,omitempty"`
 }
 
-// carriedOpening is the previous turn's opening plus the direct and derived
-// changes its accounting explains, per stat, when every stat has both; nil
-// otherwise. It never fills a field the previous turn did not observe.
-func carriedOpening(previous Turn) map[string]*int {
+// carriedOpening is the previous turn's observed opening plus every counted
+// stat change among its entries (an amount with a basis, on an entry that is
+// not in conflict), per stat; nil when the previous turn has no opening or a
+// stat of it was not observed. The accounting itself leaves a turn without a
+// next observation unsummed, so the entries are summed here the same way the
+// correction check counts them.
+func (d *Document) carriedOpening(previous Turn) map[string]*int {
 	if previous.Opening.Stats == nil {
 		return nil
 	}
-	fields := previous.Accounting["stats"]
+	sums := map[string]int{}
+	for _, entry := range d.TurnEntries(previous.ID) {
+		if entry.ConflictsPresent != nil && *entry.ConflictsPresent {
+			continue
+		}
+		for field, change := range entry.Changes["stats"] {
+			if change.Amount == nil || change.Basis == "" {
+				continue
+			}
+			sums[field] += *change.Amount
+		}
+	}
 	out := make(map[string]*int, len(previous.Opening.Stats))
 	for field, before := range previous.Opening.Stats {
-		acct, ok := fields[field]
-		if before == nil || !ok || acct.Direct == nil || acct.Derived == nil {
+		if before == nil {
 			return nil
 		}
-		value := *before + *acct.Direct + *acct.Derived
+		value := *before + sums[field]
 		out[field] = &value
 	}
 	return out
@@ -332,7 +345,7 @@ func (d *Document) TurnSummaries() []TurnSummary {
 			Opening: turn.Opening,
 		})
 		if turn.Opening.Stats == nil && index > 0 {
-			if carried := carriedOpening(d.Turns[index-1]); carried != nil {
+			if carried := d.carriedOpening(d.Turns[index-1]); carried != nil {
 				out[len(out)-1].OpeningEstimate = &Opening{Stats: carried}
 				out[len(out)-1].OpeningEstimateBasis = "carried_from_previous_turn"
 			}
