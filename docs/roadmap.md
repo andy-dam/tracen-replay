@@ -25,7 +25,14 @@ labels the causal accounting already produces, rather than further hand
 tuning of the OCR rules. See [evaluation.md](evaluation.md), Part B, for the
 model plan, the label source, and the splits and metrics that will judge it.
 
-## 3. Hosting
+## 3. Containers, then hosting
+
+One image for the local application (client, service, analyzer, ffmpeg and
+the OCR models on the CPU provider, the data directory on a volume) is the
+first step off this machine, followed by a worker image the service starts
+as a container instead of a child process. [TODO.md](../TODO.md) lists the
+steps and what "done" means.
+
 
 Run the service and the analyzer worker on a host other than the user's own
 machine. [deployment.md](deployment.md) lists what the current design already

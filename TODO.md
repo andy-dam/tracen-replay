@@ -83,7 +83,31 @@ reading small fixed crops. The accounting labels them for free. Order:
 - [ ] The analyzer package keeps its name. Revisit only if it is ever
       published on its own.
 
-## 5. Hosting
+## 5. Containers
+
+Running the service anywhere but this machine starts here, before any
+hosting choice.
+
+- [ ] **One image for the local application.** A Dockerfile that builds the
+      client and the Go binary, installs Python with the analyzer and its
+      `vision` extra, ffmpeg and the OCR models, and runs `tracen` on a
+      configurable port with the data directory on a volume. OCR runs on the
+      CPU provider inside the image (DirectML is Windows-only); a CUDA
+      variant of the image is a build argument. Done: `docker compose up`
+      on a clean machine serves the front page, accepts an upload, and a
+      full career analyzes to a report on the CPU provider; the time it
+      takes is recorded in the OCR performance note.
+- [ ] **A worker image.** The analyzer alone, taking the same command line
+      the service uses (`docs/analysis-job.md`), so the service can start it
+      as a container instead of a child process. Done: the service has a
+      runner that talks to a worker container and the end-to-end run passes
+      through it.
+- [ ] **Image hygiene.** Multi-stage build, pinned base images and model
+      files, no recordings or local evidence in the context (`.dockerignore`),
+      health checks wired to `/healthz` and `/readyz`, and a CI job that
+      builds the image. Done: the image builds in CI and its size is known.
+
+## 6. Hosting
 
 - [ ] The four changes in [docs/deployment.md](docs/deployment.md): accounts
       beyond one machine, an object store for uploads and job outputs, a

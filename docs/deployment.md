@@ -33,6 +33,15 @@ hosted service.
   (`TRACEN_REPLAY_OCR_DEVICE`); the worker does not assume it runs on the
   same hardware class as the service that starts it.
 
+## First step: containers
+
+Before any of the changes below, the application needs to run somewhere
+other than a developer's machine: one image with the client, the service,
+the analyzer, ffmpeg and the OCR models on the CPU provider (DirectML is
+Windows-only), with the data directory on a volume; then a worker image the
+service starts through a container runner instead of as a child process.
+The steps are in the repository's TODO list.
+
 ## What would have to change
 
 - **Auth beyond local accounts.** Sessions today are a cookie checked against
