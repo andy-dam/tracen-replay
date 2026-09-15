@@ -4,9 +4,11 @@ from copy import deepcopy
 from pathlib import Path
 import shutil
 import uuid
+
 import unittest
 from unittest.mock import patch
 
+from tests import localdata
 from tracen_replay import hint_card_identity
 from tracen_replay.hint_card_identity import recover
 
@@ -25,8 +27,7 @@ class HintCardIdentityTests(unittest.TestCase):
     def setUp(self):
         # Keep test assets under the repository's workspace test area; managed
         # Windows hosts may deny writes to Python-created temp directories.
-        self.root = Path(".local/test-runs") / uuid.uuid4().hex
-        self.root.mkdir(parents=True)
+        self.root = localdata.scratch(uuid.uuid4().hex)
         (self.root / "gameplay").mkdir()
         (self.root / "neural").mkdir()
         (self.root / "part-000" / "frames").mkdir(parents=True)
@@ -317,7 +318,7 @@ class HintCardIdentityTests(unittest.TestCase):
         self.assertTrue(all(item["source_frame_sha256"] for item in candidate["observations"]))
 
     def test_configured_model_dir_is_forwarded_to_lazy_reader(self):
-        candidates = self._patched_recover(model_dir=Path(".local/models/test-reader"))
+        candidates = self._patched_recover(model_dir=localdata.root("stub_reader_models"))
         self.assertEqual(len(candidates), 1)
 
     def test_single_line_receipt_recovers_card_with_unknown_suffix(self):

@@ -9,6 +9,7 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.full_recording import cached_readings, parse_receipt_pixels
 from tracen_replay.pipeline import PipelineError
@@ -174,7 +175,7 @@ class SongSymbolsTests(unittest.TestCase):
             self.assertNotEqual(proof['evidence'], 'foreign.png')
 
     def test_actual_late_receipt_and_title_pixels_feed_fresh_pipeline(self):
-        root = Path('.local/final-reliability-v1/worker-runs/fourth-declared-retest-v10')
+        root = localdata.root("fourth_recording_retest_older")
         receipt_id = 'part-015-frame-000284'
         title_id = 'part-015-frame-000216'
         required = [

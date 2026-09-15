@@ -5,27 +5,24 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.source_state_observations import build_observations
 from tracen_replay.stat_state_details import read_training_result_values
 from tracen_replay.vision import parse
 
 
 REPO = Path(__file__).resolve().parents[2]
-SOURCE_ROOT = (
-    REPO
-    / ".local/final-reliability-v1/worker-runs/"
-    "post-recognition-g8-v11-prepared/independent-02/initial-baseline"
-)
+SOURCE_ROOT = localdata.root("prepared_snapshot_final", "independent-02/initial-baseline")
 SOURCE_RAW = SOURCE_ROOT / "neural/part-010-frame-000077.json"
 
 
 class TrainingResultStateSnapshotTests(unittest.TestCase):
     def _source_raw(self):
         if not SOURCE_RAW.is_file():
-            self.skipTest("v11 T049 source OCR cache is unavailable")
+            self.skipTest("T049 source OCR cache is unavailable")
         return json.loads(SOURCE_RAW.read_text(encoding="utf-8"))
 
-    def test_actual_v11_t049_keeps_stamina_from_same_result_frame(self):
+    def test_actual_t049_keeps_stamina_from_same_result_frame(self):
         raw = self._source_raw()
 
         values, proof = read_training_result_values(raw)

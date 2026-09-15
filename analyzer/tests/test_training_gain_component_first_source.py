@@ -2,6 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.training_gain_phases import (
     resolve_full_component_phase,
     source_gain_observations,
@@ -332,7 +333,7 @@ class ActualComponentFirstSourcePhaseTests(unittest.TestCase):
 
     def test_v1_t028_wit_source_component_then_full(self):
         self._actual(
-            ".local/final-reliability-v1/full-worker-candidate-v5/v1/prepared-root-report.json",
+            localdata.root("full_worker_candidate_first_recording_prepared_root_report", "prepared-root-report.json"),
             531000,
             532000,
             "wit",
@@ -341,7 +342,7 @@ class ActualComponentFirstSourcePhaseTests(unittest.TestCase):
 
     def test_v1_t028_skill_points_single_full_dual_crop(self):
         self._actual(
-            ".local/final-reliability-v1/full-worker-candidate-v5/v1/prepared-root-report.json",
+            localdata.root("full_worker_candidate_first_recording_prepared_root_report", "prepared-root-report.json"),
             531000,
             532000,
             "skill_points",
@@ -350,7 +351,7 @@ class ActualComponentFirstSourcePhaseTests(unittest.TestCase):
 
     def test_independent_t031_wit_single_full_dual_crop(self):
         self._actual(
-            ".local/final-reliability-v1/full-worker-candidate-v6/combined-grading-v2/independent-01-report.json",
+            localdata.root("full_worker_candidate_batch_reports", "combined-grading-v2/independent-01-report.json"),
             534000,
             536000,
             "wit",
@@ -359,7 +360,7 @@ class ActualComponentFirstSourcePhaseTests(unittest.TestCase):
 
     def test_independent_t043_speed_single_full_dual_crop(self):
         self._actual(
-            ".local/final-reliability-v1/full-worker-candidate-v6/combined-grading-v2/independent-01-report.json",
+            localdata.root("full_worker_candidate_batch_reports", "combined-grading-v2/independent-01-report.json"),
             792000,
             794000,
             "speed",

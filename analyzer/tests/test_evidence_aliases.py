@@ -7,6 +7,8 @@ import shutil
 import unittest
 import uuid
 
+
+from tests import localdata
 from tracen_replay.evidence_aliases import resolve_evidence_aliases
 from tracen_replay.observation_evaluate import evaluate
 
@@ -16,8 +18,7 @@ SOURCE_SHA = "a" * 64
 
 @contextmanager
 def workspace_temp():
-    root = Path(".local/test-runs") / uuid.uuid4().hex
-    root.mkdir(parents=True)
+    root = localdata.scratch(uuid.uuid4().hex)
     try:
         yield root
     finally:

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.preview_observations import (
     _explicit_phase_proof,
     build_preview_observations,
@@ -164,19 +165,15 @@ class SourcePreviewRegressionTests(unittest.TestCase):
             15,
         )
 
-    @unittest.skipUnless(
-        Path(".local/full-recording/v1/training-inspection/1405000/frame-000013.png").is_file(),
-        "prepared T068 source image is unavailable",
-    )
+    @localdata.needs("development_first_recording", "training-inspection", "1405000", "frame-000013.png")
     def test_same_frame_readers_share_result_flag_and_reject_crossfade_preview(self):
         # Both reader entry points inspect the exact same source pixels.  Their
         # fixed probes must agree on the result flag, and the preview parser
         # must reject the fading menu/Failure remnants from both paths.
         from tracen_replay.vision import NeuralReader, parse as parse_vision
 
-        path = Path(
-            ".local/full-recording/v1/training-inspection/1405000/"
-            "frame-000013.png"
+        path = localdata.root(
+            "development_first_recording", "training-inspection", "1405000", "frame-000013.png"
         )
         reader = NeuralReader()
         with Image.open(path) as opened:
@@ -192,8 +189,8 @@ class SourcePreviewRegressionTests(unittest.TestCase):
                              "training" if raw is result_reader else None)
 
     @unittest.skipUnless(
-        Path(".local/full-recording/v1/gameplay/part-004-frame-000200.png").is_file()
-        and Path(".local/full-recording/v1/gameplay/part-011-frame-000331.png").is_file(),
+        localdata.available("development_first_recording", "gameplay", "part-004-frame-000200.png")
+        and localdata.available("development_first_recording", "gameplay", "part-011-frame-000331.png"),
         "clean menu source controls are unavailable",
     )
     def test_clean_menu_controls_use_source_consensus_for_trailing_zero_and_song_rows(self):
@@ -211,13 +208,13 @@ class SourcePreviewRegressionTests(unittest.TestCase):
         reader = NeuralReader()
         cases = (
             (
-                Path(".local/full-recording/v1/gameplay/part-004-frame-000200.png"),
+                localdata.root("development_first_recording", "gameplay", "part-004-frame-000200.png"),
                 "wit",
                 {("stat_change", "wit", 18), ("stat_change", "skill_points", 10)},
                 set(),
             ),
             (
-                Path(".local/full-recording/v1/gameplay/part-011-frame-000331.png"),
+                localdata.root("development_first_recording", "gameplay", "part-011-frame-000331.png"),
                 "stamina",
                 {("stat_change", "stamina", 29), ("stat_change", "guts", 15),
                  ("stat_change", "skill_points", 10)},

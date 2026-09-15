@@ -7,10 +7,12 @@ import hashlib
 import shutil
 import unittest
 import uuid
+
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable
 
+from tests import localdata
 from tracen_replay.inspect_training import reparse_inspection
 from tracen_replay.occluded_receipt_recovery import (
     OccludedReceiptRecoveryError,
@@ -19,10 +21,7 @@ from tracen_replay.occluded_receipt_recovery import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOT = (
-    REPO_ROOT
-    / ".local/final-reliability-v1/diagnostic-scratch/fourth-package2-matikane-prepared-v1"
-)
+SOURCE_ROOT = localdata.root("fourth_recording_matikane_package")
 INSPECTION_PATH = SOURCE_ROOT / "receipt-inspection.json"
 SOURCE_SHA256 = "deee9d88028611c7a7eb52dd3d589478561ca92193408f046c33b237e93edb1e"
 
@@ -31,8 +30,7 @@ SOURCE_SHA256 = "deee9d88028611c7a7eb52dd3d589478561ca92193408f046c33b237e93edb1
 def workspace_temp():
     """Use the repository's writable scratch root on managed Windows hosts."""
 
-    root = REPO_ROOT / ".local/test-runs" / uuid.uuid4().hex
-    root.mkdir(parents=True)
+    root = localdata.scratch(uuid.uuid4().hex)
     try:
         yield root
     finally:

@@ -13,6 +13,7 @@ from tools.evaluate_final_reliability import (
     validate_source_reference,
 )
 from tools.build_final_failure_taxonomy import _payload_summary
+from tests import localdata
 from tests.test_causal_accounting import fixture
 
 
@@ -203,7 +204,7 @@ class FinalReliabilityEvaluationTests(unittest.TestCase):
 
     def test_freeze_manifest_binds_the_reference_path_that_is_actually_graded(self):
         root = Path.cwd()
-        selection = root / ".local" / "final-reliability-v1" / "source-case-selection.json"
+        selection = localdata.root("final_reliability_artifacts", "source-case-selection.json")
         reference_a = root / "analyzer" / "tools" / "evaluate_final_reliability.py"
         reference_b = root / "analyzer" / "tests" / "test_final_reliability_evaluation.py"
         reference_a_hash = hashlib.sha256(reference_a.read_bytes()).hexdigest()

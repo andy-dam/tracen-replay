@@ -12,6 +12,7 @@ try:
 except ImportError:  # Pillow is an optional analysis dependency.
     Image = None
 
+from tests import localdata
 import tools.audit_final_reference_proofs as proof_audit
 
 
@@ -19,9 +20,7 @@ class FinalReferenceProofAuditTests(unittest.TestCase):
     source_sha256 = "a" * 64
 
     def setUp(self):
-        self.root = (Path(__file__).resolve().parents[2] / ".local" / "test-runs"
-                     / uuid.uuid4().hex).resolve()
-        self.root.mkdir(parents=True)
+        self.root = localdata.scratch(uuid.uuid4().hex).resolve()
         self.evidence = self.root / "evidence"
         self.evidence.mkdir()
         self.reference_path = self.root / "reference.json"

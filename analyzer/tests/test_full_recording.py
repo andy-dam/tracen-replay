@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import call, patch
 from PIL import Image
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay import full_recording
 from tracen_replay.full_recording import analyze_frames, cached_readings
@@ -253,18 +254,18 @@ class FullRecordingTests(unittest.TestCase):
 
             main()
 
-            analyze.assert_called_once_with(report, root, 4, Path('.local/models/rapidocr'), pool=full_recording.ocr_pool_for_device())
+            analyze.assert_called_once_with(report, root, 4, localdata.MODEL_DIR, pool=full_recording.ocr_pool_for_device())
             automatic.assert_called_once_with(
-                report, root, allow_ocr=True, model_dir=Path('.local/models/rapidocr'),
+                report, root, allow_ocr=True, model_dir=localdata.MODEL_DIR,
                 max_panel_frames=512, max_status_frames=512,
             )
             race_quantities.assert_called_once_with(
                 root,
-                model_dir=Path('.local/models/rapidocr'),
+                model_dir=localdata.MODEL_DIR,
             )
             cached.assert_called_once_with(report, root, workers=4)
             prepare_hints.assert_called_once_with(
-                rows, root, 'a' * 64, model_dir=Path('.local/models/rapidocr'))
+                rows, root, 'a' * 64, model_dir=localdata.MODEL_DIR)
             builder.assert_called_once_with(rows, root, [])
             assemble.assert_called_once_with(
                 report, rows, [], [], [], committed_choices=[],

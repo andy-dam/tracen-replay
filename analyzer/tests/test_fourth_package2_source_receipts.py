@@ -6,23 +6,18 @@ import unittest
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.vision import parse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REPORT_PATH = (
-    REPO_ROOT
-    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v11/report.json"
+REPORT_PATH = localdata.root("fourth_recording_retest_newer", "report.json")
+SOURCE_FRAME_PATH = localdata.root(
+    "fourth_recording_source_controls_middle",
+    "extensions/window-03-1526000-1564000/frames/000141.jpg",
 )
-SOURCE_FRAME_PATH = (
-    REPO_ROOT
-    / ".local/final-reliability-v1/fourth-source-controls-middle-v1"
-    / "extensions/window-03-1526000-1564000/frames/000141.jpg"
-)
-REPORT_GAMEPLAY_PATH = (
-    REPO_ROOT
-    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v11"
-    / "gameplay/part-013-frame-000005.png"
+REPORT_GAMEPLAY_PATH = localdata.root(
+    "fourth_recording_retest_newer", "gameplay/part-013-frame-000005.png"
 )
 
 

@@ -7,27 +7,22 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.preview_observations import (
     build_preview_observations,
     parse_preview_overlay,
 )
 
 
-REPORT = Path(
-    ".local/final-reliability-v1/worker-runs/"
-    "post-recognition-g8-v11-independent-02-logs/report.json"
-)
-SOURCE_ROOT = Path(
-    ".local/final-reliability-v1/worker-runs/"
-    "post-recognition-g8-v11-prepared/independent-02"
-)
+REPORT = localdata.root("third_recording_receipt_logs", "report.json")
+SOURCE_ROOT = localdata.root("prepared_snapshot_final", "independent-02")
 
 
 class PreviewSourceRootHardeningTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not REPORT.is_file():
-            raise unittest.SkipTest("immutable third v11 report is unavailable")
+            raise unittest.SkipTest("immutable preserved third-recording report is unavailable")
         report = json.loads(REPORT.read_text(encoding="utf-8"))
         cls.rows = {
             timestamp: next(
@@ -39,7 +34,7 @@ class PreviewSourceRootHardeningTests(unittest.TestCase):
         }
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_source_root_replaces_mutated_existing_skill_points(self):
         row = copy.deepcopy(self.rows[1216250])
@@ -69,7 +64,7 @@ class PreviewSourceRootHardeningTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_source_root_replaces_mutated_existing_song_modifier(self):
         row = copy.deepcopy(self.rows[1214500])
@@ -99,7 +94,7 @@ class PreviewSourceRootHardeningTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_source_root_invalid_recovery_does_not_fall_back_to_mutable_facts(self):
         row = copy.deepcopy(self.rows[1216250])
@@ -154,10 +149,10 @@ class PreviewSourceRootHardeningTests(unittest.TestCase):
         self.assertEqual([o["payload"] for o in built["observations"]], self._witness_payloads(row))
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_nested_namespace_witness_evidence_is_cited_root_relative(self):
-        # The sealed v15 independent-02 worker was rejected by the consumer
+        # An earlier implementation's independent-02 worker was rejected by the consumer
         # contract: retained native channels from the reparsed witness cited
         # the frame as ``gameplay/...`` (namespace-relative) beside the
         # reading's ``initial-baseline/gameplay/...`` path.  Every evidence

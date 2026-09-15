@@ -3,16 +3,13 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.evaluation_adapters import report_document, source_document
 from tracen_replay.observation_evaluate import evaluate
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ACTUAL_REPORT = (
-    REPO_ROOT
-    / ".local/final-reliability-v1/worker-runs/"
-    / "post-recognition-g8-v11-independent-02-logs/report.json"
-)
+ACTUAL_REPORT = localdata.root("third_recording_receipt_logs", "report.json")
 
 
 def _occluded_line(
@@ -152,7 +149,7 @@ class OccludedReceiptFieldProjectionTests(unittest.TestCase):
                 self.assertNotIn("parent.png", rows["Air Groove"]["evidence"])
                 self.assertNotIn("observation_basis", rows["Air Groove"])
 
-    @unittest.skipUnless(ACTUAL_REPORT.is_file(), "preserved v11 report is unavailable")
+    @unittest.skipUnless(ACTUAL_REPORT.is_file(), "preserved third-recording report is unavailable")
     def test_actual_air_groove_source_frame_matches_reference_field(self):
         report = json.loads(ACTUAL_REPORT.read_text(encoding="utf-8"))
         data = report["gameplay_tracking"]

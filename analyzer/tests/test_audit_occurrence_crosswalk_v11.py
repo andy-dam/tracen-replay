@@ -9,9 +9,11 @@ import shutil
 import unittest
 from pathlib import Path
 
-MODULE_PATH = Path(__file__).parents[2] / ".local" / "final-reliability-v1" / "audit_occurrence_crosswalk_v11.py"
+from tests import localdata
+
+MODULE_PATH = localdata.root("occurrence_crosswalk_module")
 if not MODULE_PATH.exists():
-    raise unittest.SkipTest("local audit_occurrence_crosswalk_v11.py is not present")
+    raise unittest.SkipTest("local evidence 'occurrence_crosswalk_module' is not present")
 SPEC = importlib.util.spec_from_file_location("audit_occurrence_crosswalk_v11", MODULE_PATH)
 assert SPEC and SPEC.loader
 AUDIT = importlib.util.module_from_spec(SPEC)

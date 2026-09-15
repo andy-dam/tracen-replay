@@ -11,11 +11,10 @@ from tracen_replay.training_outcome import (
 from tracen_replay.transactions import training_events
 from tracen_replay.vision import parse
 
+from tests import localdata
 
-SOURCE_RAW = (
-    Path(__file__).resolve().parents[2]
-    / '.local/final-reliability-v1/worker-runs/post-recognition-g8-v3-prepared'
-    / 'independent-02/initial-baseline/neural/part-001-frame-000142.json'
+SOURCE_RAW = localdata.root(
+    "prepared_snapshot_early", "independent-02/initial-baseline/neural/part-001-frame-000142.json"
 )
 
 
@@ -124,8 +123,8 @@ class ClippedSuccessTests(unittest.TestCase):
             ], 'training_result'),
         )
 
-    @unittest.skipUnless(SOURCE_RAW.exists(), 'v6 prepared source cache is unavailable')
-    def test_v6_source_runs_through_parse_training_event_and_report_document(self):
+    @unittest.skipUnless(SOURCE_RAW.exists(), 'preserved third-recording prepared source cache is unavailable')
+    def test_prepared_source_runs_through_parse_training_event_and_report_document(self):
         raw = json.loads(SOURCE_RAW.read_text(encoding='utf-8'))
         parsed = parse(raw)
 

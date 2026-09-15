@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.code_identity import code_digest, function_digest
 
 
@@ -65,17 +66,17 @@ class PackageDigestTests(unittest.TestCase):
             self.assertEqual(package_digest(tmp), one)
 
 
-@unittest.skipUnless(Path('.local/models/rapidocr').is_dir(), 'OCR models are not installed')
+@unittest.skipUnless(localdata.MODEL_DIR.is_dir(), 'OCR models are not installed')
 class ReaderFingerprintTests(unittest.TestCase):
     def test_fingerprint_survives_use_and_a_fresh_process(self):
         from PIL import Image
         from tracen_replay.vision import NeuralReader
-        first = NeuralReader('.local/models/rapidocr')
+        first = NeuralReader(localdata.MODEL_DIR)
         first.read(Image.new('RGB', (810, 1080), (30, 30, 30)))
-        second = NeuralReader('.local/models/rapidocr')
+        second = NeuralReader(localdata.MODEL_DIR)
         self.assertEqual(first.fingerprint, second.fingerprint)
         script = ('from tracen_replay.vision import NeuralReader\n'
-                  "print(NeuralReader('.local/models/rapidocr').fingerprint)\n")
+                  f"print(NeuralReader({str(localdata.MODEL_DIR)!r}).fingerprint)\n")
         out = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True,
                              cwd=str(Path(__file__).resolve().parents[1]), check=True)
         self.assertEqual(out.stdout.strip().splitlines()[-1], first.fingerprint)

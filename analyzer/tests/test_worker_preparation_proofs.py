@@ -11,12 +11,13 @@ from unittest.mock import patch
 
 from PIL import Image
 
+from tests import localdata
 from tools import prepare_final_worker_inputs as preparation
 from tests.test_gameplay import workspace_temp
 
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
-V1_CACHE = REPOSITORY_ROOT / ".local/full-recording/v1"
+V1_CACHE = localdata.root("development_first_recording")
 CONCERT_SIDECAR = V1_CACHE / "concert-panel-refinement/part-005-frame-000248.json"
 CONCERT_MANIFEST = V1_CACHE / "part-005/frames.json"
 

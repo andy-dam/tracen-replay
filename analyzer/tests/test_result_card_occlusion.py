@@ -9,19 +9,18 @@ from PIL import Image
 from tracen_replay.source_state_observations import build_observations
 from tracen_replay.stat_state_details import read_result_card_occlusion
 from tracen_replay.vision import parse
+from tests import localdata
 from tracen_replay.weak_state_recovery import apply, fingerprint, load, recover
 
 
 REPO = Path(__file__).resolve().parents[2]
-T063_ROOT = (REPO / '.local/final-reliability-v1/worker-runs/'
-             'post-recognition-g8-v2-prepared/independent-01')
+T063_ROOT = localdata.root("prepared_snapshot_initial", "independent-01")
 T063_RAW = T063_ROOT / 'neural/part-011-frame-000114.json'
 T063_EVIDENCE = T063_ROOT / 'gameplay/part-011-frame-000114.png'
 READABLE_RAW = T063_ROOT / 'neural/part-011-frame-000198.json'
 READABLE_EVIDENCE = T063_ROOT / 'gameplay/part-011-frame-000198.png'
 T063_SOURCE_FRAME = T063_ROOT / 'part-011/frames/000114.jpg'
-T063_SIDECAR = (REPO / '.local/final-reliability-v1/weak-state-recovery/'
-                'independent-01-t063-training-success.json')
+T063_SIDECAR = localdata.root("weak_state_recovery_inputs", 'independent-01-t063-training-success.json')
 SECOND_ANIMATION_RAW = T063_ROOT / 'neural/part-011-frame-000048.json'
 SECOND_ANIMATION_EVIDENCE = T063_ROOT / 'gameplay/part-011-frame-000048.png'
 READABLE_SOURCE_FRAME = T063_ROOT / 'part-011/frames/000198.jpg'
@@ -275,8 +274,7 @@ class ResultCardOcclusionTests(unittest.TestCase):
 
     def test_prepared_cached_loader_preserves_unknown_and_occlusion(self):
         from tracen_replay.full_recording import cached_readings
-        root = Path('.local/final-reliability-v1/worker-runs/'
-                    'post-recognition-g8-v2-prepared/independent-01')
+        root = localdata.root("prepared_snapshot_initial", "independent-01")
         if not (root / 'capture.json').is_file():
             self.skipTest('Prepared recording cache unavailable')
         capture = json.loads((root / 'capture.json').read_text(encoding='utf-8'))

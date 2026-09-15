@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests import localdata
 from tools import prepare_final_worker_inputs as preparation
 
 
@@ -22,12 +23,12 @@ class WorkerPreparationFreezeTests(unittest.TestCase):
         with patch.object(Path, "exists", return_value=False), patch.object(Path, "mkdir") as mkdir:
             with patch("tools.freeze_final_reliability.verify_manifest", side_effect=ValueError("changed evidence")):
                 with self.assertRaises(preparation.PreparationError):
-                    preparation.prepare(Path(".local/not-created-freeze-test"), [])
+                    preparation.prepare(localdata.local("not-created-freeze-test"), [])
         mkdir.assert_not_called()
 
     def test_invalid_freeze_prevents_existing_root_augmentation(self):
         with patch.object(Path, "is_dir", return_value=True), patch.object(preparation, "_copy_writable") as copy:
             with patch("tools.freeze_final_reliability.verify_manifest", side_effect=ValueError("changed evidence")):
                 with self.assertRaises(preparation.PreparationError):
-                    preparation.augment(Path(".local/not-mutated-freeze-test"), ["v1"])
+                    preparation.augment(localdata.local("not-mutated-freeze-test"), ["v1"])
         copy.assert_not_called()

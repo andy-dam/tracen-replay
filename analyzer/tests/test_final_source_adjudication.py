@@ -4,26 +4,27 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tools.build_final_source_adjudication import apply_adjudications, build
 
 
 ROOT = Path(__file__).resolve().parents[2]
-REFERENCE = ROOT / ".local" / "final-reliability-v1" / "source-references" / "independent-01.json"
-RECORDING = ROOT / ".local" / "full-recording" / "independent-01"
-BASELINE = ROOT / ".local" / "final-reliability-v1" / "before-frozen-semantic-grade-v2.json"
-MODIFIER_ARTIFACT = ROOT / ".local" / "final-reliability-v1" / "source-adjudication-modifiers-v1.json"
-PREVIEW_ARTIFACT = ROOT / ".local" / "final-reliability-v1" / "preview-phase-adjudication-proposals-v1.json"
-RACE_ARTIFACT = ROOT / ".local" / "final-reliability-v1" / "race-item-adjudication" / "independent-01-t033-gold-omission.json"
-ACTION_INTERVAL_ARTIFACT = ROOT / ".local" / "final-reliability-v1" / "semantic-action-interval-verdict-v1.json"
+REFERENCE = localdata.root("final_reliability_artifacts", "source-references", "independent-01.json")
+RECORDING = localdata.root("development_second_recording")
+BASELINE = localdata.root("final_reliability_artifacts", "before-frozen-semantic-grade-v2.json")
+MODIFIER_ARTIFACT = localdata.root("final_reliability_artifacts", "source-adjudication-modifiers-v1.json")
+PREVIEW_ARTIFACT = localdata.root("final_reliability_artifacts", "preview-phase-adjudication-proposals-v1.json")
+RACE_ARTIFACT = localdata.root("final_reliability_artifacts", "race-item-adjudication", "independent-01-t033-gold-omission.json")
+ACTION_INTERVAL_ARTIFACT = localdata.root("final_reliability_artifacts", "semantic-action-interval-verdict-v1.json")
 
 
 @unittest.skipUnless(REFERENCE.is_file() and RECORDING.is_dir() and BASELINE.is_file(),
                      "frozen source recording is not available")
 class FinalSourceAdjudicationTests(unittest.TestCase):
     def _inputs(self):
-        references = ROOT / ".local" / "final-reliability-v1" / "source-references"
-        recording = ROOT / ".local" / "full-recording"
-        freeze = ROOT / ".local" / "final-reliability-v1" / "reference-freeze-v2.json"
+        references = localdata.root("final_reliability_artifacts", "source-references")
+        recording = localdata.root("full_recording_archive")
+        freeze = localdata.root("final_reliability_artifacts", "reference-freeze-v2.json")
         artifact = build(references, recording, freeze)
         grade = json.loads(BASELINE.read_text(encoding="utf-8"))
         return artifact, grade, recording
@@ -31,9 +32,9 @@ class FinalSourceAdjudicationTests(unittest.TestCase):
     def test_adjudication_is_separate_and_preserves_frozen_source(self):
         before = hashlib.sha256(REFERENCE.read_bytes()).hexdigest()
         artifact = build(
-            ROOT / ".local" / "final-reliability-v1" / "source-references",
-            ROOT / ".local" / "full-recording",
-            ROOT / ".local" / "final-reliability-v1" / "reference-freeze-v2.json",
+            localdata.root("final_reliability_artifacts", "source-references"),
+            localdata.root("full_recording_archive"),
+            localdata.root("final_reliability_artifacts", "reference-freeze-v2.json"),
         )
         after = hashlib.sha256(REFERENCE.read_bytes()).hexdigest()
 

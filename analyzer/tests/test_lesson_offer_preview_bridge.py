@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.full_recording import cached_readings
 from tracen_replay.preview_observations import build_preview_observations
@@ -160,7 +161,7 @@ class LessonOfferPreviewBridgeTests(unittest.TestCase):
                          {"unproven_lesson_offer_cost": 1})
 
     def test_actual_three_offer_envelope_survives_report_document_projection(self):
-        base = Path(".local/full-recording/independent-02/initial-baseline")
+        base = localdata.root("development_third_recording_baseline")
         capture_path = base / "capture.json"
         if not capture_path.is_file():
             self.skipTest("Independent-02 lesson source fixture is unavailable")

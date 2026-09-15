@@ -7,11 +7,12 @@ from tracen_replay.preview_observations import build
 from tracen_replay.transactions import lesson_receipts
 from tracen_replay.analysis_job import _evidence_paths, _check_evidence_path
 
+from tests import localdata
+
 
 class LessonOfferPipelineTests(unittest.TestCase):
     def test_cached_loader_composes_preview_and_source_bound_cost_readers(self):
-        root = Path('.local/final-reliability-v1/worker-runs/'
-                    'post-recognition-g8-v3-prepared/independent-02/initial-baseline')
+        root = localdata.root("prepared_snapshot_early", "independent-02", "initial-baseline")
         if not (root / 'capture.json').is_file():
             self.skipTest('Prepared source recording cache unavailable')
         capture = json.loads((root / 'capture.json').read_text(encoding='utf-8'))
@@ -35,7 +36,7 @@ class LessonOfferPipelineTests(unittest.TestCase):
             _check_evidence_path(value, field, root.resolve())
 
     def test_normal_cached_loader_preserves_grouped_offers_as_preview_only(self):
-        root = Path('.local/full-recording/independent-02/initial-baseline')
+        root = localdata.root("development_third_recording_baseline")
         if not (root / 'capture.json').is_file():
             self.skipTest('Source recording cache unavailable')
         capture = json.loads((root / 'capture.json').read_text(encoding='utf-8'))

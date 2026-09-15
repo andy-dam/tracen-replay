@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.condition_removal_banner import (
     merge_condition_removal_effects,
     read_condition_cured_banner,
@@ -23,8 +24,8 @@ def banner_lines(name="Night Owl", *, heading="CONDITIONCURED!", heading_box=Non
 
 class ConditionRemovalBannerTests(unittest.TestCase):
     def test_independent_source_banner_recovers_clipped_receipt(self):
-        path = Path(".local/full-recording/independent-02/initial-baseline/neural/"
-                    "part-001-frame-000445.json")
+        path = localdata.root("development_third_recording_baseline",
+                              "neural", "part-001-frame-000445.json")
         if not path.is_file():
             self.skipTest("local frozen source sidecars are not part of a clean checkout")
         raw = json.loads(path.read_text(encoding="utf-8"))

@@ -5,6 +5,7 @@ import unittest
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.inventory_suffix import detect
 
 
@@ -32,7 +33,7 @@ class InventorySuffixTests(unittest.TestCase):
             self.assertRegex(entry["source_sha256"], r"^[0-9a-f]{64}$")
             self.assertRegex(entry["source_frame_sha256"], r"^[0-9a-f]{64}$")
             self.assertTrue(entry["crop_regions_pane"])
-            source_frame = Path(".local/full-recording") / entry["source_root"] / entry["source_frame"]
+            source_frame = localdata.root("full_recording_archive", entry["source_root"], entry["source_frame"])
             if source_frame.exists():
                 self.assertEqual(
                     hashlib.sha256(source_frame.read_bytes()).hexdigest(), entry["source_frame_sha256"]

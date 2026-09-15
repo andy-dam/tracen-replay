@@ -9,15 +9,17 @@ from tracen_replay.stat_state_details import (
 )
 from tracen_replay.source_state_observations import build_observations
 from tracen_replay.transactions import training_events
+from tests import localdata
 from tracen_replay.vision import parse
 
 
 REPO = Path(__file__).resolve().parents[2]
-T049_RAW = (REPO / '.local/full-recording/independent-02/initial-baseline/neural/'
-            / 'part-010-frame-000077.json')
-V12_GOAL_RAW = (REPO / '.local/final-reliability-v1/worker-runs/'
-                'post-recognition-g8-v11-prepared/v1/neural/'
-                'part-007-frame-000290.json')
+T049_RAW = localdata.root(
+    "development_third_recording_baseline", "neural/part-010-frame-000077.json"
+)
+FIRST_RECORDING_GOAL_RAW = localdata.root(
+    "prepared_snapshot_final", "v1/neural/part-007-frame-000290.json"
+)
 
 
 def _line(text, box, confidence=99.0):
@@ -206,9 +208,9 @@ class TrainingResultStateDetailsTests(unittest.TestCase):
         self.assertEqual(read_goal_turns(missing_left), (None, None))
 
     def test_bound_countdown_region_recovers_readable_number_without_ocr_line(self):
-        if not V12_GOAL_RAW.is_file():
-            self.skipTest('v12 goal-countdown source cache is unavailable')
-        raw = json.loads(V12_GOAL_RAW.read_text(encoding='utf-8'))
+        if not FIRST_RECORDING_GOAL_RAW.is_file():
+            self.skipTest('preserved goal-countdown source cache is unavailable')
+        raw = json.loads(FIRST_RECORDING_GOAL_RAW.read_text(encoding='utf-8'))
 
         value, proof = read_goal_turns(raw['lines'], raw['regions']['countdown'])
 
@@ -219,9 +221,9 @@ class TrainingResultStateDetailsTests(unittest.TestCase):
         self.assertEqual(parse(raw)['stats']['turns_remaining_to_goal'], 1)
 
     def test_bound_countdown_region_conflict_remains_unknown(self):
-        if not V12_GOAL_RAW.is_file():
-            self.skipTest('v12 goal-countdown source cache is unavailable')
-        raw = json.loads(V12_GOAL_RAW.read_text(encoding='utf-8'))
+        if not FIRST_RECORDING_GOAL_RAW.is_file():
+            self.skipTest('preserved goal-countdown source cache is unavailable')
+        raw = json.loads(FIRST_RECORDING_GOAL_RAW.read_text(encoding='utf-8'))
         lines = copy.deepcopy(raw['lines'])
         lines.append(_line('4', (256, 50, 316, 106), 99.0))
 
@@ -229,9 +231,9 @@ class TrainingResultStateDetailsTests(unittest.TestCase):
             read_goal_turns(lines, raw['regions']['countdown']), (None, None))
 
     def test_bound_countdown_region_requires_goal_header_geometry(self):
-        if not V12_GOAL_RAW.is_file():
-            self.skipTest('v12 goal-countdown source cache is unavailable')
-        raw = json.loads(V12_GOAL_RAW.read_text(encoding='utf-8'))
+        if not FIRST_RECORDING_GOAL_RAW.is_file():
+            self.skipTest('preserved goal-countdown source cache is unavailable')
+        raw = json.loads(FIRST_RECORDING_GOAL_RAW.read_text(encoding='utf-8'))
         foreign_region = copy.deepcopy(raw['regions']['countdown'])
         foreign_region['box'] = [600, 700, 660, 740]
 

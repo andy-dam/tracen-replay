@@ -10,6 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.preview_recovery import (
     SCHEMA,
@@ -111,7 +112,7 @@ class _FakeReader:
 
 class PreviewRecoveryTests(unittest.TestCase):
     def test_real_selected_frames_schedule_fixed_rows_and_keep_roles(self):
-        root = Path(__file__).resolve().parents[2] / ".local/full-recording/independent-02/initial-baseline/neural"
+        root = localdata.root("development_third_recording_baseline", "neural")
         if not root.is_dir():
             self.skipTest("preserved independent-02 initial-baseline caches are not present")
         names = (

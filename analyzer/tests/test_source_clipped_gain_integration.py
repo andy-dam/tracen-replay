@@ -3,12 +3,12 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.transactions import training_events
 from tracen_replay.evaluation_adapters import report_document
 
 
-REPORT = (Path(__file__).resolve().parents[2]
-          / '.local/final-reliability-v1/full-worker-candidate-v6/independent-01/report.json')
+REPORT = localdata.root("full_worker_candidate_batch_reports", "independent-01/report.json")
 
 
 @unittest.skipUnless(REPORT.is_file(), 'preserved full-worker report is unavailable')

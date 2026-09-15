@@ -8,6 +8,7 @@ import uuid
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.full_recording import cached_readings
 from tracen_replay.race_identity_refinement import apply, build
 from tracen_replay.vision import parse
@@ -19,7 +20,7 @@ def digest(value):
 
 class RaceIdentityRefinementTests(unittest.TestCase):
     def setUp(self):
-        self.test_root = Path('.local/test-runs').resolve()
+        self.test_root = localdata.local('test-runs').resolve()
         self.root = self.test_root / uuid.uuid4().hex
         self.root.mkdir(parents=True)
         self.addCleanup(self.cleanup)

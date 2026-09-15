@@ -2,6 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.inspect_training import merge
 from tracen_replay.numeric_cap_refinement import load as load_numeric_refinement
 from tracen_replay.source_state_observations import build_observations
@@ -277,7 +278,7 @@ class TrainingInspectionMergeTests(unittest.TestCase):
 class ActualT042MergeTests(unittest.TestCase):
     """Exercise the merge against the frozen T042 prepared source evidence."""
 
-    ROOT = Path('.local/final-reliability-v1/worker-runs/post-recognition-g8-v2-prepared/independent-01')
+    ROOT = localdata.root("prepared_snapshot_initial", "independent-01")
     RAW = ROOT / 'neural/part-006-frame-000261.json'
     REFINEMENT = ROOT / 'numeric-cap-refinement/part-006-frame-000261.json'
     SOURCE_FRAME = ROOT / 'part-006/frames/000261.jpg'

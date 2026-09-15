@@ -7,6 +7,7 @@ import unittest
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.energy_popup import (
     merge_energy_popup_effects,
     read_energy_popup,
@@ -66,10 +67,9 @@ class EnergyPopupTests(unittest.TestCase):
         )
 
     def test_actual_prepared_source_sidecar_has_popup_proof(self):
-        path = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            "post-recognition-g8-v7-prepared/independent-02/initial-baseline/"
-            "neural/part-001-frame-000444.json"
+        path = localdata.root(
+            "prepared_snapshot_mid",
+            "independent-02/initial-baseline/neural/part-001-frame-000444.json",
         )
         if not path.is_file():
             self.skipTest("local prepared source sidecars are not part of a clean checkout")
@@ -201,10 +201,9 @@ class EnergyPopupTests(unittest.TestCase):
         from tracen_replay.full_recording import parse_receipt_pixels
         from tracen_replay.transactions import outcome_events
 
-        sidecar = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            "post-recognition-g8-v7-prepared/independent-02/initial-baseline/"
-            "neural/part-001-frame-000444.json"
+        sidecar = localdata.root(
+            "prepared_snapshot_mid",
+            "independent-02/initial-baseline/neural/part-001-frame-000444.json",
         )
         gameplay = sidecar.parents[1] / "gameplay" / "part-001-frame-000444.png"
         source_frame = sidecar.parents[1] / "part-001" / "frames" / "000444.jpg"

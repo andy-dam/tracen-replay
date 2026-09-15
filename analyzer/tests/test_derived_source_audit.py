@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 from PIL import Image
 
+from tests import localdata
 import lab.inventory_derived_reliability as audit
 
 
@@ -158,8 +159,7 @@ def _price_fixture():
 
 @contextmanager
 def _workspace_temp_dir():
-    root = Path.cwd() / ".local" / f"derived-source-audit-{uuid.uuid4().hex}"
-    root.mkdir()
+    root = localdata.scratch(f"derived-source-audit-{uuid.uuid4().hex}")
     try:
         yield root
     finally:

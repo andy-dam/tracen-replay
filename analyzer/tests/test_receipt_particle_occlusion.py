@@ -5,6 +5,7 @@ import unittest
 
 from PIL import Image, ImageDraw
 
+from tests import localdata
 from tracen_replay.receipt_occlusion import annotate, annotate_path, animated_overlay_boxes
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import parse
@@ -88,14 +89,11 @@ class ReceiptParticleOcclusionTests(unittest.TestCase):
         self.assertTrue(animated_overlay_boxes(pane, [line['box']]))
         self.assertEqual(parse(annotate(raw([line], pane), pane))['effects'], [])
 
-    @unittest.skipUnless(
-        Path('.local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/'
-             'numeric-receipt-recovery/receipt-inspection/55500-56750-30/frame-000024.png').is_file(),
-        'Fourth recording source is not available',
-    )
+    @localdata.needs("fourth_recording_retest_older",
+                      "numeric-receipt-recovery/receipt-inspection/55500-56750-30/frame-000024.png")
     def test_fourth_blue_receipt_ink_keeps_source_energy_decreases(self):
-        root = Path('.local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/'
-                    'numeric-receipt-recovery/receipt-inspection')
+        root = localdata.root("fourth_recording_retest_older",
+                              "numeric-receipt-recovery/receipt-inspection")
         for window in ('55500-56750-30', '78000-79250-30', '133000-134250-30'):
             with self.subTest(window=window):
                 image = root / window / 'frame-000024.png'
@@ -106,13 +104,9 @@ class ReceiptParticleOcclusionTests(unittest.TestCase):
                 effects = parse(annotate_path(payload, image))['effects']
                 self.assertEqual([e['amount'] for e in effects if e['kind'] == 'energy_change'], [-19])
 
-    @unittest.skipUnless(
-        Path(".local/final-reliability-v1/worker-runs/post-recognition-g8-v8-prepared/"
-             "v1/gameplay/part-011-frame-000348.png").is_file(),
-        "First recording source is not available",
-    )
+    @localdata.needs("prepared_snapshot_late", "v1/gameplay/part-011-frame-000348.png")
     def test_blue_receipt_ink_preserves_original_energy_evidence(self):
-        root = Path(".local/final-reliability-v1/worker-runs/post-recognition-g8-v8-prepared/v1")
+        root = localdata.root("prepared_snapshot_late", "v1")
         rows = []
         for number in (348, 349):
             with self.subTest(frame=number):
@@ -145,19 +139,16 @@ class ReceiptParticleOcclusionTests(unittest.TestCase):
         self.assertEqual([(effect["kind"], effect.get("name"), effect.get("amount")) for effect in effects],
                          [("friendship_change", "Second Person", 5)])
 
-    @unittest.skipUnless(
-        Path(
-            ".local/final-reliability-v1/worker-runs/post-recognition-g8-v3-prepared/"
-            "independent-02/numeric-receipt-recovery/receipt-inspection/"
-            "1652000-1653750-30/frame-000027.png"
-        ).is_file(),
-        "G7 prepared source is not available",
+    @localdata.needs(
+        "prepared_snapshot_early",
+        "independent-02/numeric-receipt-recovery/receipt-inspection/"
+        "1652000-1653750-30/frame-000027.png",
     )
     def test_g7_particle_sequence_keeps_only_later_clear_identity(self):
-        root = Path(
-            ".local/final-reliability-v1/worker-runs/post-recognition-g8-v3-prepared/"
+        root = localdata.root(
+            "prepared_snapshot_early",
             "independent-02/numeric-receipt-recovery/receipt-inspection/"
-            "1652000-1653750-30"
+            "1652000-1653750-30",
         )
         rows = []
         for number in range(27, 47):

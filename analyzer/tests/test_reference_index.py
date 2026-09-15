@@ -3,8 +3,10 @@ import json
 import shutil
 import unittest
 import uuid
+
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.reference_index import (
     ReferenceIndexError,
     build_reference_index,
@@ -14,8 +16,7 @@ from tracen_replay.reference_index import (
 
 class ReferenceIndexTests(unittest.TestCase):
     def setUp(self):
-        self.root = Path(".local/test-runs") / uuid.uuid4().hex
-        self.root.mkdir(parents=True)
+        self.root = localdata.scratch(uuid.uuid4().hex)
 
     def tearDown(self):
         shutil.rmtree(self.root)

@@ -7,25 +7,14 @@ from types import SimpleNamespace
 import numpy as np
 from PIL import Image, ImageOps
 
+from tests import localdata
 from tracen_replay.training_result_layout import detect_training_result_layout
 
 
 REPO = Path(__file__).resolve().parents[2]
-ACTUAL_RAW = (
-    REPO
-    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10"
-    / "neural/part-003-frame-000140.json"
-)
-SHOGI_RAW = (
-    REPO
-    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10"
-    / "neural/part-015-frame-000246.json"
-)
-CURRENT_MENU_RAW = (
-    REPO
-    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10"
-    / "neural/part-015-frame-000201.json"
-)
+ACTUAL_RAW = localdata.root("fourth_recording_retest_older", "neural/part-003-frame-000140.json")
+SHOGI_RAW = localdata.root("fourth_recording_retest_older", "neural/part-015-frame-000246.json")
+CURRENT_MENU_RAW = localdata.root("fourth_recording_retest_older", "neural/part-015-frame-000201.json")
 
 
 def _line(text, box, confidence=99.0):

@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests import localdata
 from tests.test_causal_accounting import fixture as report_fixture
 from tests.test_gameplay import workspace_temp
 from tracen_replay.evaluation_adapters import report_document
@@ -312,7 +313,7 @@ class CandidateOnlyGainRecoveryTests(unittest.TestCase):
         self.assertEqual(result['reason'], 'insufficient_same_phase_corroboration')
 
     def test_actual_v1_speed_candidate_repeats_across_inspected_frames(self):
-        base=Path('.local/final-reliability-v1/worker-runs/post-recognition-g8-v2-prepared')
+        base=localdata.root("prepared_snapshot_initial")
         rels=[f'v1/training-inspection/262000/frame-0000{index}.png' for index in (17, 18, 19)]
         paths=[base / rel for rel in rels]
         if not all(path.is_file() and path.with_name(path.stem+'.v2.json').is_file() for path in paths):
@@ -337,7 +338,7 @@ class CandidateOnlyGainRecoveryTests(unittest.TestCase):
 
     def test_actual_independent_wit_candidate_uses_nested_crops(self):
         rel='independent-02/training-recovery-v1/training-inspection/830250/frame-000015.png'
-        path=Path('.local/final-reliability-v1/worker-runs/post-recognition-g8-v2-prepared') / rel
+        path=localdata.root("prepared_snapshot_initial") / rel
         if not path.is_file() or not path.with_name(path.stem+'.v2.json').is_file():
             self.skipTest('prepared independent-02 source frame is unavailable')
         raw=json.loads(path.with_name(path.stem+'.v2.json').read_text(encoding='utf-8'))
@@ -351,7 +352,7 @@ class CandidateOnlyGainRecoveryTests(unittest.TestCase):
         self.assertEqual(result['basis'], 'same_frame_nested_source_gain_crop_agreement')
 
     def test_later_independent_speed_phase_is_not_wit_proof(self):
-        base=Path('.local/final-reliability-v1/worker-runs/post-recognition-g8-v2-prepared')
+        base=localdata.root("prepared_snapshot_initial")
         rels=[
             'independent-02/training-recovery-v1/training-inspection/830250/frame-000015.png',
             'independent-02/training-recovery-v1/training-inspection/830250/frame-000018.png',
@@ -790,7 +791,7 @@ class CandidateOnlyGainRecoveryTests(unittest.TestCase):
     def test_actual_sources_recover_into_events_and_report_document(self):
         """Exercise the two source gaps through the normal recovery boundary."""
 
-        base=Path('.local/final-reliability-v1/worker-runs/post-recognition-g8-v2-prepared')
+        base=localdata.root("prepared_snapshot_initial")
         cases=[
             (
                 'v1-speed', 'speed', 3,

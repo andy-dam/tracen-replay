@@ -5,27 +5,22 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.preview_observations import (
     build_preview_observations,
     parse_preview_overlay,
 )
 
 
-REPORT = Path(
-    ".local/final-reliability-v1/worker-runs/"
-    "post-recognition-g8-v11-independent-02-logs/report.json"
-)
-SOURCE_ROOT = Path(
-    ".local/final-reliability-v1/worker-runs/"
-    "post-recognition-g8-v11-prepared/independent-02"
-)
+REPORT = localdata.root("third_recording_receipt_logs", "report.json")
+SOURCE_ROOT = localdata.root("prepared_snapshot_final", "independent-02")
 
 
 class PreviewRecoveryPromotionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not REPORT.is_file():
-            raise unittest.SkipTest("immutable third v11 report is unavailable")
+            raise unittest.SkipTest("immutable preserved third-recording report is unavailable")
         report = json.loads(REPORT.read_text(encoding="utf-8"))
         cls.rows = {
             timestamp: next(
@@ -67,7 +62,7 @@ class PreviewRecoveryPromotionTests(unittest.TestCase):
                 self.assertFalse(built["committed_actions_inferred"])
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_source_root_validates_all_actual_recovery_rows(self):
         expected = {
@@ -88,7 +83,7 @@ class PreviewRecoveryPromotionTests(unittest.TestCase):
                 self.assertTrue(expected[timestamp] <= observed)
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_merged_neighbor_tokens_cannot_change_field_identity(self):
         """The ``+3 +10`` source line binds each token to its own column."""
@@ -116,7 +111,7 @@ class PreviewRecoveryPromotionTests(unittest.TestCase):
         ))
 
     @unittest.skipUnless(
-        SOURCE_ROOT.is_dir(), "immutable third v11 source root is unavailable"
+        SOURCE_ROOT.is_dir(), "immutable preserved third-recording source root is unavailable"
     )
     def test_source_root_ignores_coordinated_report_ocr_mutation(self):
         """A copied report OCR line cannot replace the immutable neural witness."""

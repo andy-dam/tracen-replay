@@ -10,6 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.weak_state_recovery import (
     SCHEMA,
@@ -247,7 +248,7 @@ class WeakStateRecoveryTests(unittest.TestCase):
             ))
 
     def test_actual_frozen_weak_cases_resolve_from_their_own_source(self):
-        base = Path(".local/full-recording")
+        base = localdata.root("full_recording_archive")
         cases = {
             "v1-dance-merged": (
                 base / "v1/neural/part-002-frame-000050.json",
@@ -295,7 +296,7 @@ class WeakStateRecoveryTests(unittest.TestCase):
             self.skipTest("frozen source cases are not present in this checkout")
         from tracen_replay.vision import NeuralReader
 
-        reader = NeuralReader(".local/models/rapidocr")
+        reader = NeuralReader(localdata.MODEL_DIR)
         for name, (raw_path, evidence, source, expected) in cases.items():
             with self.subTest(case=name):
                 raw = json.loads(raw_path.read_text(encoding="utf-8"))

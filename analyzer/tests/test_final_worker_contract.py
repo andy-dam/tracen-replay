@@ -2,8 +2,8 @@
 
 These tests keep the producer mocked so they exercise the terminal worker
 envelope and report validation without starting OCR.  The real cached runs
-and their cache-preserving procedure are recorded in
-``.local/final-reliability-v1/worker-contract-review.md``.
+and their cache-preserving procedure are recorded in a local, unpublished
+review note kept alongside the other preserved evidence.
 """
 
 from __future__ import annotations

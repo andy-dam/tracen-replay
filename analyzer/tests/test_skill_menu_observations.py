@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 
 from PIL import Image, ImageDraw
@@ -16,7 +17,7 @@ from tracen_replay.skill_menu_observations import (
 )
 
 
-BASE = Path(".local/full-recording/independent-02/initial-baseline")
+BASE = localdata.root("development_third_recording_baseline")
 
 
 def _line(text, box, confidence=99):

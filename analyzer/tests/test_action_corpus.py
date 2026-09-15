@@ -5,12 +5,13 @@ import shutil
 import unittest
 import uuid
 
+from tests import localdata
 from tracen_replay.action_corpus import SCHEMA, score_corpus
 
 
 class ActionCorpusTests(unittest.TestCase):
     def setUp(self):
-        self.test_parent = Path('.local/test-runs').resolve()
+        self.test_parent = localdata.local('test-runs').resolve()
         self.root = self.test_parent / uuid.uuid4().hex
         self.root.mkdir(parents=True)
         self.addCleanup(self.remove_test_directory)

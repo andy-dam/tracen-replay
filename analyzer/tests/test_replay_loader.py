@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tests.test_training_gain_candidate_recovery import _row
 from tracen_replay.full_recording import (
@@ -492,14 +493,8 @@ class ReplayLoaderTests(unittest.TestCase):
         self.assertNotIn("skill_points", with_checkpoints["conflicting_readings"])
 
     def test_actual_dense_skill_points_phase_is_replayed_without_state_choice(self):
-        root = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            "post-recognition-g8-v2-prepared/independent-01"
-        )
-        report_path = Path(
-            ".local/final-reliability-v1/full-worker-candidate-v6/"
-            "independent-01/report.json"
-        )
+        root = localdata.root("prepared_snapshot_initial", "independent-01")
+        report_path = localdata.root("full_worker_candidate_batch_reports", "independent-01/report.json")
         manifest_path = root / "training-gain-recovery/receipt-inspection.json"
         if not all(path.is_file() for path in (report_path, manifest_path)):
             self.skipTest("actual SP10/SP17 replay fixtures are unavailable")
@@ -545,7 +540,7 @@ class ReplayLoaderTests(unittest.TestCase):
             self.assertNotIn("skill_points", with_checkpoints["conflicting_readings"])
 
     def test_actual_v1_candidate_speed_is_replayed_from_gameplay_source(self):
-        root = Path(".local/final-reliability-v1/worker-runs/post-recognition-g8-v2-prepared/v1")
+        root = localdata.root("prepared_snapshot_initial", "v1")
         rels = [
             "training-inspection/262000/frame-000017.png",
             "training-inspection/262000/frame-000018.png",
@@ -576,7 +571,7 @@ class ReplayLoaderTests(unittest.TestCase):
         self.assertFalse(proof["policy"]["uses_balance_arithmetic"])
 
     def test_actual_independent_wit_candidate_is_replayed_from_gameplay_source(self):
-        root = Path(".local/final-reliability-v1/worker-runs/post-recognition-g8-v3-prepared/independent-02")
+        root = localdata.root("prepared_snapshot_early", "independent-02")
         rels = [
             "training-recovery-v1/training-inspection/830250/frame-000014.png",
             "training-recovery-v1/training-inspection/830250/frame-000015.png",

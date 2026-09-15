@@ -4,11 +4,13 @@ import json
 import shutil
 import unittest
 import uuid
+
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.base_receipt_refinement import (
     DEFAULT_CROP_GEOMETRIES,
     REFINEMENT_DIR,
@@ -21,8 +23,7 @@ from tracen_replay.base_receipt_refinement import (
 
 @contextmanager
 def workspace_temp():
-    root=Path(".local/test-runs")/uuid.uuid4().hex
-    root.mkdir(parents=True)
+    root = localdata.scratch(uuid.uuid4().hex)
     try:
         yield root
     finally:

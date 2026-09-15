@@ -4,6 +4,7 @@ import unittest
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.choice_evidence import observe
 from tracen_replay.event_choice_commitment import (
     SCHEMA,
@@ -148,12 +149,12 @@ class EventChoiceCommitmentTests(unittest.TestCase):
                 self.assertEqual(reconstruct_committed_choices(rows), [])
 
     def test_repeated_slot_menu_with_one_sub_gate_card_commits_on_green_collapse(self):
-        # Actual v1 recording shape (92750-97500 ms): the first card OCRs at
+        # Actual first-recording shape (92750-97500 ms): the first card OCRs at
         # 96.1 while the highlight moves, so it is absent from the candidate
         # channel but present in the geometry-complete slot channel.  The
         # repeated slot menu still identifies the offered options; the later
-        # green collapse then proves the selection.  v9-v12 accepted this and
-        # the sealed v13 candidate silently lost it.
+        # green collapse then proves the selection.  Several earlier
+        # implementations accepted this and a later one silently lost it.
         def slot_row(time):
             low = card("Give it all", 493, confidence=96.101)
             rest = [card("Do not overdo it", 605), card("Wipe the plate", 715)]
@@ -326,12 +327,9 @@ class EventChoiceCommitmentTests(unittest.TestCase):
         self.assertIsNone(result[0]["selection_marks"])
         self.assertEqual(result[0]["selection_basis"], "selected_card_highlight_and_transition")
 
-    @unittest.skipUnless(
-        Path(".local/full-recording/independent-02/initial-baseline/gameplay/part-010-frame-000285.png").is_file(),
-        "local frozen source images are not part of a clean checkout",
-    )
+    @localdata.needs("development_third_recording_baseline", "gameplay", "part-010-frame-000285.png")
     def test_independent_source_expression_of_conviction_is_promoted(self):
-        base = Path(".local/full-recording/independent-02/initial-baseline")
+        base = localdata.root("development_third_recording_baseline")
         rows = []
         for number in range(272, 286):
             image_path = base / "gameplay" / f"part-010-frame-{number:06d}.png"

@@ -267,12 +267,13 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
         self.assertEqual(promoted[0]["effects"][0]["amount"], 9)
 
     def test_clipped_wrapped_prefix_reread_is_not_promoted(self):
-        # Actual v1 shape (137250-139550 ms): the hint name wraps onto a
-        # second visual line and the cursor damages the first.  Each dense
-        # frame reread the first line only ("... for Pace Cnaser", "... for
-        # Pace Shaser") and the sealed v13 candidate promoted five different
-        # hints for one receipt.  A restored line without a sentence
-        # terminator is not a complete receipt and must not be parsed.
+        # Actual first-recording shape (137250-139550 ms): the hint name wraps
+        # onto a second visual line and the cursor damages the first.  Each
+        # dense frame reread the first line only ("... for Pace Cnaser",
+        # "... for Pace Shaser") and an earlier implementation promoted five
+        # different hints for one receipt.  A restored line without a
+        # sentence terminator is not a complete receipt and must not be
+        # parsed.
         box = [317, 853, 681, 881]
         base = _base_row("Gained 1 hint level(s) for Pace Chaser", box=box)
         frames = []
@@ -284,7 +285,7 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
         self.assertEqual(promoted, [])
 
     def test_reread_amount_conflicting_with_clear_base_line_is_not_promoted(self):
-        # Actual v1 shape (80067-80283 ms): the base read "Energy went down by
+        # Actual first-recording shape (80067-80283 ms): the base read "Energy went down by
         # 18." clearly in two frames, then the cursor hid the "1" and later
         # frames were blocked as "Energy went down by 8.".  A dense reread of
         # the blocked frames agrees with the damaged text, not with the clear
@@ -312,7 +313,7 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
         self.assertEqual(promoted, [])
 
     def test_clear_base_reading_past_owner_span_still_dedupes_same_panel(self):
-        # Actual v1 shape (536750-538167 ms): the owner span known at planning
+        # Actual first-recording shape (536750-538167 ms): the owner span known at planning
         # time ended at 538000, but a registered inspection frame at 538167
         # still showed the same outcome panel and read "Fine Motion" clearly.
         # A dense reread of the blocked frames must not add a second
@@ -370,7 +371,7 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
         self.assertEqual(proof["distinct_spelling_count"], 2)
 
     def test_repeated_spelling_beats_a_single_more_confident_variant(self):
-        # Actual v1 shape (833250 ms): eight dense frames spelled "Director
+        # Actual first-recording shape (833250 ms): eight dense frames spelled "Director
         # Akikawa" eight different ways; the single most confident frame read
         # "Akilawa".  A spelling seen at two distinct source timestamps is
         # independent repetition and wins over one confident misread.
@@ -417,7 +418,7 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
         self.assertEqual(effect["source_bound_receipt_proof"]["recipient_name_occluded"], False)
 
     def test_clear_reading_of_same_slot_suppresses_cursor_read_variant(self):
-        # Actual v1 shape (1322250-1322617 ms): three dense frames read
+        # Actual first-recording shape (1322250-1322617 ms): three dense frames read
         # "Friendship with Light Hello is maxed out." unblocked, a later frame
         # read the same slot under the cursor as "Light Hllo".  The clear
         # reading is canonical; the cursor-read spelling is not a second
@@ -450,7 +451,7 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
         )
 
     def test_plurality_of_source_timestamps_ranks_competing_repeated_spellings(self):
-        # Actual v1 shape (764250 ms): "Unstoppable" read at seven distinct
+        # Actual first-recording shape (764250 ms): "Unstoppable" read at seven distinct
         # timestamps, "Ustoppable" and "Urstoppable" at two each.  With more
         # than one repeated spelling, strictly stronger repetition wins but the
         # identity stays explicitly unresolved with every spelling recorded.
@@ -476,7 +477,7 @@ class OccludedReceiptEffectRecoveryTests(unittest.TestCase):
                          ["Unstoppable", "Urstoppable", "Ustoppable"])
 
     def test_independent_dense_frame_carries_proof_over_same_time_base_reread(self):
-        # Actual v1 shape (765000 ms): the strongest reread of the blocked
+        # Actual first-recording shape (765000 ms): the strongest reread of the blocked
         # hint line came from a dense frame whose timestamp equals a base
         # capture frame.  Merging it would rewrite that base row (which other
         # source-bound caches bind); an equally supported reread from an

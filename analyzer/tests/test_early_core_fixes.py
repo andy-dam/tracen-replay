@@ -13,6 +13,7 @@ from tracen_replay.animated_performance import candidates, reconcile
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import NeuralReader, parse
+from tests import localdata
 from tracen_replay.event_choice_adapter import (
     build_choice_observations,
     same_frame_choice_observation,
@@ -128,7 +129,7 @@ class EarlyComposureTests(unittest.TestCase):
         )
 
     def test_actual_fourth_composure_frames_reach_normal_transactions(self):
-        root = Path(".local/final-reliability-v1/worker-runs/untouched-fourth-v1")
+        root = localdata.root("fourth_recording_untouched_baseline")
         sidecars = [root / "neural" / f"part-005-frame-{number:06d}.json"
                     for number in (146, 147)]
         if not all(path.is_file() for path in sidecars):
@@ -294,13 +295,13 @@ class EarlyChoiceCommitmentTests(unittest.TestCase):
         self.assertEqual(audit["menus"][0]["status"], "selection_unobserved")
 
     @unittest.skipUnless(
-        Path(".local/final-reliability-v1/fourth-source-controls-early-v1/native/")
-        .is_dir() and Path(".local/models/rapidocr").is_dir(),
+        localdata.available("fourth_recording_source_controls_early", "native")
+        and localdata.MODEL_DIR.is_dir(),
         "early source images or the pinned OCR model are unavailable",
     )
     def test_actual_native_choice_transition_uses_green_collapse_witness(self):
-        root = Path(".local/final-reliability-v1/fourth-source-controls-early-v1")
-        reader = NeuralReader(".local/models/rapidocr")
+        root = localdata.root("fourth_recording_source_controls_early")
+        reader = NeuralReader(localdata.MODEL_DIR)
         specs = [
             ("native/window-002/frames/frame-000092.png", 330933),
             ("native/window-002/frames/frame-000093.png", 331000),
@@ -329,13 +330,13 @@ class EarlyChoiceCommitmentTests(unittest.TestCase):
                          "selected_card_highlight_and_transition")
 
     @unittest.skipUnless(
-        Path(".local/final-reliability-v1/fourth-source-controls-early-v1/native/")
-        .is_dir() and Path(".local/models/rapidocr").is_dir(),
+        localdata.available("fourth_recording_source_controls_early", "native")
+        and localdata.MODEL_DIR.is_dir(),
         "early source images or the pinned OCR model are unavailable",
     )
     def test_actual_native_hover_without_selection_witness_stays_uncommitted(self):
-        root = Path(".local/final-reliability-v1/fourth-source-controls-early-v1")
-        reader = NeuralReader(".local/models/rapidocr")
+        root = localdata.root("fourth_recording_source_controls_early")
+        reader = NeuralReader(localdata.MODEL_DIR)
         specs = [
             ("native/window-003-choice-native/frames/frame-000012.png", 639933),
             ("native/window-003-choice-native/frames/frame-000013.png", 640000),
@@ -362,12 +363,9 @@ class EarlyChoiceCommitmentTests(unittest.TestCase):
         self.assertEqual(reconstruct_committed_choices(rows, audit=audit), [])
         self.assertEqual(audit["menus"][0]["status"], "selection_unobserved")
 
-    @unittest.skipUnless(
-        Path(".local/final-reliability-v1/worker-runs/fourth-declared-retest-v11/neural/").is_dir(),
-        "fourth worker source sidecars are unavailable",
-    )
+    @localdata.needs("fourth_recording_retest_newer", "neural")
     def test_actual_worker_green_transition_survives_96_816_ocr(self):
-        root = Path(".local/final-reliability-v1/worker-runs/fourth-declared-retest-v11")
+        root = localdata.root("fourth_recording_retest_newer")
         required = [
             root / "neural" / f"part-002-frame-{number:06d}.json"
             for number in (364, 365, 366)

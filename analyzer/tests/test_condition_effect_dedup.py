@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.condition_removal_banner import (
     merge_condition_removal_effects,
     normalize_condition_removal_event,
@@ -26,8 +27,8 @@ def banner_lines(name="Night Owl"):
 
 class ConditionEffectDedupTests(unittest.TestCase):
     def test_source_event_collapses_fading_receipt_variants(self):
-        paths = sorted(Path(
-            ".local/full-recording/independent-02/initial-baseline/neural"
+        paths = sorted(localdata.root(
+            "development_third_recording_baseline", "neural"
         ).glob("part-001-frame-00044[5-9].json"))
         if len(paths) != 5:
             self.skipTest("independent-02 source sidecars are not available")

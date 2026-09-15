@@ -5,6 +5,7 @@ import unittest
 
 from PIL import Image, ImageDraw
 
+from tests import localdata
 from tracen_replay.event_choice_adapter import (
     SCHEMA,
     build_choice_observations,
@@ -312,11 +313,10 @@ class EventChoiceAdapterTests(unittest.TestCase):
                              "Alpha option")
 
     def test_prepared_recording_choices_survive_namespace_rebasing(self):
-        base = Path('.local/final-reliability-v1')
-        report_path = base / 'full-worker-candidate-v6/independent-02/report.json'
-        root = base / 'worker-runs/post-recognition-g8-v3-prepared/independent-02'
+        report_path = localdata.root('full_worker_candidate_batch_reports', 'independent-02', 'report.json')
+        root = localdata.root('prepared_snapshot_early', 'independent-02')
         if not report_path.is_file() or not (root / 'neural').is_dir():
-            self.skipTest('Prepared recording report or its v3 evidence root (removed in the 2026-09-13 cleanup) unavailable')
+            self.skipTest('Prepared recording report or its prepared evidence root is not present in this checkout')
         report = json.loads(report_path.read_text(encoding='utf-8'))
         readings = [row for row in report['gameplay_tracking']['readings']
                     if 1267000 <= row['source_timestamp_ms'] <= 1274000]
@@ -425,12 +425,9 @@ class EventChoiceAdapterTests(unittest.TestCase):
             self.assertEqual(result["observations"], [])
             self.assertEqual(result["audit"]["counts"]["missing_raw_sidecar"], 1)
 
-    @unittest.skipUnless(
-        Path(".local/full-recording/independent-02/initial-baseline/neural/part-010-frame-000285.json").is_file(),
-        "local frozen source images are not part of a clean checkout",
-    )
+    @localdata.needs("development_third_recording_baseline", "neural", "part-010-frame-000285.json")
     def test_independent_source_cache_fixture_reaches_commitment_adapter(self):
-        base = Path(".local/full-recording/independent-02/initial-baseline")
+        base = localdata.root("development_third_recording_baseline")
         readings = []
         for number in range(272, 286):
             raw = json.loads((base / "neural" / f"part-010-frame-{number:06d}.json").read_text(encoding="utf-8"))

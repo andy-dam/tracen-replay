@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tests.test_report_contract import valid_report
 from tracen_replay.timeline_document import SCHEMA, build, write
 
@@ -44,9 +45,9 @@ class TimelineDocumentTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / 'timeline.json').is_file())
 
     def test_real_report_when_available(self):
-        path = Path('.local/final-reliability-v1/worker-runs/untouched-creatorB-gran-concert-v28-logs/report.json')
+        path = localdata.root("held_out_recording_report", "report.json")
         if not path.is_file():
-            self.skipTest('local run report unavailable')
+            self.skipTest("local evidence 'held_out_recording_report' is not present")
         report = json.loads(path.read_text(encoding='utf-8'))
         payload = json.dumps(build(report), ensure_ascii=False, separators=(',', ':'))
         self.assertLess(len(payload.encode('utf-8')), 3_000_000)

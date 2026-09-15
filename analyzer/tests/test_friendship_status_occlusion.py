@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
+from tests import localdata
 from tracen_replay.receipt_occlusion import (
     annotate,
     annotate_path,
@@ -161,14 +162,11 @@ class FriendshipStatusOcclusionTests(unittest.TestCase):
                 marked = annotate_path(source, source_path)
             self.assertTrue(marked["occluded_receipt_lines"][0]["recipient_name_occluded"])
 
-    @unittest.skipUnless(
-        Path(".local/full-recording/independent-01/report.json").is_file(),
-        "independent source diagnostics are not available",
-    )
+    @localdata.needs("development_second_recording", "report.json")
     def test_independent_cursor_frames_cover_fixed_status_grammar_not_name(self):
         # These are existing OCR/raw diagnostics paired with the source PNGs;
         # this test does not run OCR or provide a catalog/expected label.
-        root = Path(".local/full-recording/independent-01")
+        root = localdata.root("development_second_recording")
         report = json.loads((root / "report.json").read_text(encoding="utf-8"))
         expected = {
             474500: (

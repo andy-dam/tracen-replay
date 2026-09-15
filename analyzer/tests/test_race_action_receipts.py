@@ -2,6 +2,7 @@ import unittest
 import json
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.race_action_receipts import (
     assemble_race_action_receipts,
     bind_race_action_metadata,
@@ -92,10 +93,7 @@ class RaceActionReceiptTests(unittest.TestCase):
         )
 
     def test_actual_candidate_v1_report_rows_rejoin_without_worker_replay(self):
-        report_path = (
-            Path(__file__).resolve().parents[2]
-            / ".local/final-reliability-v1/full-worker-candidate-v4/v1/report.json"
-        )
+        report_path = localdata.root("full_worker_candidate_first_recording_report", "report.json")
         if not report_path.exists():
             self.skipTest("preserved candidate report is unavailable")
         with report_path.open(encoding="utf-8") as stream:

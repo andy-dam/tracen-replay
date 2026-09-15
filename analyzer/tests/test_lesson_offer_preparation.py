@@ -8,6 +8,7 @@ import shutil
 from types import SimpleNamespace
 import unittest
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.lesson_offer_preparation import (
     LessonOfferPreparationError,
@@ -18,7 +19,7 @@ from tracen_replay.lesson_offer_preparation import (
 )
 
 
-SOURCE_ROOT = Path(".local/full-recording/independent-02/initial-baseline")
+SOURCE_ROOT = localdata.root("development_third_recording_baseline")
 RAW_PATH = SOURCE_ROOT / "neural/part-005-frame-000094.json"
 GAMEPLAY_PATH = SOURCE_ROOT / "gameplay/part-005-frame-000094.png"
 SOURCE_FRAME_PATH = SOURCE_ROOT / "part-005/frames/000094.jpg"

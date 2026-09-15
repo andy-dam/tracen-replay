@@ -8,6 +8,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "analyzer" / "lab"))
 
+from tests import localdata
+
 from inventory_turn_explanations import inventory  # noqa: E402
 from audit_turn_explanations import (  # noqa: E402
     audit_openings,
@@ -62,7 +64,7 @@ def _report(*, stats_opening=None, performance_opening=None, readings=None, turn
 
 class TurnExplanationInventoryTests(unittest.TestCase):
     def test_frozen_baseline_denominators_are_reproduced(self):
-        if not (ROOT / ".local" / "turn-explanations-v1" / "before").is_dir():
+        if not localdata.available("turn_explanation_baseline"):
             self.skipTest("frozen turn-explanation baseline reports are not present")
         expected = {
             "missing_field_comparisons": 271,
@@ -74,7 +76,7 @@ class TurnExplanationInventoryTests(unittest.TestCase):
         totals = {key: 0 for key in expected}
         for name in ("v1", "independent-01", "independent-02"):
             report = json.loads(
-                (ROOT / ".local" / "turn-explanations-v1" / "before" / f"{name}-report.json").read_text(
+                localdata.root("turn_explanation_baseline", f"{name}-report.json").read_text(
                     encoding="utf-8"
                 )
             )

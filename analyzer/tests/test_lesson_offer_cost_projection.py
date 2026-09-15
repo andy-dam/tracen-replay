@@ -16,10 +16,11 @@ from tracen_replay.lesson_offer_adapter import (
     refine_lesson_offer_costs,
 )
 from tracen_replay.lesson_offer_refinement import fingerprint
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 
 
-BASE = Path('.local/full-recording/independent-02/initial-baseline')
+BASE = localdata.root("development_third_recording_baseline")
 RAW_PATH = BASE / 'neural/part-005-frame-000094.json'
 GAMEPLAY_PATH = BASE / 'gameplay/part-005-frame-000094.png'
 SOURCE_FRAME_PATH = BASE / 'part-005/frames/000094.jpg'
@@ -396,7 +397,7 @@ class LessonOfferCostProjectionTests(unittest.TestCase):
     def test_legacy_sidecar_card_selection_is_reconciled_by_source_identity(self):
         """Historical crop sidecars retain the current source card identity."""
 
-        legacy_base = Path('.local/full-recording/independent-02/initial-baseline')
+        legacy_base = localdata.root("development_third_recording_baseline")
         frame_id = 'part-004-frame-000165'
         raw_path = legacy_base / 'neural' / f'{frame_id}.json'
         gameplay_path = legacy_base / 'gameplay' / f'{frame_id}.png'

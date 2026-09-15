@@ -9,13 +9,14 @@ from tests.test_skill_menu_observations import _card_frame
 from tracen_replay.full_recording import assemble, parse_receipt_pixels, _rebase_paths
 from tracen_replay.vision import parse
 from tracen_replay.report_contract import validate, ReportContractError
+from tests import localdata
 from tracen_replay.evaluation_adapters import report_document
 
 
 class SkillMenuPipelineTests(unittest.TestCase):
     def test_full_source_menu_keeps_draft_separate_from_unrelated_price_conflict(self):
         from tracen_replay.skill_menu_observations import build_observations
-        root=Path('.local/full-recording/independent-02/initial-baseline')
+        root=localdata.root("development_third_recording_baseline")
         if not (root/'neural/part-010-frame-000329.json').is_file():
             self.skipTest('Recorded menu sequence is unavailable')
         rows=[]
@@ -44,7 +45,7 @@ class SkillMenuPipelineTests(unittest.TestCase):
         self.assertEqual(draft['phase'],'preview')
         self.assertTrue(all(path.startswith('initial-baseline/') for path in draft['evidence']))
         from tracen_replay.observation_evaluate import evaluate
-        frozen=json.loads(Path('.local/final-reliability-v1/source-references/independent-02.json').read_text(encoding='utf-8'))
+        frozen=json.loads(localdata.root("final_reliability_artifacts", "source-references", "independent-02.json").read_text(encoding='utf-8'))
         identities={'ind02-t053-skill-card-offers','ind02-t053-skill-selection-draft'}
         sources=[item for case in frozen['cases'] for item in case['observations']
                  if item['id'] in identities]
@@ -60,7 +61,7 @@ class SkillMenuPipelineTests(unittest.TestCase):
                          {identity:'correct' for identity in identities})
 
     def test_source_pixel_draft_survives_normal_parser_contract_and_evaluator(self):
-        root=Path('.local/full-recording/independent-02/initial-baseline')
+        root=localdata.root("development_third_recording_baseline")
         path=root/'neural/part-010-frame-000375.json'
         if not path.is_file():
             self.skipTest('Recorded source fixture is unavailable')

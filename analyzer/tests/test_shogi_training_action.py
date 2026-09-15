@@ -16,14 +16,12 @@ import unittest
 from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.training_result_layout import detect_training_result_layout
 from tracen_replay.transactions import training_actions, training_events
+from tests import localdata
 from tracen_replay.vision import parse
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOT = (
-    ROOT
-    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/neural"
-)
+SOURCE_ROOT = localdata.root("fourth_recording_retest_older", "neural")
 
 
 def _source_rows():

@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tests.test_full_recording import FakeReader
 from tracen_replay.full_recording import (
@@ -22,13 +23,13 @@ class RaceQuantityPipelineTests(unittest.TestCase):
         ) as generate:
             result = _generate_race_quantity_refinement(
                 Path(root),
-                model_dir=Path('.local/models/rapidocr'),
+                model_dir=localdata.MODEL_DIR,
             )
 
         self.assertEqual(result['artifact_count'], 2)
         generate.assert_called_once_with(
             Path(root),
-            model_dir=Path('.local/models/rapidocr'),
+            model_dir=localdata.MODEL_DIR,
             fixed_quantity_windows=True,
         )
 

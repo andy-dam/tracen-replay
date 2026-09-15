@@ -6,15 +6,16 @@ import shutil
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.automatic_refinement import discover, run
 from tracen_replay.full_recording import cached_readings
 
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
-INDEPENDENT_ROOT = REPOSITORY_ROOT / ".local/full-recording/independent-01"
-WEAK_SOURCE = REPOSITORY_ROOT / ".local/final-reliability-v1/weak-state-recovery/independent-01-t063-before-performance.json"
-NUMERIC_SOURCE = REPOSITORY_ROOT / ".local/final-reliability-v1/numeric-cap-refinements-v1/independent-01/part-011-frame-000093.json"
+INDEPENDENT_ROOT = localdata.root("development_second_recording")
+WEAK_SOURCE = localdata.root("weak_state_recovery_inputs", "independent-01-t063-before-performance.json")
+NUMERIC_SOURCE = localdata.root("numeric_cap_refinements", "independent-01", "part-011-frame-000093.json")
 FRAME_ID = "part-011-frame-000093"
 TIMESTAMP = 1343000
 

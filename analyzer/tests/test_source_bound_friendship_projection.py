@@ -10,17 +10,15 @@ from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.inspect_receipts import merge
 from tracen_replay.inspect_training import reparse_inspection
 from tracen_replay.occluded_receipt_recovery import scoped_observations
+from tests import localdata
 from tracen_replay.transactions import outcome_events
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REPORT_PATH = (
-    REPO_ROOT
-    / ".local/final-reliability-v1/worker-runs/post-recognition-g8-v10-independent-02-logs/report.json"
-)
+REPORT_PATH = localdata.root("third_recording_hint_recovery_report", "report.json")
 PREPARED_ROOTS = (
-    REPO_ROOT / ".local/final-reliability-v1/worker-runs/post-recognition-g8-v11-prepared/independent-02",
-    REPO_ROOT / ".local/final-reliability-v1/worker-runs/post-recognition-g8-v8-prepared/independent-02",
+    localdata.root("prepared_snapshot_final", "independent-02"),
+    localdata.root("prepared_snapshot_late", "independent-02"),
 )
 
 

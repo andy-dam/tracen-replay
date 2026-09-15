@@ -4,9 +4,11 @@ import shutil
 import subprocess
 import unittest
 import uuid
+
 from pathlib import Path
 from unittest.mock import patch
 
+from tests import localdata
 from tracen_replay.pipeline import PipelineError, analyze, decode_frames
 
 
@@ -14,8 +16,7 @@ from tracen_replay.pipeline import PipelineError, analyze, decode_frames
 class PipelineIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = Path(".local/test-runs") / uuid.uuid4().hex
-        cls.root.mkdir(parents=True)
+        cls.root = localdata.scratch(uuid.uuid4().hex)
         cls.source = cls.root / "synthetic.mkv"
         # Uneven original PTS plus a nonzero media origin. Frame-index/fps
         # timestamp reconstruction would fail this fixture.

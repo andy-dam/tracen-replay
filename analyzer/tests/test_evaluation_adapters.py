@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.evaluation_adapters import evidence_ids, report_document, source_document
 from tracen_replay.observation_evaluate import evaluate
 from tests.test_causal_accounting import fixture
@@ -135,12 +136,9 @@ class AdapterTests(unittest.TestCase):
 
     def test_actual_localized_t016_guts_binds_applied_timing_to_frame19(self):
         """Localized same-frame crops must still expose the later result frame."""
-        path = Path(
-            '.local/final-reliability-v1/full-worker-candidate-v10-batch-v1/'
-            'independent-01-report.json'
-        )
+        path = localdata.root("adapter_grading_batch_fixture", 'independent-01-report.json')
         if not path.is_file():
-            self.skipTest('actual v10 independent-01 report fixture is unavailable')
+            self.skipTest('preserved independent-01 report fixture is unavailable')
         report = json.loads(path.read_text(encoding='utf-8'))
         prediction = report_document(report)
         effect = next(
@@ -161,12 +159,9 @@ class AdapterTests(unittest.TestCase):
 
     def test_duplicate_localized_crop_does_not_supply_applied_timing(self):
         """Repeated proof from one crop family remains an invalid binding."""
-        path = Path(
-            '.local/final-reliability-v1/full-worker-candidate-v10-batch-v1/'
-            'independent-01-report.json'
-        )
+        path = localdata.root("adapter_grading_batch_fixture", 'independent-01-report.json')
         if not path.is_file():
-            self.skipTest('actual v10 independent-01 report fixture is unavailable')
+            self.skipTest('preserved independent-01 report fixture is unavailable')
         report = json.loads(path.read_text(encoding='utf-8'))
         resolution = report['gameplay_tracking']['events'][49][
             'source_clipped_gain_resolutions'
@@ -185,12 +180,9 @@ class AdapterTests(unittest.TestCase):
 
     def test_stale_accepted_crop_metadata_does_not_supply_applied_timing(self):
         """A stored accepted crop must still match the fresh source resolver."""
-        path = Path(
-            '.local/final-reliability-v1/full-worker-candidate-v10-batch-v1/'
-            'independent-01-report.json'
-        )
+        path = localdata.root("adapter_grading_batch_fixture", 'independent-01-report.json')
         if not path.is_file():
-            self.skipTest('actual v10 independent-01 report fixture is unavailable')
+            self.skipTest('preserved independent-01 report fixture is unavailable')
         report = json.loads(path.read_text(encoding='utf-8'))
         resolution = report['gameplay_tracking']['events'][49][
             'source_clipped_gain_resolutions'

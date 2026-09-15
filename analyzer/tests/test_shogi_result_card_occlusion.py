@@ -15,13 +15,14 @@ from tracen_replay.stat_state_details import (
     read_result_card_occlusion,
     read_training_result_values,
 )
+from tests import localdata
 from tracen_replay.vision import parse
 
 
 ROOT = Path(__file__).resolve().parents[2]
-REPLAY = ROOT / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v11"
-# The v11 fourth-recording output was removed in the 2026-09-13 workspace
-# cleanup; these source-bound checks skip (not pass) when it is absent.
+REPLAY = localdata.root("fourth_recording_retest_newer")
+# An earlier preserved fourth-recording worker output was removed from this
+# checkout; these source-bound checks skip (not pass) when it is absent.
 _FIXTURE_AVAILABLE = (REPLAY / "capture.json").is_file() and (REPLAY / "neural").is_dir()
 
 
@@ -41,7 +42,7 @@ def _capture_and_frame(frame: str) -> tuple[dict, dict]:
     return capture, target
 
 
-@unittest.skipUnless(_FIXTURE_AVAILABLE, "fourth v11 replay output (removed in the 2026-09-13 cleanup) is unavailable")
+@unittest.skipUnless(_FIXTURE_AVAILABLE, "the preserved fourth-recording replay output is not present in this checkout")
 class ShogiResultCardOcclusionTests(unittest.TestCase):
     def test_frame_245_normal_receipt_parse_derives_pixel_unknown(self):
         capture, frame = _capture_and_frame("245")

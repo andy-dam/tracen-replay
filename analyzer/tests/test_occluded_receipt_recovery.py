@@ -21,12 +21,10 @@ from tracen_replay.inspect_receipts import merge
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import NeuralReader, parse
 
+from tests import localdata
 
-SOURCE_FRAME = (
-    Path(__file__).resolve().parents[2]
-    / ".local/final-reliability-v1/diagnostic-scratch/friendship-155750-source/000016.jpg"
-)
-MODEL_DIR = Path(__file__).resolve().parents[2] / ".local/models/rapidocr"
+SOURCE_FRAME = localdata.root("diagnostic_friendship_receipt_frame", "000016.jpg")
+MODEL_DIR = localdata.MODEL_DIR
 
 
 def source_meta(timestamp, evidence):

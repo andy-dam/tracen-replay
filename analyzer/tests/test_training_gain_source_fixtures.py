@@ -7,12 +7,11 @@ import sys
 import uuid
 import unittest
 
+from tests import localdata
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILDER = ROOT / "analyzer" / "tools" / "build_training_gain_source_fixtures.py"
-FIXTURE = ROOT / ".local" / "final-reliability-v1" / (
-    "training-gain-source-fixtures.json"
-)
+FIXTURE = localdata.root("final_reliability_artifacts", "training-gain-source-fixtures.json")
 
 
 class TrainingGainSourceFixtureTests(unittest.TestCase):
@@ -20,8 +19,7 @@ class TrainingGainSourceFixtureTests(unittest.TestCase):
     def setUpClass(cls):
         if not FIXTURE.exists():
             raise unittest.SkipTest("preserved training-gain source fixtures are not present")
-        cls.output_dir = ROOT / '.local' / ('fixture-build-' + uuid.uuid4().hex)
-        cls.output_dir.mkdir()
+        cls.output_dir = localdata.scratch('fixture-build-' + uuid.uuid4().hex)
         def cleanup():
             for path in cls.output_dir.iterdir():
                 path.unlink()

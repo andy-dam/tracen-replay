@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.lesson_offer_adapter import adapt_lesson_offer_frame
 from tracen_replay.preview_observations import build_preview_observations
 
@@ -165,7 +166,7 @@ class UnknownScreenPreviewTests(unittest.TestCase):
                 self.assertEqual(result["rejected_counts"], {reason: 1})
 
     def test_actual_lesson_hint_cards_keep_level_and_label_metadata(self):
-        base = Path(".local/full-recording/independent-02/initial-baseline")
+        base = localdata.root("development_third_recording_baseline")
         source_sha256 = "a10bd8261176e2aa79eb991ab0eb6b4b23dc4c8a6ffe13edcb799d43e8982313"
         expected = {
             "000094": ("Group Lesson Basics", 1),

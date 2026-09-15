@@ -3,6 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tests.test_causal_accounting import fixture
 from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.race_action_receipts import (
@@ -14,9 +15,7 @@ from tracen_replay.vision import _race_result_grade_observation, parse
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE_NEURAL = (
-    ROOT / ".local/full-recording/independent-02/initial-baseline/neural"
-)
+SOURCE_NEURAL = localdata.root("development_third_recording_baseline", "neural")
 
 
 def source_reading(frame):

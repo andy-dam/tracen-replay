@@ -1,4 +1,4 @@
-"""Source-bound regression for the v12 T028 skill-points animation.
+"""Source-bound regression for the T028 skill-points animation.
 
 The preserved source window contains a short ``+1`` component, one isolated
 expanded-crop ``+18`` alternative, and repeated source rereads of the visible
@@ -11,6 +11,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
+from tests import localdata
 from tracen_replay.training_gain_phases import (
     resolve_source_temporal_phase,
     source_gain_observations,
@@ -18,10 +19,7 @@ from tracen_replay.training_gain_phases import (
 from tracen_replay.transactions import training_events
 
 
-REPORT = Path(
-    ".local/final-reliability-v1/worker-runs/"
-    "post-recognition-g8-v12-v1-logs/report.json"
-)
+REPORT = localdata.root("first_recording_t028_logs", "report.json")
 
 
 def _t028_rows():

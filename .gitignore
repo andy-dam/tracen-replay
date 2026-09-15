@@ -66,6 +66,9 @@ __queuestorage__/
 
 # Temporary files and OS metadata
 /pytest-cache-files-*/
+# files a test writes beside itself and removes; never part of the tree
+/analyzer/tests/source-disposition-*
+/analyzer/tests/matrix.json
 *.log
 tmp/
 temp/

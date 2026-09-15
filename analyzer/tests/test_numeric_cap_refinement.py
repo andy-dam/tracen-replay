@@ -4,6 +4,7 @@ import json
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.numeric_cap_refinement import (
     apply,
@@ -28,7 +29,7 @@ def _sha(path):
 
 
 def _real_raw(name):
-    path = REPO / ".local/full-recording/independent-01/neural" / f"{name}.json"
+    path = localdata.root("development_second_recording", "neural", f"{name}.json")
     if not path.exists():
         raise unittest.SkipTest("preserved independent-01 caches are not present")
     return json.loads(path.read_text())
@@ -37,9 +38,9 @@ def _real_raw(name):
 def _source_paths(name):
     part, frame = name.split("-")[1], name.split("-")[-1]
     # The source capture uses the same part/frame names as the neural cache.
-    source = REPO / f".local/full-recording/independent-01/part-{part}/frames/{frame}.jpg"
+    source = localdata.root("development_second_recording", f"part-{part}", "frames", f"{frame}.jpg")
     raw = _real_raw(name)
-    evidence = REPO / ".local/full-recording/independent-01" / raw["evidence"]
+    evidence = localdata.root("development_second_recording", raw["evidence"])
     return raw, evidence, source
 
 
@@ -221,8 +222,8 @@ class NumericCapRefinementTests(unittest.TestCase):
 
     def test_t063_source_bound_caps_add_missing_rows_without_mutating_raw(self):
         raw = _real_raw("part-011-frame-000093")
-        evidence = REPO / ".local/full-recording/independent-01" / raw["evidence"]
-        source = REPO / ".local/full-recording/independent-01/part-011/frames/000093.jpg"
+        evidence = localdata.root("development_second_recording", raw["evidence"])
+        source = localdata.root("development_second_recording", "part-011", "frames", "000093.jpg")
         fields = {}
         boxes = {
             "dance": [176, 323, 226, 344],
@@ -330,7 +331,7 @@ class NumericCapRefinementTests(unittest.TestCase):
                   source_frame_evidence=sidecar["source_frame_evidence"])
 
     def test_published_sidecars_recover_the_two_reviewed_source_cases(self):
-        root = REPO / ".local/final-reliability-v1/numeric-cap-refinements-v1"
+        root = localdata.root("numeric_cap_refinements")
         if not (root / "manifest.json").exists():
             self.skipTest("published numeric-cap refinements are not present")
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))

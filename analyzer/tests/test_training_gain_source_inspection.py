@@ -6,6 +6,7 @@ import shutil
 import unittest
 from pathlib import Path
 
+from tests import localdata
 from tests.test_causal_accounting import fixture as report_fixture
 from tests.test_gameplay import workspace_temp
 from tracen_replay.evaluation_adapters import report_document
@@ -16,11 +17,8 @@ from tracen_replay.transactions import training_actions, training_events
 
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
-SOURCE_ROOT = REPOSITORY_ROOT / ".local/full-recording/v1"
-BUNDLE_ROOT = (
-    REPOSITORY_ROOT
-    / ".local/final-reliability-v1/diagnostic-scratch/numeric-dense-registration-v7"
-)
+SOURCE_ROOT = localdata.root("development_first_recording")
+BUNDLE_ROOT = localdata.root("diagnostic_numeric_dense_registration")
 SOURCE_SHA256 = "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174"
 SOURCE_REFINEMENT_KEY = "training_gain_source_refinement_sidecars"
 

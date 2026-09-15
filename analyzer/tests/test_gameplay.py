@@ -3,9 +3,11 @@ from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
 import uuid
+
 from contextlib import contextmanager
 import shutil
 from PIL import Image
+from tests import localdata
 from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, investigation_windows, GameplayReader, track, CURRENCIES, ledger, FIELDS, screen_summary
 from tracen_replay.pipeline import analyze, PipelineError
 from tracen_replay.gameplay_evaluate import evaluate
@@ -17,8 +19,7 @@ def line(text, confidence=95):
 
 @contextmanager
 def workspace_temp():
-    root=Path('.local/test-runs')/uuid.uuid4().hex
-    root.mkdir(parents=True)
+    root = localdata.scratch(uuid.uuid4().hex)
     try:
         yield root
     finally:

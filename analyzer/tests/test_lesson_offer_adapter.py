@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import unittest
 
+from tests import localdata
 from tracen_replay.lesson_offer_adapter import (
     SCHEMA,
     LessonOfferSourceError,
@@ -11,7 +12,7 @@ from tracen_replay.lesson_offer_adapter import (
 )
 
 
-BASE = Path(".local/full-recording/independent-02/initial-baseline")
+BASE = localdata.root("development_third_recording_baseline")
 RAW_094 = BASE / "neural/part-005-frame-000094.json"
 RAW_121 = BASE / "neural/part-005-frame-000121.json"
 GAMEPLAY_094 = BASE / "gameplay/part-005-frame-000094.png"
@@ -230,7 +231,7 @@ class LessonOfferAdapterTests(unittest.TestCase):
         )
 
     def test_actual_late_song_title_keeps_raw_ocr_and_source_note_identity(self):
-        root = Path('.local/final-reliability-v1/worker-runs/fourth-declared-retest-v10')
+        root = localdata.root("fourth_recording_retest_older")
         raw_path = root / 'neural/part-015-frame-000216.json'
         gameplay_path = root / 'gameplay/part-015-frame-000216.png'
         if not raw_path.is_file() or not gameplay_path.is_file():

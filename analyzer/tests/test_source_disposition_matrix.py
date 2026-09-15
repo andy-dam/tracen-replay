@@ -237,7 +237,7 @@ class SourceDispositionMatrixTests(unittest.TestCase):
 
     def test_verifier_rejects_missing_matrix_row(self):
         matrix = self._build()
-        path = self.root / "matrix.json"
+        path = self.root / f"source-disposition-{self._token}-matrix.json"
         self._owned_paths.add(path)
         _write_json(path, matrix)
         matrix["rows"].pop()
@@ -247,7 +247,8 @@ class SourceDispositionMatrixTests(unittest.TestCase):
 
     def test_verifier_rejects_tampered_input_hash(self):
         matrix = self._build()
-        path = self.root / "matrix.json"
+        path = self.root / f"source-disposition-{self._token}-matrix.json"
+        self._owned_paths.add(path)
         _write_json(path, matrix)
         matrix["inputs"]["binding"]["artifacts"]["source_reference"]["sha256"] = "0" * 64
         _write_json(path, matrix)

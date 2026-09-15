@@ -7,6 +7,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 
+from tests import localdata
 from tracen_replay.hint_card_cache import (
     _ROW_HASH_VERSION_V1,
     _ROW_HASH_VERSION_V2,
@@ -809,11 +810,8 @@ class WrappedHintCardCacheTests(unittest.TestCase):
 
 class ActualHintCardCacheTests(unittest.TestCase):
     @staticmethod
-    def _v11_cache_rows(name):
-        root = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            f"post-recognition-g8-v11-prepared/{name}"
-        )
+    def _prepared_cache_rows(name):
+        root = localdata.root("prepared_snapshot_final", name)
         capture_path = root / "capture.json"
         cache_path = root / "hint-card-recovery.json"
         if not capture_path.is_file() or not cache_path.is_file():
@@ -841,12 +839,12 @@ class ActualHintCardCacheTests(unittest.TestCase):
             cached_readings(dict(capture, frames=frames), root),
         )
 
-    def test_actual_v11_prepared_caches_load_after_normal_reparse(self):
+    def test_actual_prepared_caches_load_after_normal_reparse(self):
         for name in ("v1", "independent-01"):
             with self.subTest(root=name):
-                prepared = self._v11_cache_rows(name)
+                prepared = self._prepared_cache_rows(name)
                 if prepared is None:
-                    self.skipTest("actual v11 hint-card cache fixture is unavailable")
+                    self.skipTest("preserved hint-card cache fixture is unavailable")
                 root, capture, cache_path, rows = prepared
                 with patch(
                     "tracen_replay.vision.NeuralReader",
@@ -866,10 +864,10 @@ class ActualHintCardCacheTests(unittest.TestCase):
                     ),
                 )
 
-    def test_actual_v11_row_metadata_is_bound_before_hash_compatibility(self):
-        prepared = self._v11_cache_rows("independent-01")
+    def test_actual_row_metadata_is_bound_before_hash_compatibility(self):
+        prepared = self._prepared_cache_rows("independent-01")
         if prepared is None:
-            self.skipTest("actual v11 independent-01 hint-card cache fixture is unavailable")
+            self.skipTest("preserved independent-01 hint-card cache fixture is unavailable")
         root, capture, cache_path, rows = prepared
         mutations = {
             "source_sha256": "f" * 64,
@@ -894,11 +892,11 @@ class ActualHintCardCacheTests(unittest.TestCase):
                         cache_path=cache_path,
                     )
 
-    def test_actual_v11_full_readings_allow_registered_inspection_namespace(self):
+    def test_actual_full_readings_allow_registered_inspection_namespace(self):
         """Unrelated bound inspection rows must not poison hint replay.
 
         The normal replay bundle merges base capture rows with registered
-        inspection namespaces.  This uses the real v11 inspection envelope
+        inspection namespaces.  This uses the real preserved inspection envelope
         from the prepared source: its ``frame-000015`` identity is valid for
         that inspection artifact, but intentionally has no entry in the base
         capture manifest.  The hint candidate still has to validate its own
@@ -913,13 +911,13 @@ class ActualHintCardCacheTests(unittest.TestCase):
         }
         for name, relative_path in inspection_paths.items():
             with self.subTest(root=name):
-                prepared = self._v11_cache_rows(name)
+                prepared = self._prepared_cache_rows(name)
                 if prepared is None:
-                    self.skipTest("actual v11 hint-card cache fixture is unavailable")
+                    self.skipTest("preserved hint-card cache fixture is unavailable")
                 root, capture, cache_path, rows = prepared
                 envelope_path = root / relative_path
                 if not envelope_path.is_file():
-                    self.skipTest("actual v11 inspection envelope is unavailable")
+                    self.skipTest("preserved inspection envelope is unavailable")
                 inspection_row = json.loads(
                     envelope_path.read_text(encoding="utf-8")
                 )
@@ -951,14 +949,11 @@ class ActualHintCardCacheTests(unittest.TestCase):
             import PIL  # noqa: F401
         except ImportError:
             self.skipTest('Pillow is unavailable for the source-linked cache fixture')
-        root = Path(
-            '.local/final-reliability-v1/worker-runs/'
-            'post-recognition-g8-v8-prepared/independent-01'
-        )
+        root = localdata.root("prepared_snapshot_late", "independent-01")
         capture_path = root / 'capture.json'
         cache_path = root / 'hint-card-recovery.json'
         if not capture_path.is_file() or not cache_path.is_file():
-            self.skipTest('actual v8 independent-01 hint-card fixture is unavailable')
+            self.skipTest('the preserved independent-01 hint-card fixture is unavailable')
 
         from tracen_replay.full_recording import cached_readings
         from tracen_replay.hint_card_events import apply
@@ -1011,15 +1006,12 @@ class ActualHintCardCacheTests(unittest.TestCase):
         self.assertEqual(audit['accepted'][0]['amount'], 2)
         self.assertEqual(event['effects'][0]['kind'], 'skill_hint_change')
 
-    def test_actual_v1_unstoppable_cache_accepts_neutral_particle_metadata(self):
-        root = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            "post-recognition-g8-v7-prepared/v1"
-        )
+    def test_actual_first_recording_unstoppable_cache_accepts_neutral_particle_metadata(self):
+        root = localdata.root("prepared_snapshot_mid", "v1")
         capture_path = root / "capture.json"
         cache_path = root / "hint-card-recovery.json"
         if not capture_path.is_file() or not cache_path.is_file():
-            self.skipTest("actual v1 hint-card cache fixture is unavailable")
+            self.skipTest("the preserved first-recording hint-card cache fixture is unavailable")
 
         capture = json.loads(capture_path.read_text(encoding="utf-8"))
         frames = [
@@ -1057,10 +1049,7 @@ class ActualHintCardCacheTests(unittest.TestCase):
         self.assertEqual(loaded[0]["amount"], 3)
 
     def test_actual_independent01_neutral_candidate_migrates_and_particle_candidate_stays_stale(self):
-        root = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            "post-recognition-g8-v7-prepared/independent-01"
-        )
+        root = localdata.root("prepared_snapshot_mid", "independent-01")
         capture_path = root / "capture.json"
         cache_path = root / "hint-card-recovery.json"
         if not capture_path.is_file() or not cache_path.is_file():
@@ -1132,10 +1121,7 @@ class ActualHintCardCacheTests(unittest.TestCase):
             )
 
     def test_actual_independent01_source_refresh_regenerates_particle_candidate(self):
-        root = Path(
-            ".local/final-reliability-v1/worker-runs/"
-            "post-recognition-g8-v7-prepared/independent-01"
-        )
+        root = localdata.root("prepared_snapshot_mid", "independent-01")
         capture_path = root / "capture.json"
         cache_path = root / "hint-card-recovery.json"
         if not capture_path.is_file() or not cache_path.is_file():
@@ -1159,8 +1145,7 @@ class ActualHintCardCacheTests(unittest.TestCase):
         ]
         rows = cached_readings(dict(capture, frames=frames), root)
         original_cache = cache_path.read_bytes()
-        scratch = Path(".local/test-runs") / f"hint-card-refresh-{uuid.uuid4().hex}"
-        scratch.mkdir(parents=True, exist_ok=False)
+        scratch = localdata.scratch(f"hint-card-refresh-{uuid.uuid4().hex}")
         output = scratch / "hint-card-recovery.json"
         try:
             payload = refresh(
