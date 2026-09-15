@@ -199,9 +199,10 @@ export function actionClass(turn: TurnSummary): string {
 }
 
 export function describeAction(turn: TurnSummary): string {
-  if (turn.action_status === "missing_action") return "no action seen";
+  if (turn.action_status === "missing_action") return "not seen by the report";
   const base = turn.action_kind === "training" && turn.training_option ? `${turn.training_option} training` : turn.action_kind ?? "action";
-  return turn.action_status === "multiple_actions" ? `${base} and more` : base;
+  const text = turn.action_status === "multiple_actions" ? `${base} and more` : base;
+  return turn.action_filled_in ? `${text} (filled in by you)` : text;
 }
 
 /** Count of fields whose accounting across the turn is not balanced. */

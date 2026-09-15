@@ -710,11 +710,18 @@ func (s *Server) reportSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) reportTurns(w http.ResponseWriter, r *http.Request) {
-	_, doc, ok := s.report(w, r)
+	report, doc, ok := s.report(w, r)
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"turns": doc.TurnSummaries()})
+	summaries := doc.TurnSummaries()
+	// The viewer's own answers show in the strip and the counts, per viewer.
+	if s.cfg.Corrections != nil {
+		if list, err := s.cfg.Corrections.ListCorrections(r.Context(), report.ID, userFrom(r).ID); err == nil {
+			timeline.ApplyCorrections(summaries, list)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"turns": summaries})
 }
 
 func (s *Server) reportTurn(w http.ResponseWriter, r *http.Request) {

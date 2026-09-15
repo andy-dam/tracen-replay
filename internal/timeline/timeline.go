@@ -261,6 +261,9 @@ type TurnSummary struct {
 	// action (training, race, rest, outing, infirmary) for the season strip.
 	ActionKind     string `json:"action_kind,omitempty"`
 	TrainingOption string `json:"training_option,omitempty"`
+	// ActionFilledIn is true when the action shown is the viewer's own answer
+	// rather than the report's reading (see ApplyCorrections).
+	ActionFilledIn bool `json:"action_filled_in,omitempty"`
 	// Opening carries the observed opening values so a stat chart across
 	// turns needs no per-turn requests.
 	Opening Opening `json:"opening"`
@@ -352,6 +355,30 @@ func (d *Document) TurnSummaries() []TurnSummary {
 		}
 	}
 	return out
+}
+
+// ApplyCorrections overlays a viewer's saved answers on the summaries: a
+// turn whose action the viewer filled in shows that action, and a turn the
+// report saw no action in counts as having one. The report itself is never
+// changed; the overlay is per viewer, like the corrections.
+func ApplyCorrections(summaries []TurnSummary, corrections []Correction) {
+	byTurn := make(map[string]Correction, len(corrections))
+	for _, c := range corrections {
+		byTurn[c.TurnID] = c
+	}
+	for i := range summaries {
+		c, ok := byTurn[summaries[i].ID]
+		if !ok || c.Action == nil {
+			continue
+		}
+		summaries[i].ActionKind = c.Action.Kind
+		summaries[i].TrainingOption = c.Action.TrainingOption
+		summaries[i].ActionFilledIn = true
+		if summaries[i].ActionStatus == "missing_action" {
+			summaries[i].ActionStatus = "one_action"
+			summaries[i].ActionCount = 1
+		}
+	}
 }
 
 // expectsOneAction is the ledger's own rule (a dated calendar turn or a

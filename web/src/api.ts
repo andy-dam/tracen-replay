@@ -89,6 +89,8 @@ export interface TurnSummary {
   accounting_status_counts: Record<string, number>;
   action_kind?: string;
   training_option?: string;
+  /** The action shown is the viewer's own answer, not the report's reading. */
+  action_filled_in?: boolean;
   opening: Opening;
   /** The previous turn's opening plus what its entries explain, when this turn's opening was never on screen. */
   opening_estimate?: Opening;
