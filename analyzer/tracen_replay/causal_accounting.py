@@ -77,13 +77,28 @@ def _state_constrained_gain_proof(event, field, amount):
     return _source_proof_paths(resolution.get('gain_evidence'))
 
 
+def _debit_timed(purchase):
+    """The purchase dated at its debit (request to matched balance), not its receipt.
+
+    A receipt shown after the next turn's opening panel would otherwise put
+    the cost in the wrong window.
+    """
+    window = purchase.get('debit_window_ms')
+    if (isinstance(window, (list, tuple)) and len(window) == 2 and all(type(v) is int for v in window)
+            and window[0] <= window[1]):
+        return dict(purchase, first_seen_ms=window[0], last_seen_ms=window[1])
+    return purchase
+
+
 def _lesson_cost_basis(purchase, receipt, readings):
     """A committed, source-priced purchase differs from a browsed projection.
 
     Offer/request joins remain derived costs: this does not claim observation
     of the resulting balance or an independently measured debit.
     """
-    if purchase.get('cost_basis')=='observed_debit':return 'observed_balance_debit'
+    # Both bases rest on the actual balance read before and after the purchase:
+    # the projection matched by the next balance, or two repeated balances.
+    if purchase.get('cost_basis') in ('observed_debit','receipt_and_repeated_observed_balances'):return 'observed_balance_debit'
     if purchase.get('cost_basis')=='state_confirmed_balance_drop':return 'state_derived_debit'
     if purchase.get('cost_basis')!='receipt_request_and_observed_offer_prices':return 'projected_debit'
     proof=purchase.get('offer_cost_evidence',{}); name=purchase.get('name')
@@ -228,6 +243,44 @@ def _training_can_own(event, read_key, field):
     return field in names or field in (event.get('gain_conflicts') or {})
 
 
+def _clipped_badge_mode(event, readings, read_key, field, residual):
+    """How a read training panel can still own a positive difference for a field.
+
+    ``clipped_badge_prefix``: the badge was read as the leading digit(s) of
+    the true gain (a 1 that was 11, a 3 that was 35); the read value plus the
+    difference must start with the read value and be longer. ``visible_candidate``:
+    no value was accepted for the field, but a result frame showed a candidate
+    that equals the difference or is its leading digits (a 33 dropped by a
+    conflicting frame, a 6 that was 64). Anything else is None.
+    """
+    read = (event.get(read_key) or {}).get(field)
+    if type(read) is int and read > 0:
+        total = read + residual
+        return 'clipped_badge_prefix' if str(total).startswith(str(read)) and len(str(total)) > len(str(read)) else None
+    if read is not None:
+        return None
+    start, end = event.get('first_seen_ms'), event.get('last_seen_ms')
+    if type(start) is not int or type(end) is not int:
+        return None
+    seen = set()
+    for row in readings:
+        time = row.get('source_timestamp_ms')
+        if row.get('screen') != 'training_result' or type(time) is not int or not start - 250 <= time <= end + 250:
+            continue
+        facts = row.get('facts') or {}
+        if read_key == 'deltas':
+            values = (facts.get('training_gain_candidates') or {}).get(field) or []
+            gains = (facts.get('training_gains') or {}).get(field)
+            values = list(values) + ([gains] if type(gains) is int else [])
+        else:
+            award = (facts.get('awarded_performance_gains') or {}).get(field)
+            values = [award] if type(award) is int else []
+        seen.update(v for v in values if type(v) is int and v > 0)
+    if any(v == residual or (str(residual).startswith(str(v)) and len(str(residual)) > len(str(v))) for v in seen):
+        return 'visible_candidate'
+    return None
+
+
 def _caption_owner(data, candidate, field, channel, event_refs):
     """The one outcome event a number-cut caption belongs to, or None.
 
@@ -345,12 +398,14 @@ def build(report):
             if amount:
                 basis = _lesson_cost_basis(purchase, next((e for e in data['events']
                     if e['id']==purchase.get('receipt_event_id')),None), data['readings'])
-                add(f'{parent}/performance_cost/{field}', parent, purchase, 'performance', field,
+                add(f'{parent}/performance_cost/{field}', parent, _debit_timed(purchase), 'performance', field,
                     -amount, purchase.get('evidence'), basis, conflicts=receipt is None)
 
     by_id = {c['id']: c for c in contributions}
     claims = defaultdict(list)
     for c in contributions:
+        if c.get('completes'):
+            continue  # a clipped-badge completion sits beside the digits it completes
         claims[(c['event_ref'], c['channel'], c['field'])].append(c)
     for rows in claims.values():
         if len(rows) > 1:
@@ -553,9 +608,29 @@ def build(report):
                 continue
             if row.get('ambiguous_contributions'):
                 continue
-            if race_in_turn and field == 'skill_points':
-                continue
             possible = []
+            if race_in_turn and field == 'skill_points':
+                # Race rewards are not itemised on screen; the turn's one race is
+                # the only possible owner of a positive skill-point difference
+                # when no training or cut receipt could also have paid it.
+                races_here = [a for a in actions if a.get('action_kind') == 'race']
+                receipt = _resolve_pointer(report, races_here[0].get('source_ref')) if len(races_here) == 1 else None
+                race_index = next((i for i, r in enumerate(data.get('races') or [])
+                                   if isinstance(receipt, dict) and r.get('id') == receipt.get('race_id')), None)
+                # A training whose panel read its skill points (and cannot be a
+                # clipped badge of the total) leaves the race as the only owner.
+                training_could = (bool(trainings) and (training_event is None or _training_can_own(training_event, read_key, field)
+                                  or _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)))
+                if residual > 0 and race_index is not None and not training_could and not _unparsed_mentions(
+                        data.get('unparsed_receipt_candidates'), field, start, end):
+                    race = data['races'][race_index]
+                    parent = f'/gameplay_tracking/races/{race_index}'
+                    race.setdefault('turn_difference_gains', {})[field] = residual
+                    race['turn_difference_basis'] = 'sole_race_takes_skill_point_residual'
+                    add(f'{parent}/turn_difference_gains/{field}', parent, race, channel, field, residual,
+                        race.get('evidence'), 'turn_difference')
+                    extrapolated += 1
+                continue
             # The sole training takes a positive difference when its result was
             # not read at all or its reading of the field conflicted. A result
             # panel read without a row for the field did not raise it.
@@ -564,6 +639,10 @@ def build(report):
                     possible.append(('unresolved', None, None))
                 elif _training_can_own(training_event, read_key, field):
                     possible.append(('training', training_parent, training_event))
+                else:
+                    mode = _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)
+                    if mode:
+                        possible.append(('training', training_parent, training_event, mode))
             # The one outcome whose receipt named the field but lost its number.
             captions = _unparsed_mentions(data.get('unparsed_receipt_candidates'), field, start, end)
             caption_events = {}
@@ -586,10 +665,25 @@ def build(report):
                 continue
             kind, parent, owner = possible[0][:3]
             if kind == 'training':
+                mode = possible[0][3] if len(possible[0]) > 3 else None
                 owner.setdefault(store, {})[field] = residual
-                owner['turn_difference_basis'] = 'sole_training_takes_turn_residual'
+                owner['turn_difference_basis'] = ('sole_training_takes_turn_residual' if mode is None else
+                                                  f'sole_training_{mode}_completed_by_turn_residual')
+                if mode:
+                    read = (owner.get(read_key) or {}).get(field)
+                    owner.setdefault('turn_difference_completions', {})[field] = dict(
+                        mode=mode, read=read, completed=(read or 0) + residual)
                 add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, owner.get('evidence'),
                     'turn_difference')
+                if mode == 'clipped_badge_prefix':
+                    # The read digits stay as observed; the completion is a
+                    # second, flagged contribution on the same field, not a claim
+                    # competing with it.
+                    observed = next((c for c in contributions if c['event_ref'] == parent and c['channel'] == channel
+                                     and c['field'] == field and c['basis'] != 'turn_difference'), None)
+                    if observed is not None:
+                        contributions[-1]['completes'] = observed['id']
+                        observed['completed_by'] = contributions[-1]['id']
             elif kind == 'outcome':
                 found = possible[0][3]
                 shown = {_caption_digits(c.get('raw_text')) for c in found}

@@ -259,6 +259,17 @@ class CausalAccountingTests(unittest.TestCase):
         self.assertEqual(len(vocal['contribution_refs']), 2)
         self.assertEqual(len(result['comparisons'][1]['fields']), 5)
 
+    def test_a_purchase_debit_is_dated_at_its_request_to_matched_balance_window(self):
+        report = fixture(); data = report['gameplay_tracking']
+        data['lesson_purchases'] = [{'id': 'lesson', 'receipt_event_id': 'event', 'source_timestamp_ms': 150,
+                                    'evidence': ['receipt.png'], 'performance_cost': {'vocal': 10}, 'cost_basis': 'observed_debit',
+                                    'debit_window_ms': [120, 140]}]
+        result = build(report)
+        debit = next(c for c in result['contributions'] if c['event_ref'] == '/gameplay_tracking/lesson_purchases/0')
+        self.assertEqual((debit['observation_start_ms'], debit['observation_end_ms'], debit['basis']), (120, 140, 'observed_balance_debit'))
+        data['lesson_purchases'][0]['cost_basis'] = 'receipt_and_repeated_observed_balances'
+        self.assertEqual(next(c for c in build(report)['contributions'] if c['event_ref'].endswith('lesson_purchases/0'))['basis'], 'observed_balance_debit')
+
     def test_unobserved_and_projected_debits_do_not_close_accounting(self):
         report = fixture(); data = report['gameplay_tracking']
         data['lesson_purchases'] = [{'id': 'lesson', 'receipt_event_id': 'event', 'source_timestamp_ms': 150,

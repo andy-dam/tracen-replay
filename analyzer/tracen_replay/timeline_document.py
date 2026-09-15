@@ -121,6 +121,8 @@ def build(report):
         ref = str(contribution.get('event_ref') or '')
         if '/lesson_purchases/' in ref:
             return 'lesson'
+        if '/races/' in ref:
+            return 'race'
         record = _resolve(report, ref)
         kind = record.get('kind') if isinstance(record, dict) else None
         return 'training' if kind == 'training' else 'event' if kind else None
@@ -183,7 +185,13 @@ def build(report):
                     for field, amount in amounts.items()}
         for c in extrapolations:
             if c.get('event_ref') == ref and c.get('channel') and c.get('field'):
-                changes.setdefault(c['channel'], {})[c['field']] = dict(amount=c.get('amount'), basis='turn_difference')
+                existing = (changes.get(c['channel']) or {}).get(c['field'])
+                if c.get('completes') and existing and type(existing.get('amount')) is int and type(c.get('amount')) is int:
+                    # A clipped badge: the read digits plus the difference, shown as worked out.
+                    changes[c['channel']][c['field']] = dict(amount=existing['amount'] + c['amount'], basis='turn_difference',
+                                                              read_amount=existing['amount'])
+                else:
+                    changes.setdefault(c['channel'], {})[c['field']] = dict(amount=c.get('amount'), basis='turn_difference')
         item = dict(
             id=entry.get('id'), kind=entry.get('kind'), turn_id=entry.get('turn_id'),
             first_seen_ms=entry.get('first_seen_ms'), last_seen_ms=entry.get('last_seen_ms'),
