@@ -105,6 +105,21 @@ class RecordingCoverageTests(unittest.TestCase):
         self.assertEqual(outing_actions([request], [dict(events[0], effects=[])]), [])
         self.assertEqual(len(outing_actions([request], events + [dict(events[0], id='second', first_seen_ms=6000)])), 1)
 
+    def test_outing_name_uses_linked_receipt_and_does_not_claim_request_click(self):
+        request=row(1000,'outing_confirmation',context_title='Unselected menu label')
+        event=dict(id='e',kind='outcome',first_seen_ms=5000,evidence='receipt.png',
+                   context_title='Observed outing story',effects=[dict(kind='energy_change',amount=30)])
+        action=outing_actions([request],[event])[0]
+        self.assertEqual(action['name'],'Observed outing story')
+        self.assertEqual(action['name_evidence'],['receipt.png'])
+        self.assertEqual(action['request_observed_at_ms'],1000)
+        self.assertEqual(action['execution_observed_at_ms'],5000)
+        self.assertEqual(action['source_timestamp_ms'],5000)
+        self.assertIsNone(action['click_timestamp_ms'])
+        event.pop('context_title')
+        event['context_title_candidate']='Unverified title'
+        self.assertNotIn('name',outing_actions([request],[event])[0])
+
     def test_support_outing_without_energy_requires_narrative_and_next_date(self):
         rows=[row(t,screen,context_title=title) for t,screen,title in
               ((750,'outing_confirmation',None),(1000,'outing_confirmation',None),

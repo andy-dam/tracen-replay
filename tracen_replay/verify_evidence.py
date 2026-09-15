@@ -21,27 +21,31 @@ def verify(root,source):
     errors=[];records=[]
     if digest!=capture['source']['sha256']:errors.append(dict(reason='source_hash_mismatch'))
     for frame in capture['frames']:
-        records.append((root/'neural'/(frame['id']+'.json'),inside(root,frame['evidence']),frame))
+        records.append((root/'neural'/(frame['id']+'.json'),inside(root,frame['evidence']),frame,root))
     manifests={};inspection_hashes={}
-    for name in ('training-inspection.json','native-inspection.json','receipt-inspection.json','choice-inspection.json'):
+    for name in ('training-inspection.json','native-inspection.json','receipt-inspection.json','choice-inspection.json',
+                 'numeric-receipt-recovery/receipt-inspection.json','training-gain-recovery/receipt-inspection.json',
+                 'occluded-receipt-recovery/receipt-inspection.json',
+                 'boundary-state-recovery/receipt-inspection.json'):
         path=root/name
         if not path.exists():continue
         inspection_hashes[name]=hashlib.sha256(path.read_bytes()).hexdigest()
         inspection=json.loads(path.read_text(encoding='utf-8'))
+        origin=path.parent
         if inspection['source_sha256']!=digest:errors.append(dict(reason='inspection_source_mismatch',path=name))
         for row in inspection['readings']:
-            evidence=inside(root,row['evidence']);raw_path=evidence.with_suffix('.v2.json')
+            evidence=inside(origin,row['evidence']);raw_path=evidence.with_suffix('.v2.json')
             directory=evidence.parent
             if directory not in manifests:manifests[directory]={f['id']:f for f in json.loads((directory/'frames.json').read_text(encoding='utf-8'))}
             frame=manifests[directory][evidence.stem]
-            records.append((raw_path,inside(root,directory.relative_to(root)/frame['evidence']),frame))
+            records.append((raw_path,inside(root,directory.relative_to(root)/frame['evidence']),frame,origin))
     checked=0;refinements=0
-    for raw_path,frame_path,frame in records:
+    for raw_path,frame_path,frame,origin in records:
         try:
             time=frame['source_timestamp_ms']
             pts_time=round((float(frame['source_pts']*Fraction(frame['time_base']))-capture['source'].get('timeline_origin_seconds',0))*1000)
             if abs(pts_time-time)>1:raise ValueError('Source PTS differs from sample timestamp.')
-            raw=json.loads(raw_path.read_text(encoding='utf-8'));evidence=inside(root,raw['evidence'])
+            raw=json.loads(raw_path.read_text(encoding='utf-8'));evidence=inside(origin,raw['evidence'])
             if raw['source_timestamp_ms']!=time:raise ValueError('OCR timestamp differs from capture manifest.')
             if hashlib.sha256(frame_path.read_bytes()).hexdigest()!=raw['source_frame_sha256']:raise ValueError('Decoded frame hash changed.')
             with Image.open(frame_path) as frame:
@@ -53,7 +57,7 @@ def verify(root,source):
             extras=[raw_path.with_suffix('.'+suffix+'.json') for suffix in ('totals','contrast','performance','awards','receipt')]
             extras.append(evidence.with_suffix('.overlay.json'))
             extras.append(evidence.with_suffix('.choice.json'))
-            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','choice-card-refinement','song-symbols','song-symbol-refinement','song-star-refinement','inventory-refinement','concert-panel-refinement','race-identity-refinement')]
+            if raw_path.parent.name=='neural':extras += [root/folder/raw_path.name for folder in ('outcome-refinement','currency-refinement','skill-variants','skill-points-refinement','currency-padding-refinement','choice-refinement','choice-card-refinement','song-symbols','song-symbol-refinement','song-star-refinement','inventory-refinement','concert-panel-refinement','race-identity-refinement','performance-panel-refinement')]
             for extra_path in extras:
                 if not extra_path.exists():continue
                 extra=json.loads(extra_path.read_text(encoding='utf-8'))
@@ -62,6 +66,12 @@ def verify(root,source):
                 if extra_path.parent.name=='race-identity-refinement':
                     from .race_identity_refinement import apply as apply_race_identity
                     apply_race_identity(raw,extra,root)
+                if extra_path.parent.name=='performance-panel-refinement':
+                    from .performance_panel_refinement import apply as apply_performance_panel
+                    apply_performance_panel(raw,extra,original=raw,evidence_path=evidence,
+                                            source_frame_path=frame_path,
+                                            source_frame_id=frame.get('id'),
+                                            source_frame_evidence=frame.get('evidence'))
                 if extra_path.parent.name=='concert-panel-refinement':
                     from .concert_panel_refinement import apply as apply_concert_panel
                     apply_concert_panel(raw,extra,evidence,observation_root=root)

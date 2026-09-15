@@ -35,12 +35,45 @@ def _write_report(output, source, *, frame_evidence=None, observations=None):
     if observations is not None:
         report["observations"] = observations
     output.mkdir(parents=True, exist_ok=True)
+    from tracen_replay.analysis_job import _evidence_paths
+    evidence_root = output.resolve()
+    for _, evidence in _evidence_paths(report, "report"):
+        path = (evidence_root / evidence).resolve(strict=False)
+        try:
+            path.relative_to(evidence_root)
+        except ValueError:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"evidence")
     report_path = output / "report.json"
     report_path.write_text(json.dumps(report), encoding="utf-8")
     return report_path
 
 
 class AnalysisJobTests(unittest.TestCase):
+    def test_evidence_validation_checks_each_exact_path_once_per_call(self):
+        from tracen_replay.analysis_job import _validate_evidence_paths, _check_evidence_path
+        with workspace_temp() as root:
+            (root / 'frames').mkdir()
+            (root / 'frames/x.png').write_bytes(b'evidence')
+            payload = {'supporting_frames': ['frames/x.png'] * 100 + ['frames/./x.png']}
+            with patch('tracen_replay.analysis_job._check_evidence_path', wraps=_check_evidence_path) as check:
+                _validate_evidence_paths(payload, root)
+                self.assertEqual(check.call_count, 2)
+                self.assertEqual([call.args[0] for call in check.call_args_list],
+                                 ['frames/x.png', 'frames/./x.png'])
+                _validate_evidence_paths(payload, root)
+                self.assertEqual(check.call_count, 4)
+
+    def test_repeated_valid_evidence_does_not_hide_a_missing_distinct_path(self):
+        from tracen_replay.analysis_job import _validate_evidence_paths, JobInputError
+        with workspace_temp() as root:
+            (root / 'x.png').write_bytes(b'evidence')
+            payload = {'supporting_frames': ['x.png'] * 100 + ['missing.png']}
+            with self.assertRaises(JobInputError) as failure:
+                _validate_evidence_paths(payload, root)
+            self.assertIn('supporting_frames[100]', str(failure.exception))
+
     def test_evidence_records_keep_name_alternatives_and_reasons_as_metadata(self):
         from pathlib import Path
         from tracen_replay.analysis_job import _validate_evidence_paths, _evidence_paths
@@ -48,7 +81,12 @@ class AnalysisJobTests(unittest.TestCase):
             'observations': [{'evidence': 'frames/hint.png'}]}],
             'inheritance_occurrence_evidence': {'by_key': {'example': {
                 'uncertainty_reasons': ['C:/not a file reference'], 'evidence': ['frames/receipt.png']}}}}
-        _validate_evidence_paths(payload, Path.cwd())
+        with workspace_temp() as root:
+            for relative in ('frames/hint.png', 'frames/receipt.png'):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'evidence')
+            _validate_evidence_paths(payload, root)
         self.assertEqual({path for _, path in _evidence_paths(payload, 'report')},
                          {'frames/hint.png', 'frames/receipt.png'})
 
@@ -106,6 +144,7 @@ class AnalysisJobTests(unittest.TestCase):
                 self.assertIn("--fps", sys.argv)
                 self.assertIn("2.5", sys.argv)
                 self.assertIn("--workers", sys.argv)
+                self.assertNotIn("--dense-workers", sys.argv)
                 self.assertIn("3", sys.argv)
                 self.assertIn(str(model_dir.resolve()), sys.argv)
                 print("producer-progress")
@@ -143,6 +182,59 @@ class AnalysisJobTests(unittest.TestCase):
             self.assertFalse(payload["fully_verified"])
             self.assertFalse(payload["go_ready"])
             self.assertIn("producer-progress", stderr.getvalue())
+
+    def test_manifest_arguments_forward_to_common_cached_producer(self):
+        with workspace_temp() as root:
+            source = root / "run.mp4"
+            source.write_bytes(b"source")
+            output = root / "output"
+            manifest = root / "replay-input-manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            stdout = io.StringIO()
+
+            def producer():
+                self.assertIn("--replay-input-manifest", sys.argv)
+                self.assertIn(str(manifest.resolve()), sys.argv)
+                self.assertIn("--replay-input-root", sys.argv)
+                self.assertIn(str(output.resolve()), sys.argv)
+                _write_report(output, source)
+
+            with patch("tracen_replay.analysis_job.full_recording.main", side_effect=producer), \
+                    patch("sys.stdout", stdout):
+                result = main([
+                    str(source),
+                    "--output", str(output),
+                    "--reparse-only",
+                    "--replay-input-manifest", str(manifest),
+                    "--replay-input-root", str(output),
+                ])
+
+            self.assertEqual(result, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["status"], "succeeded")
+
+    def test_manifest_root_mismatch_is_rejected_before_producer(self):
+        with workspace_temp() as root:
+            source = root / "run.mp4"
+            source.write_bytes(b"source")
+            output = root / "output"
+            manifest = root / "replay-input-manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            stdout = io.StringIO()
+
+            with patch("tracen_replay.analysis_job.full_recording.main") as producer, \
+                    patch("sys.stdout", stdout):
+                result = main([
+                    str(source),
+                    "--output", str(output),
+                    "--reparse-only",
+                    "--replay-input-manifest", str(manifest),
+                    "--replay-input-root", str(root / "other"),
+                ])
+
+            self.assertEqual(result, 2)
+            self.assertEqual(json.loads(stdout.getvalue())["error"]["code"], "replay_root_mismatch")
+            producer.assert_not_called()
 
     def test_producer_failure_is_one_error_record_without_success_fields(self):
         with workspace_temp() as root:
