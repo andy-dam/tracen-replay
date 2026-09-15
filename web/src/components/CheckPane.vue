@@ -10,7 +10,7 @@ import EntryList from "./EntryList.vue";
 // turn and seeks the recording to that entry.
 const props = defineProps<{ turns: TurnSummary[]; entries: Entry[]; unassigned: Entry[]; stageFailures: { stage: string; error: string }[] }>();
 const emit = defineEmits<{ select: [id: string, ms?: number | null]; seek: [ms: number] }>();
-const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson" };
+const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson", race: "race" };
 const DIFF_LABEL: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", skill_points: "Skill Pts", dance: "Dance", passion: "Passion", vocal: "Vocal", visual: "Visual", composure: "Composure" };
 
 interface Item {

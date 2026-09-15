@@ -169,13 +169,14 @@ interface Shown {
   field: string;
   amount: number | null;
   basis?: string;
+  read_amount?: number | null;
 }
 
 /** Changes as the timeline states them, plus a lesson's performance cost with its basis. */
 function changes(e: Entry): Shown[] {
   const out: Shown[] = [];
   for (const fields of Object.values(e.changes ?? {})) {
-    for (const [field, c] of Object.entries(fields)) out.push({ field, amount: c.amount, basis: c.basis });
+    for (const [field, c] of Object.entries(fields)) out.push({ field, amount: c.amount, basis: c.basis, read_amount: c.read_amount });
   }
   if (e.kind === "lesson_purchases") {
     const d = detail(e);
@@ -237,11 +238,11 @@ function fieldName(field: string): string {
           </div>
           <div v-if="grouped(e).stats.length || grouped(e).other.length" class="changes">
             <span v-for="(c, i) in grouped(e).stats" :key="'s' + c.field + i" class="chg" :class="direction(c.amount)" :title="(c.basis ?? 'basis unknown').replaceAll('_', ' ')">
-              <i class="sd" :class="c.field"></i>{{ fieldName(c.field) }} <b>{{ signed(c.amount) }}</b><i v-if="c.basis === 'turn_difference'" class="basis-mark" title="worked out from the difference between turns">≈</i><i v-else-if="basisClass(c.basis)" class="basis-mark">◌</i>
+              <i class="sd" :class="c.field"></i>{{ fieldName(c.field) }} <b>{{ signed(c.amount) }}</b><i v-if="c.basis === 'turn_difference'" class="basis-mark" :title="c.read_amount != null ? `the panel showed ${c.read_amount}; completed from the difference between turns` : 'worked out from the difference between turns'">≈</i><i v-else-if="basisClass(c.basis)" class="basis-mark">◌</i>
             </span>
             <span v-if="grouped(e).stats.length && grouped(e).other.length" class="sep"></span>
             <span v-for="(c, i) in grouped(e).other" :key="'o' + c.field + i" class="chg scenario" :class="direction(c.amount)" :title="(c.basis ?? 'basis unknown').replaceAll('_', ' ')">
-              {{ fieldName(c.field) }} <b>{{ signed(c.amount) }}</b><i v-if="c.basis === 'turn_difference'" class="basis-mark" title="worked out from the difference between turns">≈</i><i v-else-if="basisClass(c.basis)" class="basis-mark">◌</i>
+              {{ fieldName(c.field) }} <b>{{ signed(c.amount) }}</b><i v-if="c.basis === 'turn_difference'" class="basis-mark" :title="c.read_amount != null ? `the panel showed ${c.read_amount}; completed from the difference between turns` : 'worked out from the difference between turns'">≈</i><i v-else-if="basisClass(c.basis)" class="basis-mark">◌</i>
             </span>
           </div>
           <div v-if="description(e)" class="desc">{{ description(e) }}</div>

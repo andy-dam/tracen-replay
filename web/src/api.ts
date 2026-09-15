@@ -105,6 +105,8 @@ export interface Turn extends Omit<TurnSummary, "entry_count" | "opening_observe
 export interface Change {
   amount: number | null;
   basis?: string;
+  /** the digits the panel showed when a clipped badge was completed from the turn difference */
+  read_amount?: number | null;
 }
 
 export interface Entry {

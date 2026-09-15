@@ -99,6 +99,9 @@ type FieldAccounting struct {
 type Change struct {
 	Amount *int   `json:"amount"`
 	Basis  string `json:"basis,omitempty"`
+	// ReadAmount is the digits the panel showed when a clipped badge was
+	// completed from the turn difference; Amount is then the completed gain.
+	ReadAmount *int `json:"read_amount,omitempty"`
 }
 
 // Entry is one ledger entry. TurnID is empty for entries outside every
@@ -320,7 +323,7 @@ type Difference struct {
 	Channel       string `json:"channel"`
 	Field         string `json:"field"`
 	Amount        int    `json:"amount"`
-	WorkedOut     bool   `json:"worked_out"`       // assigned to its only possible owner from the difference
+	WorkedOut     bool   `json:"worked_out"`      // assigned to its only possible owner from the difference
 	Owner         string `json:"owner,omitempty"` // training, event or lesson when worked out
 	WindowStartMS *int64 `json:"window_start_ms,omitempty"`
 	WindowEndMS   *int64 `json:"window_end_ms,omitempty"`

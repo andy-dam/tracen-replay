@@ -23,7 +23,7 @@ watch(() => props.turn.id, () => {
   focusEntry.value = null;
 });
 const differences = computed(() => props.summaryTurn?.differences ?? []);
-const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson" };
+const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson", race: "race" };
 function ownerWord(owner?: string) {
   return OWNER_WORD[owner ?? ""] ?? "only event that could have caused it";
 }
