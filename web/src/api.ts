@@ -267,6 +267,7 @@ export const api = {
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   recordings: () => request<{ recordings: Recording[] }>("/api/recordings").then((r) => r.recordings),
   deleteRecording: (id: string) => request<void>(`/api/recordings/${enc(id)}`, { method: "DELETE" }),
+  deleteReport: (id: string) => request<void>(`/api/reports/${enc(id)}`, { method: "DELETE" }),
   jobs: () => request<{ jobs: Job[] }>("/api/jobs").then((r) => r.jobs),
   job: (id: string) => request<Job>(`/api/jobs/${enc(id)}`),
   submit: (sourceId: string) => request<Job>("/api/jobs", { method: "POST", body: JSON.stringify({ source_id: sourceId }) }),

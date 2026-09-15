@@ -40,6 +40,7 @@ type Jobs interface {
 type Reports interface {
 	ListReportsForUser(ctx context.Context, userID string) ([]jobs.Report, error)
 	GetReport(ctx context.Context, id string) (jobs.Report, error)
+	DeleteReport(ctx context.Context, id string) error
 }
 
 // Recordings is the store of uploaded videos.
@@ -79,6 +80,10 @@ type Config struct {
 	Auth Auth
 	// RecordingsDir receives uploads, one subdirectory per user.
 	RecordingsDir string
+	// ArtifactsDir holds the analyses' run directories. A deleted report's
+	// evidence is removed from disk only when it lies under it; an imported
+	// report's files stay where they were found.
+	ArtifactsDir string
 	// UploadLimit bounds one upload in bytes; zero means 16 GiB.
 	UploadLimit int64
 	// Ready runs the readiness probes; nil means always ready.
@@ -140,6 +145,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/jobs/{id}/events", s.jobEvents)
 	m.HandleFunc("GET /api/jobs/{id}/log", s.jobLog)
 	m.HandleFunc("GET /api/reports", s.listReports)
+	m.HandleFunc("DELETE /api/reports/{id}", s.deleteReport)
 	m.HandleFunc("GET /api/reports/{id}/summary", s.reportSummary)
 	m.HandleFunc("GET /api/reports/{id}/turns", s.reportTurns)
 	m.HandleFunc("GET /api/reports/{id}/turns/{turn}", s.reportTurn)
@@ -666,6 +672,31 @@ func (s *Server) listReports(w http.ResponseWriter, r *http.Request) {
 }
 
 // ownReport loads a report the user may see.
+// deleteReport removes a report the caller owns, with its corrections, its
+// cached frames and, for a report the service produced, its run directory.
+func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request) {
+	report, ok := s.ownReport(w, r)
+	if !ok {
+		return
+	}
+	if report.UserID == "" {
+		writeError(w, http.StatusForbidden, "report_unowned", "this report has no owner and cannot be deleted here")
+		return
+	}
+	if err := s.cfg.Reports.DeleteReport(r.Context(), report.ID); err != nil {
+		writeNotFoundOr(w, err)
+		return
+	}
+	s.docs.forget(report.ID)
+	if s.cfg.ArtifactsDir != "" && report.Origin == "job" {
+		if dir, err := artifacts.ConfinedDir(s.cfg.ArtifactsDir, report.EvidenceRoot); err == nil {
+			os.RemoveAll(dir)
+		}
+	}
+	s.cfg.Frames.Forget(report.ID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) ownReport(w http.ResponseWriter, r *http.Request) (jobs.Report, bool) {
 	report, err := s.cfg.Reports.GetReport(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -843,6 +874,21 @@ type docCache struct {
 
 func newDocCache(limit int) *docCache {
 	return &docCache{limit: limit, docs: map[string]*timeline.Document{}, hash: map[string]string{}}
+}
+
+// forget drops a report's document so a later report under the same id
+// is read afresh.
+func (c *docCache) forget(id string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.docs, id)
+	delete(c.hash, id)
+	for i, k := range c.order {
+		if k == id {
+			c.order = append(c.order[:i], c.order[i+1:]...)
+			break
+		}
+	}
 }
 
 func (c *docCache) get(report jobs.Report) (*timeline.Document, error) {

@@ -74,6 +74,14 @@ paths:
       summary: Validated reports, produced by jobs or imported
       responses:
         "200": {description: reports, content: {application/json: {schema: {type: object, properties: {reports: {type: array, items: {$ref: "#/components/schemas/Report"}}}}}}}
+  /api/reports/{id}:
+    delete:
+      summary: Delete one of the caller's reports with its corrections, cached frames and, when the service produced it, its run directory
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "204": {description: deleted}
+        "403": {$ref: "#/components/responses/Error"}
+        "404": {$ref: "#/components/responses/Error"}
   /api/reports/{id}/summary:
     get:
       summary: Run metadata, recognition stack, accounting and entry counts, stage failures

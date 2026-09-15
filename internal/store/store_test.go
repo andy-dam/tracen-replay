@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/andy-dam/tracen-replay/internal/jobs"
+	"github.com/andy-dam/tracen-replay/internal/timeline"
 	"github.com/andy-dam/tracen-replay/internal/worker"
 )
 
@@ -143,5 +144,27 @@ func TestReports(t *testing.T) {
 	}
 	if err := s.CreateReport(ctx, r); err == nil {
 		t.Fatal("duplicate report id must be rejected")
+	}
+	// Deleting a report takes its corrections with it and detaches the job that made it.
+	if err := s.CreateJob(ctx, jobs.Job{ID: "job-1", SourceID: "src", SourceName: "a.mp4", Status: jobs.Succeeded, CreatedAt: time.Now(), ReportID: "rep-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutCorrection(ctx, timeline.Correction{ReportID: "rep-1", TurnID: "turn-001", UserID: "u1", Note: "seen"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteReport(ctx, "rep-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetReport(ctx, "rep-1"); !errors.As(err, &nf) {
+		t.Fatalf("deleted report still found: %v", err)
+	}
+	if _, found, _ := s.GetCorrection(ctx, "rep-1", "turn-001", "u1"); found {
+		t.Fatal("corrections must go with the report")
+	}
+	if j, _ := s.GetJob(ctx, "job-1"); j.ReportID != "" {
+		t.Fatalf("job still names the deleted report: %q", j.ReportID)
+	}
+	if err := s.DeleteReport(ctx, "rep-1"); !errors.As(err, &nf) {
+		t.Fatalf("deleting twice: %v", err)
 	}
 }

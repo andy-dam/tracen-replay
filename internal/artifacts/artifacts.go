@@ -25,6 +25,40 @@ var ErrOutsideRoot = errors.New("artifact path resolves outside its evidence roo
 // Confined resolves path and verifies that it lies under root (after
 // following symbolic links on both sides) and names an existing regular file.
 func Confined(root, path string) (string, error) {
+	resolved, err := under(root, path)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", path)
+	}
+	return resolved, nil
+}
+
+// ConfinedDir resolves path and verifies that it is a directory strictly
+// below root (after following symbolic links on both sides), so that a
+// caller may remove it without touching root itself.
+func ConfinedDir(root, path string) (string, error) {
+	resolved, err := under(root, path)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s is not a directory", path)
+	}
+	return resolved, nil
+}
+
+// under resolves path and returns it when it lies strictly below root.
+func under(root, path string) (string, error) {
 	rootAbs, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return "", err
@@ -34,15 +68,8 @@ func Confined(root, path string) (string, error) {
 		return "", err
 	}
 	rel, err := filepath.Rel(rootAbs, resolved)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return "", ErrOutsideRoot
-	}
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return "", err
-	}
-	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("%s is not a regular file", path)
 	}
 	return resolved, nil
 }
@@ -93,6 +120,14 @@ type Frames struct {
 // timestamp, extracting it on first use. The frame is the full video frame;
 // the analyzer's facts are located by this timestamp, so the same instant
 // is shown that the report read.
+// Forget removes every cached frame of one report or recording.
+func (f Frames) Forget(id string) error {
+	if f.CacheDir == "" || id == "" {
+		return nil
+	}
+	return os.RemoveAll(filepath.Join(f.CacheDir, id))
+}
+
 func (f Frames) At(ctx context.Context, reportID, recording string, timestampMS int64) (string, error) {
 	if timestampMS < 0 {
 		return "", errors.New("timestamp must not be negative")

@@ -118,7 +118,7 @@ func run() error {
 		}
 	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
-		Ready: ready, Logger: logger,
+		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
 		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, Static: webassets.Handler()})
 	server := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}

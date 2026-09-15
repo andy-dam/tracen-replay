@@ -364,6 +364,30 @@ func (s *Store) GetReport(ctx context.Context, id string) (jobs.Report, error) {
 	return r, err
 }
 
+// DeleteReport removes a report record with the corrections made on it, and
+// detaches it from the job that produced it; the caller removes the files.
+func (s *Store) DeleteReport(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `DELETE FROM reports WHERE id=?`, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return &jobs.NotFoundError{Kind: "report", ID: id}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM corrections WHERE report_id=?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE jobs SET report_id=NULL WHERE report_id=?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) queryReports(ctx context.Context, query string, args ...any) ([]jobs.Report, error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {

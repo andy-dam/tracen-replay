@@ -36,6 +36,18 @@ func TestConfinedRejectsEscapesAndNonFiles(t *testing.T) {
 	if _, err := Confined(root, filepath.Join(root, "run")); err == nil {
 		t.Fatal("a directory is not an artifact")
 	}
+	if got, err := ConfinedDir(root, filepath.Join(root, "run")); err != nil || got == "" {
+		t.Fatalf("inside directory: %v", err)
+	}
+	if _, err := ConfinedDir(root, root); !errors.Is(err, ErrOutsideRoot) {
+		t.Fatalf("the root itself is never a confined directory: %v", err)
+	}
+	if _, err := ConfinedDir(root, inside); err == nil {
+		t.Fatal("a file is not a directory")
+	}
+	if _, err := ConfinedDir(root, filepath.Dir(outside)); !errors.Is(err, ErrOutsideRoot) {
+		t.Fatalf("outside directory: %v", err)
+	}
 	if _, err := Confined(root, filepath.Join(root, "run", "absent.json")); err == nil {
 		t.Fatal("a missing file must fail")
 	}

@@ -93,6 +93,14 @@ func (f fakeReports) GetReport(ctx context.Context, id string) (jobs.Report, err
 	return r, nil
 }
 
+func (f fakeReports) DeleteReport(ctx context.Context, id string) error {
+	if _, ok := f.reports[id]; !ok {
+		return &jobs.NotFoundError{Kind: "report", ID: id}
+	}
+	delete(f.reports, id)
+	return nil
+}
+
 func fixtureReport(t *testing.T) jobs.Report {
 	t.Helper()
 	root := t.TempDir()

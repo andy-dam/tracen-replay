@@ -316,6 +316,43 @@ func TestUploadsAreOwnedStreamedAndSeekable(t *testing.T) {
 	}
 }
 
+func TestOwnerDeletesReport(t *testing.T) {
+	srv, _, _ := newAccountServer(t)
+	andy := register(t, srv, "andy@example.com")
+	someone := register(t, srv, "someone@example.com")
+	// The imported fixture report has no owner; nobody deletes it here.
+	if rec := call(t, srv, "DELETE", "/api/reports/rep-1", nil, "", andy); rec.Code != http.StatusForbidden {
+		t.Fatalf("unowned report delete: %d %s", rec.Code, rec.Body.String())
+	}
+	// A report the service produced for andy, with its run directory under the artifacts directory.
+	var me struct {
+		User auth.User `json:"user"`
+	}
+	json.Unmarshal(call(t, srv, "GET", "/api/auth/me", nil, "", andy).Body.Bytes(), &me)
+	mine := fixtureReport(t)
+	mine.ID, mine.Origin, mine.UserID = "rep-mine", "job", me.User.ID
+	srv.cfg.Reports.(fakeReports).reports[mine.ID] = mine
+	srv.cfg.ArtifactsDir = filepath.Dir(mine.EvidenceRoot)
+	if rec := call(t, srv, "GET", "/api/reports/rep-mine/summary", nil, "", andy); rec.Code != http.StatusOK {
+		t.Fatalf("owner summary: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call(t, srv, "DELETE", "/api/reports/rep-mine", nil, "", someone); rec.Code != http.StatusNotFound {
+		t.Fatalf("another user's delete: %d", rec.Code)
+	}
+	if rec := call(t, srv, "DELETE", "/api/reports/rep-mine", nil, "", andy); rec.Code != http.StatusNoContent {
+		t.Fatalf("owner delete: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call(t, srv, "GET", "/api/reports/rep-mine/summary", nil, "", andy); rec.Code != http.StatusNotFound {
+		t.Fatalf("deleted report still served: %d", rec.Code)
+	}
+	if _, err := os.Stat(mine.EvidenceRoot); !os.IsNotExist(err) {
+		t.Fatal("the run directory must go with the report")
+	}
+	if rec := call(t, srv, "DELETE", "/api/reports/rep-mine", nil, "", andy); rec.Code != http.StatusNotFound {
+		t.Fatalf("deleting twice: %d", rec.Code)
+	}
+}
+
 func TestOwnedJobsAndReportsAreInvisibleToOthers(t *testing.T) {
 	srv, _, _ := newAccountServer(t)
 	andy := register(t, srv, "andy@example.com")
