@@ -108,6 +108,21 @@ paths, leaves `report.json` unchanged, and writes only the bounded
 `receipt-inspection` artifacts for a later `--reparse-only` run. A new plan is
 required after those inspection artifacts change.
 
+Generic occluded receipt recovery uses the same source-bound ownership and
+geometry checks for friendship, hints, conditions, songs, and other receipt
+effects. On a disposable cache clone, register pending windows without OCR:
+
+```powershell
+python -m tracen_replay.occluded_receipt_recovery "C:\path\to\recording.mp4" --root .local/full-recording/run-01 --report .local/full-recording/run-01/report.json
+```
+
+The command verifies the recording hash against the cached report and writes
+`occluded-receipt-recovery/last-plan.json`. A replay-only run keeps these
+windows pending until an inspection manifest with the matching source and
+plan hashes is present. A fresh full-recording run executes the bounded
+windows automatically; a replay-input manifest registers the resulting
+inspection as recovery kind `occluded_receipt`.
+
 Training inspection reads both ordinary and enlarged friendship-training gains. It also reads result totals when animation obscures the blue grid headers. Repeated result totals can support a gain relative to a nearby observed pre-training state. They are separate evidence from the later career-hub checkpoint being reconciled. Conflicts between animated gains and stable result totals remain in the report.
 
 Inspection does not resolve every kind of discrepancy. A result that never becomes a candidate, an obscured event receipt, an unknown mechanic, or an incomplete skill list can still require further source review.
@@ -127,7 +142,14 @@ hint amount, and separate pixel evidence for any claimed circle rank. It preserv
 receipt spelling; a catalog name, ledger residual, or repeated misspelling does
 not supply missing evidence.
 
-After the last parser/refinement rebuild, prepare a new cache:
+Fresh full-recording runs prepare these candidates automatically from refined
+base-capture readings before supplemental inspection rows are merged. They use
+the configured `--model-dir`, save validated candidates immutably, and validate
+them again when assembling the report. An existing cache is checked first;
+reparse mode never creates one. Empty recovery results leave the cache absent.
+
+For an older run without a cache, explicit preparation remains available after
+the last parser/refinement rebuild:
 
 ```powershell
 python -m tracen_replay.hint_card_cache .local/full-recording/run-01/report.json --output .local/full-recording/run-01/hint-card-recovery.json
@@ -219,7 +241,9 @@ remain supported by observed balances, never by the corrected song name alone.
 - `gameplay/`: cropped evidence images.
 - `training-inspection/`: denser source frames, PTS manifests, gameplay evidence, and versioned OCR observations.
 - `outcome-refinement/`: original-observation hash and the accepted or rejected line rechecks.
-- `report.json` and `index.html`: reconstructed observations, transactions, accounting, and verification status.
+- `report.json` and `index.html`: reconstructed observations, transactions, accounting, and verification status. Every fact carries its source timestamp in milliseconds; frame paths are provenance into the run directory, not the locator.
+- `timeline.json`: the compact timeline document (turns, opening states, per-field accounting status, every ledger entry with timestamps, changes and basis; no image paths or OCR text). It is the durable product of a run; the frame images may be deleted after the report is validated (`analysis_job --prune-frames`).
+- `report-partial.json`: written only when a fatal error interrupts assembly, with the report built so far and the failure under `stage_failures`. Non-fatal stage failures are recorded in `report.json` under `stage_failures` and the job status becomes `completed_with_stage_failures`.
 - `currency-refinement/` and `skill-variants/`: source-bound counter and suffix observations.
 - `skill-points-refinement/`: recognition of the menu counter from two gameplay crops when text detection misses a small number. Both views are one frame's evidence; disagreement remains unresolved.
 - `song-symbols/`: optional pixel observations of a music-note suffix omitted from a song receipt. Run `python -m tracen_replay.song_symbols OUTPUT_DIRECTORY`, then rebuild with `--reparse-only`. The pass requires an isolated note and closing quotes in the supported receipt layout; it preserves original OCR and never substitutes a song catalog name. Threshold variants are correlated views of one frame. Other fonts, clipped symbols, recognized letters and uncertain shapes remain unresolved.
@@ -246,6 +270,14 @@ Skill charges require an acquisition receipt plus independent balance evidence. 
 For consecutive purchases between shared actual checkpoints, the parser can verify charges jointly: each purchase needs a confirmation, receipt and repeated final projected counter, and the last counter must match the observed settled balance. Uncovered receipts, other observed SP changes, inconsistent charges or missing counter evidence prevent this assignment. Cart changes are scoped to their own receipt. The report explicitly labels intermediate balances as projected, not independently observed settled states.
 
 Race results preserve placing, course, fans, and uncertain item rewards separately from character stats. Concert results reference their aftermath receipts and previously queued bonus candidates. A queued bonus is not automatically marked as visually verified activation. Stat caps, performance caps, fans, hints, energy, and friendship are distinct effect types.
+
+A race result whose fan total is still counting up when its first frames are read is one race, not several. A single-frame reading whose total is lower than the next reading's, with the same fans gained, within one second and not after a dialog return, folds into the settled result panel that follows (two agreeing frames). The race records the settled total, and the counting frames stay as `fan_counter_observations` with their evidence instead of conflicting fan readings. A falling total, a different gain, or a pause of more than a second still separates races, with one exception: the panel read again within ten seconds after frames the classifier could not read, with the same race name, the same settled total and the same gain, is the same panel, because a fan total cannot repeat after another race. Any other screen in between starts a new group, which only the dialog-return rules may join.
+
+A training's identity heading ("Guts Lvl 1" over the training name) counts on result frames even when the level digit was not read. When the outcome animation hid every gain badge but the result panel's totals were read identically on two frames, those totals minus the last full stat snapshot before the training, less any receipt between the two, are the applied gains (`result_total_gains`, basis `result_panel_totals_minus_prior_snapshot`); a badge that disagrees with the totals cancels the whole set. A training whose animation banner (heading and name) was read on three or more consecutive frames, followed by a result, a result candidate or the training's own after-event with nothing else between, is the turn's action with `identity_basis: training_banner` and no gains unless a panel supplied them; a banner next to a result group of the same option lends the group its name instead. Receipt lines whose fixed wording was corrupted by the cursor ("Speed went uply 30.", "Wit went upby 10.", "is naxed out") are restored to the fixed phrase and parsed (`text_normalization: verb_phrase_repair` / `fixed_word_repair`); the subject and the amount are never changed and a missing amount is not repaired.
+
+A completed training is committed as its turn's action on one of three bases, recorded as `identity_basis`: its stat gains were read (`observed_gains`), its result screen was read on at least two frames (`repeated_result_frames`), or the training's name was read on at least two distinct frames (`repeated_training_name`). A single result frame with no read gains and its name read once remains an uncommitted training result.
+
+The causal accounting never invents a receipt from a state difference, with one flagged exception recorded with basis `turn_difference`: inside one turn window a field's remaining difference goes to its only possible owner. The owners are the turn's sole training whose result was not read at all (or whose reading of that field conflicted; a panel read without a row for the field did not raise it), the one outcome whose receipt named the field but lost its number (`Power went up by.`, the number cut, covered or misread; the digits still visible and the up/down direction must agree with the difference), and, for a negative performance difference, the one lesson or song bought in the window whose cost was not observed. Two possible owners, a race in the turn for skill points, or a caption with no owning event leave the difference open with its time window. The assignment is stored on the owner (`turn_difference_gains`, `turn_difference_performance_gains`, `turn_difference_captions`, `turn_difference_cost`, `turn_difference_basis`) and as a derived contribution, and every consumer shows it as worked out from the difference between turns so a viewer can replace it.
 
 ## Readiness
 

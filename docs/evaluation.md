@@ -1,5 +1,11 @@
 # Model evaluation
 
+For the current run analyzer's source-based evaluation and known integration
+requirements, see [the full-run baseline](full-run-baseline.md). The model
+evaluation plan below is a separate experiment.
+
+The latest follow-up results are in [turn explanation improvements](turn-explanation-improvements.md), including missing endpoints, unresolved attribution, and the limits of full-turn numeric accounting.
+
 The initial model will classify Umamusume screens in recorded gameplay. Evaluation will compare recognition quality and CPU cost across template matching, frozen pretrained features, and fine-tuning. No model results are available yet.
 
 ## Dataset
@@ -121,6 +127,8 @@ python -m tracen_replay.reference_index score RUN_DIRECTORY `
 The score file is a diagnostic index. Its per-reference counts and partition rows must not be added together: overlapping windows, revisions, and different cadences can describe the same source interval. `full_recording_effect_recall_measured` and `aggregate_accuracy_claimed` therefore remain false, even when every declared partition has a passing local score. A clean reference also does not establish a holdout result; `independent_test_established` remains false until a recording-level split and untouched run are documented. Hash or source mismatches fail closed, while evaluator validation errors are reported as bounded reference blockers and unexpected runtime errors are allowed to surface.
 
 ## Model release
+
+The [shared evaluator and causal-accounting milestone](evaluation-hardening.md) documents the common occurrence matcher, explicit source-QA overlays, three-recording comparisons, compact regression fixtures and reproduction commands. Its scores remain separate from historical section-specific adjudications. Balanced resource totals do not certify complete event history.
 
 Each model artifact will include a manifest with data/split hashes, architecture, initialization weights, training configuration, seed, preprocessing, selected checkpoint, evaluation output, and checksum.
 
