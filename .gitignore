@@ -71,3 +71,11 @@ temp/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Built browser client (web/ -> internal/webassets/dist): only .gitkeep is tracked
+!/internal/webassets/dist/
+/internal/webassets/dist/*
+!/internal/webassets/dist/.gitkeep
+
+# Go test fixtures that happen to carry a log suffix
+!/testdata/**/*.log
