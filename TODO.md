@@ -7,13 +7,13 @@ looks like. The design behind the learned readers is in
 
 ## 1. Release 0.1.0
 
-- [ ] Decide that the current analyzer and application are the release, then
+- [x] Decide that the current analyzer and application are the release, then
       tag `v0.1.0` and push. Done: the tag exists on the commit that carries
       the end-to-end acceptance, and the local records name the same commit.
 - [x] Stop tracking `analyzer/tests/matrix.json`: the test that wrote it now
       writes a file it owns and removes, and the pattern is ignored. A test
       run leaves the working tree clean.
-- [ ] Prune the local evidence that the records no longer need (the largest
+- [x] Prune the local evidence that the records no longer need (the largest
       run roots hold frames whose reports are preserved elsewhere). Done: the
       handoff lists what was removed and what stays as the acceptance record.
 
