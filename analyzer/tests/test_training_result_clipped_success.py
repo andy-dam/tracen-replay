@@ -76,6 +76,20 @@ class ClippedSuccessTests(unittest.TestCase):
                 self.assertNotIn('training_outcome', facts)
                 self.assertNotIn('success_banner', facts)
 
+    def test_clipped_failure_prefix_is_failure_with_the_same_proof(self):
+        lines = _result_scaffold()
+        lines.append(_line('FAILUR', box=(370, 685, 664, 771)))
+        facts = banner_facts(lines, 'training_result')
+        self.assertEqual(facts['training_outcome'], 'failure')
+        self.assertEqual(facts['failure_banner'][0]['parsed_value'], 'FAILURE')
+        self.assertEqual(facts['failure_banner'][0]['clipped_final_glyph'], 'E')
+        self.assertEqual(facts['failure_banner'][0]['observation_basis'], CLIPPED_SUCCESS_BASIS)
+        # Beside a clipped success prefix the failure prefix wins; nothing becomes success.
+        lines.append(_line('SUCCES', box=(370, 685, 664, 771)))
+        facts = banner_facts(lines, 'training_result')
+        self.assertEqual(facts.get('training_outcome'), 'failure')
+        self.assertNotIn('success_banner', facts)
+
     def test_failure_banner_wins_over_clipped_positive_prefix(self):
         lines = _result_scaffold()
         lines.append(_line('FAILURE!', box=(370, 685, 664, 771)))

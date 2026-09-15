@@ -21,7 +21,7 @@ from a missing value, and no post-action balance is used by this helper.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 import math
 import re
 from typing import Any
@@ -256,10 +256,17 @@ def _offer_prices(offer: dict[str, Any]) -> dict[str, int] | None:
                 return None
             continue
         confidence = _confidence(price.get("confidence"))
-        if status != "accepted" or confidence is None or confidence < 97:
+        if status != "accepted" or confidence is None:
             return None
         if not _integer(value):
             return None
+        if confidence < 97:
+            # A zero price is drawn dim and reads with low confidence; it is
+            # still a zero. Any other low-confidence price is unknown for its
+            # field rather than a reason to discard the whole card.
+            if value == 0 and confidence >= 50:
+                values[field] = 0
+            continue
         values[field] = value
     if seen_fields != set(CURRENCIES):
         return None
@@ -364,16 +371,19 @@ def _offer_readings(
         if not matching:
             continue
         offer = matching[0]
+        # A frame whose card read with an uncertain title or cost label is
+        # skipped; the card's identity and prices come from its clean frames,
+        # of which at least two distinct ones are still required below.
         if not _offer_is_usable(offer):
-            return None
+            continue
         title = offer.get("title") if isinstance(offer, dict) else None
         if not isinstance(title, dict) or (_confidence(title.get("confidence")) or 0) < 97:
-            return None
+            continue
         if title.get("text") != name and _source_title_name(offer) != name:
             return None
         price_values = _offer_prices(offer)
         if price_values is None:
-            return None
+            continue
         evidence = _evidence(row)
         title_rows.append(
             dict(
@@ -404,10 +414,14 @@ def _offer_readings(
 
 
 def _unique_value(readings: list[dict[str, Any]]) -> tuple[int | None, list[dict[str, Any]]]:
-    values = {reading["value"] for reading in readings}
-    if len(values) != 1:
-        return None, []
-    return next(iter(values)), readings
+    """The one value the readings agree on; a value read once loses to one read twice."""
+    counts = Counter(reading["value"] for reading in readings)
+    if len(counts) == 1:
+        return next(iter(counts)), readings
+    repeated = [value for value, n in counts.items() if n >= 2]
+    if len(repeated) == 1 and all(n == 1 for value, n in counts.items() if value != repeated[0]):
+        return repeated[0], [reading for reading in readings if reading["value"] == repeated[0]]
+    return None, []
 
 
 def _repeated_proof(readings: list[dict[str, Any]]) -> bool:
@@ -431,9 +445,9 @@ def _initial_proof(menu_rows: list[dict[str, Any]], initial: dict[str, int]) -> 
         if facts is None:
             continue
         values = facts.get("performance_points")
-        if not isinstance(values, dict) or any(values.get(field) != initial[field] for field in CURRENCIES):
+        if not isinstance(values, dict) or any(values.get(field) != initial[field] for field in initial):
             continue
-        if any(not _integer(values.get(field)) for field in CURRENCIES):
+        if any(not _integer(values.get(field)) for field in initial):
             continue
         evidence = _evidence(row)
         if evidence:
@@ -478,7 +492,11 @@ def _request_to_receipt_is_clean(
             if facts is None:
                 return False
             names = facts.get("name_candidates", [])
-            if not isinstance(names, list) or len(names) > 1:
+            if not isinstance(names, list):
+                return False
+            # A currency label ('Da') bleeding into the title box is not a name.
+            names = [n for n in names if not (isinstance(n, str) and len(n.strip()) <= 2)]
+            if len(names) > 1:
                 return False
             if names and names != [name]:
                 # The exact receipt name was already checked above; this
@@ -537,9 +555,9 @@ def join_lesson_cost(
     offer_title_rows, offer_values = offer_result
     if not _request_to_receipt_is_clean(readings, request_group, event, name):
         return None
-    if not isinstance(initial, dict) or any(not _integer(initial.get(field)) for field in CURRENCIES):
+    if not isinstance(initial, dict) or not any(_integer(initial.get(field)) for field in CURRENCIES):
         return None
-    initial_proof = _initial_proof(menu_rows, initial)
+    initial_proof = _initial_proof(menu_rows, {f: v for f, v in initial.items() if _integer(v)})
     if not _repeated_proof(initial_proof):
         return None
 
@@ -567,18 +585,18 @@ def join_lesson_cost(
     costs: dict[str, int] = {}
     fields: dict[str, dict[str, Any]] = {}
     for field in CURRENCIES:
-        start_value = initial[field]
+        start_value = initial.get(field)
         projected = projection_values[field]
         offer_price = offer_unique_values[field]
-        repeated_projection = _repeated_proof(projection_proofs[field])
+        repeated_projection = _repeated_proof(projection_proofs[field]) and _integer(start_value)
         repeated_offer = _repeated_proof(offer_proofs[field])
 
         projected_cost = None
-        if projected is not None:
+        if projected is not None and _integer(start_value):
             projected_cost = start_value - projected
             if not 0 <= projected_cost <= start_value:
                 return None
-        if offer_price is not None and not 0 <= offer_price <= start_value:
+        if offer_price is not None and _integer(start_value) and not 0 <= offer_price <= start_value:
             return None
 
         # Every known price/projection must agree, even if one side has not

@@ -122,9 +122,36 @@ def _malformed_song_receipt(text):
     """
     if not isinstance(text, str) or not re.match(r'^Learned\b', text, re.I):
         return False
-    if not re.search(r'\bsong\s*["“]', text, re.I):
+    # A named acquisition never carries a quoted title; any quoted phrase after
+    # 'Learned' is a song receipt whose fixed words were misread.
+    if not re.search(r'["“].+?["”]', text):
         return False
     return re.fullmatch(r'Learned the song ["“].+?["”][.!]?', text, re.I) is None
+
+
+_SONG_PHRASE = 'learned the song'
+_SONG_PHRASE_DISTANCE = 5
+
+
+def garbled_song_receipt(text):
+    """The quoted title of a song receipt whose fixed phrase was misread.
+
+    The quoted title anchors the line; the words before the opening quote are
+    accepted when they lie within a bounded edit distance of ``Learned the
+    song`` ('Learnd te ong', 'Learned the' with the word dropped). Other
+    quoted receipts ('Acquired "..."') are far from the phrase and untouched.
+    Returns the title text, or None.
+    """
+    if not isinstance(text, str):
+        return None
+    match = re.fullmatch(r'\s*([A-Za-z][A-Za-z ]{5,24}?)\s*["“](.+?)["”][.!]?\s*', text)
+    if not match:
+        return None
+    prefix = ' '.join(match[1].casefold().split())
+    if prefix == _SONG_PHRASE or _edit_distance(prefix, _SONG_PHRASE) > _SONG_PHRASE_DISTANCE:
+        return None
+    title = match[2].strip()
+    return title or None
 
 
 def effects_from_lines(lines):
@@ -208,6 +235,11 @@ def effects_from_lines(lines):
             effect = dict(kind='performance_change', field=field, amount=int(m[3])*(1 if m[2].lower()=='up' else -1))
         elif m := re.fullmatch(r'Learned the song ["“](.+?)["”][.!]?', text, re.I):
             effect = dict(kind='song_learned', name=m[1].strip(), acquisition='unknown', cost=None)
+        elif confidence >= 90 and (title := garbled_song_receipt(text)):
+            # The fixed phrase was misread ('Learnd te ong "Title".'); the quoted
+            # title is the receipt and the phrase is repaired by bounded distance.
+            effect = dict(kind='song_learned', name=title, acquisition='unknown', cost=None,
+                          text_normalization='fixed_phrase_repair')
         elif m := re.fullmatch(r'Learned (.+?)[.!]', text, re.I):
             if _malformed_song_receipt(text):
                 # The line is visibly song-shaped but its fixed receipt

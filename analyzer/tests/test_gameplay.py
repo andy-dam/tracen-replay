@@ -36,14 +36,17 @@ class GameplayTests(unittest.TestCase):
         self.assertEqual([e['kind'] for e in effects],['energy_change','song_learned','hype_increased'])
         self.assertIsNone(effects[1]['cost'])
 
-    def test_clipped_song_heading_does_not_become_named_acquisition(self):
+    def test_clipped_song_heading_is_a_repaired_song_never_a_named_acquisition(self):
+        # The quoted title anchors the receipt; the misread fixed phrase is
+        # repaired by bounded distance and marked, never left as a lesson name.
         for text in (
             'Learned e song "Present March ".',
             'Learned song "Present March ".',
             'Learned a song "Present March ".',
         ):
             with self.subTest(text=text):
-                self.assertEqual(effects_from_lines([line(text)]), [])
+                self.assertEqual([(e['kind'], e['name'], e.get('text_normalization')) for e in effects_from_lines([line(text)])],
+                                 [('song_learned', 'Present March', 'fixed_phrase_repair')])
         generic = effects_from_lines([line('Learned Makeup Basics.')])
         self.assertEqual([effect['kind'] for effect in generic], ['named_acquisition'])
     def test_uncertain_text_abstains(self):

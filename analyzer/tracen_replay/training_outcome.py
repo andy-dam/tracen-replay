@@ -165,14 +165,25 @@ def training_result_scaffold_visible(lines):
     return _training_result_scaffold(lines)
 
 
+RESULT_BANNER_WORDS = ('SUCCESS', 'FAILURE')
+# Each result word with its final glyph clipped by the outcome animation.
+_CLIPPED_BANNER_WORDS = {word[:-1]: (word, word[-1]) for word in RESULT_BANNER_WORDS}
+
+
 def _clipped_success_line(line):
-    """Return a normalized proof for the one-glyph-clipped SUCCESS prefix."""
+    """Return a normalized proof for a result word whose final glyph was clipped.
+
+    The outcome animation cuts the banner's last letter on some frames:
+    SUCCES for SUCCESS, FAILUR for FAILURE. The proof carries the parsed word
+    so the caller keeps failure evidence ahead of a success prefix.
+    """
 
     if not isinstance(line, Mapping):
         return None
-    text = str(line.get('text', '')).strip().upper()
-    if text not in ('SUCCES', 'SUCCES!'):
+    text = str(line.get('text', '')).strip().upper().rstrip('!')
+    if text not in _CLIPPED_BANNER_WORDS:
         return None
+    parsed_word, clipped_glyph = _CLIPPED_BANNER_WORDS[text]
     confidence = _finite_number(line.get('confidence'))
     if confidence is None or confidence < 97:
         return None
@@ -186,8 +197,8 @@ def _clipped_success_line(line):
         return None
     observed = deepcopy(dict(line))
     observed.update(
-        parsed_value='SUCCESS',
-        clipped_final_glyph='S',
+        parsed_value=parsed_word,
+        clipped_final_glyph=clipped_glyph,
         observation_basis=CLIPPED_SUCCESS_BASIS,
     )
     return observed
@@ -648,15 +659,22 @@ def banner_facts(lines, screen, *, context_lines=None):
         else:
             candidates.append(dict(outcome=outcome, exact=exact, line=deepcopy(line)))
 
-    # A clipped final ``S`` is accepted as one high-confidence observation
-    # only when the same frame proves the result panel.  Exact failure or
-    # fuzzy failure evidence wins over this positive prefix, preserving
-    # conflicts instead of turning a failure screen into success.
-    if (not found['success'] and not found['failure']
-            and not any(candidate.get('outcome') == 'failure' for candidate in candidates)
-            and len(clipped_success) == 1
-            and _training_result_scaffold(lines if context_lines is None else context_lines)):
-        found['success'] = clipped_success
+    # A clipped final glyph is accepted as one high-confidence observation
+    # only when the same frame proves the result panel. A clipped FAILURE is
+    # taken before a clipped SUCCESS, and any exact or fuzzy failure evidence
+    # wins over a success prefix, preserving conflicts instead of turning a
+    # failure screen into success.
+    scaffold = None
+    for word in ('failure', 'success'):
+        rows = [row for row in clipped_success if row.get('parsed_value') == word.upper()]
+        other = 'success' if word == 'failure' else 'failure'
+        if (not found['success'] and not found['failure'] and len(rows) == 1
+                and not any(candidate.get('outcome') == other for candidate in candidates)
+                and not (word == 'success' and any(row.get('parsed_value') == 'FAILURE' for row in clipped_success))):
+            if scaffold is None:
+                scaffold = _training_result_scaffold(lines if context_lines is None else context_lines)
+            if scaffold:
+                found[word] = rows
     present = [kind for kind, rows in found.items() if rows]
     if not present:
         return {'training_outcome_candidates': candidates} if candidates else {}

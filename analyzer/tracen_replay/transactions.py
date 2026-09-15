@@ -555,7 +555,7 @@ def _receipt_name_key(value):
     return ''.join(char for char in normalized if char.isalnum())
 
 
-def _recoverable_receipt_name_variant(canonical,variant):
+def _recoverable_receipt_name_variant(canonical,variant,anchored=False):
     """Recognize a bounded OCR typo beside an exact source name.
 
     The exact name must already be present in the receipt/request pair.  This
@@ -565,7 +565,13 @@ def _recoverable_receipt_name_variant(canonical,variant):
     if not isinstance(canonical,str) or not isinstance(variant,str) or canonical==variant:return False
     canonical_key=_receipt_name_key(canonical);variant_key=_receipt_name_key(variant)
     if not canonical_key or not variant_key:return False
-    if canonical.casefold().split()[0]!=variant.casefold().split()[0]:return False
+    # Beside an exact receipt spelling the first word must match; when the
+    # request dialog itself names the item, the whole bounded distance rules.
+    if not anchored and canonical.casefold().split()[0]!=variant.casefold().split()[0]:return False
+    # An extra or missing word (a sequel number, an edition, a stray letter)
+    # is another item, not a misread of this one.
+    if anchored and (len(canonical.split())!=len(variant.split())
+                     or any(ch.isdigit() for ch in canonical)!=any(ch.isdigit() for ch in variant)):return False
     previous=list(range(len(variant_key)+1))
     for index,char in enumerate(canonical_key,1):
         current=[index]
@@ -584,7 +590,7 @@ def _collapse_recoverable_acquisition_variants(event,canonical):
     exact=[effect for effect in acquired if effect.get('name')==canonical]
     variants=[effect for effect in acquired if effect.get('name')!=canonical]
     if len(exact)!=1 or not variants or not all(
-            _recoverable_receipt_name_variant(canonical,effect.get('name')) for effect in variants):
+            _recoverable_receipt_name_variant(canonical,effect.get('name'),anchored=True) for effect in variants):
         return False
     variant_ids={id(effect) for effect in variants}
     event['effects']=[effect for effect in event.get('effects',[])
@@ -602,28 +608,85 @@ def _collapse_recoverable_acquisition_variants(event,canonical):
     return True
 
 
+def repeated_projection(group):
+    """The leftover balance a request run shows per currency, or None.
+
+    A value read on two or more frames wins over a value read once: the
+    dialog's fading last frame can drop a digit or read a stray dim 0. Two
+    values that each repeat, or two singletons, stay unresolved.
+    """
+    projected={}
+    for field in CURRENCIES:
+        counts=Counter(r['facts'].get('projected_performance_points',{}).get(field) for r in group
+                       if isinstance(r['facts'].get('projected_performance_points',{}),dict))
+        counts.pop(None,None)
+        repeated=[v for v,n in counts.items() if n>=2]
+        singles=[v for v,n in counts.items() if n==1]
+        if len(counts)==1:projected[field]=next(iter(counts))
+        elif len(repeated)==1 and len(singles)==len(counts)-1:projected[field]=repeated[0]
+        else:projected[field]=None
+    return projected
+
+
+def first_debited_frame_ms(after_rows, matched):
+    """The debit is observed where the new balance first shows; its repeats confirm it.
+
+    ``matched`` may be the repeat of a pair or a later panel; any earlier
+    row of ``after_rows`` showing the same balance is the observation.
+    """
+    if not isinstance(matched, dict) or type(matched.get('source_timestamp_ms')) is not int:
+        return None
+    balance = matched.get('facts', {}).get('performance_points')
+    earlier = [r['source_timestamp_ms'] for r in after_rows
+               if type(r.get('source_timestamp_ms')) is int and r['source_timestamp_ms'] <= matched['source_timestamp_ms']
+               and r.get('facts', {}).get('performance_points') == balance]
+    return min(earlier, default=matched['source_timestamp_ms'])
+
+
 def observed_lesson_debit(readings, event, group, before_rows, after_rows, name):
     """Recover a debit from repeated actual balances, without filling projections."""
     if len(before_rows)<2 or len(after_rows)<2:return None
-    before=before_rows[-2:];after=after_rows[:2]
+    def complete(r):
+        values=r['facts'].get('performance_points',{})
+        return all(type(values.get(k)) is int and values[k]>=0 for k in CURRENCIES)
+    def pair(rows):
+        # The cursor can hide one counter on a frame; the repeated balance is
+        # the nearest pair of complete, equal frames within half a second.
+        for a,b in zip(rows,rows[1:]):
+            if complete(a) and complete(b) and 0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 \
+                    and a['facts']['performance_points']==b['facts']['performance_points']:
+                return [a,b]
+        return None
+    before=pair(before_rows[-4:]);after=pair(after_rows[:4])
+    if before is None or after is None:return None
     def repeated_balance(rows):
-        if not 0<rows[1]['source_timestamp_ms']-rows[0]['source_timestamp_ms']<=500:return None
-        values=[r['facts'].get('performance_points',{}) for r in rows]
-        if values[0]!=values[1] or any(type(values[0].get(k)) is not int or values[0][k]<0 for k in CURRENCIES):return None
-        return {k:values[0][k] for k in CURRENCIES}
+        values=rows[0]['facts']['performance_points']
+        return {k:values[k] for k in CURRENCIES}
     initial,final=repeated_balance(before),repeated_balance(after)
     if initial is None or final is None:return None
-    # Every observed projection must agree; a missing number is not replaced
-    # with an inferred OCR reading, and contradictory projections cannot vote.
+    # The run's repeated projection must agree with the observed balance; a
+    # missing number is not replaced with an inferred OCR reading, a value
+    # read once beside a repeated one is the fading frame's misread, and two
+    # repeated values cannot vote.
+    if any(not isinstance(r['facts'].get('projected_performance_points',{}),dict) for r in group):return None
+    projected=repeated_projection(group)
+    for k,v in projected.items():
+        if v is not None and (type(v) is not int or v!=final[k]):return None
     for r in group:
-        projection=r['facts'].get('projected_performance_points',{})
-        if not isinstance(projection,dict):return None
-        for k,v in projection.items():
-            if k in CURRENCIES and v is not None and (type(v) is not int or v!=final[k]):return None
+        for k,v in r['facts'].get('projected_performance_points',{}).items():
+            if k in CURRENCIES and v is not None and projected.get(k) is None and (type(v) is not int or v!=final[k]):return None
     acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
     exact=[e for e in acquired if e.get('name')==name]
     variants=[e for e in acquired if e.get('name')!=name]
     if len(exact)!=1 or any(not _recoverable_receipt_name_variant(name,e.get('name')) for e in variants):return None
+    # Spellings already resolved as variants of this receipt's name still sit
+    # on the individual frames; they are this acquisition, not another one.
+    aliases={name}|{e.get('name') for e in variants}|{n for r in event.get('resolved_acquisition_name_variants',[])
+                                                       for n in (r.get('discarded_names') or [])}
+    # The request dialog shows a song title without its note glyph; that
+    # plain title is this receipt's own request, not another item.
+    alias=source_song_alias(exact[0]) if exact[0].get('kind')=='song_learned' else None
+    if alias:aliases.add(alias)
     first=min(r['source_timestamp_ms'] for r in group)
     last=max(r['source_timestamp_ms'] for r in group)
     span=[r for r in readings if before[-1]['source_timestamp_ms']<=r['source_timestamp_ms']<=after[-1]['source_timestamp_ms']]
@@ -635,11 +698,13 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
         if r['facts'].get('awarded_performance_gains'):return None
         if r['facts'].get('performance_points') and r['screen']!='lesson_selection':return None
         if r['screen']=='lesson_confirmation':
-            if not first<=t<=last or r['facts'].get('name_candidates') not in ([],[name]):return None
+            candidates=[n for n in (r['facts'].get('name_candidates') or []) if not (isinstance(n,str) and len(n.strip())<=2)]
+            if not first<=t<=last or not (candidates==[] or (len(candidates)==1 and (
+                    candidates[0] in aliases or partial_song_name(candidates[0],name)))):return None
         if last<t<event['first_seen_ms'] and r['screen']=='lesson_selection':returned.append(r)
         if any(e['kind']=='performance_change' or
                (e['kind'] in ('named_acquisition','song_learned') and
-                (e.get('name')!=name or not event['first_seen_ms']<=t<=event['last_seen_ms'])) for e in r['effects']):return None
+                (e.get('name') not in aliases or not event['first_seen_ms']<=t<=event['last_seen_ms'])) for e in r['effects']):return None
     # A single transition frame can show the menu beneath the receipt. A
     # sustained return to the menu is cancellation/another visit, not proof.
     if len(returned)>1 or returned and event['first_seen_ms']-returned[0]['source_timestamp_ms']>500:return None
@@ -655,6 +720,22 @@ def lesson_receipts(readings, outcomes):
     purchases=[];used=set()
     for event in outcomes:
         acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
+        # A song title's note glyph is read two ways on one receipt: proven as
+        # the note by the source pixels on some frames, and as a stray letter
+        # ('Present March D') on others. The stray-letter spelling is the
+        # unproven read of the same title; drop it beside the proven one.
+        proven=[e for e in acquired if e['kind']=='song_learned' and source_song_alias(e)]
+        if len(proven)==1 and len(acquired)>1:
+            alias=source_song_alias(proven[0])
+            strays=[e for e in acquired if e is not proven[0] and e['kind']=='song_learned'
+                    and not e.get('visual_symbol_observation') and partial_song_name(alias,e.get('name'))]
+            if strays and len(strays)==len(acquired)-1:
+                drop={id(e) for e in strays}
+                event['effects']=[e for e in event['effects'] if id(e) not in drop]
+                event.setdefault('resolved_acquisition_name_variants',[]).append(dict(
+                    canonical_name=proven[0].get('name'),discarded_names=[e.get('name') for e in strays],
+                    evidence=event.get('evidence'),basis='proven_note_glyph_with_stray_letter_variant'))
+                acquired=[proven[0]]
         # A committed request gives us the canonical owner.  Keep an exact
         # acquisition and collapse only bounded OCR variants beside it; a
         # second unrelated acquisition remains a hard ownership conflict.
@@ -665,6 +746,28 @@ def lesson_receipts(readings, outcomes):
             if exact_confirmations and _collapse_recoverable_acquisition_variants(event,effect.get('name')):
                 acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
                 break
+        else:
+            # No frame of the receipt read the name exactly. The request
+            # dialog just before it did; when every receipt spelling is a
+            # bounded OCR variant of that one confirmed name, the receipt
+            # is for it. Two different confirmed names leave the receipt alone.
+            confirmed={r['facts']['name_candidates'][0] for r in readings if r['screen']=='lesson_confirmation'
+                       and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
+                       and len(r['facts'].get('name_candidates') or [])==1}
+            if len(confirmed)==1 and acquired and all(e.get('kind')=='named_acquisition' for e in acquired):
+                canonical=next(iter(confirmed))
+                if all(_recoverable_receipt_name_variant(canonical,e.get('name'),anchored=True) for e in acquired):
+                    keep=acquired[0];discarded=[e.get('name') for e in acquired]
+                    field_evidence=event.get('field_evidence',{})
+                    variant_evidence=[dict(name=e.get('name'),evidence=list(field_evidence.get(
+                        '|'.join(str(e.get(k) or '') for k in ('kind','field','name')),[]))) for e in acquired]
+                    drop={id(e) for e in acquired[1:]}
+                    event['effects']=[e for e in event['effects'] if id(e) not in drop]
+                    keep['name']=canonical;keep['observed_name_variants']=discarded
+                    event.setdefault('resolved_acquisition_name_variants',[]).append(dict(
+                        canonical_name=canonical,discarded_names=discarded,discarded_evidence=variant_evidence,
+                        evidence=event.get('evidence'),basis='confirmed_request_name_with_bounded_ocr_variants'))
+                    acquired=[keep]
         for effect in acquired:
             partial=False;symbol_alias=False;requested=effect['name'];request_names={requested}
             confirmations=[r for r in readings if r['screen']=='lesson_confirmation'
@@ -702,12 +805,19 @@ def lesson_receipts(readings, outcomes):
             if not confirmations:continue
             def request_matches(row):
                 names=row['facts'].get('name_candidates')
+                if isinstance(names,list):
+                    names=[n for n in names if not (isinstance(n,str) and len(n.strip())<=2)]
                 return names==[] or isinstance(names,list) and len(names)==1 and names[0] in request_names
             last=confirmations[-1]
             # Only the final continuous request belongs to this receipt.
             group=[last]
             for row in reversed([r for r in readings if r['source_timestamp_ms']<last['source_timestamp_ms']]):
-                if row['screen']!='lesson_confirmation' or group[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
+                if group[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
+                # The Learn press blanks the dialog for a frame; a blank frame
+                # with no reading of its own does not end the request run.
+                if (row['screen']=='unknown' and not row.get('effects') and not row['facts'].get('performance_points')
+                        and not row['facts'].get('name_candidates')):continue
+                if row['screen']!='lesson_confirmation':break
                 if not request_matches(row):break
                 group.append(row)
             first=group[-1];key=first['source_timestamp_ms']
@@ -763,13 +873,8 @@ def lesson_receipts(readings, outcomes):
                         initial_fill=[k for k in CURRENCIES if initial.get(k) is None]
                         initial={k:(panel[k] if initial.get(k) is None else initial[k]) for k in CURRENCIES}
                         break
-            projected={}
             invalid_projection=any(not isinstance(r['facts'].get('projected_performance_points',{}),dict) for r in group)
-            for field in CURRENCIES:
-                seen={r['facts'].get('projected_performance_points',{}).get(field) for r in group
-                      if isinstance(r['facts'].get('projected_performance_points',{}),dict)}
-                seen.discard(None)
-                projected[field]=seen.pop() if len(seen)==1 else None
+            projected=repeated_projection(group)
             complete=not invalid_projection and all(type(projected.get(k)) is int for k in CURRENCIES)
             cost={k:initial[k]-projected[k] for k in CURRENCIES} if before and complete and all(type(v) is int for v in initial.values()) else None
             if cost and any(v<0 for v in cost.values()):cost=None
@@ -786,7 +891,10 @@ def lesson_receipts(readings, outcomes):
                     after.append(row)
             matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
             observed=None
-            if cost is None and not complete and not partial and not invalid_projection:
+            if cost is None and not complete and not invalid_projection:
+                # Repeated balances before and after the receipt price it even
+                # when the dialog's leftover row was not fully read; a partial
+                # song name still needs that repeated evidence, checked below.
                 observed=observed_lesson_debit(readings,event,group,before_rows,after,effect['name'])
                 if observed:cost=observed['cost'];matched=observed['matched']
             offered=None
@@ -802,7 +910,9 @@ def lesson_receipts(readings, outcomes):
                 state_confirmed=state_confirmed_lesson_debit(readings,event,group,before_rows,effect['name'],initial=initial)
                 if state_confirmed:cost=state_confirmed['cost'];matched=state_confirmed['matched']
             if partial:
-                agreeing=[r for r in after if complete and r['facts']['performance_points']==projected]
+                implied={k:initial[k]-cost[k] for k in CURRENCIES} if cost and all(type(initial.get(k)) is int for k in CURRENCIES) else None
+                agreeing=[r for r in after if (complete and r['facts']['performance_points']==projected)
+                          or (implied is not None and r['facts']['performance_points']==implied)]
                 between=[r for r in readings if first['source_timestamp_ms']<r['source_timestamp_ms']<event['first_seen_ms']]
                 returned=[r for r in between if r['screen']=='lesson_selection']
                 if (cost is None or not any(v>0 for v in cost.values())
@@ -820,6 +930,10 @@ def lesson_receipts(readings, outcomes):
                     if effect_key not in effect_keys:projected_effects.append(projected_effect);effect_keys.add(effect_key)
             purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
+                # The points leave the balance when Learn is pressed, between the
+                # request and the receipt; the accounting dates the debit there.
+                debit_window_ms=[first['source_timestamp_ms'],
+                                 first_debited_frame_ms(after,matched) or event['first_seen_ms']],
                 performance_cost=cost,cost_basis='receipt_request_and_observed_offer_prices' if offered else 'receipt_and_repeated_observed_balances' if observed else 'state_confirmed_balance_drop' if state_confirmed else 'observed_debit' if cost is not None and matched else 'displayed_request' if cost is not None else 'unresolved',
                 requested_name=requested,receipt_name=effect['name'],name_identity_verified=False,
                 name_match_basis='source_symbol_alias_and_repeated_observed_debit' if symbol_alias else 'partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
@@ -2089,8 +2203,10 @@ def _banner_only_training_events(readings,events):
             # A preview-only training is dated at the first reading after its
             # previews, which can lie a few seconds past the banner; when its
             # previews precede the banner it is this training.
+            # Its preview window may run past the banner's first frame when the
+            # state that confirmed the gains was read after the animation began.
             window=e.get('preview_window_ms') if e.get('preview_only') else None
-            return (isinstance(window,(list,tuple)) and len(window)==2 and window[1]<=run['first']
+            return (isinstance(window,(list,tuple)) and len(window)==2 and window[0]<=run['first']
                     and run['last']<e['first_seen_ms']<=run['last']+10000)
         compatible=[e for e in events if same_training(e)]
         if compatible:
@@ -2161,6 +2277,28 @@ def _same_title(left,right):
     return ' '.join(str(left).split())==' '.join(str(right).split())
 
 
+_CAPTION_PREFIX_MIN=12
+
+
+def _same_caption(left,right):
+    """A story caption read whole and read with its tail cut off is one caption.
+
+    The reader drops the last word of a long caption on some frames
+    ('After the Mainichi Okan: Onward, to' beside '... to Light'). The
+    shorter read must be at least twelve characters and end at a word
+    boundary of the longer one; short training or card names never qualify.
+    """
+    if _same_title(left,right):return True
+    a=' '.join(str(left).split());b=' '.join(str(right).split())
+    short,full=sorted((a,b),key=len)
+    if (len(short)>=_CAPTION_PREFIX_MIN and full.startswith(short)
+            and full[len(short):len(short)+1] in (' ',':',',',';','!','?','.')):return True
+    # One or two misread letters inside a long caption ('Effciency' beside
+    # 'Efficiency') are the same caption; short names get no such allowance.
+    from .gameplay import _edit_distance
+    return len(short)>=_CAPTION_PREFIX_MIN and abs(len(a)-len(b))<=2 and _edit_distance(a.casefold(),b.casefold())<=2
+
+
 def continued_title(current,row):
     """A weaker full caption can link a truncated title, never invent an award."""
     if not current or row['source_timestamp_ms']-current['last_seen_ms']>500:return None
@@ -2216,7 +2354,7 @@ def outcome_events(readings):
             narrative=bool(long_lines) and (not anchored or any(
                 not repeats_receipt(l) and not uncertain_companion(l) for l in long_lines))
             changed_title=(current and row.get('context_title') and current['context_title']
-                           and not _same_title(row['context_title'],current['context_title']) and not continued_title(current,row))
+                           and not _same_caption(row['context_title'],current['context_title']) and not continued_title(current,row))
             if current and (narrative or changed_title or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
             elif current and long_lines:
                 current.setdefault('receipt_continuity_evidence',[]).append(dict(
@@ -2227,12 +2365,13 @@ def outcome_events(readings):
         title=row.get('context_title')
         continuation=continued_title(current,row)
         if continuation:title=continuation
-        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and not _same_title(title,current['context_title']) and not continuation):
+        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and not _same_caption(title,current['context_title']) and not continuation):
             current=dict(id=f'outcome-{len(events)+1:04d}',kind='outcome',first_seen_ms=time,last_seen_ms=time,evidence=row['evidence'],
                          context_title=title,effects={},field_evidence={},conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
             events.append(current)
         current['last_seen_ms']=time
-        if title:current['context_title']=title
+        if title and (not current['context_title'] or len(' '.join(title.split()))>=len(' '.join(str(current['context_title']).split()))):
+            current['context_title']=title
         current['context_title_candidate']=row.get('context_title_candidate')
         if continuation:
             current.setdefault('title_continuation_evidence',[]).append(dict(evidence=row['evidence'],

@@ -338,7 +338,7 @@ def training_preview(raw):
         return True
     if not raw['current_grid'] or raw['header'].strip().lower()!='training':return False
     for line in raw['lines']:
-        if line['text'].strip().lower()!='failure' or line['confidence']<90:continue
+        if not _failure_banner_word(line['text']) or line['confidence']<90:continue
         left,top,right,bottom=line['box']
         if (250<=left<right<=850 and 750<=top<bottom<=850
             and right-left<=110 and bottom-top<=45):return True
@@ -479,7 +479,7 @@ class NeuralReader:
         refinement=None
         refinement_fields=_training_gain_refinement_fields(regions)
         preview_hint=any(
-            str(line.get('text','')).strip().casefold()=='failure'
+            _failure_banner_word(line.get('text'))
             and line.get('confidence',0)>=90
             for line in (regions.values() if isinstance(regions,dict) else ())
             if isinstance(line,dict)
@@ -720,7 +720,7 @@ class NeuralReader:
             )
             refinement_fields=_training_gain_refinement_fields(regions)
             preview_hint=any(
-                str(line.get('text','')).strip().casefold()=='failure'
+                _failure_banner_word(line.get('text'))
                 and line.get('confidence',0)>=90
                 for line in lines if isinstance(line,dict)
             )
@@ -1394,6 +1394,18 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
     return evidence
 
 
+def _failure_banner_word(text):
+    """The result banner's FAILURE word, exact or with its final glyph clipped.
+
+    The outcome animation cuts the last letter of the banner on some frames,
+    the same way SUCCESS reads as SUCCES; both spellings are the one word.
+    """
+    if not isinstance(text, str):
+        return False
+    word = text.strip().upper().rstrip('!')
+    return word in ('FAILURE', 'FAILURE'[:-1])
+
+
 def performance_panel_facts(lines, screen, stats, regions=None):
     """Read the shared sidebar without letting it award screen-gated gains.
 
@@ -1919,6 +1931,16 @@ def parse(raw):
             numbers=[number(l) for l in candidates if number(l) is not None
                      and l['box'][2]-l['box'][0]<=(75 if modal else 100) and number(l)<=999]
             result[field]=numbers[0] if len(numbers)==1 else None
+            if not numbers:
+                # An empty balance is drawn as a dim grey 0 that the reader
+                # returns with low confidence or as the slot's only token.
+                # A lone single-digit '0' is that zero; anything else stays unread.
+                dim=[l for l in candidates if l.get('text','').strip()=='0' and l.get('confidence',0)>=50
+                     and l['box'][2]-l['box'][0]<=40]
+                if len(dim)==1 and len(candidates)==1:
+                    result[field]=0
+                    facts.setdefault('dim_zero_currency_fields',[]).append(dict(field=field,modal=modal,
+                        confidence=dim[0].get('confidence'),box=dim[0].get('box')))
             wide=regions.get(('wide_projected_performance.' if modal else 'wide_performance.')+field,{})
             value=number(wide)
             if value is not None and value<=999:

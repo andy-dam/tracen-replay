@@ -34,6 +34,14 @@ class ObservedLessonDebitTests(unittest.TestCase):
         self.assertEqual(got['balance_evidence'][1]['evidence'],['1500.png','1750.png'])
         self.assertEqual(rows,original)
 
+    def test_the_debit_window_ends_where_the_new_balance_first_shows(self):
+        rows,event=sequence()
+        got=lesson_receipts(rows,[event])[0]
+        # Request at 500; the debited balance first shows at 1500, its repeat
+        # at 1750 only confirms it, so a comparison ending at 1500 contains the debit.
+        self.assertEqual(got['debit_window_ms'],[500,1500])
+        self.assertEqual(got['balance_evidence'][1]['timestamps_ms'],[1500,1750])
+
     def test_missing_spend_projection_can_be_recovered_from_actual_debit(self):
         rows,event=sequence()
         for r in rows[2:4]:r['facts']['projected_performance_points']['visual']=None
