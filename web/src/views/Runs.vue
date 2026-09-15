@@ -64,7 +64,7 @@ onUnmounted(() => window.clearInterval(timer));
 
 interface Run {
   key: string;
-  kind: "upload" | "imported";
+  kind: "upload" | "report";
   name: string;
   date: string;
   size: number | null;
@@ -90,7 +90,7 @@ const runs = computed<Run[]>(() => {
   }
   for (const r of reports.value) {
     if (used.has(r.id)) continue;
-    out.push({ key: "r:" + r.id, kind: "imported", name: r.source_name, date: r.created_at, size: null, sourceId: "", recording: null, job: null, report: r, thumb: api.frameUrl(r.id, 30000) });
+    out.push({ key: "r:" + r.id, kind: "report", name: r.source_name, date: r.created_at, size: null, sourceId: "", recording: null, job: null, report: r, thumb: api.frameUrl(r.id, 30000) });
   }
   return out.sort((a, b) => b.date.localeCompare(a.date));
 });
@@ -142,7 +142,7 @@ function hideBroken(e: Event) {
         <div class="run-name">
           <a v-if="run.report" :href="`#/reports/${encodeURIComponent(run.report.id)}`">{{ run.name }}</a>
           <span v-else>{{ run.name }}</span>
-          <span v-if="run.kind === 'imported'" class="tag grey">imported</span>
+          <span v-if="run.report?.origin === 'imported'" class="tag grey">imported</span>
         </div>
         <div class="muted small">{{ meta(run).join(" · ") }}</div>
       </div>
