@@ -88,7 +88,7 @@ async function cancel() {
           <span v-else>Only the reading pass reports a percentage; the other stages show their name and the time elapsed.</span>
           A full career takes about 45 minutes on this machine. You can leave this page; the analysis keeps running.
         </p>
-        <p style="margin-top: 16px"><button class="btn" @click="cancel">Cancel Analysis</button></p>
+        <p style="margin-top: 16px"><button class="btn" @click="cancel">Cancel analysis</button></p>
       </template>
       <template v-else>
         <p v-if="job.error" class="error">{{ job.error.message }} <span class="muted small">({{ job.error.code }})</span></p>
@@ -98,9 +98,9 @@ async function cancel() {
         <p v-if="job.status === 'completed_with_stage_failures'" class="muted small">The stages above were skipped; the report is complete for the stages that ran.</p>
         <p v-if="job.status === 'interrupted'" class="muted small">The service restarted while this analysis was running. Queue it again to retry.</p>
         <div class="row" style="margin-top: 8px">
-          <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the Report</a>
-          <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker Log</a>
-          <a class="btn quiet" href="#/">Back to Your Runs</a>
+          <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the report</a>
+          <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker log</a>
+          <a class="btn quiet" href="#/">Back to your runs</a>
         </div>
       </template>
     </div>

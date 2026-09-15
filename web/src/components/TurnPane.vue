@@ -120,7 +120,7 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
         </div>
       </div>
       <div v-if="warnings.total" class="warnbox" :class="{ serious: warnings.serious }">
-        <b>{{ warnings.serious ? "Check This Turn" : "Notes on This Turn" }} <span class="muted small" style="font-weight: 700">{{ warnings.total }}</span>
+        <b>{{ warnings.serious ? "Check this turn" : "Notes on this turn" }} <span class="muted small" style="font-weight: 700">{{ warnings.total }}</span>
           <button v-if="hiddenCount > 0 || showAll" class="more" @click="showAll = !showAll">{{ showAll ? "Show fewer" : `Show all ${warnings.total}` }}</button>
         </b>
         <div v-for="(w, i) in warnings.turnNotes" :key="'t' + i" class="small">{{ w.text }}</div>

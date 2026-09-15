@@ -91,14 +91,14 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
       <a class="wordmark" href="#/"><Logo :size="28" />Tracen Replay</a>
       <nav>
         <a href="#/" :class="{ active: route.name === 'home' }">Home</a>
-        <a v-if="user" href="#/runs" :class="{ active: route.name === 'runs' }">Your Runs</a>
+        <a v-if="user" href="#/runs" :class="{ active: route.name === 'runs' }">Your runs</a>
       </nav>
       <span class="spacer"></span>
       <button class="icon-btn" :title="dark ? 'Switch to the light theme' : 'Switch to the dark theme'" @click="toggleTheme">{{ dark ? "☀" : "☾" }}</button>
       <div v-if="user" class="userchip">
         <span class="avatar">{{ initial }}</span>
         <span><span class="who">Signed in as </span><strong>{{ user.display_name }}</strong></span>
-        <button class="btn quiet small" @click="signOut">Sign Out</button>
+        <button class="btn quiet small" @click="signOut">Sign out</button>
       </div>
     </div>
   </header>

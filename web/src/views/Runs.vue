@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, type Job, type Recording, type Report } from "../api";
-import { bytes, clock, elapsed, when } from "../format";
+import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
 import { turnWarnings } from "../warnings";
 import RankBadge from "../components/RankBadge.vue";
 import StatBar from "../components/StatBar.vue";
@@ -58,16 +58,80 @@ async function loadFacts(report: Report) {
     loadingFacts.delete(report.id);
   }
 }
+// A run is one recording: the analysis last made from it and the report that
+// came out. Reports from earlier analyses of the same recording stay with the
+// run as its history rather than becoming rows of their own. A report whose
+// recording is gone (deleted, or imported from elsewhere) is a run by itself.
+interface Run {
+  key: string;
+  name: string;
+  /** When the shown report was made, or when the recording was uploaded if there is none yet. */
+  date: string;
+  analyzed: boolean;
+  size: number | null;
+  sourceId: string;
+  recording: Recording | null;
+  /** The recording's latest analysis, whatever its state. */
+  job: Job | null;
+  /** The analysis that made the shown report. */
+  madeBy: Job | null;
+  report: Report | null;
+  earlier: Report[];
+  thumb: string;
+}
+
+const active = (j: Job) => j.status === "queued" || j.status === "running";
+const newestFirst = (a: { created_at: string }, b: { created_at: string }) => b.created_at.localeCompare(a.created_at);
+
+const runs = computed<Run[]>(() => {
+  const out: Run[] = [];
+  const used = new Set<string>();
+  const reportById = new Map(reports.value.map((r) => [r.id, r]));
+  for (const u of recordings.value) {
+    const analyses = jobs.value.filter((j) => j.source_id === u.id).sort(newestFirst);
+    const made = analyses
+      .filter((j) => j.report_id && reportById.has(j.report_id))
+      .map((j) => ({ job: j, report: reportById.get(j.report_id!)! }))
+      .sort((a, b) => newestFirst(a.report, b.report));
+    for (const m of made) used.add(m.report.id);
+    const latest = made[0] ?? null;
+    out.push({
+      key: "u:" + u.id,
+      name: u.name,
+      date: latest ? latest.report.created_at : u.created_at,
+      analyzed: latest !== null,
+      size: u.size,
+      sourceId: u.id,
+      recording: u,
+      job: analyses[0] ?? null,
+      madeBy: latest?.job ?? null,
+      report: latest?.report ?? null,
+      earlier: made.slice(1).map((m) => m.report),
+      thumb: latest ? api.frameUrl(latest.report.id, 30000) : api.recordingFrameUrl(u.id, 30000),
+    });
+  }
+  for (const r of reports.value) {
+    if (used.has(r.id)) continue;
+    out.push({ key: "r:" + r.id, name: r.source_name, date: r.created_at, analyzed: true, size: null, sourceId: "", recording: null, job: null, madeBy: null, report: r, earlier: [], thumb: api.frameUrl(r.id, 30000) });
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+});
+
+// Which runs show their earlier analyses.
+const opened = ref<Record<string, boolean>>({});
+
 const statTotal = (f: RunFacts) => (f.final ? STATS.filter((s) => s !== "skill_points").reduce((a, s) => a + (f.final![s] ?? 0), 0) : 0);
 const dashboard = computed(() => {
-  const done = reports.value.filter((r) => facts.value[r.id]);
+  // The latest report of each run; earlier analyses of the same recording do not count twice.
+  const latest = runs.value.map((r) => r.report).filter((r): r is Report => r !== null);
+  const done = latest.filter((r) => facts.value[r.id]);
   const explained = done.reduce((a, r) => a + facts.value[r.id].explained, 0);
   const total = done.reduce((a, r) => a + facts.value[r.id].total, 0);
   const toCheck = done.reduce((a, r) => a + facts.value[r.id].toCheck, 0);
-  const turns = reports.value.reduce((a, r) => a + r.turns, 0);
-  const minutes = Math.round(reports.value.reduce((a, r) => a + r.duration_ms, 0) / 60000);
+  const turns = latest.reduce((a, r) => a + r.turns, 0);
+  const minutes = Math.round(latest.reduce((a, r) => a + r.duration_ms, 0) / 60000);
   const best = done.map((r) => ({ report: r, facts: facts.value[r.id] })).filter((x) => x.facts.final).sort((a, b) => statTotal(b.facts) - statTotal(a.facts))[0] ?? null;
-  return { runs: reports.value.length, turns, minutes, explained, total, pct: total ? Math.round((100 * explained) / total) : 0, toCheck, best, active: jobs.value.filter(active).length };
+  return { runs: latest.length, turns, minutes, explained, total, pct: total ? Math.round((100 * explained) / total) : 0, toCheck, best, active: jobs.value.filter(active).length };
 });
 
 async function load() {
@@ -120,45 +184,12 @@ onMounted(() => {
 });
 onUnmounted(() => window.clearInterval(timer));
 
-interface Run {
-  key: string;
-  kind: "upload" | "report";
-  name: string;
-  date: string;
-  size: number | null;
-  sourceId: string;
-  recording: Recording | null;
-  job: Job | null;
-  report: Report | null;
-  thumb: string;
-}
-
-const active = (j: Job) => j.status === "queued" || j.status === "running";
-
-const runs = computed<Run[]>(() => {
-  const out: Run[] = [];
-  const used = new Set<string>();
-  const latestJob = (sourceId: string) => jobs.value.filter((j) => j.source_id === sourceId).sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
-  const reportOf = (job: Job | null) => (job?.report_id ? reports.value.find((r) => r.id === job.report_id) ?? null : null);
-  for (const u of recordings.value) {
-    const job = latestJob(u.id);
-    const report = reportOf(job);
-    if (report) used.add(report.id);
-    out.push({ key: "u:" + u.id, kind: "upload", name: u.name, date: u.created_at, size: u.size, sourceId: u.id, recording: u, job, report, thumb: report ? api.frameUrl(report.id, 30000) : api.recordingFrameUrl(u.id, 30000) });
-  }
-  for (const r of reports.value) {
-    if (used.has(r.id)) continue;
-    out.push({ key: "r:" + r.id, kind: "report", name: r.source_name, date: r.created_at, size: null, sourceId: "", recording: null, job: null, report: r, thumb: api.frameUrl(r.id, 30000) });
-  }
-  return out.sort((a, b) => b.date.localeCompare(a.date));
-});
-
 function status(run: Run): { text: string; cls: string } {
   if (run.job && active(run.job)) {
     const pct = run.job.ocr_total && run.job.stage === "ocr" ? ` ${Math.round((100 * (run.job.ocr_processed ?? 0)) / run.job.ocr_total)}%` : "";
     return { text: run.job.status === "queued" ? "Queued" : `Analyzing${pct}`, cls: "warn" };
   }
-  if (run.report) return { text: run.job?.status === "completed_with_stage_failures" ? "Report ready, stages skipped" : "Report ready", cls: "ok" };
+  if (run.report) return { text: run.madeBy?.status === "completed_with_stage_failures" ? "Report ready, stages skipped" : "Report ready", cls: "ok" };
   if (run.job?.status === "failed") return { text: "Analysis failed", cls: "bad" };
   if (run.job?.status === "interrupted") return { text: "Analysis interrupted", cls: "bad" };
   if (run.job?.status === "cancelled") return { text: "Analysis cancelled", cls: "" };
@@ -167,9 +198,9 @@ function status(run: Run): { text: string; cls: string } {
 
 function meta(run: Run): string[] {
   const parts: string[] = [];
-  if (run.date) parts.push(when(run.date));
-  if (run.size !== null) parts.push(bytes(run.size));
+  if (run.date) parts.push(`${run.analyzed ? "Analyzed" : "Uploaded"} ${when(run.date)}`);
   if (run.report) parts.push(clock(run.report.duration_ms), `${run.report.turns} turns`, `${run.report.entries} entries`);
+  if (run.size !== null) parts.push(bytes(run.size));
   if (run.job && active(run.job) && run.job.started_at) parts.push(`running ${elapsed(run.job.started_at)}`);
   return parts;
 }
@@ -182,7 +213,7 @@ function hideBroken(e: Event) {
 <template>
   <div class="page-head">
     <div>
-      <h1>Your Runs</h1>
+      <h1>Your runs</h1>
       <p>Upload a career recording, analyze it, open the report. One analysis runs at a time; a full career takes about 45 minutes.</p>
     </div>
   </div>
@@ -221,26 +252,41 @@ function hideBroken(e: Event) {
           <span v-else>{{ run.name }}</span>
           <span v-if="run.report?.origin === 'imported'" class="tag grey">imported</span>
         </div>
-        <div class="muted small">{{ meta(run).join(" · ") }}</div>
-        <div v-if="run.report && facts[run.report.id]?.final" class="run-ranks">
-          <span v-for="s in STATS" :key="s" class="rr"><i :class="s"></i><RankBadge v-if="s !== 'skill_points'" :value="facts[run.report.id].final![s]" small />{{ facts[run.report.id].final![s] ?? "?" }}</span>
-          <span class="rr total">Σ {{ statTotal(facts[run.report.id]) }}</span>
-          <span v-if="facts[run.report.id].toCheck" class="rr" style="color: var(--warn-ink)">{{ facts[run.report.id].toCheck }} to review</span>
+        <div class="run-meta">{{ meta(run).join(" · ") }}</div>
+        <div v-if="run.report && facts[run.report.id]?.final" class="run-final">
+          <span v-for="s in STATS" :key="s" class="rf">
+            <RankBadge v-if="s !== 'skill_points'" :value="facts[run.report.id].final![s]" small />
+            <b>{{ facts[run.report.id].final![s] ?? "?" }}</b>
+            <small>{{ STAT_NAMES[s] }}</small>
+          </span>
+          <span class="rf total"><b>{{ statTotal(facts[run.report.id]) }}</b><small>total</small></span>
+        </div>
+        <div v-if="run.earlier.length" class="run-earlier">
+          <button class="linkish" @click="opened[run.key] = !opened[run.key]">{{ opened[run.key] ? "Hide" : "Show" }} {{ run.earlier.length }} earlier {{ run.earlier.length === 1 ? "analysis" : "analyses" }}</button>
+          <ul v-if="opened[run.key]">
+            <li v-for="r in run.earlier" :key="r.id">
+              <a :href="`#/reports/${encodeURIComponent(r.id)}`">Analyzed {{ when(r.created_at) }}</a>
+              <span class="muted"> · {{ r.turns }} turns · {{ r.entries }} entries<template v-if="facts[r.id]?.toCheck"> · {{ facts[r.id].toCheck }} to review</template></span>
+            </li>
+          </ul>
         </div>
       </div>
-      <div class="run-status"><span class="pill" :class="[status(run).cls, { live: run.job && active(run.job) }]">{{ status(run).text }}</span></div>
-      <div class="run-actions">
-        <template v-if="run.job && active(run.job)">
-          <a class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Progress</a>
-          <button class="btn small" @click="cancel(run.job.id)">Cancel</button>
-        </template>
-        <template v-else>
+      <div class="run-side">
+        <span class="pill" :class="[status(run).cls, { live: run.job && active(run.job) }]">{{ status(run).text }}</span>
+        <span v-if="run.report && facts[run.report.id]?.toCheck" class="pill warn">{{ facts[run.report.id].toCheck }} to review</span>
+        <div class="run-actions">
           <a v-if="run.report" class="btn small primary" :href="`#/reports/${encodeURIComponent(run.report.id)}`">Open</a>
-          <button v-else-if="run.sourceId" class="btn small primary" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze</button>
-          <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
-          <button v-if="run.report && run.sourceId" class="btn small quiet" :disabled="busy === run.sourceId" title="analyze this recording again" @click="analyze(run.sourceId)">Re-analyze</button>
-          <button v-if="run.recording" class="btn small quiet danger" @click="remove(run.recording)">Delete</button>
-        </template>
+          <template v-if="run.job && active(run.job)">
+            <a class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Progress</a>
+            <button class="btn small quiet" @click="cancel(run.job.id)">Cancel</button>
+          </template>
+          <template v-else>
+            <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze</button>
+            <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
+            <button v-if="run.report && run.sourceId" class="btn small quiet" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze again</button>
+            <button v-if="run.recording" class="btn small quiet danger" @click="remove(run.recording)">Delete</button>
+          </template>
+        </div>
       </div>
     </li>
   </ul>

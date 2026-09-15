@@ -21,9 +21,9 @@ function start() {
       <h1>Your career run, turn by turn.</h1>
       <p class="lede">Upload a recording of a career. Get every turn's stats with their rank letters, every training, race, purchase and event, and the video at the moment each one happened.</p>
       <div class="row" style="gap: 10px; margin-top: 24px">
-        <a v-if="user" class="btn primary big" href="#/runs">Open Your Runs</a>
-        <button v-else class="btn primary big" @click="start">Get Started</button>
-        <a class="btn big" href="#tour">See What You Get</a>
+        <a v-if="user" class="btn primary big" href="#/runs">Open your runs</a>
+        <button v-else class="btn primary big" @click="start">Get started</button>
+        <a class="btn big" href="#tour">See what you get</a>
       </div>
       <p class="muted small" style="margin-top: 14px">Runs on this computer. Nothing leaves it.</p>
     </div>
@@ -100,8 +100,8 @@ function start() {
   <section id="start" class="start">
     <div v-if="user" class="start-card">
       <h2>You are signed in</h2>
-      <p class="muted">Your uploads and reports are under Your Runs.</p>
-      <a class="btn primary big" href="#/runs">Open Your Runs</a>
+      <p class="muted">Your uploads and reports are under Your runs.</p>
+      <a class="btn primary big" href="#/runs">Open your runs</a>
     </div>
     <template v-else>
       <div class="start-copy">
@@ -110,8 +110,8 @@ function start() {
       </div>
       <SignInCard v-if="showSignIn" @signed-in="(u) => emit('signed-in', u)" />
       <div v-else class="start-card">
-        <button class="btn primary big" @click="start">Create an Account</button>
-        <button class="btn big" style="margin-left: 8px" @click="start">Sign In</button>
+        <button class="btn primary big" @click="start">Create an account</button>
+        <button class="btn big" style="margin-left: 8px" @click="start">Sign in</button>
       </div>
     </template>
   </section>

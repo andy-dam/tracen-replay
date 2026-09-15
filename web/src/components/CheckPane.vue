@@ -61,11 +61,11 @@ const totals = computed(() => {
     </div>
     <div class="pane-scroll">
       <div v-if="stageFailures.length" class="warnbox">
-        <b>Stages Skipped During Analysis</b>
+        <b>Stages skipped during analysis</b>
         <div v-for="f in stageFailures" :key="f.stage" class="small">{{ f.stage }}: {{ f.error }}</div>
       </div>
 
-      <h3 class="pane-h" style="margin-top: 6px">By Turn</h3>
+      <h3 class="pane-h" style="margin-top: 6px">By turn</h3>
       <p v-if="!groups.length" class="muted small">Nothing to check: every turn's accounting is balanced, every opening was observed and no entry was flagged.</p>
       <ul v-else class="checklist">
         <li v-for="g in groups" :key="g.turn.id">
@@ -85,7 +85,7 @@ const totals = computed(() => {
         </li>
       </ul>
 
-      <h3 class="pane-h">Outside Every Observed Turn</h3>
+      <h3 class="pane-h">Outside every observed turn</h3>
       <p class="muted small">Seen at times no turn window covers. They stay separate; they are never folded into a neighbouring turn.</p>
       <EntryList :entries="unassigned" @seek="(ms) => emit('seek', ms)" />
     </div>
