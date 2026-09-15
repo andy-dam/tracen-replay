@@ -397,6 +397,32 @@ class TurnLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ReportContractError, 'Unknown committed action kind'):
             validate(source, require_gameplay=True)
 
+    def test_the_goal_race_of_the_last_countdown_turn_is_scheduled_only_beside_a_decision(self):
+        def race(time, name):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='race_result', stats={}, facts=dict(race_name=name))
+        source = report()
+        source['source']['duration_ms'] = 6000
+        source['gameplay_tracking']['readings'] = [
+            reading(100, 'Junior Year Pre-Debut', 2), reading(200, 'Junior Year Pre-Debut', 2),
+            reading(1000, 'Junior Year Pre-Debut', 1), reading(1100, 'Junior Year Pre-Debut', 1),
+            race(2000, 'Junior Make Debut'), race(2100, 'Junior Make Debut'),
+            reading(3000, 'Junior Year Early Jul'), reading(3100, 'Junior Year Early Jul')]
+        # The training shares the last countdown window with the debut race.
+        source['gameplay_tracking']['turn_action_receipts'] = [
+            dict(kind='training', source_timestamp_ms=500), dict(kind='training', source_timestamp_ms=1500),
+            dict(kind='race', source_timestamp_ms=2000)]
+        turns = build(source)['turns']
+        last = next(t for t in turns if t['start_ms'] == 1000)
+        self.assertEqual((last['window_kind'], last['scheduled_race'], last['action_status'], last['scheduled_race_actions']),
+                         ('phase_race_turn', 'Junior Make Debut', 'one_action', 1))
+        self.assertTrue(last['label'].endswith('· Junior Make Debut'))
+        # When the countdown was only confirmed after the training, the race is the window's one action.
+        source['gameplay_tracking']['turn_action_receipts'] = [
+            dict(kind='training', source_timestamp_ms=500), dict(kind='race', source_timestamp_ms=2000)]
+        turns = build(source)['turns']
+        last = next(t for t in turns if t['start_ms'] == 1000)
+        self.assertEqual((last['window_kind'], last.get('scheduled_race'), last['action_status']), ('countdown_segment', None, 'one_action'))
+
     def test_finale_races_advance_the_phase_turn_and_the_ending_is_not_a_turn(self):
         # The finale keeps one calendar label for three turns: train, Qualifier;
         # train, Semifinal; train, Finals. Each race ends its turn; the screens

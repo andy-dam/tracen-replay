@@ -16,6 +16,27 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         self.assertEqual(plan(rows,[event])[0],dict(start_ms=90,end_ms=250,owner_id='training',fields=['speed'],reason='conflicting_observed_training_badge_digits'))
         self.assertEqual(plan(rows,[dict(event,kind='outcome')]),[])
 
+    def test_a_gain_read_on_one_frame_that_was_not_accepted_requests_a_reread(self):
+        rows=[row(100,{'speed':1,'wit':6})]
+        event=dict(id='training',kind='training',first_seen_ms=90,last_seen_ms=400,deltas={'speed':1},conflicting_readings={})
+        self.assertEqual(plan(rows,[event])[0],dict(start_ms=90,end_ms=200,owner_id='training',fields=['wit'],reason='single_frame_training_gain'))
+        # Accepted on the event, or seen on two frames, it needs no reread.
+        self.assertEqual(plan(rows,[dict(event,deltas={'speed':1,'wit':6})]),[])
+        self.assertEqual(plan([row(100,{'wit':6}),row(150,{'wit':6})],[event]),[])
+
+    def test_a_result_with_no_accepted_gain_keeps_its_whole_interval_reread(self):
+        # One declined single-frame reading must not narrow the bounded reread
+        # that a result with no accepted badge at all is owed: the other
+        # badges may sit outside the one frame.
+        result=dict(row(1000,{'wit':6}),training_option='speed')
+        result['facts'].update(result_values={'speed':334,'skill_points':299},training_outcome='success')
+        event=dict(id='training',kind='training',training_option='speed',first_seen_ms=900,last_seen_ms=1400,deltas={},conflicting_readings={})
+        got=plan([result],[event])
+        self.assertEqual([(w['start_ms'],w['end_ms'],w['reason']) for w in got],[(400,1900,'committed_result_missing_signed_gain_observation')])
+        self.assertEqual(got[0]['fields'],['guts','power','skill_points','speed','stamina','wit'])
+        # With another gain accepted, the single frame owns its own narrow reread.
+        self.assertEqual(plan([result],[dict(event,deltas={'speed':1})])[0]['reason'],'single_frame_training_gain')
+
     def test_same_timestamp_unrequested_fields_and_other_occurrences_are_excluded(self):
         original=[row(100,{'speed':1})];before=copy.deepcopy(original)
         fresh=[row(100,{'speed':13}),row(117,{'speed':13,'wit':999}),row(300,{'speed':13})]

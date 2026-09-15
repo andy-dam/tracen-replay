@@ -8,6 +8,7 @@ from .training_gain_resolution import (
     candidate_recovery_policy,
     resolve_candidate_only_gain,
 )
+from .reconcile import FIELDS
 from .training_gain_phases import is_committed_training_result_row
 
 
@@ -247,17 +248,39 @@ def plan(readings, events):
         candidate_fields = set()
         for row in result_rows:
             candidate_fields.update(_candidate_only_fields(row))
-        fields = conflicting_fields | candidate_fields | prefix_fields
+        # A gain read on exactly one result frame that the event did not accept
+        # (a badge caught mid-animation, or clipped) is worth a bounded reread
+        # of the same interval; a fresh run then observes it instead of the
+        # accounting working it out from the turn difference.
+        single_frame_fields = set()
+        if isinstance(event.get('deltas'), dict):
+            # Only an assembled event (with its accepted deltas) can say which
+            # single-frame readings it declined; a bare candidate event cannot.
+            frames_per_field = {}
+            for row in result_rows:
+                gains = (row.get('facts') or {}).get('training_gains') if isinstance(row.get('facts'), dict) else None
+                for field, value in (gains or {}).items():
+                    if field in FIELDS and type(value) is int and value > 0:
+                        frames_per_field[field] = frames_per_field.get(field, 0) + 1
+            single_frame_fields = {field for field, count in frames_per_field.items()
+                                   if count == 1 and field not in event['deltas']}
+        fields = conflicting_fields | candidate_fields | prefix_fields | single_frame_fields
         candidates=[r for r in result_rows
                     if fields.intersection((r.get('facts',{}).get('training_gains',{})
                                             if isinstance(r.get('facts',{}),dict) else {}))
                     or fields.intersection(_candidate_only_fields(r))]
-        if candidates:
+        # A result that accepted no signed gain at all is owed the bounded
+        # reread of its whole result interval below; a lone single-frame
+        # reading narrows that interval only when other gains were accepted.
+        committed = _committed_result_rows(readings, event)
+        missing = _missing_result_fields(committed, event)
+        if candidates and not (committed and missing and not (conflicting_fields or candidate_fields or prefix_fields)):
             start=max(first_seen,min(r['source_timestamp_ms'] for r in candidates)-100)
             end=min(last_seen,max(r['source_timestamp_ms'] for r in candidates)+100)
             if not start<end or end-start>_RESULT_RECOVERY_MAX_SPAN_MS:continue
-            reason = ('conflicting_observed_training_badge_digits'
-                      if conflicting_fields else 'candidate_only_source_gain_evidence')
+            reason = ('conflicting_observed_training_badge_digits' if conflicting_fields else
+                      'candidate_only_source_gain_evidence' if candidate_fields or prefix_fields else
+                      'single_frame_training_gain')
             request = dict(
                 start_ms=start,
                 end_ms=end,
@@ -280,8 +303,6 @@ def plan(readings, events):
         # reread around this event's own result interval.  The high-rate
         # reader returns direct signed fields when they are visible, and the
         # normal promotion path remains the only place that can accept them.
-        committed = _committed_result_rows(readings, event)
-        missing = _missing_result_fields(committed, event)
         if not committed or not missing:
             continue
         start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)

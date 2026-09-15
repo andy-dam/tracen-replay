@@ -296,6 +296,14 @@ def _windows(readings, duration):
             scheduled = next((_race_name(r) for r in race_rows if start <= r['source_timestamp_ms'] < end), None)
             if scheduled:
                 window.update(label=f'{_FINALE} · {scheduled}', window_kind='phase_race_turn', scheduled_race=scheduled)
+        elif kind == 'countdown_segment' and key[1] == 1:
+            # The last countdown turn ends with the goal race. Whether the
+            # player's decision shares this window with the race depends on
+            # when the countdown was confirmed, so the race is only marked as
+            # scheduled once the actions are known (below).
+            scheduled = next((_race_name(r) for r in race_rows if start <= r['source_timestamp_ms'] < end), None)
+            if scheduled:
+                window['goal_race'] = scheduled
         windows.append(window)
     return windows, rejected
 
@@ -575,6 +583,12 @@ def build(report):
                 last['states'][channel]['closing_basis'] = 'unavailable'
     for turn in turns:
         actions = [e for e in timeline if e['turn_id'] == turn['id'] and e['kind'] == 'committed_action']
+        if (turn.get('goal_race') and any(e.get('action_kind') == 'race' for e in actions)
+                and any(e.get('action_kind') != 'race' for e in actions)):
+            # The goal race shares the last countdown window with the turn's
+            # own decision: like a finale race it is scheduled, not chosen.
+            turn.update(window_kind='phase_race_turn', scheduled_race=turn['goal_race'],
+                        label=f"{turn['label']} · {turn['goal_race']}")
         if turn['window_kind'] == 'phase_race_turn':
             # The finale race is scheduled by the game, not chosen; the turn's
             # decision is what the player did before it.
