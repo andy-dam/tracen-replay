@@ -36,6 +36,204 @@ _SINGLE_LINE_HINT_BASIS = (
 _MIN_PREFIX_CONFIDENCE = 90.0
 _MAX_ROW_GAP_MS = 250
 
+# Row fingerprints are versioned independently from the cache schema.  The
+# original cache omitted only the parser-owned ``facts`` projections listed
+# below.  The current parser also projects a goal countdown into ``stats``;
+# v2 keeps the immutable OCR lines in the fingerprint while removing only
+# that derived projection and its proof decoration.
+_ROW_HASH_VERSION_V1 = "source-row-v1"
+_ROW_HASH_VERSION_V2 = "source-row-v2"
+_ROW_HASH_VERSIONS = frozenset((_ROW_HASH_VERSION_V1, _ROW_HASH_VERSION_V2))
+_ROW_HASH_VERSION_FIELD = "row_hash_version"
+_COUNTDOWN_VALUE_KEY = "turns_remaining_to_goal"
+_COUNTDOWN_PROVENANCE_KEY = "turns_remaining_provenance"
+_MISSING = object()
+
+# These fields are parser-owned observations that can be added or refined
+# without changing the source row used to prove a hint receipt.  Keep them
+# out of the persisted row fingerprint so an older prepared cache remains
+# replayable after a parser adds a choice, preview, or status projection.
+# The candidate checks below still validate the source-bound envelope, card,
+# receipt, raw OCR, and source pixels directly before accepting a cache.
+_PARSER_DERIVED_FACT_KEYS = frozenset(
+    (
+        "choice_observation",
+        "preview_option",
+        "preview_overlay_effects",
+        "preview_overlay_evidence",
+        "preview_overlay_proven",
+        "preview_modifier_effects",
+        "preview_modifier_proven",
+        "rejected_counts",
+        "status_badges",
+    )
+)
+
+# ``cached_readings`` now exposes the source chain and reader identity on each
+# parsed row.  Those fields are redundant with the immutable neural/source
+# bindings and were absent from older cache fingerprints.  They are omitted
+# from the semantic row hash only after the candidate span has been checked
+# against the manifest, raw neural row, and decoded gameplay pixels below.
+# ``source_frame_path`` is included because it is a manifest lookup result in
+# the normalized validation view, not an independent observation.
+_SOURCE_BOUND_ROW_KEYS = frozenset(
+    (
+        "engine_fingerprint",
+        "model_sha256",
+        "gameplay_sha256",
+        "source_frame_id",
+        "source_frame_sha256",
+        "source_frame_path",
+        "source_sha256",
+    )
+)
+
+# A refreshed cache can carry the complete current row fingerprint while its
+# identity proof is evaluated against the cursor-only receipt view.  The
+# animated particle detector is a second source-backed obstruction channel;
+# keeping it in the fingerprint means a later replay cannot silently accept a
+# changed particle box or marker.
+_SOURCE_ROW_VIEW_FIELD = "source_row_view"
+_RECEIPT_OCCLUSION_CURSOR_VIEW = "receipt-occlusion-cursor-only-v1"
+
+# A cursor-only refresh must retain a source-pixel witness for the card text.
+# The witness is produced during explicit refresh (where OCR is allowed) and
+# checked during replay without constructing an OCR reader.  It is kept in
+# cache provenance rather than the returned candidate so the public candidate
+# shape remains compatible with the original identity recovery API.
+_CARD_IDENTITY_PROOFS_FIELD = "card_identity_proofs"
+_CARD_IDENTITY_PROOF_BASIS = "source_bound_card_identity_crop_ocr"
+
+
+def _normalize_neutral_receipt_occlusion_facts(
+    facts: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Remove only neutral particle-detector decorations from a row hash.
+
+    The receipt occlusion parser may add empty particle lists and a ``False``
+    marker after an older hint cache was prepared.  Those decorations do not
+    change the OCR line, cursor overlay, or source pixel proof.  Preserve any
+    nonempty list, ``True`` marker, malformed value, or unrelated field so a
+    real source change still invalidates the cache.
+    """
+    normalized = dict(facts)
+    lines = facts.get("occluded_receipt_lines")
+    if isinstance(lines, list):
+        normalized_lines = []
+        lines_changed = False
+        for line in lines:
+            if not isinstance(line, Mapping):
+                normalized_lines.append(line)
+                continue
+            normalized_line = dict(line)
+            animated_boxes = normalized_line.get("animated_overlay_boxes")
+            if type(animated_boxes) is list and not animated_boxes:
+                normalized_line.pop("animated_overlay_boxes", None)
+                lines_changed = True
+            if normalized_line.get("animated_overlay_occluded") is False:
+                normalized_line.pop("animated_overlay_occluded", None)
+                lines_changed = True
+            normalized_lines.append(normalized_line)
+        if lines_changed:
+            normalized["occluded_receipt_lines"] = normalized_lines
+
+    overlay = facts.get("receipt_overlay_evidence")
+    if isinstance(overlay, Mapping):
+        normalized_overlay = dict(overlay)
+        animated_boxes = normalized_overlay.get("animated_overlay_boxes")
+        if type(animated_boxes) is list and not animated_boxes:
+            normalized_overlay.pop("animated_overlay_boxes", None)
+            normalized["receipt_overlay_evidence"] = normalized_overlay
+    return normalized
+
+
+def _receipt_occlusion_cursor_view(
+    readings: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]] | None:
+    """Make a private cursor-only view for refreshed identity validation.
+
+    ``receipt_occlusion.annotate`` retains particle boxes alongside the
+    cursor boxes.  Hint-card identity proofs use the cursor boundary, while
+    particle boxes remain part of the real current rows and their hashes.  A
+    refreshed cache therefore validates its old identity structure against
+    this derived view and validates the full current row hash separately.
+    Malformed particle metadata is never removed or normalized into a valid
+    view; it rejects the refresh instead.
+    """
+    try:
+        normalized = deepcopy(list(readings))
+    except (TypeError, ValueError):
+        return None
+    for row in normalized:
+        if not isinstance(row, dict):
+            return None
+        facts = row.get("facts")
+        if not isinstance(facts, dict):
+            continue
+        lines = facts.get("occluded_receipt_lines")
+        if isinstance(lines, list):
+            normalized_lines = []
+            for line in lines:
+                if not isinstance(line, dict):
+                    normalized_lines.append(line)
+                    continue
+                normalized_line = dict(line)
+                boxes_present = "animated_overlay_boxes" in normalized_line
+                marker_present = "animated_overlay_occluded" in normalized_line
+                if not boxes_present and not marker_present:
+                    normalized_lines.append(normalized_line)
+                    continue
+                animated_boxes = normalized_line.get("animated_overlay_boxes", [])
+                if type(animated_boxes) is not list:
+                    return None
+                parsed_animated = []
+                for box in animated_boxes:
+                    parsed = _box(box)
+                    if parsed is None:
+                        return None
+                    parsed_animated.append(parsed)
+                marker = normalized_line.get("animated_overlay_occluded", _MISSING)
+                if marker is not _MISSING:
+                    if type(marker) is not bool or marker != bool(parsed_animated):
+                        return None
+                overlay_boxes = normalized_line.get("overlay_boxes")
+                if overlay_boxes is not None:
+                    if not isinstance(overlay_boxes, list):
+                        return None
+                    parsed_overlay_boxes = []
+                    for box in overlay_boxes:
+                        parsed = _box(box)
+                        if parsed is None:
+                            return None
+                        parsed_overlay_boxes.append((box, parsed))
+                    if parsed_animated:
+                        normalized_line["overlay_boxes"] = [
+                            box
+                            for box, parsed in parsed_overlay_boxes
+                            if parsed not in parsed_animated
+                        ]
+                elif parsed_animated:
+                    # The annotation claims a particle obstruction but does
+                    # not retain the combined overlay list needed to derive
+                    # the cursor-only boundary.  Keep the source row stale.
+                    return None
+                normalized_line.pop("animated_overlay_boxes", None)
+                normalized_line.pop("animated_overlay_occluded", None)
+                normalized_lines.append(normalized_line)
+            facts["occluded_receipt_lines"] = normalized_lines
+
+        overlay = facts.get("receipt_overlay_evidence")
+        if isinstance(overlay, dict) and "animated_overlay_boxes" in overlay:
+            animated_boxes = overlay.get("animated_overlay_boxes")
+            if type(animated_boxes) is not list:
+                return None
+            if any(_box(box) is None for box in animated_boxes):
+                return None
+            normalized_overlay = dict(overlay)
+            normalized_overlay.pop("animated_overlay_boxes", None)
+            facts["receipt_overlay_evidence"] = normalized_overlay
+    return normalized
+
 
 def _finite_number(value: Any) -> bool:
     return type(value) in (int, float) and math.isfinite(value)
@@ -90,6 +288,253 @@ def _validated_rows(readings: Sequence[Mapping[str, Any]]) -> list[Mapping[str, 
     return result
 
 
+def _candidate_observation_rows(
+    candidate: Mapping[str, Any],
+    readings: Sequence[Mapping[str, Any]],
+) -> list[Mapping[str, Any]] | None:
+    """Select exactly the source rows witnessed by one cache candidate.
+
+    A replay bundle can contain the base capture alongside rows from dense
+    inspection or recovery namespaces.  Those rows are legitimate members
+    of the bundle, but their frame ids are not entries in the base capture
+    manifest used by a hint-card cache.  Candidate provenance already names
+    the exact ``(timestamp, evidence)`` pair for every row used to establish
+    the card; source binding must therefore be scoped to those pairs after
+    validating the complete bundle's row-key integrity.
+
+    This is deliberately an exact lookup.  Falling back to a timestamp range
+    would allow a same-time inspection row to replace the witnessed base
+    frame, while choosing an arbitrary row would weaken the cache's source
+    proof.  Missing, duplicate, or malformed observation keys fail closed.
+    """
+    if not isinstance(candidate, Mapping):
+        return None
+    observations = candidate.get("observations")
+    source_times = candidate.get("source_timestamps_ms")
+    if not isinstance(observations, list) or not isinstance(source_times, list):
+        return None
+    if len(observations) != len(source_times) or not observations:
+        return None
+
+    valid = _validated_rows(readings)
+    if valid is None:
+        return None
+    by_key: dict[tuple[int, str], Mapping[str, Any]] = {}
+    for row in valid:
+        key = _row_key(row)
+        if key is None or key in by_key:
+            return None
+        by_key[key] = row
+
+    expected_keys: list[tuple[int, str]] = []
+    for timestamp, observation in zip(source_times, observations):
+        if type(timestamp) is not int or timestamp < 0:
+            return None
+        if not isinstance(observation, Mapping):
+            return None
+        if observation.get("timestamp_ms") != timestamp:
+            return None
+        evidence = observation.get("evidence")
+        if not isinstance(evidence, str) or not evidence:
+            return None
+        key = _row_key(
+            {
+                "source_timestamp_ms": timestamp,
+                "evidence": evidence,
+            }
+        )
+        if key is None or key in expected_keys:
+            return None
+        expected_keys.append(key)
+
+    selected = [by_key.get(key) for key in expected_keys]
+    if any(row is None for row in selected):
+        return None
+    return [row for row in selected if row is not None]
+
+
+def _safe_relative_manifest_path(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    path = Path(value.replace("\\", "/"))
+    return not path.is_absolute() and ".." not in path.parts
+
+
+def _source_bound_rows(
+    readings: Sequence[Mapping[str, Any]],
+    root: Path,
+    *,
+    source_sha256: str,
+    source_manifest: Mapping[str, Mapping[str, Any]] | None = None,
+) -> list[Mapping[str, Any]] | None:
+    """Return a private row view with a manifest-derived source-frame path.
+
+    Newer parsed rows expose source/model identity at the row envelope while
+    older cache hashes do not.  The path is derived only from the row's
+    source evidence and the validated capture manifest; it is never guessed
+    from a basename or an unrelated sidecar.  All explicit identity fields
+    are retained so the source metadata validator can check them before a
+    semantic row hash ignores the redundant envelope.
+    """
+    valid = _validated_rows(readings)
+    if valid is None:
+        return None
+
+    frame_keys = (
+        "source_frame_id",
+        "source_frame_sha256",
+        "source_frame_path",
+    )
+    needs_manifest = False
+    for row in valid:
+        row_source = row.get("source_sha256")
+        if row_source is not None and row_source != source_sha256:
+            return None
+        engine = row.get("engine_fingerprint")
+        if engine is not None and not isinstance(engine, str):
+            return None
+        models = row.get("model_sha256")
+        if models is not None and not isinstance(models, Mapping):
+            return None
+        gameplay = row.get("gameplay_sha256")
+        if gameplay is not None and (
+            not isinstance(gameplay, str) or _SHA256_RE.fullmatch(gameplay) is None
+        ):
+            return None
+        frame_id = row.get("source_frame_id")
+        if frame_id is not None and not isinstance(frame_id, str):
+            return None
+        frame_sha = row.get("source_frame_sha256")
+        if frame_sha is not None and (
+            not isinstance(frame_sha, str) or _SHA256_RE.fullmatch(frame_sha) is None
+        ):
+            return None
+        frame_path = row.get("source_frame_path")
+        if frame_path is not None and not isinstance(frame_path, str):
+            return None
+        if any(row.get(key) is not None for key in frame_keys):
+            needs_manifest = True
+
+    if not needs_manifest:
+        return valid
+    if source_manifest is None:
+        try:
+            from .hint_card_identity import _load_source_manifest
+
+            source_manifest = _load_source_manifest(
+                root,
+                source_sha256=source_sha256,
+            )
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+            return None
+    if source_manifest is None:
+        return None
+
+    try:
+        from .hint_card_identity import _frame_id
+    except (ImportError, AttributeError, TypeError, ValueError):
+        return None
+
+    result: list[Mapping[str, Any]] = []
+    for row in valid:
+        if not any(row.get(key) is not None for key in frame_keys):
+            result.append(row)
+            continue
+        evidence = row.get("evidence")
+        frame_id = _frame_id(evidence) if isinstance(evidence, str) else None
+        frame = source_manifest.get(frame_id) if frame_id is not None else None
+        if not isinstance(frame, Mapping):
+            return None
+        if frame.get("source_timestamp_ms") != row.get("source_timestamp_ms"):
+            return None
+        expected_path = frame.get("evidence")
+        if not _safe_relative_manifest_path(expected_path):
+            return None
+        explicit_id = row.get("source_frame_id")
+        if explicit_id is not None and explicit_id != frame_id:
+            return None
+        explicit_path = row.get("source_frame_path")
+        if explicit_path is not None and explicit_path != expected_path:
+            return None
+        if explicit_path is None and (
+            row.get("source_frame_id") is not None
+            or row.get("source_frame_sha256") is not None
+        ):
+            # Do not mutate the caller's parsed row.  The derived field is
+            # only a private aid for the existing source-chain validator.
+            normalized = dict(row)
+            normalized["source_frame_path"] = expected_path
+            result.append(normalized)
+        else:
+            result.append(row)
+    return result
+
+
+def _source_metadata_matches(
+    row: Mapping[str, Any],
+    loaded: Mapping[str, Any],
+    *,
+    source_sha256: str,
+) -> bool:
+    """Validate redundant row-envelope identity against loaded source data."""
+    binding = loaded.get("binding")
+    raw = binding.get("raw") if isinstance(binding, Mapping) else None
+    if not isinstance(binding, Mapping) or not isinstance(raw, Mapping):
+        return False
+
+    checks = (
+        ("source_sha256", source_sha256),
+        ("source_frame_id", binding.get("capture_frame_id")),
+        ("source_frame_sha256", binding.get("source_frame_sha256")),
+        ("source_frame_path", binding.get("source_frame_path")),
+        ("gameplay_sha256", binding.get("gameplay_sha256")),
+        ("engine_fingerprint", raw.get("engine_fingerprint")),
+        ("model_sha256", raw.get("model_sha256")),
+    )
+    for field, expected in checks:
+        supplied = row.get(field)
+        if supplied is not None and supplied != expected:
+            return False
+    return True
+
+
+def _source_metadata_span_valid(
+    rows: Sequence[Mapping[str, Any]],
+    root: Path,
+    *,
+    source_sha256: str,
+    source_manifest: Mapping[str, Mapping[str, Any]] | None = None,
+) -> bool:
+    """Check every supplied row identity before hashing a candidate span."""
+    valid = _validated_rows(rows)
+    if valid is None:
+        return False
+    try:
+        from .hint_card_identity import _load_image, _load_source_manifest
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return False
+    if source_manifest is None:
+        source_manifest = _load_source_manifest(root, source_sha256=source_sha256)
+    if source_manifest is None:
+        return False
+    image_cache: dict[str, dict[str, Any]] = {}
+    for row in valid:
+        loaded = _load_image(
+            root,
+            row,
+            image_cache,
+            source_sha256=source_sha256,
+            source_manifest=source_manifest,
+        )
+        if loaded is None or not _source_metadata_matches(
+            row,
+            loaded,
+            source_sha256=source_sha256,
+        ):
+            return False
+    return True
+
+
 def _span_rows(
     readings: Sequence[Mapping[str, Any]],
     start_ms: int,
@@ -105,11 +550,72 @@ def _span_rows(
     return sorted(rows, key=lambda row: (row["source_timestamp_ms"], row["evidence"]))
 
 
-def _span_hashes(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | None:
+def _hash_row(
+    row: Mapping[str, Any],
+    *,
+    version: str,
+    legacy_countdown: str | None = None,
+) -> dict[str, Any] | None:
+    if version not in _ROW_HASH_VERSIONS:
+        return None
+    # Hash the source-backed row while allowing only the declared parser
+    # projections to evolve.  The copy is deliberately local: replay must
+    # return the current readings unchanged, including newer observations.
+    hash_row = {
+        name: value
+        for name, value in row.items()
+        if name not in _SOURCE_BOUND_ROW_KEYS
+    }
+    facts = row.get("facts")
+    if isinstance(facts, Mapping):
+        source_facts = {
+            name: value
+            for name, value in facts.items()
+            if name not in _PARSER_DERIVED_FACT_KEYS
+        }
+        source_facts = _normalize_neutral_receipt_occlusion_facts(source_facts)
+        if source_facts:
+            hash_row["facts"] = source_facts
+        else:
+            hash_row.pop("facts", None)
+    if version == _ROW_HASH_VERSION_V2:
+        stats = row.get("stats")
+        if isinstance(stats, Mapping):
+            source_stats = {
+                name: value
+                for name, value in stats.items()
+                if name not in (_COUNTDOWN_VALUE_KEY, _COUNTDOWN_PROVENANCE_KEY)
+            }
+            # Preserve an explicitly present empty stats object.  This keeps
+            # the normalization narrow instead of conflating absent fields
+            # with an unrelated parser shape.
+            hash_row["stats"] = source_stats
+    elif legacy_countdown in ("none", "absent"):
+        stats = row.get("stats")
+        if isinstance(stats, Mapping):
+            source_stats = dict(stats)
+            source_stats.pop(_COUNTDOWN_PROVENANCE_KEY, None)
+            if legacy_countdown == "none":
+                source_stats[_COUNTDOWN_VALUE_KEY] = None
+            else:
+                source_stats.pop(_COUNTDOWN_VALUE_KEY, None)
+            hash_row["stats"] = source_stats
+    return hash_row
+
+
+def _span_hashes(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    version: str = _ROW_HASH_VERSION_V1,
+    legacy_countdown: str | None = None,
+) -> list[dict[str, Any]] | None:
     result = []
     for row in rows:
         key = _row_key(row)
-        row_hash = _canonical_hash(row)
+        hash_row = _hash_row(row, version=version, legacy_countdown=legacy_countdown)
+        if hash_row is None:
+            return None
+        row_hash = _canonical_hash(hash_row)
         if key is None or row_hash is None:
             return None
         result.append(
@@ -120,6 +626,107 @@ def _span_hashes(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | No
             }
         )
     return result
+
+
+def _countdown_projection_matches(
+    row: Mapping[str, Any],
+    *,
+    require_projection: bool,
+) -> bool:
+    """Validate a parser countdown against the same row's immutable OCR.
+
+    A missing or ``None`` projection is tolerated for legacy replay.  A
+    non-null current value must agree with ``read_goal_turns``; v2 additionally
+    requires the complete proof mapping emitted by that reader.  No integer is
+    supplied from the cache hash or inferred from a neighboring row.
+    """
+    stats = row.get("stats")
+    if stats is None:
+        stats = {}
+    elif not isinstance(stats, Mapping):
+        return False
+    value = stats.get(_COUNTDOWN_VALUE_KEY, _MISSING)
+    provenance = stats.get(_COUNTDOWN_PROVENANCE_KEY, _MISSING)
+    if provenance is not _MISSING and provenance is not None and not isinstance(provenance, Mapping):
+        return False
+
+    ocr = row.get("ocr")
+    lines = ocr.get("neural") if isinstance(ocr, Mapping) else None
+    if not isinstance(lines, list):
+        return value in (_MISSING, None) and provenance in (_MISSING, None)
+    try:
+        from .stat_state_details import read_goal_turns
+
+        expected, expected_provenance = read_goal_turns(lines)
+    except (ImportError, TypeError, ValueError):
+        return False
+
+    if expected is None:
+        # A value without a same-frame goal proof is not source-supported.
+        return value in (_MISSING, None) and provenance in (_MISSING, None)
+    if require_projection:
+        return (
+            type(value) is int
+            and value == expected
+            and isinstance(provenance, Mapping)
+            and provenance == expected_provenance
+        )
+    if value in (_MISSING, None):
+        # This is the only legacy migration allowance: the older parser did
+        # not persist a readable countdown at all.
+        return provenance in (_MISSING, None)
+    if type(value) is not int or value != expected:
+        return False
+    # A legacy non-null value is acceptable only when the immutable OCR proves
+    # the same number.  A mismatching or forged proof still fails closed.
+    return provenance in (_MISSING, None) or provenance == expected_provenance
+
+
+def _countdown_rows_match(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    require_projection: bool,
+) -> bool:
+    return all(
+        _countdown_projection_matches(row, require_projection=require_projection)
+        for row in rows
+    )
+
+
+def _span_hashes_match(
+    stored: Any,
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    version: str | None,
+) -> bool:
+    """Match an exact version, with one bounded legacy migration.
+
+    Caches written before ``row_hash_version`` existed are v1.  Their opaque
+    hash cannot be decomposed, so migration tries only the two representations
+    the old parser could have emitted: countdown absent or countdown ``None``.
+    It never substitutes a guessed integer or searches arbitrary projections.
+    """
+    if not isinstance(stored, list):
+        return False
+    if version == _ROW_HASH_VERSION_V2:
+        return _hash_list_equal(stored, _span_hashes(rows, version=version))
+    if version == _ROW_HASH_VERSION_V1:
+        return _hash_list_equal(stored, _span_hashes(rows, version=version))
+    if version is not None:
+        return False
+    if _hash_list_equal(stored, _span_hashes(rows, version=_ROW_HASH_VERSION_V1)):
+        return True
+    for representation in ("absent", "none"):
+        if _hash_list_equal(
+            stored,
+            _span_hashes(
+                rows,
+                version=_ROW_HASH_VERSION_V1,
+                legacy_countdown=representation,
+            ),
+        ):
+            return True
+    return False
 
 
 def _hash_list_equal(left: Any, right: Any) -> bool:
@@ -147,6 +754,231 @@ def _optional_boxes_equal(left: Any, right: Any) -> bool:
     if left is None or right is None:
         return left is None and right is None
     return _boxes_equal(left, right)
+
+
+def _card_identity_crop(image: Any, box: Any) -> Any | None:
+    """Return the exact gameplay crop used for a card identity witness."""
+    card_box = _box(box)
+    if card_box is None:
+        return None
+    try:
+        left, top, right, bottom = (int(round(value)) for value in card_box)
+        crop = image.crop((left - 148, top, right - 148, bottom))
+        if crop.width <= 0 or crop.height <= 0:
+            return None
+        return crop.convert("RGB")
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
+def _identity_text_equal(left: Any, right: Any) -> bool:
+    return (
+        isinstance(left, str)
+        and isinstance(right, str)
+        and re.sub(r"\s+", " ", left).strip() == re.sub(r"\s+", " ", right).strip()
+    )
+
+
+def _source_card_identity_proofs(
+    candidate: Mapping[str, Any],
+    readings: Sequence[Mapping[str, Any]],
+    root: Path,
+    *,
+    source_sha256: str,
+) -> list[dict[str, Any]] | None:
+    """Read card names from their bound gameplay pixels during preparation.
+
+    This is intentionally separate from ``load``.  Refresh is an explicit
+    source-recovery operation and may run OCR; replay only checks the emitted
+    text witness and its exact RGB crop hash.  The crop is always taken from
+    the gameplay pane loaded through the existing capture/source chain.
+    """
+    if not isinstance(candidate, Mapping):
+        return None
+    observation_kind = candidate.get("observation_kind")
+    if (
+        candidate.get("source_sha256") != source_sha256
+        or not isinstance(candidate.get("name"), str)
+        or not candidate["name"].strip()
+        or not isinstance(candidate.get("observations"), list)
+    ):
+        return None
+    observations = candidate["observations"]
+    source_times = candidate.get("source_timestamps_ms")
+    if (
+        not isinstance(source_times, list)
+        or len(source_times) != len(observations)
+        or not source_times
+        or any(type(value) is not int or value < 0 for value in source_times)
+    ):
+        return None
+    candidate_rows = _candidate_observation_rows(candidate, readings)
+    if candidate_rows is None:
+        return None
+    span = _source_bound_rows(
+        candidate_rows,
+        root,
+        source_sha256=source_sha256,
+    )
+    if span is None or len(span) != len(observations):
+        return None
+    try:
+        from .hint_card_identity import _load_image, _load_source_manifest
+        if observation_kind == "wrapped_hint_receipt":
+            from .hint_card_identity import _wrapped_static_row as static_row
+        else:
+            from .hint_card_identity import _static_row as static_row
+        from .vision import NeuralReader
+        import numpy as np
+
+        source_manifest = _load_source_manifest(root, source_sha256=source_sha256)
+        reader = NeuralReader()
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+    if source_manifest is None:
+        return None
+    model_fingerprint = getattr(reader, "fingerprint", None)
+    if not isinstance(model_fingerprint, str) or _SHA256_RE.fullmatch(model_fingerprint) is None:
+        return None
+
+    image_cache: dict[str, dict[str, Any]] = {}
+    proofs: list[dict[str, Any]] = []
+    for observation, row in zip(observations, span):
+        if not isinstance(observation, Mapping):
+            return None
+        item = static_row(row)
+        if item is None:
+            return None
+        if (
+            observation.get("timestamp_ms") != item["timestamp"]
+            or observation.get("evidence") != item["evidence"]
+            or not _identity_text_equal(item["card"].get("text"), candidate["name"])
+        ):
+            return None
+        loaded = _load_image(
+            root,
+            item["row"],
+            image_cache,
+            source_sha256=source_sha256,
+            source_manifest=source_manifest,
+        )
+        if loaded is None:
+            return None
+        crop = _card_identity_crop(loaded["image"], item["card"].get("box"))
+        if crop is None:
+            return None
+        try:
+            result = reader.engine.text_rec(
+                reader.TextRecInput(img=[np.asarray(crop)[:, :, ::-1]])
+            )
+        except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+            return None
+        recognized: list[tuple[str, float]] = []
+        for text_value, score in zip(
+            getattr(result, "txts", ()) or (),
+            getattr(result, "scores", ()) or (),
+        ):
+            if not isinstance(text_value, str) or not _finite_number(score):
+                continue
+            confidence = float(score) * 100.0
+            if confidence < 95.0 or confidence > 100.0:
+                continue
+            recognized.append((text_value.strip(), confidence))
+        if len(recognized) != 1 or not _identity_text_equal(
+            recognized[0][0], candidate["name"]
+        ):
+            return None
+        proofs.append(
+            {
+                "timestamp_ms": item["timestamp"],
+                "evidence": item["evidence"],
+                "card_text": candidate["name"],
+                "recognized_text": recognized[0][0],
+                "confidence": round(recognized[0][1], 4),
+                "crop_box": [float(value) for value in item["card"]["box"]],
+                "pixel_rgb_sha256": hashlib.sha256(crop.tobytes()).hexdigest(),
+                "model_fingerprint": model_fingerprint,
+                "basis": _CARD_IDENTITY_PROOF_BASIS,
+            }
+        )
+    return proofs
+
+
+def _card_identity_proof_matches(
+    proof: Mapping[str, Any],
+    item: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    image: Any,
+) -> bool:
+    """Check one persisted card-text witness without running OCR."""
+    card = item.get("card")
+    if (
+        not isinstance(proof, Mapping)
+        or not isinstance(card, Mapping)
+        or proof.get("basis") != _CARD_IDENTITY_PROOF_BASIS
+        or proof.get("timestamp_ms") != item.get("timestamp")
+        or proof.get("evidence") != item.get("evidence")
+        or not _identity_text_equal(proof.get("card_text"), candidate.get("name"))
+        or not _identity_text_equal(proof.get("recognized_text"), candidate.get("name"))
+        or not _identity_text_equal(card.get("text"), candidate.get("name"))
+        or not _finite_number(proof.get("confidence"))
+        or not 95.0 <= float(proof["confidence"]) <= 100.0
+        or not isinstance(proof.get("crop_box"), (list, tuple))
+        or not _boxes_equal(proof.get("crop_box"), card.get("box"))
+        or not isinstance(proof.get("pixel_rgb_sha256"), str)
+        or _SHA256_RE.fullmatch(proof["pixel_rgb_sha256"]) is None
+        or not isinstance(proof.get("model_fingerprint"), str)
+        or _SHA256_RE.fullmatch(proof["model_fingerprint"]) is None
+    ):
+        return False
+    crop = _card_identity_crop(image, card.get("box"))
+    if crop is None:
+        return False
+    return hashlib.sha256(crop.tobytes()).hexdigest() == proof["pixel_rgb_sha256"]
+
+
+def _row_has_non_neutral_particle_metadata(row: Mapping[str, Any]) -> bool:
+    facts = row.get("facts")
+    if not isinstance(facts, Mapping):
+        return False
+    lines = facts.get("occluded_receipt_lines")
+    if isinstance(lines, list):
+        for line in lines:
+            if not isinstance(line, Mapping):
+                continue
+            if (
+                isinstance(line.get("animated_overlay_boxes"), list)
+                and bool(line["animated_overlay_boxes"])
+            ) or line.get("animated_overlay_occluded") is True:
+                return True
+    overlay = facts.get("receipt_overlay_evidence")
+    return (
+        isinstance(overlay, Mapping)
+        and isinstance(overlay.get("animated_overlay_boxes"), list)
+        and bool(overlay["animated_overlay_boxes"])
+    )
+
+
+def _candidate_needs_card_identity_proof(
+    candidate: Mapping[str, Any],
+    readings: Sequence[Mapping[str, Any]],
+    *,
+    source_row_view: str | None = None,
+) -> bool:
+    if not isinstance(candidate, Mapping):
+        return False
+    if source_row_view == _RECEIPT_OCCLUSION_CURSOR_VIEW:
+        return True
+    source_times = candidate.get("source_timestamps_ms")
+    if not isinstance(source_times, list):
+        return False
+    timestamps = set(source_times)
+    return any(
+        isinstance(row, Mapping)
+        and row.get("source_timestamp_ms") in timestamps
+        and _row_has_non_neutral_particle_metadata(row)
+        for row in readings
+    )
 
 
 def _source_manifest_hash(root: Path) -> str | None:
@@ -418,6 +1250,9 @@ def _validate_wrapped_candidate(
     capture_manifest_sha256: str,
     stored_span_hashes: Any = None,
     stored_observation_provenance: Any = None,
+    stored_card_identity_proofs: Any = None,
+    source_row_view: str | None = None,
+    row_hash_version: str | None = None,
 ) -> dict[str, Any] | None:
     """Validate a wrapped candidate without invoking OCR."""
     if (
@@ -495,11 +1330,26 @@ def _validate_wrapped_candidate(
     source_manifest = _load_source_manifest(root, source_sha256=source_sha256)
     if source_manifest is None:
         return None
-    valid_rows = _validated_rows(readings)
-    if valid_rows is None:
+    cache_provenance = candidate.get("cache_provenance")
+    if isinstance(cache_provenance, Mapping):
+        if source_row_view is None:
+            source_row_view = cache_provenance.get(_SOURCE_ROW_VIEW_FIELD)
+        if stored_card_identity_proofs is None:
+            stored_card_identity_proofs = cache_provenance.get(
+                _CARD_IDENTITY_PROOFS_FIELD
+            )
+    if source_row_view not in (None, _RECEIPT_OCCLUSION_CURSOR_VIEW):
         return None
     start_ms, end_ms = source_times[0], source_times[-1]
-    span = _span_rows(valid_rows, start_ms, end_ms)
+    candidate_rows = _candidate_observation_rows(candidate, readings)
+    if candidate_rows is None:
+        return None
+    span = _source_bound_rows(
+        candidate_rows,
+        root,
+        source_sha256=source_sha256,
+        source_manifest=source_manifest,
+    )
     if span is None or len(span) < 2:
         return None
     span_static = []
@@ -519,12 +1369,40 @@ def _validate_wrapped_candidate(
         return None
     if any(item["context"] != same_context for item in span_static):
         return None
-    current_span_hashes = _span_hashes(span)
+    if not _countdown_rows_match(
+        span,
+        require_projection=row_hash_version == _ROW_HASH_VERSION_V2,
+    ):
+        return None
+    if not _source_metadata_span_valid(
+        span,
+        root,
+        source_sha256=source_sha256,
+        source_manifest=source_manifest,
+    ):
+        return None
+    hash_version = row_hash_version or _ROW_HASH_VERSION_V1
+    current_span_hashes = _span_hashes(span, version=hash_version)
     if current_span_hashes is None:
         return None
-    if stored_span_hashes is not None and not _hash_list_equal(
+    if stored_span_hashes is not None and not _span_hashes_match(
         stored_span_hashes,
-        current_span_hashes,
+        span,
+        version=row_hash_version,
+    ):
+        return None
+    requires_card_identity_proof = _candidate_needs_card_identity_proof(
+        candidate,
+        span,
+        source_row_view=source_row_view,
+    )
+    if requires_card_identity_proof and not isinstance(
+        stored_card_identity_proofs, list
+    ):
+        return None
+    if stored_card_identity_proofs is not None and (
+        not isinstance(stored_card_identity_proofs, list)
+        or len(stored_card_identity_proofs) != len(observations)
     ):
         return None
 
@@ -532,7 +1410,7 @@ def _validate_wrapped_candidate(
     observation_provenance: list[dict[str, Any]] = []
     observed_names: list[str] = []
     observed_bindings: list[Mapping[str, Any]] = []
-    for observation, item in zip(observations, span_static):
+    for index, (observation, item) in enumerate(zip(observations, span_static)):
         if not isinstance(observation, Mapping):
             return None
         if (
@@ -574,6 +1452,13 @@ def _validate_wrapped_candidate(
             != provenance["prefix_ocr_model_fingerprint"]
         ):
             return None
+        if stored_card_identity_proofs is not None and not _card_identity_proof_matches(
+            stored_card_identity_proofs[index],
+            item,
+            candidate,
+            loaded["image"],
+        ):
+            return None
         if item["overlay"] is not None and not _source_overlay_matches(
             loaded["image"], item["overlay"]
         ):
@@ -613,10 +1498,13 @@ def _validate_wrapped_candidate(
         observation_provenance,
     ):
         return None
-    return {
+    result = {
         "span_hashes": current_span_hashes,
         "observation_provenance": observation_provenance,
     }
+    if stored_card_identity_proofs is not None:
+        result[_CARD_IDENTITY_PROOFS_FIELD] = deepcopy(stored_card_identity_proofs)
+    return result
 
 
 def _validate_single_line_candidate(
@@ -628,6 +1516,9 @@ def _validate_single_line_candidate(
     capture_manifest_sha256: str,
     stored_span_hashes: Any = None,
     stored_observation_provenance: Any = None,
+    stored_card_identity_proofs: Any = None,
+    source_row_view: str | None = None,
+    row_hash_version: str | None = None,
 ) -> dict[str, Any] | None:
     """Validate a repeated single-line receipt without running OCR.
 
@@ -703,11 +1594,26 @@ def _validate_single_line_candidate(
     source_manifest = _load_source_manifest(root, source_sha256=source_sha256)
     if source_manifest is None:
         return None
-    valid_rows = _validated_rows(readings)
-    if valid_rows is None:
+    cache_provenance = candidate.get("cache_provenance")
+    if isinstance(cache_provenance, Mapping):
+        if source_row_view is None:
+            source_row_view = cache_provenance.get(_SOURCE_ROW_VIEW_FIELD)
+        if stored_card_identity_proofs is None:
+            stored_card_identity_proofs = cache_provenance.get(
+                _CARD_IDENTITY_PROOFS_FIELD
+            )
+    if source_row_view not in (None, _RECEIPT_OCCLUSION_CURSOR_VIEW):
         return None
     start_ms, end_ms = source_times[0], source_times[-1]
-    span = _span_rows(valid_rows, start_ms, end_ms)
+    candidate_rows = _candidate_observation_rows(candidate, readings)
+    if candidate_rows is None:
+        return None
+    span = _source_bound_rows(
+        candidate_rows,
+        root,
+        source_sha256=source_sha256,
+        source_manifest=source_manifest,
+    )
     if span is None or len(span) < 2:
         return None
     span_static = []
@@ -727,11 +1633,40 @@ def _validate_single_line_candidate(
         or any(item["receipt"]["amount"] != candidate["amount"] for item in span_static)
     ):
         return None
-    current_span_hashes = _span_hashes(span)
+    if not _countdown_rows_match(
+        span,
+        require_projection=row_hash_version == _ROW_HASH_VERSION_V2,
+    ):
+        return None
+    if not _source_metadata_span_valid(
+        span,
+        root,
+        source_sha256=source_sha256,
+        source_manifest=source_manifest,
+    ):
+        return None
+    hash_version = row_hash_version or _ROW_HASH_VERSION_V1
+    current_span_hashes = _span_hashes(span, version=hash_version)
     if current_span_hashes is None:
         return None
-    if stored_span_hashes is not None and not _hash_list_equal(
-        stored_span_hashes, current_span_hashes
+    if stored_span_hashes is not None and not _span_hashes_match(
+        stored_span_hashes,
+        span,
+        version=row_hash_version,
+    ):
+        return None
+    requires_card_identity_proof = _candidate_needs_card_identity_proof(
+        candidate,
+        span,
+        source_row_view=source_row_view,
+    )
+    if requires_card_identity_proof and not isinstance(
+        stored_card_identity_proofs, list
+    ):
+        return None
+    if stored_card_identity_proofs is not None and (
+        not isinstance(stored_card_identity_proofs, list)
+        or len(stored_card_identity_proofs) != len(observations)
     ):
         return None
 
@@ -739,7 +1674,7 @@ def _validate_single_line_candidate(
     observation_provenance: list[dict[str, Any]] = []
     observed_names: list[str] = []
     observed_bindings: list[Mapping[str, Any]] = []
-    for observation, item in zip(observations, span_static):
+    for index, (observation, item) in enumerate(zip(observations, span_static)):
         if not isinstance(observation, Mapping):
             return None
         saved_card = observation.get("card")
@@ -783,6 +1718,13 @@ def _validate_single_line_candidate(
             )
         ):
             return None
+        if stored_card_identity_proofs is not None and not _card_identity_proof_matches(
+            stored_card_identity_proofs[index],
+            item,
+            candidate,
+            loaded["image"],
+        ):
+            return None
         try:
             suffix = detect_suffix(loaded["image"], item["card"]["box"])
         except (AttributeError, ImportError, IndexError, RuntimeError, TypeError, ValueError):
@@ -811,10 +1753,13 @@ def _validate_single_line_candidate(
         stored_observation_provenance, observation_provenance
     ):
         return None
-    return {
+    result = {
         "span_hashes": current_span_hashes,
         "observation_provenance": observation_provenance,
     }
+    if stored_card_identity_proofs is not None:
+        result[_CARD_IDENTITY_PROOFS_FIELD] = deepcopy(stored_card_identity_proofs)
+    return result
 
 
 def _validate_candidate(
@@ -826,6 +1771,9 @@ def _validate_candidate(
     capture_manifest_sha256: str,
     stored_span_hashes: Any = None,
     stored_observation_provenance: Any = None,
+    stored_card_identity_proofs: Any = None,
+    source_row_view: str | None = None,
+    row_hash_version: str | None = None,
 ) -> dict[str, Any] | None:
     """Validate a saved candidate without constructing an OCR reader."""
     if (
@@ -840,6 +1788,9 @@ def _validate_candidate(
             capture_manifest_sha256=capture_manifest_sha256,
             stored_span_hashes=stored_span_hashes,
             stored_observation_provenance=stored_observation_provenance,
+            stored_card_identity_proofs=stored_card_identity_proofs,
+            source_row_view=source_row_view,
+            row_hash_version=row_hash_version,
         )
     if (
         isinstance(candidate, Mapping)
@@ -853,6 +1804,9 @@ def _validate_candidate(
             capture_manifest_sha256=capture_manifest_sha256,
             stored_span_hashes=stored_span_hashes,
             stored_observation_provenance=stored_observation_provenance,
+            stored_card_identity_proofs=stored_card_identity_proofs,
+            source_row_view=source_row_view,
+            row_hash_version=row_hash_version,
         )
     if (
         not isinstance(candidate, Mapping)
@@ -915,14 +1869,25 @@ def _validate_candidate(
     source_manifest = _load_source_manifest(root, source_sha256=source_sha256)
     if source_manifest is None:
         return None
-    valid_rows = _validated_rows(readings)
-    if valid_rows is None:
+    cache_provenance = candidate.get("cache_provenance")
+    if isinstance(cache_provenance, Mapping):
+        if source_row_view is None:
+            source_row_view = cache_provenance.get(_SOURCE_ROW_VIEW_FIELD)
+        if stored_card_identity_proofs is None:
+            stored_card_identity_proofs = cache_provenance.get(
+                _CARD_IDENTITY_PROOFS_FIELD
+            )
+    if source_row_view not in (None, _RECEIPT_OCCLUSION_CURSOR_VIEW):
         return None
-    by_key = {_row_key(row): row for row in valid_rows}
-    if any(key is None for key in by_key):
+    candidate_rows = _candidate_observation_rows(candidate, readings)
+    if candidate_rows is None:
         return None
-    start_ms, end_ms = source_times[0], source_times[-1]
-    span = _span_rows(valid_rows, start_ms, end_ms)
+    span = _source_bound_rows(
+        candidate_rows,
+        root,
+        source_sha256=source_sha256,
+        source_manifest=source_manifest,
+    )
     if span is None or len(span) < 2:
         return None
     span_static = []
@@ -948,10 +1913,41 @@ def _validate_candidate(
     if any(item["receipt"]["amount"] != candidate["amount"] for item in span_static):
         return None
 
-    current_span_hashes = _span_hashes(span)
+    if not _countdown_rows_match(
+        span,
+        require_projection=row_hash_version == _ROW_HASH_VERSION_V2,
+    ):
+        return None
+    if not _source_metadata_span_valid(
+        span,
+        root,
+        source_sha256=source_sha256,
+        source_manifest=source_manifest,
+    ):
+        return None
+    hash_version = row_hash_version or _ROW_HASH_VERSION_V1
+    current_span_hashes = _span_hashes(span, version=hash_version)
     if current_span_hashes is None:
         return None
-    if stored_span_hashes is not None and not _hash_list_equal(stored_span_hashes, current_span_hashes):
+    if stored_span_hashes is not None and not _span_hashes_match(
+        stored_span_hashes,
+        span,
+        version=row_hash_version,
+    ):
+        return None
+    requires_card_identity_proof = _candidate_needs_card_identity_proof(
+        candidate,
+        span,
+        source_row_view=source_row_view,
+    )
+    if requires_card_identity_proof and not isinstance(
+        stored_card_identity_proofs, list
+    ):
+        return None
+    if stored_card_identity_proofs is not None and (
+        not isinstance(stored_card_identity_proofs, list)
+        or len(stored_card_identity_proofs) != len(observations)
+    ):
         return None
 
     image_cache: dict[str, dict[str, Any]] = {}
@@ -959,7 +1955,7 @@ def _validate_candidate(
     observed_names: list[str] = []
     observed_suffixes: list[str] = []
     observed_prefixes = []
-    for observation, item in zip(observations, span_static):
+    for index, (observation, item) in enumerate(zip(observations, span_static)):
         if not isinstance(observation, Mapping):
             return None
         timestamp = observation.get("timestamp_ms")
@@ -981,6 +1977,13 @@ def _validate_candidate(
             loaded is None
             or not _raw_supports_item(item, loaded["binding"]["raw"])
             or not _observation_binding_matches(observation, loaded["binding"])
+        ):
+            return None
+        if stored_card_identity_proofs is not None and not _card_identity_proof_matches(
+            stored_card_identity_proofs[index],
+            item,
+            candidate,
+            loaded["image"],
         ):
             return None
         if not _source_overlay_matches(loaded["image"], item["overlay"]):
@@ -1008,10 +2011,13 @@ def _validate_candidate(
         observation_provenance,
     ):
         return None
-    return {
+    result = {
         "span_hashes": current_span_hashes,
         "observation_provenance": observation_provenance,
     }
+    if stored_card_identity_proofs is not None:
+        result[_CARD_IDENTITY_PROOFS_FIELD] = deepcopy(stored_card_identity_proofs)
+    return result
 
 
 def _candidate_cache_entry(
@@ -1020,15 +2026,27 @@ def _candidate_cache_entry(
     *,
     source_sha256: str,
     capture_manifest_sha256: str,
+    source_row_view: str | None = None,
 ) -> dict[str, Any]:
     entry = deepcopy(dict(candidate))
-    entry["cache_provenance"] = {
+    cache_provenance = {
         "schema": CACHE_SCHEMA,
         "source_sha256": source_sha256,
         "capture_manifest_sha256": capture_manifest_sha256,
+        _ROW_HASH_VERSION_FIELD: _ROW_HASH_VERSION_V2,
         "span_rows": deepcopy(validation["span_hashes"]),
         "observations": deepcopy(validation["observation_provenance"]),
     }
+    if source_row_view is not None:
+        cache_provenance[_SOURCE_ROW_VIEW_FIELD] = source_row_view
+    card_identity_proofs = validation.get(_CARD_IDENTITY_PROOFS_FIELD)
+    if card_identity_proofs is not None:
+        if not isinstance(card_identity_proofs, list):
+            raise ValueError("Hint-card cache identity proof is malformed.")
+        cache_provenance[_CARD_IDENTITY_PROOFS_FIELD] = deepcopy(
+            card_identity_proofs
+        )
+    entry["cache_provenance"] = cache_provenance
     return entry
 
 
@@ -1041,6 +2059,9 @@ def _payload(
 ) -> dict[str, Any] | None:
     if not isinstance(source_sha256, str) or not _SHA256_RE.fullmatch(source_sha256):
         return None
+    # Preserve global row-key validation while allowing a report to contain
+    # source-bound inspection namespaces alongside the base capture.  Each
+    # candidate validator scopes manifest binding to its exact observations.
     valid_rows = _validated_rows(readings)
     if valid_rows is None:
         return None
@@ -1051,12 +2072,27 @@ def _payload(
     for candidate in candidates:
         if not isinstance(candidate, Mapping):
             return None
+        candidate_rows = _candidate_observation_rows(candidate, valid_rows)
+        if candidate_rows is None:
+            return None
+        card_identity_proofs = None
+        if _candidate_needs_card_identity_proof(candidate, candidate_rows):
+            card_identity_proofs = _source_card_identity_proofs(
+                candidate,
+                candidate_rows,
+                root,
+                source_sha256=source_sha256,
+            )
+            if card_identity_proofs is None:
+                return None
         validation = _validate_candidate(
             candidate,
             valid_rows,
             root,
             source_sha256=source_sha256,
             capture_manifest_sha256=capture_manifest_sha256,
+            stored_card_identity_proofs=card_identity_proofs,
+            row_hash_version=_ROW_HASH_VERSION_V2,
         )
         if validation is None:
             return None
@@ -1078,6 +2114,7 @@ def _payload(
         "schema": CACHE_SCHEMA,
         "source_sha256": source_sha256,
         "capture_manifest_sha256": capture_manifest_sha256,
+        _ROW_HASH_VERSION_FIELD: _ROW_HASH_VERSION_V2,
         "candidate_count": len(entries),
         "candidates": entries,
     }
@@ -1141,6 +2178,9 @@ def load(
         raise ValueError(f"Hint-card cache path is not a regular file: {path}")
     if not isinstance(source_sha256, str) or not _SHA256_RE.fullmatch(source_sha256):
         raise ValueError("Hint-card cache source SHA-256 is invalid.")
+    # Replay bundles may include dense inspection/recovery namespaces in
+    # addition to the base capture.  Check all row keys globally, then bind
+    # only the exact source rows named by each cached candidate below.
     valid_rows = _validated_rows(readings)
     if valid_rows is None:
         raise ValueError("Current gameplay readings are invalid for hint-card cache replay.")
@@ -1156,6 +2196,7 @@ def load(
         or payload.get("source_sha256") != source_sha256
         or not isinstance(payload.get("capture_manifest_sha256"), str)
         or payload.get("capture_manifest_sha256") != capture_manifest_sha256
+        or payload.get(_ROW_HASH_VERSION_FIELD) not in (None, *_ROW_HASH_VERSIONS)
         or type(payload.get("candidate_count")) is not int
         or not isinstance(payload.get("candidates"), list)
         or payload["candidate_count"] != len(payload["candidates"])
@@ -1164,6 +2205,7 @@ def load(
     entries = payload["candidates"]
     candidates: list[dict[str, Any]] = []
     spans = []
+    refreshed_validation_rows: list[dict[str, Any]] | None = None
     for entry in entries:
         if not isinstance(entry, Mapping):
             raise ValueError("Hint-card cache contains a malformed candidate.")
@@ -1178,14 +2220,68 @@ def load(
             or not isinstance(cache_provenance.get("observations"), list)
         ):
             raise ValueError("Hint-card cache candidate provenance is stale or malformed.")
+        source_row_view = cache_provenance.get(_SOURCE_ROW_VIEW_FIELD)
+        if source_row_view not in (None, _RECEIPT_OCCLUSION_CURSOR_VIEW):
+            raise ValueError("Hint-card cache candidate source-row view is unknown.")
+        payload_hash_version = payload.get(_ROW_HASH_VERSION_FIELD)
+        candidate_hash_version = cache_provenance.get(_ROW_HASH_VERSION_FIELD)
+        if candidate_hash_version not in (None, *_ROW_HASH_VERSIONS):
+            raise ValueError("Hint-card cache candidate row hash version is unknown.")
+        if candidate_hash_version != payload_hash_version:
+            raise ValueError("Hint-card cache row hash version is inconsistent.")
+        stored_span_hashes = cache_provenance["span_rows"]
+        source_times = entry.get("source_timestamps_ms")
+        if (
+            not isinstance(source_times, list)
+            or not source_times
+            or any(type(value) is not int or value < 0 for value in source_times)
+        ):
+            raise ValueError("Hint-card cache candidate span is malformed.")
+        current_span = _candidate_observation_rows(entry, valid_rows)
+        if current_span is None:
+            raise ValueError("Hint-card cache candidate source span is missing.")
+        current_span = _source_bound_rows(
+            current_span,
+            evidence_root,
+            source_sha256=source_sha256,
+        )
+        if current_span is None or not _source_metadata_span_valid(
+            current_span,
+            evidence_root,
+            source_sha256=source_sha256,
+        ):
+            raise ValueError("Hint-card cache candidate source metadata is stale.")
+        validation_rows = current_span
+        if source_row_view == _RECEIPT_OCCLUSION_CURSOR_VIEW:
+            if candidate_hash_version != _ROW_HASH_VERSION_V2:
+                raise ValueError("Refreshed hint-card cache must use source-row-v2.")
+            if not _span_hashes_match(
+                stored_span_hashes,
+                current_span,
+                version=candidate_hash_version,
+            ):
+                raise ValueError("Refreshed hint-card cache source rows are stale.")
+            refreshed_validation_rows = _receipt_occlusion_cursor_view(current_span)
+            if refreshed_validation_rows is None:
+                raise ValueError("Refreshed hint-card cache particle metadata is malformed.")
+            validation_rows = refreshed_validation_rows
+            # The full current row fingerprint was checked above.  The
+            # cursor-only structural view has a deliberately different hash,
+            # so source proof validation must not compare it to that hash.
+            stored_span_hashes = None
         validation = _validate_candidate(
             entry,
-            valid_rows,
+            validation_rows,
             evidence_root,
             source_sha256=source_sha256,
             capture_manifest_sha256=capture_manifest_sha256,
-            stored_span_hashes=cache_provenance["span_rows"],
+            stored_span_hashes=stored_span_hashes,
             stored_observation_provenance=cache_provenance["observations"],
+            stored_card_identity_proofs=cache_provenance.get(
+                _CARD_IDENTITY_PROOFS_FIELD
+            ),
+            source_row_view=source_row_view,
+            row_hash_version=candidate_hash_version,
         )
         if validation is None:
             raise ValueError("Hint-card cache candidate failed source validation.")
@@ -1197,6 +2293,265 @@ def load(
         candidate.pop("cache_provenance", None)
         candidates.append(candidate)
     return candidates
+
+
+def _refresh_candidate_key(candidate: Mapping[str, Any]) -> tuple[Any, ...] | None:
+    """Return the immutable identity used to scope a cache refresh."""
+    if not isinstance(candidate, Mapping):
+        return None
+    name = candidate.get("name")
+    amount = candidate.get("amount")
+    source_times = candidate.get("source_timestamps_ms")
+    if (
+        not isinstance(name, str)
+        or not name.strip()
+        or type(amount) is not int
+        or not isinstance(source_times, list)
+        or not source_times
+        or any(type(value) is not int or value < 0 for value in source_times)
+        or source_times != sorted(source_times)
+        or len(set(source_times)) != len(source_times)
+    ):
+        return None
+    variant = candidate.get("observation_kind")
+    if variant is None:
+        variant = "single_line_hint_receipt"
+    if not isinstance(variant, str) or not variant:
+        return None
+    return variant, name, amount, tuple(source_times)
+
+
+def _read_refresh_candidates(
+    path: Path,
+    *,
+    source_sha256: str,
+    capture_manifest_sha256: str,
+) -> list[dict[str, Any]] | None:
+    """Read old cache entries for an explicit source-backed refresh.
+
+    This deliberately performs only header/provenance checks.  Candidate
+    identity and every amount are re-established by ``hint_card_identity``
+    from the current source rows below; the old cache only scopes which
+    already-reviewed spans may be regenerated.
+    """
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    if (
+        payload.get("schema") != CACHE_SCHEMA
+        or payload.get("source_sha256") != source_sha256
+        or payload.get("capture_manifest_sha256") != capture_manifest_sha256
+        or payload.get(_ROW_HASH_VERSION_FIELD) not in (None, *_ROW_HASH_VERSIONS)
+        or type(payload.get("candidate_count")) is not int
+        or not isinstance(payload.get("candidates"), list)
+        or payload["candidate_count"] != len(payload["candidates"])
+        or not payload["candidates"]
+    ):
+        return None
+    result: list[dict[str, Any]] = []
+    for entry in payload["candidates"]:
+        if not isinstance(entry, Mapping):
+            return None
+        provenance = entry.get("cache_provenance")
+        if not isinstance(provenance, Mapping):
+            return None
+        if (
+            provenance.get("schema") != CACHE_SCHEMA
+            or provenance.get("source_sha256") != source_sha256
+            or provenance.get("capture_manifest_sha256") != capture_manifest_sha256
+            or not isinstance(provenance.get("span_rows"), list)
+            or not isinstance(provenance.get("observations"), list)
+            or provenance.get(_SOURCE_ROW_VIEW_FIELD)
+            not in (None, _RECEIPT_OCCLUSION_CURSOR_VIEW)
+        ):
+            return None
+        if _refresh_candidate_key(entry) is None:
+            return None
+        result.append(deepcopy(dict(entry)))
+    keys = [_refresh_candidate_key(entry) for entry in result]
+    if any(key is None for key in keys) or len(set(keys)) != len(keys):
+        return None
+    return result
+
+
+def refresh(
+    cache_path: str | Path,
+    readings: Sequence[Mapping[str, Any]],
+    root: str | Path,
+    output: str | Path,
+    *,
+    source_sha256: str,
+) -> dict[str, Any]:
+    """Regenerate a stale derived cache into a new immutable artifact.
+
+    ``cache_path`` is read only.  The current readings are source-parsed
+    again through ``hint_card_identity.recover`` after removing only the
+    particle detector's overlay decorations in a private structural view.
+    Fresh candidates must match the old cache's reviewed name, amount, and
+    exact source span; no new candidate or balance-selected amount can enter.
+    The emitted cache fingerprints the complete current rows, including real
+    nonempty particle boxes and ``True`` occlusion markers.  Replay validates
+    that full fingerprint and uses the same private view only for the identity
+    proof, so the current annotations remain available to every caller.
+    """
+    evidence_root = Path(root)
+    old_path = Path(cache_path)
+    output_path = Path(output)
+    if output_path.exists():
+        raise FileExistsError(f"Hint-card cache already exists: {output_path}")
+    if not isinstance(source_sha256, str) or not _SHA256_RE.fullmatch(source_sha256):
+        raise ValueError("Hint-card cache source SHA-256 is invalid.")
+    # As with replay, validate the complete row-key set but scope manifest
+    # binding to the old cache's exact witnessed observations.  Inspection
+    # namespaces outside those spans must not poison a source refresh.
+    valid_rows = _validated_rows(readings)
+    if valid_rows is None:
+        raise ValueError("Current gameplay readings are invalid for hint-card refresh.")
+    capture_manifest_sha256 = _source_manifest_hash(evidence_root)
+    if capture_manifest_sha256 is None:
+        raise ValueError("Current capture manifest is unavailable for hint-card refresh.")
+    old_candidates = _read_refresh_candidates(
+        old_path,
+        source_sha256=source_sha256,
+        capture_manifest_sha256=capture_manifest_sha256,
+    )
+    if old_candidates is None:
+        raise ValueError("Existing hint-card cache is not eligible for source refresh.")
+
+    old_keys = [_refresh_candidate_key(entry) for entry in old_candidates]
+    if any(key is None for key in old_keys):
+        raise ValueError("Existing hint-card cache candidate identity is malformed.")
+
+    selected: list[Mapping[str, Any]] = []
+    selected_keys: set[tuple[int, str]] = set()
+    for old_candidate in old_candidates:
+        candidate_rows = _candidate_observation_rows(old_candidate, valid_rows)
+        if candidate_rows is None:
+            raise ValueError(
+                "Current source refresh candidate observations are missing."
+            )
+        for row in candidate_rows:
+            key = _row_key(row)
+            if key is None or key in selected_keys:
+                raise ValueError(
+                    "Current source refresh candidates have overlapping source rows."
+                )
+            selected_keys.add(key)
+            selected.append(row)
+    selected = _source_bound_rows(
+        selected,
+        evidence_root,
+        source_sha256=source_sha256,
+    )
+    if selected is None:
+        raise ValueError("Current source refresh rows are not bound to the capture manifest.")
+    structural_rows = _receipt_occlusion_cursor_view(selected)
+    if structural_rows is None:
+        raise ValueError("Current hint-card occlusion metadata is malformed.")
+
+    from .hint_card_identity import recover
+
+    regenerated = recover(
+        structural_rows,
+        evidence_root,
+        source_sha256=source_sha256,
+    )
+    regenerated_by_key = {
+        _refresh_candidate_key(candidate): candidate
+        for candidate in regenerated
+        if _refresh_candidate_key(candidate) is not None
+    }
+    if set(regenerated_by_key) != set(old_keys):
+        raise ValueError(
+            "Current source refresh did not reproduce exactly the existing hint-card spans."
+        )
+
+    identity_proofs_by_key: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for key, candidate in regenerated_by_key.items():
+        proofs = _source_card_identity_proofs(
+            candidate,
+            structural_rows,
+            evidence_root,
+            source_sha256=source_sha256,
+        )
+        if proofs is None:
+            raise ValueError(
+                "Current source refresh failed card identity pixel proof."
+            )
+        identity_proofs_by_key[key] = proofs
+
+    entries = []
+    spans: list[set[int]] = []
+    for old_key in old_keys:
+        candidate = regenerated_by_key[old_key]
+        validation = _validate_candidate(
+            candidate,
+            structural_rows,
+            evidence_root,
+            source_sha256=source_sha256,
+            capture_manifest_sha256=capture_manifest_sha256,
+            stored_card_identity_proofs=identity_proofs_by_key.get(old_key),
+            source_row_view=_RECEIPT_OCCLUSION_CURSOR_VIEW,
+            row_hash_version=_ROW_HASH_VERSION_V2,
+        )
+        if validation is None:
+            raise ValueError("Current source refresh failed hint-card validation.")
+        source_times = candidate["source_timestamps_ms"]
+        current_span = _candidate_observation_rows(candidate, valid_rows)
+        if current_span is None:
+            raise ValueError("Current source refresh span is missing at a reviewed timestamp.")
+        current_span = _source_bound_rows(
+            current_span,
+            evidence_root,
+            source_sha256=source_sha256,
+        )
+        observations = candidate.get("observations")
+        expected_keys = (
+            [
+                (timestamp, observation.get("evidence"))
+                for timestamp, observation in zip(source_times, observations)
+            ]
+            if isinstance(observations, list)
+            else []
+        )
+        if current_span is None or [_row_key(row) for row in current_span] != expected_keys:
+            raise ValueError("Current source refresh span changed at a reviewed timestamp.")
+        current_hashes = _span_hashes(current_span, version=_ROW_HASH_VERSION_V2)
+        if current_hashes is None:
+            raise ValueError("Current source refresh row fingerprint is unavailable.")
+        refreshed_validation = dict(validation)
+        refreshed_validation["span_hashes"] = current_hashes
+        entry = _candidate_cache_entry(
+            candidate,
+            refreshed_validation,
+            source_sha256=source_sha256,
+            capture_manifest_sha256=capture_manifest_sha256,
+            source_row_view=_RECEIPT_OCCLUSION_CURSOR_VIEW,
+        )
+        entries.append(entry)
+        span = set(source_times)
+        if any(span & prior for prior in spans):
+            raise ValueError("Current source refresh candidates have overlapping spans.")
+        spans.append(span)
+
+    payload = {
+        "schema": CACHE_SCHEMA,
+        "source_sha256": source_sha256,
+        "capture_manifest_sha256": capture_manifest_sha256,
+        _ROW_HASH_VERSION_FIELD: _ROW_HASH_VERSION_V2,
+        "candidate_count": len(entries),
+        "candidates": entries,
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("x", encoding="utf-8", newline="\n") as stream:
+        json.dump(payload, stream, ensure_ascii=False, indent=2, sort_keys=True)
+        stream.write("\n")
+    return payload
 
 
 def prepare(
@@ -1227,6 +2582,13 @@ def prepare(
         ]
     else:
         selected = readings
+    selected = _source_bound_rows(
+        selected,
+        Path(root),
+        source_sha256=source_sha256,
+    )
+    if selected is None:
+        raise ValueError("Preparation readings are not bound to the capture manifest.")
     from .hint_card_identity import recover
 
     candidates = recover(selected, root, source_sha256=source_sha256)

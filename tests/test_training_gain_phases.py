@@ -1,6 +1,6 @@
 import unittest
 
-from tracen_replay.transactions import training_events
+from tracen_replay.transactions import training_actions, training_events
 
 
 FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill_points')
@@ -31,6 +31,26 @@ def before_state(skill_points=606):
 
 
 class TrainingGainPhaseTests(unittest.TestCase):
+    def test_result_group_preserves_result_membership_separately_from_identity(self):
+        rows = [
+            result_row(1000, {'speed': 8}),
+            result_row(1033, {'speed': 8}),
+            result_row(1066, {'speed': 8}, option=None),
+        ]
+
+        event = training_events(rows)[0]
+        group = event['result_group']
+        self.assertEqual(group['interval_ms'], [1000, 1066])
+        self.assertEqual(group['training_option'], 'wit')
+        self.assertEqual(
+            [(row['source_timestamp_ms'], row['evidence']) for row in group['observations']],
+            [(row['source_timestamp_ms'], row['evidence']) for row in rows],
+        )
+        self.assertEqual(event['action_identity_evidence'], ['1000.png', '1033.png'])
+
+        action = training_actions([event])[0]
+        self.assertEqual(action['result_group'], group)
+
     def test_unknown_option_does_not_count_as_observed_action_identity(self):
         rows = [result_row(t, {'speed': 8}, option=None) for t in (1000, 1033)]
         event = training_events(rows)[0]

@@ -1,0 +1,2436 @@
+{
+  "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+  "review_basis": "Development source frames checked after predictions; not held-out validation. Passion receipt visually checked at 962383 ms; complete performance snapshot at 637750 ms.",
+  "image_sha256": {
+    "gameplay/part-008-frame-000008.png": "84c5563d7ef695e6349f92eb7d82c1726f9a2f37627bd4f08341df688946d9c2",
+    "gameplay/part-008-frame-000009.png": "efbda47493671608e5dfab4ac057a9c5004494253449ec65418f5b650aa17f0a",
+    "gameplay/part-008-frame-000010.png": "cfc18e435017f0e31814a29fb331125605cad432fd5d60664a02d424aa015d5f",
+    "gameplay/part-008-frame-000011.png": "efe31f7dfc648c925eec39b91e5fdbeccd107acbe9dfa737ac254ef14dfc058f",
+    "gameplay/part-008-frame-000012.png": "fe1a41cb9961a933e6c1f0007d79c5e0b79f25c245c59393ecbf2aa27218981a",
+    "gameplay/part-008-frame-000013.png": "5e94175302271c0d730de485dc2aa4d73ad85c0f7ad4f854619d77504465b4c8",
+    "gameplay/part-008-frame-000014.png": "066e5272f593e381aed7913c7fd0421ccd1bc91c0709d9580c562388bb634303",
+    "gameplay/part-008-frame-000015.png": "98e1e656dfeb853a7b8777aa0da408cba1d8bd8340f9d46f133b58a3a7abf5c8",
+    "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000018.png": "a0097e88b1f0a66d3a347f871b13ff0791005dc57b33fcc1b571a7afa84226de",
+    "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000019.png": "d756c4f5de10a3ee3b8346b3700a15a4b555ee29245ae4a4244b450455cd6d8b",
+    "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000020.png": "639d8b9de150df9ec703832faeadf7a562f94bf242d5c6e6990820c73ba9ec8e",
+    "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000021.png": "56a3565b2f7e441dc36ef38d305698366be8031c7004ef7b1d7203dc14daa325",
+    "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000022.png": "af35ef39e0896ba0f71f13cc3acfb086543f404326e3a83b622e825293d521f2",
+    "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000023.png": "8a1a592775020ecfbacbe16a4b0a38655fa97e568ff821c70d430ddeca172767",
+    "gameplay/part-005-frame-000151.png": "9a6f88a7fdaaab6e17363336380c446db6b07ffb6057faa0f05612bb2e19793a",
+    "gameplay/part-005-frame-000152.png": "175f1382e4f650230b6cbe73a45daa29f11107b371fe5e122f9281becee07dff",
+    "gameplay/part-005-frame-000153.png": "04c5f1c3648bec24846170d3dc4411bad13485d7776646dab2d31d7e6072e179",
+    "gameplay/part-005-frame-000154.png": "008da8c80db308ac654676ec3500d91bd0fc96b26251ed137e2345ce71a7a87b",
+    "gameplay/part-005-frame-000155.png": "370f0983d04e75b3e799adad8acf48edc1c97926f484a860c16925d9e0fd604a"
+  },
+  "receipt": {
+    "before": [
+      {
+        "source_timestamp_ms": 961750,
+        "evidence": "gameplay/part-008-frame-000008.png",
+        "screen": "event_outcome",
+        "context_title": null,
+        "effects": [
+          {
+            "kind": "performance_cap_change",
+            "field": "dance",
+            "amount": 50,
+            "raw_text": "Dance cap went up by 50.",
+            "confidence": 99.317
+          },
+          {
+            "kind": "performance_cap_change",
+            "field": "passion",
+            "amount": 50,
+            "raw_text": "Passion cap went up by 50.",
+            "confidence": 99.927
+          },
+          {
+            "kind": "performance_cap_change",
+            "field": "visual",
+            "amount": 50,
+            "raw_text": "Visuals cap went up by 50.",
+            "confidence": 97.968
+          },
+          {
+            "kind": "performance_cap_change",
+            "field": "composure",
+            "amount": 50,
+            "raw_text": "Composure cap went up by 50.",
+            "confidence": 98.943
+          }
+        ],
+        "facts": {
+          "effect_candidates": [
+            {
+              "kind": "performance_cap_change",
+              "field": "vocal",
+              "amount": 50,
+              "raw_text": "Vocals cap went up by 50",
+              "confidence": 98.925
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Dance cap went up by 50.",
+              "confidence": 99.317,
+              "box": [
+                317,
+                824,
+                568,
+                851
+              ]
+            },
+            {
+              "text": "Vocals cap went up by 50",
+              "confidence": 98.925,
+              "box": [
+                316,
+                847,
+                579,
+                877
+              ]
+            },
+            {
+              "text": "Passion cap went up by 50.",
+              "confidence": 99.927,
+              "box": [
+                317,
+                873,
+                578,
+                899
+              ]
+            },
+            {
+              "text": "Visuals cap went up by 50.",
+              "confidence": 97.968,
+              "box": [
+                317,
+                894,
+                575,
+                924
+              ]
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 98.943,
+              "box": [
+                316,
+                919,
+                615,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962000,
+        "evidence": "gameplay/part-008-frame-000009.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_cap_change",
+            "field": "vocal",
+            "amount": 50,
+            "raw_text": "Vocals cap went up by 50.",
+            "confidence": 99.499
+          },
+          {
+            "kind": "performance_cap_change",
+            "field": "passion",
+            "amount": 50,
+            "raw_text": "Passion cap went up by 50.",
+            "confidence": 99.131
+          },
+          {
+            "kind": "performance_cap_change",
+            "field": "composure",
+            "amount": 50,
+            "raw_text": "Composure cap went up by 50.",
+            "confidence": 98.628
+          },
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 97.728
+          }
+        ],
+        "facts": {
+          "occluded_receipt_lines": [
+            {
+              "text": "Visuals cap went up 50.",
+              "box": [
+                317,
+                872,
+                576,
+                901
+              ],
+              "confidence": 97.452,
+              "overlay_boxes": [
+                [
+                  519,
+                  878,
+                  533,
+                  895
+                ]
+              ],
+              "recipient_name_occluded": false
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Vocals cap went up by 50.",
+              "confidence": 99.499,
+              "box": [
+                317,
+                823,
+                572,
+                853
+              ]
+            },
+            {
+              "text": "Passion cap went up by 50.",
+              "confidence": 99.131,
+              "box": [
+                317,
+                849,
+                577,
+                876
+              ]
+            },
+            {
+              "text": "Visuals cap went up 50.",
+              "confidence": 0,
+              "box": [
+                317,
+                872,
+                576,
+                901
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 97.452
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 98.628,
+              "box": [
+                316,
+                894,
+                615,
+                925
+              ]
+            },
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 97.728,
+              "box": [
+                317,
+                921,
+                530,
+                948
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962250,
+        "evidence": "gameplay/part-008-frame-000010.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_cap_change",
+            "field": "passion",
+            "amount": 50,
+            "raw_text": "Passion cap went up by 50.",
+            "confidence": 97.877
+          },
+          {
+            "kind": "performance_cap_change",
+            "field": "visual",
+            "amount": 50,
+            "raw_text": "Visuals cap went up by 50.",
+            "confidence": 99.848
+          },
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 99.676
+          },
+          {
+            "kind": "performance_change",
+            "field": "vocal",
+            "amount": 10,
+            "raw_text": "Vocals went up by 10.",
+            "confidence": 97.824
+          }
+        ],
+        "facts": {
+          "occluded_receipt_lines": [
+            {
+              "text": "Composure cap went yup by 50.",
+              "box": [
+                315,
+                868,
+                616,
+                903
+              ],
+              "confidence": 94.422,
+              "overlay_boxes": [
+                [
+                  513,
+                  881,
+                  528,
+                  900
+                ]
+              ],
+              "recipient_name_occluded": false
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Passion cap went up by 50.",
+              "confidence": 97.877,
+              "box": [
+                317,
+                824,
+                577,
+                851
+              ]
+            },
+            {
+              "text": "Visuals cap went up by 50.",
+              "confidence": 99.848,
+              "box": [
+                316,
+                847,
+                575,
+                877
+              ]
+            },
+            {
+              "text": "Composure cap went yup by 50.",
+              "confidence": 0,
+              "box": [
+                315,
+                868,
+                616,
+                903
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 94.422
+            },
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 99.676,
+              "box": [
+                315,
+                894,
+                530,
+                924
+              ]
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 97.824,
+              "box": [
+                316,
+                919,
+                533,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962500,
+        "evidence": "gameplay/part-008-frame-000011.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_cap_change",
+            "field": "composure",
+            "amount": 50,
+            "raw_text": "Composure cap went up by 50.",
+            "confidence": 97.229
+          },
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 99.954
+          },
+          {
+            "kind": "performance_change",
+            "field": "visual",
+            "amount": 10,
+            "raw_text": "Visuals went up by 10.",
+            "confidence": 99.957
+          }
+        ],
+        "facts": {
+          "effect_candidates": [
+            {
+              "kind": "performance_change",
+              "field": "vocal",
+              "amount": 1,
+              "raw_text": "Vocals went up by 1",
+              "confidence": 95.975
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 97.229,
+              "box": [
+                317,
+                823,
+                615,
+                853
+              ]
+            },
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 99.954,
+              "box": [
+                316,
+                847,
+                531,
+                877
+              ]
+            },
+            {
+              "text": "Vocals went up by 1",
+              "confidence": 95.975,
+              "box": [
+                317,
+                872,
+                534,
+                901
+              ]
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 91.53,
+              "box": [
+                317,
+                896,
+                538,
+                923
+              ]
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "confidence": 99.957,
+              "box": [
+                316,
+                919,
+                536,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962750,
+        "evidence": "gameplay/part-008-frame-000012.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 98.149
+          },
+          {
+            "kind": "performance_change",
+            "field": "vocal",
+            "amount": 10,
+            "raw_text": "Vocals went up by 10.",
+            "confidence": 99.26
+          },
+          {
+            "kind": "performance_change",
+            "field": "visual",
+            "amount": 10,
+            "raw_text": "Visuals went up by 10.",
+            "confidence": 97.175
+          },
+          {
+            "kind": "performance_change",
+            "field": "composure",
+            "amount": 10,
+            "raw_text": "Composure went up by 10.",
+            "confidence": 99.876
+          }
+        ],
+        "facts": {},
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 98.149,
+              "box": [
+                317,
+                824,
+                529,
+                851
+              ]
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 99.26,
+              "box": [
+                316,
+                848,
+                531,
+                875
+              ]
+            },
+            {
+              "text": "Passion went up by",
+              "confidence": 99.618,
+              "box": [
+                315,
+                869,
+                539,
+                901
+              ]
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "confidence": 97.175,
+              "box": [
+                316,
+                895,
+                537,
+                925
+              ]
+            },
+            {
+              "text": "Composure went up by 10.",
+              "confidence": 99.876,
+              "box": [
+                317,
+                919,
+                576,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 963000,
+        "evidence": "gameplay/part-008-frame-000013.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 98.374
+          },
+          {
+            "kind": "performance_change",
+            "field": "vocal",
+            "amount": 10,
+            "raw_text": "Vocals went up by 10.",
+            "confidence": 98.1
+          },
+          {
+            "kind": "performance_change",
+            "field": "composure",
+            "amount": 10,
+            "raw_text": "Composure went up by 10.",
+            "confidence": 99.934
+          }
+        ],
+        "facts": {
+          "occluded_receipt_lines": [
+            {
+              "text": "Passion went up by 0.",
+              "box": [
+                317,
+                873,
+                538,
+                899
+              ],
+              "confidence": 98.132,
+              "overlay_boxes": [
+                [
+                  507,
+                  886,
+                  521,
+                  905
+                ]
+              ],
+              "recipient_name_occluded": false
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "box": [
+                316,
+                894,
+                537,
+                924
+              ],
+              "confidence": 95.863,
+              "overlay_boxes": [
+                [
+                  507,
+                  886,
+                  521,
+                  905
+                ]
+              ],
+              "recipient_name_occluded": false
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 98.374,
+              "box": [
+                317,
+                824,
+                529,
+                851
+              ]
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 98.1,
+              "box": [
+                317,
+                848,
+                532,
+                875
+              ]
+            },
+            {
+              "text": "Passion went up by 0.",
+              "confidence": 0,
+              "box": [
+                317,
+                873,
+                538,
+                899
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 98.132
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "confidence": 0,
+              "box": [
+                316,
+                894,
+                537,
+                924
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 95.863
+            },
+            {
+              "text": "Composure went up by 10.",
+              "confidence": 99.934,
+              "box": [
+                317,
+                919,
+                576,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 963250,
+        "evidence": "gameplay/part-008-frame-000014.png",
+        "screen": "event_outcome",
+        "context_title": null,
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 98.423
+          },
+          {
+            "kind": "performance_change",
+            "field": "vocal",
+            "amount": 10,
+            "raw_text": "Vocals went up by 10.",
+            "confidence": 98.205
+          },
+          {
+            "kind": "performance_change",
+            "field": "composure",
+            "amount": 10,
+            "raw_text": "Composure went up by 10.",
+            "confidence": 99.865
+          }
+        ],
+        "facts": {
+          "occluded_receipt_lines": [
+            {
+              "text": "Passion went up by 10.",
+              "box": [
+                317,
+                873,
+                538,
+                899
+              ],
+              "confidence": 99.15,
+              "overlay_boxes": [
+                [
+                  503,
+                  887,
+                  518,
+                  905
+                ]
+              ],
+              "recipient_name_occluded": false
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "box": [
+                317,
+                896,
+                536,
+                923
+              ],
+              "confidence": 93.861,
+              "overlay_boxes": [
+                [
+                  503,
+                  887,
+                  518,
+                  905
+                ]
+              ],
+              "recipient_name_occluded": false
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": "Classic Year Late Dec"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 98.423,
+              "box": [
+                317,
+                824,
+                529,
+                851
+              ]
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 98.205,
+              "box": [
+                317,
+                848,
+                532,
+                875
+              ]
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 0,
+              "box": [
+                317,
+                873,
+                538,
+                899
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 99.15
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "confidence": 0,
+              "box": [
+                317,
+                896,
+                536,
+                923
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 93.861
+            },
+            {
+              "text": "Composure went up by 10.",
+              "confidence": 99.865,
+              "box": [
+                317,
+                919,
+                576,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 963500,
+        "evidence": "gameplay/part-008-frame-000015.png",
+        "screen": "event_outcome",
+        "context_title": null,
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 10,
+            "raw_text": "Dance went up by 10.",
+            "confidence": 98.032
+          },
+          {
+            "kind": "performance_change",
+            "field": "vocal",
+            "amount": 10,
+            "raw_text": "Vocals went up by 10.",
+            "confidence": 97.761
+          },
+          {
+            "kind": "performance_change",
+            "field": "composure",
+            "amount": 10,
+            "raw_text": "Composure went up by 10.",
+            "confidence": 98.97
+          }
+        ],
+        "facts": {
+          "occluded_receipt_lines": [
+            {
+              "text": "Passion went up by10.",
+              "box": [
+                315,
+                869,
+                540,
+                901
+              ],
+              "confidence": 99.5,
+              "overlay_boxes": [
+                [
+                  503,
+                  887,
+                  518,
+                  905
+                ]
+              ],
+              "recipient_name_occluded": false
+            }
+          ]
+        },
+        "stats": {
+          "values": null,
+          "turns_remaining_to_goal": null,
+          "calendar_text": null
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 98.032,
+              "box": [
+                317,
+                824,
+                529,
+                851
+              ]
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 97.761,
+              "box": [
+                315,
+                846,
+                534,
+                877
+              ]
+            },
+            {
+              "text": "Passion went up by10.",
+              "confidence": 0,
+              "box": [
+                315,
+                869,
+                540,
+                901
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 99.5
+            },
+            {
+              "text": "Visuals went up by TO.",
+              "confidence": 93.023,
+              "box": [
+                316,
+                893,
+                539,
+                926
+              ]
+            },
+            {
+              "text": "Composure went up by 10.",
+              "confidence": 98.97,
+              "box": [
+                316,
+                919,
+                576,
+                949
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "additional": [
+      {
+        "source_timestamp_ms": 962317,
+        "evidence": "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000018.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "passion",
+            "amount": 10,
+            "raw_text": "Passion went up by 10.",
+            "confidence": 99.923
+          }
+        ],
+        "facts": {},
+        "stats": {},
+        "ocr": {
+          "neural": [
+            {
+              "text": "Visuals cap went up by 50.",
+              "confidence": 99.953,
+              "box": [
+                316,
+                824,
+                575,
+                857
+              ]
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 99.356,
+              "box": [
+                317,
+                850,
+                616,
+                879
+              ]
+            },
+            {
+              "text": "Dance went up by 1",
+              "confidence": 0,
+              "box": [
+                316,
+                875,
+                534,
+                904
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 98.324
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 98.01,
+              "box": [
+                316,
+                898,
+                535,
+                928
+              ]
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 99.923,
+              "box": [
+                315,
+                922,
+                539,
+                952
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962350,
+        "evidence": "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000019.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "passion",
+            "amount": 10,
+            "raw_text": "Passion went up by 10.",
+            "confidence": 97.672
+          }
+        ],
+        "facts": {},
+        "stats": {},
+        "ocr": {
+          "neural": [
+            {
+              "text": "Visuals cap went up by 50.",
+              "confidence": 98.002,
+              "box": [
+                317,
+                822,
+                573,
+                852
+              ]
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 98.874,
+              "box": [
+                316,
+                846,
+                615,
+                877
+              ]
+            },
+            {
+              "text": "Dance went up by 1",
+              "confidence": 0,
+              "box": [
+                314,
+                867,
+                534,
+                902
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 96.962
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 93.491,
+              "box": [
+                316,
+                894,
+                534,
+                924
+              ]
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 97.672,
+              "box": [
+                315,
+                919,
+                539,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962383,
+        "evidence": "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000020.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "passion",
+            "amount": 10,
+            "raw_text": "Passion went up by 10.",
+            "confidence": 99.583
+          }
+        ],
+        "facts": {},
+        "stats": {},
+        "ocr": {
+          "neural": [
+            {
+              "text": "Visuals cap went up by 50.",
+              "confidence": 98.017,
+              "box": [
+                317,
+                822,
+                573,
+                852
+              ]
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 99.228,
+              "box": [
+                316,
+                847,
+                615,
+                877
+              ]
+            },
+            {
+              "text": "Dance went up by 1",
+              "confidence": 0,
+              "box": [
+                316,
+                872,
+                533,
+                901
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 96.878
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 98.355,
+              "box": [
+                317,
+                896,
+                533,
+                923
+              ]
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 99.583,
+              "box": [
+                316,
+                919,
+                540,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962417,
+        "evidence": "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000021.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "passion",
+            "amount": 10,
+            "raw_text": "Passion went up by 10.",
+            "confidence": 99.949
+          }
+        ],
+        "facts": {},
+        "stats": {},
+        "ocr": {
+          "neural": [
+            {
+              "text": "Visuals cap went up by 50.",
+              "confidence": 97.908,
+              "box": [
+                317,
+                822,
+                573,
+                852
+              ]
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 99.221,
+              "box": [
+                316,
+                847,
+                615,
+                877
+              ]
+            },
+            {
+              "text": "Dance went up by 1",
+              "confidence": 0,
+              "box": [
+                316,
+                872,
+                533,
+                901
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 97.57
+            },
+            {
+              "text": "Vocals went up by 10.",
+              "confidence": 95.718,
+              "box": [
+                316,
+                895,
+                534,
+                925
+              ]
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 99.949,
+              "box": [
+                315,
+                919,
+                540,
+                949
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962450,
+        "evidence": "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000022.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "passion",
+            "amount": 10,
+            "raw_text": "Passion went up by 10.",
+            "confidence": 99.456
+          }
+        ],
+        "facts": {},
+        "stats": {},
+        "ocr": {
+          "neural": [
+            {
+              "text": "ua cap wem up y .",
+              "confidence": 69.473,
+              "box": [
+                321,
+                820,
+                575,
+                840
+              ]
+            },
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 99.906,
+              "box": [
+                317,
+                836,
+                616,
+                866
+              ]
+            },
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 99.118,
+              "box": [
+                317,
+                861,
+                531,
+                887
+              ]
+            },
+            {
+              "text": "Vocals went up by 1",
+              "confidence": 0,
+              "box": [
+                316,
+                883,
+                534,
+                913
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 94.666
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 99.456,
+              "box": [
+                314,
+                906,
+                539,
+                938
+              ]
+            },
+            {
+              "text": "Visuals went up bv 10.",
+              "confidence": 95.678,
+              "box": [
+                317,
+                930,
+                536,
+                959
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 962483,
+        "evidence": "numeric-receipt-recovery/receipt-inspection/961750-963500-30/frame-000023.png",
+        "screen": "event_outcome",
+        "context_title": "New Supporters!",
+        "effects": [
+          {
+            "kind": "performance_change",
+            "field": "passion",
+            "amount": 10,
+            "raw_text": "Passion went up by 10.",
+            "confidence": 99.46
+          }
+        ],
+        "facts": {},
+        "stats": {},
+        "ocr": {
+          "neural": [
+            {
+              "text": "Composure cap went up by 50.",
+              "confidence": 98.116,
+              "box": [
+                315,
+                821,
+                616,
+                856
+              ]
+            },
+            {
+              "text": "Dance went up by 10.",
+              "confidence": 97.95,
+              "box": [
+                317,
+                850,
+                530,
+                877
+              ]
+            },
+            {
+              "text": "Vocals went up by 1",
+              "confidence": 0,
+              "box": [
+                316,
+                871,
+                534,
+                903
+              ],
+              "overlay_occluded": true,
+              "pre_occlusion_confidence": 99.391
+            },
+            {
+              "text": "Passion went up by 10.",
+              "confidence": 99.46,
+              "box": [
+                316,
+                895,
+                538,
+                925
+              ]
+            },
+            {
+              "text": "Visuals went up by 10.",
+              "confidence": 99.236,
+              "box": [
+                316,
+                919,
+                537,
+                952
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "kind": "performance_change",
+      "field": "passion",
+      "amount": 10
+    }
+  },
+  "opening": {
+    "readings": [
+      {
+        "source_timestamp_ms": 637500,
+        "evidence": "gameplay/part-005-frame-000151.png",
+        "screen": "training_preview",
+        "context_title": "Floor Cleaning",
+        "effects": [],
+        "facts": {
+          "performance_points": {
+            "passion": 51,
+            "vocal": 56,
+            "visual": 52,
+            "composure": 85
+          }
+        },
+        "stats": {
+          "values": {
+            "speed": 566,
+            "stamina": 364,
+            "power": 461,
+            "guts": 254,
+            "wit": 446,
+            "skill_points": 862
+          },
+          "turns_remaining_to_goal": 10,
+          "calendar_text": "Classic Year Late Jun"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "0%",
+              "confidence": 92.282,
+              "box": [
+                318,
+                786,
+                358,
+                813
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.961,
+              "box": [
+                285,
+                812,
+                314,
+                832
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.93,
+              "box": [
+                284,
+                842,
+                314,
+                867
+              ]
+            },
+            {
+              "text": "Speed",
+              "confidence": 99.669,
+              "box": [
+                296,
+                863,
+                378,
+                899
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.878,
+              "box": [
+                389,
+                854,
+                423,
+                880
+              ]
+            },
+            {
+              "text": "Vo",
+              "confidence": 99.667,
+              "box": [
+                499,
+                857,
+                531,
+                880
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.925,
+              "box": [
+                607,
+                858,
+                639,
+                880
+              ]
+            },
+            {
+              "text": "Co",
+              "confidence": 99.727,
+              "box": [
+                718,
+                860,
+                744,
+                879
+              ]
+            },
+            {
+              "text": "LVL4",
+              "confidence": 69.767,
+              "box": [
+                305,
+                889,
+                371,
+                917
+              ]
+            },
+            {
+              "text": "Vo",
+              "confidence": 99.874,
+              "box": [
+                389,
+                888,
+                421,
+                913
+              ]
+            },
+            {
+              "text": "P2",
+              "confidence": 69.807,
+              "box": [
+                714,
+                888,
+                742,
+                915
+              ]
+            },
+            {
+              "text": "Stamina",
+              "confidence": 99.675,
+              "box": [
+                396,
+                912,
+                494,
+                945
+              ]
+            },
+            {
+              "text": "Power",
+              "confidence": 99.876,
+              "box": [
+                517,
+                914,
+                590,
+                943
+              ]
+            },
+            {
+              "text": "Guts",
+              "confidence": 99.987,
+              "box": [
+                630,
+                913,
+                691,
+                943
+              ]
+            },
+            {
+              "text": "Wit",
+              "confidence": 98.91,
+              "box": [
+                746,
+                913,
+                794,
+                944
+              ]
+            },
+            {
+              "text": "LvL",
+              "confidence": 76.925,
+              "box": [
+                411,
+                936,
+                478,
+                965
+              ]
+            },
+            {
+              "text": "Lvl 1",
+              "confidence": 78.755,
+              "box": [
+                520,
+                935,
+                583,
+                967
+              ]
+            },
+            {
+              "text": "LvI1",
+              "confidence": 86.333,
+              "box": [
+                628,
+                936,
+                690,
+                965
+              ]
+            },
+            {
+              "text": "LvL4",
+              "confidence": 79.602,
+              "box": [
+                734,
+                936,
+                799,
+                965
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 637750,
+        "evidence": "gameplay/part-005-frame-000152.png",
+        "screen": "training_preview",
+        "context_title": "Incline",
+        "effects": [],
+        "facts": {
+          "performance_points": {
+            "dance": 89,
+            "passion": 51,
+            "vocal": 56,
+            "visual": 52,
+            "composure": 85
+          }
+        },
+        "stats": {
+          "values": {
+            "speed": 566,
+            "stamina": 364,
+            "power": 461,
+            "guts": 254,
+            "wit": 446,
+            "skill_points": 862
+          },
+          "turns_remaining_to_goal": 10,
+          "calendar_text": "Classic Year Late Jun"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Failure",
+              "confidence": 99.988,
+              "box": [
+                737,
+                771,
+                798,
+                796
+              ]
+            },
+            {
+              "text": "0%",
+              "confidence": 99.726,
+              "box": [
+                749,
+                790,
+                786,
+                814
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.975,
+              "box": [
+                283,
+                849,
+                315,
+                868
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.987,
+              "box": [
+                392,
+                866,
+                422,
+                885
+              ]
+            },
+            {
+              "text": "Vo",
+              "confidence": 99.671,
+              "box": [
+                496,
+                864,
+                531,
+                886
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.974,
+              "box": [
+                604,
+                855,
+                640,
+                877
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.95,
+              "box": [
+                713,
+                854,
+                744,
+                873
+              ]
+            },
+            {
+              "text": "Wit",
+              "confidence": 92.639,
+              "box": [
+                740,
+                866,
+                809,
+                902
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.429,
+              "box": [
+                280,
+                878,
+                316,
+                903
+              ]
+            },
+            {
+              "text": "Speed",
+              "confidence": 99.85,
+              "box": [
+                296,
+                896,
+                377,
+                927
+              ]
+            },
+            {
+              "text": "Vo",
+              "confidence": 99.7,
+              "box": [
+                392,
+                898,
+                420,
+                917
+              ]
+            },
+            {
+              "text": "uts",
+              "confidence": 86.021,
+              "box": [
+                626,
+                897,
+                693,
+                935
+              ]
+            },
+            {
+              "text": "LvI4",
+              "confidence": 75.211,
+              "box": [
+                305,
+                918,
+                370,
+                947
+              ]
+            },
+            {
+              "text": "Stamina",
+              "confidence": 99.935,
+              "box": [
+                395,
+                915,
+                492,
+                943
+              ]
+            },
+            {
+              "text": "Lvl2",
+              "confidence": 64.598,
+              "box": [
+                410,
+                936,
+                479,
+                965
+              ]
+            },
+            {
+              "text": "Power",
+              "confidence": 99.828,
+              "box": [
+                514,
+                913,
+                591,
+                944
+              ]
+            },
+            {
+              "text": "Lvl 1",
+              "confidence": 76.179,
+              "box": [
+                520,
+                934,
+                583,
+                966
+              ]
+            },
+            {
+              "text": "Lvl1",
+              "confidence": 78.461,
+              "box": [
+                629,
+                925,
+                690,
+                955
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 638000,
+        "evidence": "gameplay/part-005-frame-000153.png",
+        "screen": "unknown",
+        "context_title": "Freestyle",
+        "effects": [],
+        "facts": {},
+        "stats": {
+          "values": {
+            "speed": 566,
+            "stamina": 364,
+            "power": 461,
+            "guts": 254,
+            "wit": 446,
+            "skill_points": 862
+          },
+          "turns_remaining_to_goal": 10,
+          "calendar_text": "Classic Year Late Jun"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Pa",
+              "confidence": 99.848,
+              "box": [
+                393,
+                794,
+                420,
+                815
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.938,
+              "box": [
+                281,
+                838,
+                317,
+                864
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.898,
+              "box": [
+                608,
+                841,
+                639,
+                864
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.964,
+              "box": [
+                283,
+                872,
+                315,
+                895
+              ]
+            },
+            {
+              "text": "Stamina",
+              "confidence": 99.941,
+              "box": [
+                396,
+                864,
+                493,
+                899
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.952,
+              "box": [
+                714,
+                871,
+                745,
+                895
+              ]
+            },
+            {
+              "text": "Speed",
+              "confidence": 99.038,
+              "box": [
+                298,
+                913,
+                377,
+                945
+              ]
+            },
+            {
+              "text": "Power",
+              "confidence": 99.959,
+              "box": [
+                514,
+                910,
+                591,
+                940
+              ]
+            },
+            {
+              "text": "Guts",
+              "confidence": 99.986,
+              "box": [
+                630,
+                913,
+                690,
+                943
+              ]
+            },
+            {
+              "text": "Wit",
+              "confidence": 99.357,
+              "box": [
+                741,
+                913,
+                794,
+                943
+              ]
+            },
+            {
+              "text": "LvI4",
+              "confidence": 77.874,
+              "box": [
+                305,
+                936,
+                372,
+                965
+              ]
+            },
+            {
+              "text": "Lvl 1",
+              "confidence": 80.89,
+              "box": [
+                521,
+                933,
+                583,
+                962
+              ]
+            },
+            {
+              "text": "LvI1",
+              "confidence": 80.416,
+              "box": [
+                628,
+                936,
+                689,
+                966
+              ]
+            },
+            {
+              "text": "Lvl4",
+              "confidence": 87.977,
+              "box": [
+                735,
+                936,
+                800,
+                965
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 638250,
+        "evidence": "gameplay/part-005-frame-000154.png",
+        "screen": "training_preview",
+        "context_title": "Floor Cleaning",
+        "effects": [],
+        "facts": {
+          "performance_points": {
+            "dance": 89,
+            "vocal": 56,
+            "visual": 52,
+            "composure": 85
+          }
+        },
+        "stats": {
+          "values": {
+            "speed": 566,
+            "stamina": 364,
+            "power": 461,
+            "guts": 254,
+            "wit": 446,
+            "skill_points": 862
+          },
+          "turns_remaining_to_goal": 10,
+          "calendar_text": "Classic Year Late Jun"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "Failure",
+              "confidence": 94.527,
+              "box": [
+                307,
+                770,
+                369,
+                794
+              ]
+            },
+            {
+              "text": "0%",
+              "confidence": 91.097,
+              "box": [
+                318,
+                787,
+                358,
+                815
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.922,
+              "box": [
+                284,
+                811,
+                316,
+                834
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.86,
+              "box": [
+                283,
+                841,
+                315,
+                866
+              ]
+            },
+            {
+              "text": "Spead",
+              "confidence": 95.137,
+              "box": [
+                296,
+                865,
+                379,
+                899
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.955,
+              "box": [
+                391,
+                856,
+                422,
+                879
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.952,
+              "box": [
+                609,
+                860,
+                637,
+                879
+              ]
+            },
+            {
+              "text": "Co",
+              "confidence": 99.831,
+              "box": [
+                717,
+                859,
+                744,
+                879
+              ]
+            },
+            {
+              "text": "LVI",
+              "confidence": 72.204,
+              "box": [
+                304,
+                889,
+                371,
+                917
+              ]
+            },
+            {
+              "text": "Vo",
+              "confidence": 99.461,
+              "box": [
+                391,
+                886,
+                421,
+                912
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.873,
+              "box": [
+                713,
+                887,
+                743,
+                912
+              ]
+            },
+            {
+              "text": "Stamina",
+              "confidence": 98.912,
+              "box": [
+                396,
+                911,
+                493,
+                944
+              ]
+            },
+            {
+              "text": "Power",
+              "confidence": 99.884,
+              "box": [
+                514,
+                913,
+                591,
+                944
+              ]
+            },
+            {
+              "text": "Guts",
+              "confidence": 99.978,
+              "box": [
+                629,
+                912,
+                691,
+                944
+              ]
+            },
+            {
+              "text": "Wit",
+              "confidence": 99.316,
+              "box": [
+                742,
+                913,
+                793,
+                943
+              ]
+            },
+            {
+              "text": "Lvl 2",
+              "confidence": 83.504,
+              "box": [
+                409,
+                936,
+                477,
+                965
+              ]
+            },
+            {
+              "text": "Lvl1",
+              "confidence": 86.84,
+              "box": [
+                521,
+                936,
+                582,
+                965
+              ]
+            },
+            {
+              "text": "LvI1",
+              "confidence": 86.707,
+              "box": [
+                629,
+                937,
+                689,
+                965
+              ]
+            },
+            {
+              "text": "LvL 4",
+              "confidence": 83.003,
+              "box": [
+                734,
+                936,
+                800,
+                965
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "source_timestamp_ms": 638500,
+        "evidence": "gameplay/part-005-frame-000155.png",
+        "screen": "training_preview",
+        "context_title": "Floor Cleaning",
+        "effects": [],
+        "facts": {
+          "performance_points": {
+            "vocal": 56,
+            "visual": 52,
+            "composure": 85
+          }
+        },
+        "stats": {
+          "values": {
+            "speed": 566,
+            "stamina": 364,
+            "power": 461,
+            "guts": 254,
+            "wit": 446,
+            "skill_points": 862
+          },
+          "turns_remaining_to_goal": 10,
+          "calendar_text": "Classic Year Late Jun"
+        },
+        "ocr": {
+          "neural": [
+            {
+              "text": "0%",
+              "confidence": 97.707,
+              "box": [
+                335,
+                786,
+                375,
+                813
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.418,
+              "box": [
+                300,
+                809,
+                333,
+                832
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.978,
+              "box": [
+                300,
+                839,
+                333,
+                864
+              ]
+            },
+            {
+              "text": "Speed",
+              "confidence": 98.917,
+              "box": [
+                314,
+                865,
+                403,
+                896
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.937,
+              "box": [
+                401,
+                853,
+                432,
+                878
+              ]
+            },
+            {
+              "text": "Da",
+              "confidence": 99.96,
+              "box": [
+                598,
+                857,
+                627,
+                876
+              ]
+            },
+            {
+              "text": "LvL 45",
+              "confidence": 65.487,
+              "box": [
+                321,
+                884,
+                402,
+                918
+              ]
+            },
+            {
+              "text": "Vo",
+              "confidence": 99.748,
+              "box": [
+                402,
+                885,
+                432,
+                909
+              ]
+            },
+            {
+              "text": "Pa",
+              "confidence": 99.932,
+              "box": [
+                697,
+                885,
+                726,
+                910
+              ]
+            },
+            {
+              "text": "Stamina",
+              "confidence": 99.853,
+              "box": [
+                407,
+                913,
+                503,
+                940
+              ]
+            },
+            {
+              "text": "Power",
+              "confidence": 94.454,
+              "box": [
+                513,
+                911,
+                591,
+                941
+              ]
+            },
+            {
+              "text": "Guts",
+              "confidence": 99.992,
+              "box": [
+                621,
+                911,
+                680,
+                940
+              ]
+            },
+            {
+              "text": "Wit",
+              "confidence": 99.362,
+              "box": [
+                726,
+                911,
+                775,
+                941
+              ]
+            },
+            {
+              "text": "Lvl2",
+              "confidence": 85.248,
+              "box": [
+                421,
+                935,
+                485,
+                960
+              ]
+            },
+            {
+              "text": "LvI",
+              "confidence": 83.121,
+              "box": [
+                522,
+                935,
+                569,
+                960
+              ]
+            },
+            {
+              "text": "Lvl",
+              "confidence": 95.357,
+              "box": [
+                621,
+                935,
+                667,
+                960
+              ]
+            },
+            {
+              "text": "Lv1 4",
+              "confidence": 84.068,
+              "box": [
+                718,
+                935,
+                781,
+                960
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "action_time_ms": 644000,
+    "expected_values": {
+      "dance": 89,
+      "passion": 51,
+      "vocal": 56,
+      "visual": 52,
+      "composure": 85
+    }
+  }
+}

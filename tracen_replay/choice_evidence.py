@@ -34,8 +34,12 @@ def _card_text(lines,bands,minimum=97):
 
 def observe(pane,lines=(),include_slots=False):
     if pane.size!=(810,1080):raise ValueError('Expected isolated 810x1080 gameplay pixels.')
-    pixels=np.asarray(pane.convert('RGB')).astype('int16')
-    yellow=(pixels[:,:,0]>220)&(pixels[:,:,1]>210)&(pixels[:,:,2]<130)
+    # Every detector below reads rows 250..800 only.  Build the masks for that
+    # band and pad them back to full height so the row indices stay unchanged.
+    band=np.asarray(pane.convert('RGB'))[250:800].astype('int16')
+    def _full(mask):
+        full=np.zeros((1080,810),dtype=bool);full[250:800]=mask;return full
+    yellow=_full((band[:,:,0]>220)&(band[:,:,1]>210)&(band[:,:,2]<130))
     sides=[]
     for left in (110,650):
         ys=np.where(yellow[250:800,left:left+55].sum(axis=1)>=5)[0]+250
@@ -54,11 +58,24 @@ def observe(pane,lines=(),include_slots=False):
     for left in sides[0]:
         matches=[right for right in sides[1] if abs(left['box'][1]-right['box'][1])<=8 and abs(left['box'][3]-right['box'][3])<=8]
         if len(matches)==1:pairs.append(dict(left=left,right=matches[0]))
-    white=(pixels.min(axis=2)>=240)&(pixels.max(axis=2)-pixels.min(axis=2)<=15)
-    green=(pixels[:,:,0]>150)&(pixels[:,:,1]>220)&(pixels[:,:,2]<190)&(pixels[:,:,1]-pixels[:,:,0]>20)
+    low=band.min(axis=2);high=band.max(axis=2)
+    white=_full((low>=240)&(high-low<=15))
+    green=_full((band[:,:,0]>150)&(band[:,:,1]>220)&(band[:,:,2]<190)&(band[:,:,1]-band[:,:,0]>20))
     bands=_card_bands(white)
     cards,complete=_card_text(lines,bands)
-    selected,_=_card_text(lines,_card_bands(green))
+    # The selected card is a separate visual channel from menu text.  Keep
+    # its OCR candidate even when a moving highlight damages one glyph below
+    # the offered-menu confidence gate.  The commitment adapter still binds
+    # this candidate to the repeated prior menu and validates this marker;
+    # this does not lower the confidence required for ordinary option text.
+    green_bands=_card_bands(green)
+    selected,_=_card_text(lines,green_bands,minimum=0)
+    for card,(top,bottom) in zip(selected,green_bands):
+        card['selection_visual_proof']={
+            'kind':'green_card_fill',
+            'detector':'choice_evidence.green_card_fill_v1',
+            'green_pixels':int(green[top:bottom,175:610].sum()),
+        }
     result=dict(offered_card_candidates=cards,selection_mark_pairs=pairs,
                 menu_text_complete=complete,selected_card_candidates=selected,
                 selected_option=None,selection_verified=False)

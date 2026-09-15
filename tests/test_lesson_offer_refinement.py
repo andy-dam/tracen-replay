@@ -135,8 +135,21 @@ class LessonOfferRefinementTests(unittest.TestCase):
         self.assertEqual(price["unknown_reason"], "low_confidence")
         self.assertEqual(observed["offers"][0]["status"], "unknown")
 
-    def test_letter_o_is_not_a_zero(self):
+    def test_lone_letter_o_reads_as_zero_and_records_the_substitution(self):
+        # Price slots hold digits only; the recognizer emits the letter O for
+        # a lone zero glyph often enough that the row was dropped.  The value
+        # is accepted under the normal confidence gate and the substitution is
+        # recorded so the sidecar stays auditable.
         texts = ["0", "21", "O", "21", "0", "0", "0", "21", "0", "21", "21", "0", "0", "21", "0"]
+        pane, raw, extra = self.build_extra(texts=texts)
+        observed = observe(pane, raw, extra)
+        price = observed["offers"][0]["prices"][2]
+        self.assertEqual(price["value"], 0)
+        self.assertEqual(price["text"], "0")
+        self.assertEqual(price["digit_normalization"], {"observed_text": "O", "rule": "letter_o_to_zero"})
+
+    def test_other_letters_stay_ambiguous(self):
+        texts = ["0", "21", "D", "21", "0", "0", "0", "21", "0", "21", "21", "0", "0", "21", "0"]
         pane, raw, extra = self.build_extra(texts=texts)
         observed = observe(pane, raw, extra)
         self.assertIsNone(observed["offers"][0]["prices"][2]["value"])

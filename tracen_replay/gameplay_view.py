@@ -32,10 +32,18 @@ def render_gameplay(report):
         if row['effects'] or row['facts']:
             facts.append(f'<details><summary>{row["source_timestamp_ms"]/1000:.3f}s · {escape(row["screen"])} · observed fields</summary>{proof(row["evidence"])}<pre>{escape(json.dumps(dict(effects=row["effects"],facts=row["facts"]),indent=2))}</pre></details>')
     purchases = []
+    acquisition_conflicts={}
+    conflicted_events=set()
+    for entry in report.get('turn_ledger',{}).get('timeline',[]):
+        for conflict in entry.get('acquisition_conflicts',[]):
+            acquisition_conflicts.setdefault(conflict['source_ref'],conflict)
+            if entry.get('event_id'):conflicted_events.add(entry['event_id'])
     for row in data.get('lesson_purchases',[]):
         cost = ', '.join(f'{value} {name}' for name,value in (row['performance_cost'] or {}).items() if value) or 'Unresolved'
         evidence = ' · '.join(proof(path,f'Evidence {i+1}') for i,path in enumerate(row['evidence']))
-        purchases.append(f'<li>{escape(row["name"])} · cost: {escape(cost)} ({escape(row.get("cost_basis","observed debit"))}) · {evidence}. Observed awards: {escape(str(row.get("awarded_stats")))}.</li>')
+        warning=(' <strong>Acquisition name unresolved; see alternatives below.</strong>'
+                 if row.get('name_conflicted') or row.get('receipt_event_id') in conflicted_events else '')
+        purchases.append(f'<li>{escape(row["name"])}{warning} · cost: {escape(cost)} ({escape(row.get("cost_basis","observed debit"))}) · {evidence}. Observed awards: {escape(str(row.get("awarded_stats")))}.</li>')
     heading = '<h2>Gameplay-only analysis</h2><p>Only the gameplay crop is read. A confirmation is a request; a preview is not an award. Unknown fields remain unknown. Screen spans are observations, not action counts.</p>'
     accounting = '<h3>Observed stat checkpoints</h3><table><tr><th>Source time</th><th>Speed</th><th>Stamina</th><th>Power</th><th>Guts</th><th>Wit</th><th>Skill points</th><th>Evidence</th></tr>'+''.join(checkpoints)+'</table><h3>Changes between checkpoints</h3><p>Even a balanced interval requires review of event identity and coverage.</p>'+(''.join(intervals) or '<p>No complete checkpoint pair was observed in this clip.</p>')
     screen_table = '<h3>Observed screens</h3><table><tr><th>Source time</th><th>Screen</th><th>Training result option</th><th>Evidence</th></tr>'+''.join(screens)+'</table>'
@@ -88,4 +96,10 @@ def render_gameplay(report):
                           +''.join(alternatives)+'</ul></details>')
     if identities:
         review+='<h3>Unresolved receipt identities</h3>'+''.join(identities)
+    if acquisition_conflicts:
+        alternatives=[]
+        for conflict in acquisition_conflicts.values():
+            names=' / '.join(str(name) for name in conflict.get('observed_name_candidates',[])) or 'Name unavailable'
+            alternatives.append(f'<li>{escape(names)} · {proof(conflict.get("evidence",[]),"Source")}</li>')
+        review+='<h3>Unresolved acquisition names</h3><p>These are alternative readings of an acquisition, not separate purchases.</p><ul>'+''.join(alternatives)+'</ul>'
     return heading+coverage+review+accounting+'<h3>Supported lesson transitions</h3><ul>'+''.join(purchases)+'</ul>'+skills+screen_table+'<h3>Mechanics observations</h3>'+''.join(facts)

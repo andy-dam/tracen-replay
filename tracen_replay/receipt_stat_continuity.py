@@ -3,7 +3,7 @@ import re
 import math
 from .receipt_continuity import (
     _effect_key, _effect_signature, _explicit_observations, _is_boundary,
-    _same_receipt_slot, _titles_are_compatible, _valid_box,
+    _same_line_geometry, _same_receipt_slot, _titles_are_compatible, _valid_box,
 )
 
 
@@ -15,32 +15,83 @@ def _slot(row,effect):
     """Read only receipt topology; incomplete grammar supplies no award."""
     label=_LABELS.get(effect.get('field'))
     if label is None or type(effect.get('amount')) is not int:return None
-    matches=[]
-    for line in row.get('ocr',{}).get('neural',[]):
-        if not isinstance(line,dict):return None
+    candidates=[]
+
+    def add(line,source):
+        if not isinstance(line,dict):return
         box=line.get('box',[])
-        if not _valid_box(box) or not 790<(box[1]+box[3])/2<950:continue
+        if not _valid_box(box) or not 790<(box[1]+box[3])/2<950:return
+        confidence=line.get('confidence')
+        # ``pre_occlusion_confidence`` is useful for planning, but cannot
+        # certify continuity after the visible line was occluded.  Source
+        # facts therefore need their own finite confidence too.
+        if type(confidence) not in (int,float) or not math.isfinite(confidence) or not 90<=confidence<=100:return
         text=' '.join(str(line.get('text','')).casefold().split())
-        if not text.startswith(label.casefold()+' '):continue
-        # A second line for the same stat is ambiguous regardless of which
-        # OCR spelling happens to have the stronger confidence.
-        matches.append((line,text[len(label):].strip()))
-    if len(matches)!=1:return None
-    line,tail=matches[0]
-    confidence=line.get('confidence',0)
-    if type(confidence) not in (int,float) or not 90<=confidence<=100:return None
-    match=re.fullmatch(r'([a-z ]+?)(?:\s*(\d+))?[.!]?',tail)
-    if match is None:return None
-    letters=match[1].replace(' ','')
-    expected='wentupby' if effect['amount']>=0 else 'wentdownby'
-    # Deletions in fixed receipt grammar can preserve a slot. Arbitrary prose,
-    # substitutions, changed amounts, and unknown field labels cannot.
-    remaining=iter(expected)
-    if not letters.startswith('w') or len(letters)<4 or not all(c in remaining for c in letters):return None
-    if match[2] is not None and match[2]!=str(abs(effect['amount'])):return None
-    return dict(box=list(line['box']),text=line['text'],confidence=confidence,
-                complete=letters==expected and match[2] is not None,
-                amount_observed=match[2] is not None)
+        if not text.startswith(label.casefold()+' '):return
+        tail=text[len(label):].strip()
+        # The effect parser already accepts repeated terminal punctuation. Keep
+        # that same grammar for continuity, without changing any numeric token.
+        match=re.fullmatch(r'([a-z ]+?)(?:\s*(\d+))?[.!]*',tail)
+        if match is None:return
+        letters=match[1].replace(' ','')
+        expected='wentupby' if effect['amount']>=0 else 'wentdownby'
+        # Deletions in fixed receipt grammar can preserve a slot. Record every
+        # plausible up/down grammar before comparing its value to the target;
+        # discarding a contradictory same-box line here would let a valid line
+        # hide an amount or direction conflict from the grouping check below.
+        directions=[]
+        for direction in ('wentupby','wentdownby'):
+            remaining=iter(direction)
+            if (letters.startswith('w') and len(letters)>=4
+                    and all(c in remaining for c in letters)):
+                directions.append(direction)
+        if not directions:return
+        amount=match[2]
+        candidates.append(dict(
+            box=list(box),text=line.get('text'),confidence=confidence,
+            complete=letters==expected and amount is not None and amount==str(abs(effect['amount'])),
+            amount_observed=amount is not None,source=source,
+            observed_amount=int(amount) if amount is not None else None,
+            directions=tuple(directions),
+            matches_effect=(expected in directions
+                            and (amount is None or amount==str(abs(effect['amount'])))),
+        ))
+
+    neural=(row.get('ocr',{}) or {}).get('neural',[])
+    if isinstance(neural,list):
+        for line in neural:
+            if not isinstance(line,dict):return None
+            if line.get('overlay_occluded') is not True:add(line,'ocr')
+    facts=row.get('facts',{})
+    occluded=facts.get('occluded_receipt_lines',[]) if isinstance(facts,dict) else []
+    if isinstance(occluded,list):
+        for line in occluded:
+            if not isinstance(line,dict):return None
+            overlays=line.get('overlay_boxes')
+            if not isinstance(overlays,list) or not any(_valid_box(box) for box in overlays):continue
+            add(line,'source_occlusion')
+
+    # OCR and source-fact records may describe the same physical line. Merge
+    # those duplicate views by tight geometry, while retaining distinct lines
+    # as an ambiguity even if one has higher confidence.
+    groups=[]
+    for candidate in candidates:
+        group=next((group for group in groups
+                    if _same_line_geometry(group[0]['box'],candidate['box'])),None)
+        if group is None:groups.append([candidate])
+        else:group.append(candidate)
+    if len(groups)!=1:return None
+    group=groups[0]
+    # Two entries from the same channel are duplicate OCR output, not two
+    # independent observations. Only a neural/source-fact pair can be merged
+    # because the latter carries the immutable occlusion proof.
+    if len(group)>1 and len({item['source'] for item in group})==1:return None
+    if any(not item['matches_effect'] for item in group):return None
+    observed={item['observed_amount'] for item in group if item['amount_observed']}
+    if observed and observed!={abs(effect['amount'])}:return None
+    selected=max(group,key=lambda item:(item['source']=='source_occlusion',item['confidence']))
+    return {key:selected[key] for key in
+            ('box','text','confidence','complete','amount_observed','source')}
 
 
 def _bridge(left,right,effect,rows,by_evidence):

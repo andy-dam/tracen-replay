@@ -1,0 +1,356 @@
+{
+  "provenance": {
+    "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+    "source_timestamp_ms": 484750,
+    "evidence": "gameplay/part-004-frame-000020.png",
+    "image_sha256": "abce89e864e906180381937a1bd191d4739c2cb20e654dcbe061da0b79f31111",
+    "original_ocr_sha256": "c8e724ea686467e00824691d4221b03e7e2c79e5bff0808b26dec3825de19a2e",
+    "accepted_report_sha256": "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+    "basis": "Original capture regions plus preserved refined/occlusion-filtered OCR lines from accepted report. Source frame visually rechecked during hardening."
+  },
+  "raw": {
+    "lines": [
+      {
+        "text": "Training",
+        "confidence": 96.804,
+        "box": [
+          150,
+          0,
+          229,
+          33
+        ]
+      },
+      {
+        "text": "Classic Year Late Feb",
+        "confidence": 97.004,
+        "box": [
+          390,
+          36,
+          532,
+          53
+        ]
+      },
+      {
+        "text": "5",
+        "confidence": 99.934,
+        "box": [
+          263,
+          52,
+          316,
+          105
+        ]
+      },
+      {
+        "text": "turn(s)",
+        "confidence": 99.889,
+        "box": [
+          322,
+          61,
+          377,
+          82
+        ]
+      },
+      {
+        "text": "Place top 5 in NHK Mile C.",
+        "confidence": 95.952,
+        "box": [
+          445,
+          63,
+          678,
+          88
+        ]
+      },
+      {
+        "text": "left",
+        "confidence": 99.682,
+        "box": [
+          322,
+          78,
+          358,
+          101
+        ]
+      },
+      {
+        "text": "CGoal",
+        "confidence": 83.999,
+        "box": [
+          376,
+          73,
+          445,
+          98
+        ]
+      },
+      {
+        "text": "Details",
+        "confidence": 94.46,
+        "box": [
+          773,
+          74,
+          835,
+          99
+        ]
+      },
+      {
+        "text": "Entry criteria met!",
+        "confidence": 99.96,
+        "box": [
+          447,
+          88,
+          603,
+          112
+        ]
+      },
+      {
+        "text": "Concert in",
+        "confidence": 95.458,
+        "box": [
+          283,
+          110,
+          355,
+          131
+        ]
+      },
+      {
+        "text": "8 turn(s)",
+        "confidence": 92.467,
+        "box": [
+          283,
+          125,
+          368,
+          153
+        ]
+      },
+      {
+        "text": "Energy",
+        "confidence": 99.496,
+        "box": [
+          382,
+          119,
+          440,
+          154
+        ]
+      },
+      {
+        "text": "GREAT",
+        "confidence": 99.828,
+        "box": [
+          724,
+          122,
+          794,
+          150
+        ]
+      },
+      {
+        "text": "Speed Lvl 3",
+        "confidence": 93.85,
+        "box": [
+          229,
+          168,
+          334,
+          195
+        ]
+      },
+      {
+        "text": "Exercise Bike",
+        "confidence": 96.355,
+        "box": [
+          228,
+          201,
+          354,
+          227
+        ]
+      },
+      {
+        "text": "TUP",
+        "confidence": 99.734,
+        "box": [
+          865,
+          315,
+          920,
+          343
+        ]
+      },
+      {
+        "text": "Energy went down by 13.",
+        "confidence": 99.976,
+        "box": [
+          316,
+          805,
+          561,
+          837
+        ]
+      },
+      {
+        "text": "Friendship Dith Light Hello went up by 2.",
+        "confidence": 95.916,
+        "box": [
+          316,
+          831,
+          707,
+          860
+        ]
+      },
+      {
+        "text": "Friendship with Agnes Tachyon went up by 7.",
+        "confidence": 95.856,
+        "box": [
+          315,
+          854,
+          746,
+          884
+        ]
+      },
+      {
+        "text": "8",
+        "confidence": 72.174,
+        "box": [
+          854,
+          1002,
+          941,
+          1077
+        ]
+      },
+      {
+        "text": "Skip",
+        "confidence": 99.876,
+        "box": [
+          518,
+          1035,
+          612,
+          1072
+        ]
+      },
+      {
+        "text": "Quick",
+        "confidence": 99.973,
+        "box": [
+          671,
+          1037,
+          733,
+          1065
+        ]
+      }
+    ],
+    "regions": {},
+    "header": "Training",
+    "result_grid": false,
+    "current_grid": false,
+    "engine_fingerprint": "c49cebcc688923364eb0d4152ab98dac7bfb4078ac1e60a908dc8efacb377541",
+    "model_sha256": {
+      "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+      "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+    },
+    "gameplay_sha256": "9f503a713f782933fe833cc14847efbe02386d96073c4e5b1c58b0955f4f1197",
+    "source_timestamp_ms": 484750,
+    "evidence": "gameplay/part-004-frame-000020.png",
+    "source_frame_sha256": "4e5c6074bef9120de3ce2f6fcbc8de28905deae0abe23fd879f13542ba69e95c",
+    "receipt_overlay_evidence": {
+      "overlay_boxes": [
+        [
+          422,
+          836,
+          437,
+          855
+        ]
+      ],
+      "alignments": [
+        {
+          "line_box": [
+            316,
+            831,
+            707,
+            860
+          ],
+          "recognized_text": "Friendship ith Light Hello went up by 2.",
+          "confidence": 97.286,
+          "words": [
+            "Friendship",
+            "ith",
+            "Light",
+            "Hello",
+            "went",
+            "up",
+            "by",
+            "2."
+          ],
+          "columns": [
+            [
+              2,
+              4,
+              5,
+              7,
+              9,
+              12,
+              14,
+              16,
+              18,
+              19
+            ],
+            [
+              25,
+              27,
+              29
+            ],
+            [
+              32,
+              34,
+              36,
+              38,
+              40
+            ],
+            [
+              44,
+              46,
+              48,
+              50,
+              51
+            ],
+            [
+              55,
+              58,
+              60,
+              62
+            ],
+            [
+              65,
+              68
+            ],
+            [
+              71,
+              74
+            ],
+            [
+              77,
+              79
+            ]
+          ],
+          "line_length": 81.0,
+          "numeric_box": [
+            676.8302469135803,
+            831,
+            707.0,
+            860
+          ]
+        }
+      ],
+      "provenance": {
+        "validated_by": "annotate_path",
+        "raw_sha256": "7f3228e1a421a80d6def4811e4a6ab71d35e3186d6ccd285def9e72e04996162",
+        "evidence_sha256": "abce89e864e906180381937a1bd191d4739c2cb20e654dcbe061da0b79f31111",
+        "model_sha256": {
+          "en_PP-OCRv5_rec_mobile.onnx": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "PP-OCRv6_det_small.onnx": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f"
+        },
+        "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+        "source_frame_sha256": "4e5c6074bef9120de3ce2f6fcbc8de28905deae0abe23fd879f13542ba69e95c",
+        "gameplay_sha256": "9f503a713f782933fe833cc14847efbe02386d96073c4e5b1c58b0955f4f1197",
+        "source_timestamp_ms": 484750,
+        "evidence": "gameplay/part-004-frame-000020.png"
+      }
+    }
+  },
+  "expected_friendships": {
+    "Light Hello": 2,
+    "Agnes Tachyon": 7
+  }
+}

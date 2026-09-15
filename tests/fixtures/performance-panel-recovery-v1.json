@@ -1,0 +1,85 @@
+{
+  "observations": [
+    {
+      "source_report": ".local/turn-explanations-v1/before/v1-report.json",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "source_timestamp_ms": 226500,
+      "screen": "unknown",
+      "evidence": "gameplay/part-001-frame-000427.png",
+      "expected_points": {"dance": 59, "passion": 42, "vocal": 27, "visual": 19, "composure": 74},
+      "lines": [
+        {"text": "Performance", "confidence": 99.941, "box": [169, 262, 247, 282]},
+        {"text": "Points", "confidence": 95.454, "box": [186, 276, 231, 297]},
+        {"text": "59", "confidence": 98.758, "box": [208, 294, 256, 329]},
+        {"text": "Da", "confidence": 99.985, "box": [158, 308, 188, 332]},
+        {"text": "/200", "confidence": 99.839, "box": [202, 321, 252, 346]},
+        {"text": "42", "confidence": 99.984, "box": [210, 351, 254, 384]},
+        {"text": "Pa", "confidence": 99.894, "box": [160, 363, 188, 388]},
+        {"text": "/200", "confidence": 99.961, "box": [202, 376, 252, 402]},
+        {"text": "27", "confidence": 99.954, "box": [210, 407, 254, 439]},
+        {"text": "Vo", "confidence": 99.844, "box": [159, 418, 188, 443]},
+        {"text": "/200", "confidence": 99.926, "box": [202, 432, 252, 457]},
+        {"text": "19", "confidence": 99.97, "box": [211, 462, 252, 494]},
+        {"text": "Vi", "confidence": 99.748, "box": [161, 473, 185, 496]},
+        {"text": "/200", "confidence": 99.911, "box": [203, 487, 252, 512]},
+        {"text": "74", "confidence": 99.976, "box": [209, 517, 253, 549]},
+        {"text": "Co", "confidence": 99.948, "box": [161, 530, 187, 552]},
+        {"text": "/200", "confidence": 99.9, "box": [202, 542, 251, 567]}
+      ]
+    },
+    {
+      "source_report": ".local/turn-explanations-v1/before/v1-report.json",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "source_timestamp_ms": 226750,
+      "screen": "unknown",
+      "evidence": "gameplay/part-001-frame-000428.png",
+      "expected_points": {"dance": 59, "passion": 42, "vocal": 27, "visual": 19, "composure": 74},
+      "lines": [
+        {"text": "Performance", "confidence": 99.941, "box": [169, 262, 247, 282]},
+        {"text": "Points", "confidence": 99.608, "box": [187, 277, 230, 295]},
+        {"text": "59", "confidence": 98.708, "box": [208, 294, 256, 329]},
+        {"text": "Da", "confidence": 99.985, "box": [158, 308, 188, 332]},
+        {"text": "/200", "confidence": 99.908, "box": [202, 322, 253, 346]},
+        {"text": "42", "confidence": 99.984, "box": [210, 351, 254, 384]},
+        {"text": "Pa", "confidence": 99.898, "box": [160, 363, 188, 388]},
+        {"text": "/200", "confidence": 99.921, "box": [203, 376, 252, 402]},
+        {"text": "27", "confidence": 99.954, "box": [210, 407, 254, 439]},
+        {"text": "Vo", "confidence": 99.844, "box": [159, 418, 188, 443]},
+        {"text": "/200", "confidence": 99.926, "box": [202, 432, 252, 457]},
+        {"text": "19", "confidence": 99.97, "box": [211, 462, 252, 494]},
+        {"text": "Vi", "confidence": 99.748, "box": [161, 473, 185, 496]},
+        {"text": "/200", "confidence": 99.911, "box": [203, 487, 252, 512]},
+        {"text": "74", "confidence": 99.976, "box": [209, 517, 253, 549]},
+        {"text": "Co", "confidence": 99.945, "box": [161, 530, 187, 552]},
+        {"text": "/200", "confidence": 99.9, "box": [202, 542, 251, 567]}
+      ]
+    },
+    {
+      "source_report": ".local/turn-explanations-v1/before/independent-01-report.json",
+      "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+      "source_timestamp_ms": 434000,
+      "screen": "unknown",
+      "evidence": "gameplay/part-003-frame-000297.png",
+      "expected_points": {"dance": 58, "passion": 35, "vocal": 26, "visual": 21, "composure": 35},
+      "lines": [
+        {"text": "Performance", "confidence": 99.41, "box": [167, 260, 247, 283]},
+        {"text": "Points", "confidence": 99.631, "box": [186, 277, 230, 295]},
+        {"text": "58", "confidence": 99.573, "box": [208, 294, 256, 329]},
+        {"text": "Da", "confidence": 99.987, "box": [158, 308, 188, 332]},
+        {"text": "/250", "confidence": 99.782, "box": [202, 321, 252, 346]},
+        {"text": "35", "confidence": 99.988, "box": [209, 351, 254, 383]},
+        {"text": "Pa", "confidence": 99.948, "box": [160, 363, 188, 388]},
+        {"text": "/250", "confidence": 99.151, "box": [203, 376, 253, 402]},
+        {"text": "26", "confidence": 99.906, "box": [210, 407, 254, 439]},
+        {"text": "Vo", "confidence": 99.793, "box": [159, 418, 188, 442]},
+        {"text": "/250", "confidence": 99.923, "box": [202, 432, 252, 457]},
+        {"text": "21", "confidence": 99.958, "box": [209, 462, 251, 494]},
+        {"text": "Vi", "confidence": 99.66, "box": [160, 472, 187, 497]},
+        {"text": "/250", "confidence": 99.726, "box": [204, 488, 250, 510]},
+        {"text": "35", "confidence": 99.92, "box": [209, 517, 252, 549]},
+        {"text": "Co", "confidence": 99.94, "box": [161, 530, 187, 552]},
+        {"text": "/250", "confidence": 99.575, "box": [202, 542, 251, 567]}
+      ]
+    }
+  ]
+}

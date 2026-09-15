@@ -1,0 +1,496 @@
+[
+  {
+    "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+    "source_timestamp_ms": 1482750,
+    "evidence": "gameplay/part-012-frame-000172.png",
+    "image_sha256": "b9d9b0a9b02009b2d11494a68c468d74fa3b0ee4f4aae6c06abcf25cfb5c84d3",
+    "accepted_report_sha256": "d1ee64a810900aa9c19892951bd6b6d3481faa1427168d62fe12b8eed0fe3cfb",
+    "raw": {
+      "lines": [
+        {
+          "text": "Career",
+          "confidence": 93.821,
+          "box": [
+            155,
+            5,
+            217,
+            29
+          ]
+        },
+        {
+          "text": "Senior Year Late Dec",
+          "confidence": 98.146,
+          "box": [
+            389,
+            35,
+            533,
+            55
+          ]
+        },
+        {
+          "text": "GOAL",
+          "confidence": 99.97,
+          "box": [
+            260,
+            59,
+            373,
+            100
+          ]
+        },
+        {
+          "text": "Place 1st in Arima Kinen",
+          "confidence": 98.248,
+          "box": [
+            445,
+            61,
+            656,
+            87
+          ]
+        },
+        {
+          "text": "CGoal",
+          "confidence": 85.658,
+          "box": [
+            376,
+            71,
+            445,
+            99
+          ]
+        },
+        {
+          "text": "Details",
+          "confidence": 94.122,
+          "box": [
+            772,
+            74,
+            835,
+            99
+          ]
+        },
+        {
+          "text": "Entry criteria met!",
+          "confidence": 97.453,
+          "box": [
+            447,
+            88,
+            603,
+            112
+          ]
+        },
+        {
+          "text": "Concert begins",
+          "confidence": 99.371,
+          "box": [
+            264,
+            110,
+            371,
+            136
+          ]
+        },
+        {
+          "text": "Energy",
+          "confidence": 99.767,
+          "box": [
+            381,
+            119,
+            441,
+            155
+          ]
+        },
+        {
+          "text": "GOOD",
+          "confidence": 99.876,
+          "box": [
+            729,
+            117,
+            817,
+            152
+          ]
+        },
+        {
+          "text": "after this turn",
+          "confidence": 93.503,
+          "box": [
+            267,
+            129,
+            368,
+            152
+          ]
+        },
+        {
+          "text": "Trainee Event",
+          "confidence": 99.962,
+          "box": [
+            243,
+            171,
+            356,
+            194
+          ]
+        },
+        {
+          "text": "After the Arima Kinen: The Beast",
+          "confidence": 99.613,
+          "box": [
+            241,
+            192,
+            542,
+            219
+          ]
+        },
+        {
+          "text": "Awakens",
+          "confidence": 99.996,
+          "box": [
+            241,
+            216,
+            329,
+            243
+          ]
+        },
+        {
+          "text": "Guts went up by 3.",
+          "confidence": 96.077,
+          "box": [
+            316,
+            804,
+            501,
+            837
+          ]
+        },
+        {
+          "text": "Wit went up by 3",
+          "confidence": 98.89,
+          "box": [
+            315,
+            829,
+            492,
+            861
+          ]
+        },
+        {
+          "text": "Skill Pts went up by 57.",
+          "confidence": 99.868,
+          "box": [
+            317,
+            855,
+            545,
+            881
+          ]
+        },
+        {
+          "text": "Gained 1 hint lev\"(s)r Right-Handed .",
+          "confidence": 95.382,
+          "box": [
+            316,
+            876,
+            728,
+            907
+          ]
+        },
+        {
+          "text": "Friendship wich Direct Akikawa went up by 4.",
+          "confidence": 96.286,
+          "box": [
+            315,
+            900,
+            768,
+            932
+          ]
+        },
+        {
+          "text": "Skip",
+          "confidence": 99.88,
+          "box": [
+            520,
+            1036,
+            572,
+            1070
+          ]
+        },
+        {
+          "text": "Quick",
+          "confidence": 99.991,
+          "box": [
+            672,
+            1038,
+            734,
+            1066
+          ]
+        }
+      ],
+      "regions": {},
+      "header": "",
+      "current_grid": false,
+      "result_grid": false,
+      "receipt_overlay_evidence": {
+        "overlay_boxes": [
+          [
+            544,
+            929,
+            558,
+            947
+          ]
+        ],
+        "alignments": [],
+        "provenance": null
+      }
+    },
+    "expected_absent_friendships": [
+      "Direct Akikawa",
+      "or Akikawa"
+    ],
+    "review_basis": "Full-size source frame visually checked; click particles obscure part of the recipient. No missing name is supplied."
+  },
+  {
+    "source_sha256": "a10bd8261176e2aa79eb991ab0eb6b4b23dc4c8a6ffe13edcb799d43e8982313",
+    "source_timestamp_ms": 1328750,
+    "evidence": "initial-baseline/gameplay/part-011-frame-000036.png",
+    "image_sha256": "da716f18ffccd6aa6db1f0e973d9bde6d03251af43843a7a61952167dfecd4e2",
+    "accepted_report_sha256": "367a168d79d09f1dc7160662fe9802b97eb5c7614d0b0b9c193bd53fd1f5cf4f",
+    "raw": {
+      "lines": [
+        {
+          "text": "Career",
+          "confidence": 95.172,
+          "box": [
+            155,
+            5,
+            217,
+            29
+          ]
+        },
+        {
+          "text": "Senior Year Late Mar",
+          "confidence": 99.277,
+          "box": [
+            388,
+            35,
+            532,
+            55
+          ]
+        },
+        {
+          "text": "GOAL",
+          "confidence": 99.97,
+          "box": [
+            260,
+            58,
+            373,
+            99
+          ]
+        },
+        {
+          "text": "CGoal",
+          "confidence": 87.076,
+          "box": [
+            375,
+            69,
+            446,
+            100
+          ]
+        },
+        {
+          "text": "Place top 3 in Osaka Hai",
+          "confidence": 97.354,
+          "box": [
+            444,
+            62,
+            658,
+            87
+          ]
+        },
+        {
+          "text": "Details",
+          "confidence": 96.197,
+          "box": [
+            773,
+            74,
+            835,
+            99
+          ]
+        },
+        {
+          "text": "Entry criteria met!",
+          "confidence": 99.972,
+          "box": [
+            446,
+            86,
+            604,
+            113
+          ]
+        },
+        {
+          "text": "Concert in",
+          "confidence": 96.648,
+          "box": [
+            284,
+            110,
+            355,
+            131
+          ]
+        },
+        {
+          "text": "6",
+          "confidence": 99.995,
+          "box": [
+            288,
+            131,
+            306,
+            148
+          ]
+        },
+        {
+          "text": "turn(s)",
+          "confidence": 94.023,
+          "box": [
+            310,
+            128,
+            366,
+            150
+          ]
+        },
+        {
+          "text": "Energy",
+          "confidence": 99.316,
+          "box": [
+            382,
+            120,
+            440,
+            154
+          ]
+        },
+        {
+          "text": "GOOD",
+          "confidence": 99.944,
+          "box": [
+            713,
+            118,
+            806,
+            151
+          ]
+        },
+        {
+          "text": "Trainee Event",
+          "confidence": 99.965,
+          "box": [
+            242,
+            171,
+            356,
+            194
+          ]
+        },
+        {
+          "text": "After the Osaka Hai: Spontaneous",
+          "confidence": 98.639,
+          "box": [
+            241,
+            191,
+            550,
+            221
+          ]
+        },
+        {
+          "text": "Generation",
+          "confidence": 99.992,
+          "box": [
+            242,
+            217,
+            348,
+            241
+          ]
+        },
+        {
+          "text": "Power went up by 4.",
+          "confidence": 97.842,
+          "box": [
+            317,
+            807,
+            514,
+            834
+          ]
+        },
+        {
+          "text": "Guts went up by 4.",
+          "confidence": 96.364,
+          "box": [
+            316,
+            830,
+            501,
+            860
+          ]
+        },
+        {
+          "text": "Wit went up by 4.",
+          "confidence": 99.091,
+          "box": [
+            315,
+            853,
+            500,
+            885
+          ]
+        },
+        {
+          "text": "Skill Pts wert upby 7.",
+          "confidence": 95.163,
+          "box": [
+            315,
+            876,
+            541,
+            907
+          ]
+        },
+        {
+          "text": "Friendship wite or Akikawa went up by 4.",
+          "confidence": 97.692,
+          "box": [
+            315,
+            900,
+            767,
+            931
+          ]
+        },
+        {
+          "text": "Skip",
+          "confidence": 99.938,
+          "box": [
+            522,
+            1038,
+            571,
+            1068
+          ]
+        },
+        {
+          "text": "Quick",
+          "confidence": 99.981,
+          "box": [
+            671,
+            1038,
+            734,
+            1066
+          ]
+        }
+      ],
+      "regions": {},
+      "header": "",
+      "current_grid": false,
+      "result_grid": false,
+      "receipt_overlay_evidence": {
+        "overlay_boxes": [
+          [
+            650,
+            885,
+            665,
+            905
+          ]
+        ],
+        "alignments": [],
+        "provenance": null
+      }
+    },
+    "expected_absent_friendships": [
+      "Direct Akikawa",
+      "or Akikawa"
+    ],
+    "review_basis": "Full-size source frame visually checked; click particles obscure part of the recipient. No missing name is supplied."
+  }
+]

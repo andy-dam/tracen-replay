@@ -75,7 +75,8 @@ class SongSymbolRefinementTests(unittest.TestCase):
     def test_real_letter_before_note_and_unreadable_title_abstain(self):
         for text,confidence in [('Hoppity Sunny Days D',.999),('Hoppity Sunny Day',.999),
                                 ('Hoppity Sunny Days',.949),('Hoppity Sunny Days',1.1),
-                                ('Hoppity Sunny Days',float('nan'))]:
+                                ('Hoppity Sunny Days',float('nan')),
+                                ('Hoppity Sunny Days','99'),('Hoppity Sunny Days',10**1000)]:
             self.assertEqual(prepare(self.raw,self.proof,self.reader(text,confidence))['observations'],[])
 
     def test_extra_real_letter_is_rejected_even_when_title_ocr_omits_it(self):

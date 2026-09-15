@@ -22,6 +22,7 @@ from tracen_replay.race_quantity_refinement import (
     layout_guard,
 )
 from tracen_replay.vision import parse
+from tracen_replay.full_recording import cached_readings
 from tests.test_gameplay import workspace_temp
 
 
@@ -123,6 +124,18 @@ class RaceQuantityRefinementTests(unittest.TestCase):
             raw_path = run / "neural" / "part-001-frame-000001.json"
             raw = json.loads(raw_path.read_text(encoding="utf-8"))
             yield run, raw, parse(raw), artifact
+
+    def test_generated_quantities_reach_normal_cached_readings_route(self):
+        with self._strict_generated_case() as (run, raw, row, artifact):
+            report = json.loads((run / "capture.json").read_text(encoding="utf-8"))
+
+            readings = cached_readings(report, run)
+
+            quantities = readings[0]["facts"]["visible_item_quantities"]
+            self.assertEqual([entry["quantity"] for entry in quantities], [1, 400, 1, 400])
+            self.assertTrue(all(entry["name"] is None for entry in quantities))
+            self.assertFalse(readings[0]["facts"]["item_identity_verified"])
+            self.assertFalse(readings[0]["facts"]["item_rewards_complete"])
 
     def test_bounded_generation_keeps_full_capture_and_only_selected_support(self):
         selected=['part-001-frame-000001','part-001-frame-000002']

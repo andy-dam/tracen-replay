@@ -35,8 +35,26 @@ class GameplayTests(unittest.TestCase):
         effects=effects_from_lines([line('Energy recovered by 50.'),line('Learned the song "Make Debut!".'),line('Hype Level went up.')])
         self.assertEqual([e['kind'] for e in effects],['energy_change','song_learned','hype_increased'])
         self.assertIsNone(effects[1]['cost'])
+
+    def test_clipped_song_heading_does_not_become_named_acquisition(self):
+        for text in (
+            'Learned e song "Present March ".',
+            'Learned song "Present March ".',
+            'Learned a song "Present March ".',
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(effects_from_lines([line(text)]), [])
+        generic = effects_from_lines([line('Learned Makeup Basics.')])
+        self.assertEqual([effect['kind'] for effect in generic], ['named_acquisition'])
     def test_uncertain_text_abstains(self):
         self.assertEqual(effects_from_lines([line('Speed went up by 10.',59)]),[])
+    def test_malformed_confidence_abstains_without_type_error(self):
+        for confidence in ('99', None, float('nan'), 10**1000):
+            with self.subTest(confidence=repr(confidence)):
+                self.assertEqual(
+                    effects_from_lines([line('Speed went up by 10.', confidence)]), [])
+                self.assertEqual(
+                    preview_effects([line('Speed +10', confidence)]), [])
     def test_other_resources_do_not_enter_stat_accounting(self):
         got=effects_from_lines([line('Energy went down by 19.'),line('Friendship with Fine Motion went up by 5.'),line('Gained 2 hint level(s) for Hydrate.'),line('Vocals went up by 10.'),line('Mood went up.')])
         self.assertEqual([e['kind'] for e in got],['energy_change','friendship_change','skill_hint_change','performance_change','mood_change'])

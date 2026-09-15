@@ -1,0 +1,431 @@
+{
+  "schema": "tracen-replay/preview-unknown-screen-regression-v1",
+  "purpose": "Source-derived adapter regressions for typed browse previews whose frame classifier is unknown.",
+  "source_note": "Rows are copied from prepared full-worker v5 reports; source hashes and evidence hashes bind them to the reviewed recordings.",
+  "cases": [
+    {
+      "id": "v1-t018-browse-preview-dance",
+      "recording": "v1",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "source_timestamp_ms": 252250,
+      "evidence": "gameplay/part-002-frame-000050.png",
+      "evidence_sha256": "00417cb8139f67852caa0d570727e5b8aa080ce9fb4e2782278f2c4259f307a6",
+      "screen": "unknown",
+      "completed_action": null,
+      "facts": {
+        "preview_option": null,
+        "preview_overlay_proven": true,
+        "preview_overlay_effects": [
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 14,
+            "phase": "preview",
+            "preview": true,
+            "awarded": false,
+            "source_evidence": [
+              "gameplay/part-002-frame-000050.png"
+            ],
+            "source_semantics": "typed_training_preview_overlay",
+            "preview_geometry": {
+              "basis": "performance_panel_current_plus_projected_geometry",
+              "source_references": [
+                "line:16"
+              ],
+              "source_index": 16,
+              "box": [
+                208,
+                294,
+                317,
+                333
+              ]
+            }
+          }
+        ],
+        "preview_modifier_proven": false,
+        "preview_modifier_effects": [],
+        "preview_phase_proof": {
+          "phase": "preview",
+          "menu_proven": true,
+          "result_proven": false,
+          "basis": "career_training_menu_performance_panel",
+          "option": null,
+          "stat_row_proven": false
+        },
+        "preview_overlay_evidence": {
+          "header": "Career",
+          "header_line": null,
+          "option": null,
+          "option_line": null,
+          "phase": "preview",
+          "menu_proven": true,
+          "result_proven": false,
+          "basis": "career_training_menu_performance_panel",
+          "stat_row_proven": false,
+          "stat_labels": [
+            "guts",
+            "power",
+            "speed",
+            "stamina",
+            "wit"
+          ],
+          "performance_labels": [
+            "composure",
+            "dance",
+            "passion",
+            "visual",
+            "vocal"
+          ],
+          "current_grid": true,
+          "result_grid": false
+        }
+      },
+      "expected_effects": [
+        {
+          "kind": "performance_change",
+          "field": "dance",
+          "amount": 14
+        }
+      ]
+    },
+    {
+      "id": "independent-01-t063-browse-preview-dance",
+      "recording": "independent-01",
+      "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+      "source_timestamp_ms": 1347250,
+      "evidence": "gameplay/part-011-frame-000110.png",
+      "evidence_sha256": "cb18dc8fbacd5fcf99eccce462236bd8cacd478c73e85762ca9bf44ca7645faf",
+      "screen": "unknown",
+      "completed_action": null,
+      "facts": {
+        "preview_option": "wit",
+        "preview_overlay_proven": true,
+        "preview_overlay_effects": [
+          {
+            "kind": "performance_change",
+            "field": "dance",
+            "amount": 24,
+            "phase": "preview",
+            "preview": true,
+            "awarded": false,
+            "source_evidence": [
+              "gameplay/part-011-frame-000110.png"
+            ],
+            "source_semantics": "typed_training_preview_panel",
+            "preview_geometry": {
+              "basis": "source_training_failure_badge_and_preview_row_geometry",
+              "source_references": [
+                "line:18"
+              ],
+              "source_index": 18,
+              "box": [
+                192,
+                293,
+                316,
+                333
+              ],
+              "panel_index": 3
+            }
+          },
+          {
+            "kind": "stat_change",
+            "field": "skill_points",
+            "amount": 9,
+            "phase": "preview",
+            "preview": true,
+            "awarded": false,
+            "source_evidence": [
+              "gameplay/part-011-frame-000110.png"
+            ],
+            "source_semantics": "typed_training_preview_panel",
+            "preview_geometry": {
+              "basis": "source_training_failure_badge_and_preview_row_geometry",
+              "source_references": [
+                "line:39"
+              ],
+              "source_index": 39,
+              "box": [
+                768,
+                712,
+                814,
+                742
+              ],
+              "panel_index": 0
+            }
+          },
+          {
+            "kind": "stat_change",
+            "field": "speed",
+            "amount": 9,
+            "phase": "preview",
+            "preview": true,
+            "awarded": false,
+            "source_evidence": [
+              "gameplay/part-011-frame-000110.png"
+            ],
+            "source_semantics": "typed_training_preview_panel",
+            "preview_geometry": {
+              "basis": "source_training_failure_badge_and_preview_row_geometry",
+              "source_references": [
+                "line:37"
+              ],
+              "source_index": 37,
+              "box": [
+                293,
+                712,
+                342,
+                742
+              ],
+              "panel_index": 1
+            }
+          },
+          {
+            "kind": "stat_change",
+            "field": "wit",
+            "amount": 19,
+            "phase": "preview",
+            "preview": true,
+            "awarded": false,
+            "source_evidence": [
+              "gameplay/part-011-frame-000110.png"
+            ],
+            "source_semantics": "typed_training_preview_panel",
+            "preview_geometry": {
+              "basis": "source_training_failure_badge_and_preview_row_geometry",
+              "source_references": [
+                "line:38"
+              ],
+              "source_index": 38,
+              "box": [
+                661,
+                709,
+                735,
+                744
+              ],
+              "panel_index": 2
+            }
+          }
+        ],
+        "preview_modifier_proven": false,
+        "preview_modifier_effects": [],
+        "preview_phase_proof": {
+          "phase": "preview",
+          "menu_proven": true,
+          "result_proven": false,
+          "basis": "source_training_failure_badge_and_preview_row_geometry",
+          "geometry": {
+            "layout": "gameplay_crop_stat_cards",
+            "stat_row_band": [
+              600.0,
+              780.0
+            ],
+            "label_band": [
+              680.0,
+              790.0
+            ],
+            "stat_rows": {
+              "skill_points": {
+                "status": "accepted",
+                "mode": "training_row",
+                "rows": [
+                  {
+                    "source_index": 39,
+                    "amount": 9,
+                    "box": [
+                      768.0,
+                      712.0,
+                      814.0,
+                      742.0
+                    ],
+                    "source_references": [
+                      "line:39"
+                    ]
+                  }
+                ]
+              },
+              "speed": {
+                "status": "accepted",
+                "mode": "training_row",
+                "rows": [
+                  {
+                    "source_index": 37,
+                    "amount": 9,
+                    "box": [
+                      293.0,
+                      712.0,
+                      342.0,
+                      742.0
+                    ],
+                    "source_references": [
+                      "line:37"
+                    ]
+                  }
+                ]
+              },
+              "wit": {
+                "status": "accepted",
+                "mode": "training_row",
+                "rows": [
+                  {
+                    "source_index": 38,
+                    "amount": 19,
+                    "box": [
+                      661.0,
+                      709.0,
+                      735.0,
+                      744.0
+                    ],
+                    "source_references": [
+                      "line:38"
+                    ]
+                  }
+                ]
+              }
+            },
+            "failure": {
+              "box": [
+                747.0,
+                800.0,
+                796.0,
+                818.0
+              ],
+              "text": "Failure"
+            },
+            "song_modifier": {
+              "status": "requires_current_menu_only",
+              "marker": null,
+              "stat_rows": {}
+            }
+          },
+          "option": "wit",
+          "evidence": [
+            "gameplay/part-011-frame-000110.png"
+          ],
+          "stat_row_proven": false
+        },
+        "preview_overlay_evidence": {
+          "header": "Training",
+          "header_line": null,
+          "option": "wit",
+          "option_line": 13,
+          "phase": "preview",
+          "menu_proven": true,
+          "result_proven": false,
+          "basis": "source_training_failure_badge_and_preview_row_geometry",
+          "geometry": {
+            "layout": "gameplay_crop_stat_cards",
+            "stat_row_band": [
+              600.0,
+              780.0
+            ],
+            "label_band": [
+              680.0,
+              790.0
+            ],
+            "stat_rows": {
+              "skill_points": {
+                "status": "accepted",
+                "mode": "training_row",
+                "rows": [
+                  {
+                    "source_index": 39,
+                    "amount": 9,
+                    "box": [
+                      768.0,
+                      712.0,
+                      814.0,
+                      742.0
+                    ],
+                    "source_references": [
+                      "line:39"
+                    ]
+                  }
+                ]
+              },
+              "speed": {
+                "status": "accepted",
+                "mode": "training_row",
+                "rows": [
+                  {
+                    "source_index": 37,
+                    "amount": 9,
+                    "box": [
+                      293.0,
+                      712.0,
+                      342.0,
+                      742.0
+                    ],
+                    "source_references": [
+                      "line:37"
+                    ]
+                  }
+                ]
+              },
+              "wit": {
+                "status": "accepted",
+                "mode": "training_row",
+                "rows": [
+                  {
+                    "source_index": 38,
+                    "amount": 19,
+                    "box": [
+                      661.0,
+                      709.0,
+                      735.0,
+                      744.0
+                    ],
+                    "source_references": [
+                      "line:38"
+                    ]
+                  }
+                ]
+              }
+            },
+            "failure": {
+              "box": [
+                747.0,
+                800.0,
+                796.0,
+                818.0
+              ],
+              "text": "Failure"
+            },
+            "song_modifier": {
+              "status": "requires_current_menu_only",
+              "marker": null,
+              "stat_rows": {}
+            }
+          },
+          "evidence": [
+            "gameplay/part-011-frame-000110.png"
+          ],
+          "stat_row_proven": false,
+          "panel_effect_count": 4,
+          "panel_modifier_effect_count": 0
+        }
+      },
+      "expected_effects": [
+        {
+          "kind": "performance_change",
+          "field": "dance",
+          "amount": 24
+        },
+        {
+          "kind": "stat_change",
+          "field": "skill_points",
+          "amount": 9
+        },
+        {
+          "kind": "stat_change",
+          "field": "speed",
+          "amount": 9
+        },
+        {
+          "kind": "stat_change",
+          "field": "wit",
+          "amount": 19
+        }
+      ]
+    }
+  ]
+}

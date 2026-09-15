@@ -53,13 +53,13 @@ class RecordingRegressions(unittest.TestCase):
         self.assertIsNone(batches[0]['spent_skill_points'])
         self.assertFalse(batches[0]['complete_transaction_verified'])
 
-    def test_state_constraints_only_resolve_an_already_visible_candidate(self):
+    def test_state_constraints_do_not_choose_between_same_shape_candidates(self):
         before=dict(id='before',last_seen_ms=0,values={f:100 for f in ('speed','stamina','power','guts','wit','skill_points')},evidence='before.png')
         after=dict(id='after',first_seen_ms=1000,values=dict(before['values'],speed=112),evidence='after.png')
         event=dict(id='training',kind='training',training_option='wit',first_seen_ms=100,last_seen_ms=300,deltas={},field_evidence={})
         rows=[row(100,'training_result',{'training_gains':{'speed':1}}),row(200,'training_result',{'training_gains':{'speed':12}})]
         result=reconcile_visible_training_candidates(before,after,[event],rows)
-        self.assertEqual(event['deltas'],{'speed':12});self.assertFalse(result[0]['independent_effect_verification'])
+        self.assertEqual(event['deltas'],{});self.assertEqual(result,[])
         event['deltas']={}
         self.assertEqual(reconcile_visible_training_candidates(before,after,[event],rows[:1]),[])
         self.assertEqual(event['deltas'],{})

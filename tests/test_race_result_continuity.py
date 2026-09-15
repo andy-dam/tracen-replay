@@ -130,14 +130,16 @@ class RaceResultContinuityTests(unittest.TestCase):
         self.assertEqual(len(races(rows)), 2)
 
     def test_dialog_must_be_observed_at_distinct_times_and_paths(self):
-        for mode in ('absent', 'one', 'copied'):
+        # A dialog seen once, or seen on copied evidence, does not bridge. When nothing at all was read between the two
+        # halves ('absent'), the same settled fan total and gain make them one panel (see test_race_panel_reappearance).
+        for mode, expected in (('absent', 1), ('one', 2), ('copied', 2)):
             with self.subTest(mode=mode):
                 rows = sequence()
                 for index in (3, 4, 5):
                     if mode == 'absent' or (mode == 'one' and index != 3):
                         rows[index]['screen'] = 'unknown'
                     elif mode == 'copied': rows[index]['evidence'] = 'copied.png'
-                self.assertEqual(len(races(rows)), 2)
+                self.assertEqual(len(races(rows)), expected)
 
     def test_other_screen_or_uncertain_playback_breaks_the_bridge(self):
         for name in ('career_hub', 'race_selection', 'event_outcome', 'unknown'):

@@ -526,16 +526,60 @@ def _wrapped_name_fragment(
 def _wrapped_line_records(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Return deduplicated raw/retained OCR lines for wrapped receipts."""
     records: dict[tuple[str, tuple[float, ...]], dict[str, Any]] = {}
-    for line in _neural_lines(row):
+
+    def line_overlay_metadata(line: Mapping[str, Any], parsed_overlays: list[list[float]]):
+        """Split validated particle boxes from stable receipt obstructions.
+
+        ``receipt_occlusion`` stores the cursor and animated particle boxes in
+        one ``overlay_boxes`` list.  Cache refresh deliberately validates the
+        identity against a cursor-only view, while normal report assembly sees
+        the complete row.  Keep that view consistent here by removing only a
+        well-formed particle box that is explicitly marked as animated.  Any
+        malformed or incomplete particle metadata remains conservative: the
+        original combined obstruction stays visible and the line cannot be
+        promoted without the usual fragment proof.
+        """
+        has_boxes = "animated_overlay_boxes" in line
+        has_marker = "animated_overlay_occluded" in line
+        if not has_boxes and not has_marker:
+            return parsed_overlays, line.get("overlay_occluded") is True or bool(parsed_overlays), None
+
+        animated = line.get("animated_overlay_boxes", [])
+        if not isinstance(animated, list):
+            return parsed_overlays, line.get("overlay_occluded") is True or bool(parsed_overlays), None
+        parsed_animated = []
+        for value in animated:
+            parsed_value = _box(value)
+            if parsed_value is None:
+                return parsed_overlays, line.get("overlay_occluded") is True or bool(parsed_overlays), None
+            parsed_animated.append(_box_list(parsed_value))
+        marker = line.get("animated_overlay_occluded", False)
+        if type(marker) is not bool or marker != bool(parsed_animated):
+            return parsed_overlays, line.get("overlay_occluded") is True or bool(parsed_overlays), None
+
+        # The animated list is only meaningful when it was extracted from the
+        # source row's combined overlay list.  A row carrying particle boxes
+        # without that list is incomplete metadata; keep the conservative
+        # obstruction rather than treating the line as cursor-clear.
+        if parsed_animated and "overlay_boxes" not in line:
+            return parsed_overlays, True, None
+
+        stable = [box for box in parsed_overlays if box not in parsed_animated]
+        # An explicit raw ``overlay_occluded`` flag is itself source metadata;
+        # do not erase it merely because a particle list is also present.
+        occluded = line.get("overlay_occluded") is True or bool(stable)
+        return stable, occluded, parsed_animated
+
+    def make_item(line: Mapping[str, Any], *, source: str):
         text = line.get("text")
         box = _box(line.get("box"))
         confidence = _confidence(line)
         if not isinstance(text, str) or box is None or confidence is None:
-            continue
+            return None
         overlay_boxes = line.get("overlay_boxes")
         if overlay_boxes is not None:
             if not isinstance(overlay_boxes, list):
-                continue
+                return None
             parsed_overlays = []
             for overlay in overlay_boxes:
                 parsed_overlay = _box(overlay)
@@ -544,18 +588,32 @@ def _wrapped_line_records(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                     break
                 parsed_overlays.append(_box_list(parsed_overlay))
             if parsed_overlays is None:
-                continue
+                return None
         else:
             parsed_overlays = []
+        stable_overlays, overlay_occluded, animated_overlays = line_overlay_metadata(
+            line, parsed_overlays
+        )
         item = {
             "text": text.strip(),
             "confidence": confidence,
             "box": box,
-            "source": "neural",
-            "overlay_occluded": line.get("overlay_occluded") is True or bool(parsed_overlays),
-            "overlay_boxes": parsed_overlays,
+            "source": source,
+            "overlay_occluded": overlay_occluded,
+            "overlay_boxes": stable_overlays,
             "recipient_name_occluded": line.get("recipient_name_occluded") is True,
         }
+        if animated_overlays is not None:
+            # This is internal provenance for the normal route.  It is not
+            # used as identity evidence and is ignored by cache schemas.
+            item["animated_overlay_boxes"] = animated_overlays
+            item["animated_overlay_occluded"] = bool(animated_overlays)
+        return item
+
+    for line in _neural_lines(row):
+        item = make_item(line, source="neural")
+        if item is None:
+            continue
         key = (item["text"], tuple(item["box"]))
         prior = records.get(key)
         if prior is None or item["confidence"] > prior["confidence"]:
@@ -566,36 +624,10 @@ def _wrapped_line_records(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         for line in occluded:
             if not isinstance(line, Mapping):
                 continue
-            text = line.get("text")
-            box = _box(line.get("box"))
-            confidence = _confidence(line)
-            if not isinstance(text, str) or box is None or confidence is None:
+            item = make_item(line, source="occluded_receipt_line")
+            if item is None:
                 continue
-            overlay_boxes = line.get("overlay_boxes")
-            if overlay_boxes is not None:
-                if not isinstance(overlay_boxes, list):
-                    continue
-                parsed_overlays = []
-                for overlay in overlay_boxes:
-                    parsed_overlay = _box(overlay)
-                    if parsed_overlay is None:
-                        parsed_overlays = None
-                        break
-                    parsed_overlays.append(_box_list(parsed_overlay))
-                if parsed_overlays is None:
-                    continue
-            else:
-                parsed_overlays = []
-            key = (text.strip(), tuple(box))
-            item = {
-                "text": text.strip(),
-                "confidence": confidence,
-                "box": box,
-                "source": "occluded_receipt_line",
-                "overlay_occluded": line.get("overlay_occluded") is True or bool(parsed_overlays),
-                "overlay_boxes": parsed_overlays,
-                "recipient_name_occluded": line.get("recipient_name_occluded") is True,
-            }
+            key = (item["text"], tuple(item["box"]))
             prior = records.get(key)
             if prior is None or item["confidence"] > prior["confidence"]:
                 records[key] = item
@@ -2444,6 +2476,7 @@ def recover(
     evidence_root: str | Path,
     *,
     source_sha256: str,
+    model_dir: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Return source-backed card identity candidates without mutating rows.
 
@@ -2526,7 +2559,10 @@ def recover(
         try:
             from .vision import NeuralReader
 
-            reader = NeuralReader()
+            # Fresh full-recording analysis passes its configured model
+            # directory through this explicit preparation step.  Keep the
+            # no-argument form for existing callers and tests.
+            reader = NeuralReader(model_dir) if model_dir is not None else NeuralReader()
         except (ImportError, OSError, RuntimeError, TypeError, ValueError):
             return None
         return reader
@@ -2581,9 +2617,15 @@ def recover_hint_card_identities(
     evidence_root: str | Path,
     *,
     source_sha256: str,
+    model_dir: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Descriptive alias for callers integrating the recovery stage."""
-    return recover(rows, evidence_root, source_sha256=source_sha256)
+    return recover(
+        rows,
+        evidence_root,
+        source_sha256=source_sha256,
+        model_dir=model_dir,
+    )
 
 
 __all__ = ["recover", "recover_hint_card_identities"]

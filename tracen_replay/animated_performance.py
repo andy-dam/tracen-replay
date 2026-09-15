@@ -6,27 +6,103 @@ LABELS={'Dance':'dance','Passion':'passion','Vocals':'vocal','Visuals':'visual',
 STAT_LABELS={'Speed':'speed','Stamina':'stamina','Power':'power','Guts':'guts','Wit':'wit','Skill Pts':'skill_points'}
 
 
+def _label_field(text):
+    """Return one performance field token from a noisy label line.
+
+    The event animation sometimes prefixes a field label with a decorative
+    two-letter badge (for example ``Me Composure``).  The token itself is the
+    stable identity; accepting exactly one token keeps arbitrary narrative
+    text, cap labels, and combined labels out of the candidate set.
+    """
+    value=' '.join(str(text or '').split())
+    if re.search(r'\b(?:cap|bonus)\b',value,re.I):
+        return None
+    matches=[]
+    for canonical,field in LABELS.items():
+        pattern=r'(?<![A-Za-z])'+re.escape(canonical.rstrip('s'))+r's?(?![A-Za-z])'
+        if re.search(pattern,value,re.I):
+            matches.append((canonical,field))
+    return matches[0] if len(matches)==1 else None
+
+
+def _caption(label, lines):
+    """Find a same-field award caption, retaining whether its verb is whole.
+
+    ``went by`` is an OCR omission of the fixed ``up`` token in a positive
+    performance award.  It is only eligible when the same source frame also
+    contains exactly one signed positive gain for this field; the caption
+    alone never establishes direction.
+    """
+    canonical, _field = label
+    pattern=r'(?<![A-Za-z])'+re.escape(canonical.rstrip('s'))+r's?(?![A-Za-z])'
+    for line in lines:
+        text=' '.join(str(line.get('text','')).split())
+        if line.get('confidence',0)<95 or not 770<=line.get('box',[0,0,0,0])[1]<1000:
+            continue
+        exact=re.match(r'^'+pattern+r'\s+went\s+(up|down)\s+by(?:\s+(\d{1,3}))?',text,re.I)
+        if exact:
+            return dict(line=line,direction=exact.group(1).lower(),
+                        amount=int(exact.group(2)) if exact.group(2) else None,
+                        normalization=None)
+        missing=re.match(r'^'+pattern+r'\s+went\s*by\s+(\d{1,3})',text,re.I)
+        if missing:
+            return dict(line=line,direction=None,amount=int(missing.group(1)),
+                        normalization='signed_positive_animation_repairs_omitted_up')
+    return None
+
+
 def candidates(lines,screen,*,stat=False,allow_cap_coexistence=False):
     if screen!='event_outcome':return []
     found=[]
     for label in lines:
-        field=(STAT_LABELS if stat else LABELS).get(label['text'])
+        label_identity = None if stat else _label_field(label.get('text'))
+        field=(STAT_LABELS if stat else LABELS).get(label['text']) if stat else (label_identity[1] if label_identity else None)
         a,b,c,d=label['box']
-        if not field or label['confidence']<97 or not (150<=a<c<=900 and 240<=b<d<=(750 if stat else 650) and 30<=d-b<=70):continue
-        captions=[l for l in lines if l['confidence']>=95 and 770<=l['box'][1]<1000
-                  and re.match(r'^'+re.escape(label['text'])+r' went up by\b',l['text'])]
+        if not field or label['confidence']<97 or not (150<=a<c<=900 and 240<=b<d<=(750 if stat else 650) and 30<=d-b<=(70 if stat else 100)):continue
+        canonical = next((name for name,value in (STAT_LABELS if stat else LABELS).items() if value==field),label['text'])
+        caption = _caption((canonical,field),lines) if not stat else None
+        captions=[caption['line']] if caption else []
+        if stat:
+            # Stat animations retain their literal receipt anchor. Performance
+            # caption normalization must not remove this shared-reader input.
+            captions=[line for line in lines if line['confidence']>=95
+                      and 770<=line['box'][1]<1000
+                      and re.match(r'^'+re.escape(canonical)+r' went up by\b',line['text'])]
         if not captions and not stat:continue
-        if not captions and not allow_cap_coexistence and any(re.match(r'^'+re.escape(label['text'])+r' (?:cap|Bonus)\b',l['text']) for l in lines):continue
+        if not captions and not allow_cap_coexistence and any(re.match(r'^'+re.escape(canonical)+r'\s+(?:cap|Bonus)\b',l['text'],re.I) for l in lines):continue
         gains=[]
         for line in lines:
             x,y,z,w=line['box'];match=re.fullmatch(r'\+(\d{1,3})',line['text'])
-            if match and line['confidence']>=97 and 50<=w-y<=(130 if stat else 110) and (-20 if stat else -5)<=b-w<=25 and abs((x+z-a-c)/2)<=60:
+            # Animated cards can travel through the label before settling. A
+            # bounded 180 px vertical association covers both directions while
+            # the narrow horizontal center check and single-gain guard prevent
+            # pairing adjacent performance columns.
+            if match and line['confidence']>=97 and 50<=w-y<=(130 if stat else 110) and (-20 if stat else -180)<=b-w<=(25 if stat else 35) and abs((x+z-a-c)/2)<=60:
                 gains.append(line)
         if len(gains)!=1:continue
         gain=gains[0]
+        # A signed ``+N`` animation cannot support a downward receipt.  Keep
+        # this explicit direction guard so a malformed or contradictory
+        # caption never turns a positive card into an accepted award.
+        if caption and caption.get('direction') == 'down':
+            continue
+        if caption and caption['amount'] is not None and int(caption['amount']) != int(gain['text'][1:]):
+            continue
+        if caption and caption['direction'] is None:
+            # A missing direction can only be repaired by the explicitly
+            # positive signed animation above. Never treat ``went by`` as a
+            # generic up/down guess.
+            receipt_normalization=caption['normalization']
+            direction_basis='same_frame_signed_positive_gain'
+        else:
+            receipt_normalization=None
+            direction_basis=None
         found.append(dict(kind='stat_change' if stat else 'performance_change',field=field,amount=int(gain['text'][1:]),
             raw_text=gain['text']+' '+label['text'],confidence=min(gain['confidence'],label['confidence']),
-            gain_box=gain['box'],label_box=label['box'],receipt_text=captions[0]['text'] if captions else None))
+            gain_box=gain['box'],label_box=label['box'],receipt_text=captions[0]['text'] if captions else None,
+            **({'label_text':label['text']} if label['text'] != canonical else {}),
+            **({'receipt_normalization':receipt_normalization,'direction_basis':direction_basis}
+               if receipt_normalization else {})))
     return found
 
 
@@ -49,7 +125,14 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
                 existing.append((row,candidate))
     for field,observations in groups.items():
         values={c['amount'] for _,c in observations};times={r['source_timestamp_ms'] for r,_ in observations}
-        if len(values)!=1 or len(times)<3 or max(times)-min(times)<50:continue
+        repaired_sparse = (
+            not stat
+            and len(observations) >= 2
+            and all(c.get('receipt_normalization') == 'signed_positive_animation_repairs_omitted_up'
+                    for _, c in observations)
+        )
+        minimum_frames = 2 if repaired_sparse else 3
+        if len(values)!=1 or len(times)<minimum_frames or max(times)-min(times)<50:continue
         if not any(c.get('receipt_text') or c.get('receipt_anchors') for _,c in observations):continue
         key=kind+'|'+field+'|';candidate=observations[0][1]
         prior=event['effects'].get(key)

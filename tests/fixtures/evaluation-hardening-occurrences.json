@@ -1,0 +1,866 @@
+{
+  "review_basis": "Each listed full-size screenshot visually checked after prediction access during hardening. Development regression fixture, not independent validation.",
+  "cases": [
+    {
+      "name": "v1-success",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "reference": {
+        "id": "source",
+        "category": "action",
+        "phase": "committed",
+        "start_ms": 30250,
+        "end_ms": 30250,
+        "evidence": [
+          "gameplay/part-000-frame-000122.png"
+        ],
+        "payload": {
+          "kind": "training",
+          "training_option": "speed",
+          "result": "success"
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/turn_action_receipts/0",
+          "source_ref": "/gameplay_tracking/turn_action_receipts/0",
+          "category": "action",
+          "phase": "committed",
+          "payload": {
+            "kind": "training",
+            "training_option": "speed",
+            "result": "unknown"
+          },
+          "start_ms": 29833,
+          "end_ms": 30367,
+          "evidence": [
+            "training-inspection/29500/frame-000013.png",
+            "training-inspection/29500/frame-000011.png",
+            "training-inspection/29500/frame-000012.png",
+            "training-inspection/29500/frame-000014.png",
+            "training-inspection/29500/frame-000015.png",
+            "gameplay/part-000-frame-000121.png",
+            "training-inspection/29500/frame-000017.png",
+            "training-inspection/29500/frame-000018.png",
+            "training-inspection/29500/frame-000019.png",
+            "training-inspection/29500/frame-000021.png",
+            "training-inspection/29500/frame-000022.png",
+            "training-inspection/29500/frame-000023.png",
+            "gameplay/part-000-frame-000122.png",
+            "training-inspection/29500/frame-000025.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/turn_action_receipts/0",
+          "source_ref": "/gameplay_tracking/turn_action_receipts/0",
+          "category": "action",
+          "phase": "committed",
+          "payload": {
+            "kind": "training",
+            "training_option": "speed",
+            "result": "success"
+          },
+          "start_ms": 29833,
+          "end_ms": 30367,
+          "evidence": [
+            "training-inspection/29500/frame-000013.png",
+            "training-inspection/29500/frame-000011.png",
+            "training-inspection/29500/frame-000012.png",
+            "training-inspection/29500/frame-000014.png",
+            "training-inspection/29500/frame-000015.png",
+            "gameplay/part-000-frame-000121.png",
+            "training-inspection/29500/frame-000017.png",
+            "training-inspection/29500/frame-000018.png",
+            "training-inspection/29500/frame-000019.png",
+            "training-inspection/29500/frame-000021.png",
+            "training-inspection/29500/frame-000022.png",
+            "training-inspection/29500/frame-000023.png",
+            "gameplay/part-000-frame-000122.png",
+            "training-inspection/29500/frame-000025.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "partial",
+      "after_status": "correct",
+      "image_sha256": "73a3d944bbfc163f0695dcb2356b5940d1bfc81f0a7a471002060da8a1a32be0",
+      "report_sha256": [
+        "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+        "c8f457d0bd5ea689e004b37aba746a69809e17379584b9a23bf1d9993d67f1c2"
+      ]
+    },
+    {
+      "name": "v1-nishino-flower",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "reference": {
+        "id": "source",
+        "category": "effect",
+        "phase": "applied",
+        "start_ms": 30750,
+        "end_ms": 30750,
+        "evidence": [
+          "gameplay/part-000-frame-000124.png"
+        ],
+        "payload": {
+          "kind": "friendship_change",
+          "name": "Nishino Flower",
+          "amount": 7
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/events/3/effects/0",
+          "source_ref": "/gameplay_tracking/events/3/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -19,
+            "context_title": "Turf"
+          },
+          "start_ms": 30500,
+          "end_ms": 30750,
+          "evidence": [
+            "gameplay/part-000-frame-000123.png",
+            "gameplay/part-000-frame-000124.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/3/effects/1",
+          "source_ref": "/gameplay_tracking/events/3/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Kitasan Black",
+            "amount": 7,
+            "context_title": "Turf"
+          },
+          "start_ms": 30500,
+          "end_ms": 30750,
+          "evidence": [
+            "gameplay/part-000-frame-000123.png",
+            "gameplay/part-000-frame-000124.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/events/3/effects/0",
+          "source_ref": "/gameplay_tracking/events/3/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -19,
+            "context_title": "Turf"
+          },
+          "start_ms": 30500,
+          "end_ms": 30750,
+          "evidence": [
+            "gameplay/part-000-frame-000123.png",
+            "gameplay/part-000-frame-000124.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/3/effects/1",
+          "source_ref": "/gameplay_tracking/events/3/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Kitasan Black",
+            "amount": 7,
+            "context_title": "Turf"
+          },
+          "start_ms": 30500,
+          "end_ms": 30750,
+          "evidence": [
+            "gameplay/part-000-frame-000123.png",
+            "gameplay/part-000-frame-000124.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/3/effects/2",
+          "source_ref": "/gameplay_tracking/events/3/effects/2",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Nishino Flower",
+            "amount": 7,
+            "context_title": "Turf"
+          },
+          "start_ms": 30500,
+          "end_ms": 30750,
+          "evidence": [
+            "gameplay/part-000-frame-000123.png",
+            "gameplay/part-000-frame-000124.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "missed",
+      "after_status": "correct",
+      "image_sha256": "69b610cfba79153fb33eedd6d31a85797c1a16c3177c5c3851eb09578bd9ecb1",
+      "report_sha256": [
+        "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+        "c8f457d0bd5ea689e004b37aba746a69809e17379584b9a23bf1d9993d67f1c2"
+      ]
+    },
+    {
+      "name": "v1-fine-motion",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "reference": {
+        "id": "source",
+        "category": "effect",
+        "phase": "applied",
+        "start_ms": 48500,
+        "end_ms": 48500,
+        "evidence": [
+          "gameplay/part-000-frame-000195.png"
+        ],
+        "payload": {
+          "kind": "friendship_change",
+          "name": "Fine Motion",
+          "amount": 7
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/events/10/effects/0",
+          "source_ref": "/gameplay_tracking/events/10/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -19,
+            "context_title": "Turf"
+          },
+          "start_ms": 48500,
+          "end_ms": 48500,
+          "evidence": [
+            "gameplay/part-000-frame-000195.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/10/effects/1",
+          "source_ref": "/gameplay_tracking/events/10/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Agnes Tachyon",
+            "amount": 7,
+            "context_title": "Turf"
+          },
+          "start_ms": 48500,
+          "end_ms": 48500,
+          "evidence": [
+            "gameplay/part-000-frame-000195.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/events/10/effects/0",
+          "source_ref": "/gameplay_tracking/events/10/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -19,
+            "context_title": "Turf"
+          },
+          "start_ms": 48500,
+          "end_ms": 48500,
+          "evidence": [
+            "gameplay/part-000-frame-000195.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/10/effects/1",
+          "source_ref": "/gameplay_tracking/events/10/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Agnes Tachyon",
+            "amount": 7,
+            "context_title": "Turf"
+          },
+          "start_ms": 48500,
+          "end_ms": 48500,
+          "evidence": [
+            "gameplay/part-000-frame-000195.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/10/effects/2",
+          "source_ref": "/gameplay_tracking/events/10/effects/2",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Fine Motion",
+            "amount": 7,
+            "context_title": "Turf"
+          },
+          "start_ms": 48500,
+          "end_ms": 48500,
+          "evidence": [
+            "gameplay/part-000-frame-000195.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "missed",
+      "after_status": "correct",
+      "image_sha256": "e403cc1d5f250788de8fed2b34ab8f8407d94b18b20cd8ee5321ff0d2abf53b9",
+      "report_sha256": [
+        "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+        "c8f457d0bd5ea689e004b37aba746a69809e17379584b9a23bf1d9993d67f1c2"
+      ]
+    },
+    {
+      "name": "v1-light-hello",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "reference": {
+        "id": "source",
+        "category": "effect",
+        "phase": "applied",
+        "start_ms": 484750,
+        "end_ms": 484750,
+        "evidence": [
+          "gameplay/part-004-frame-000020.png"
+        ],
+        "payload": {
+          "kind": "friendship_change",
+          "name": "Light Hello",
+          "amount": 2
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/events/111/effects/0",
+          "source_ref": "/gameplay_tracking/events/111/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -13,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 484750,
+          "end_ms": 484750,
+          "evidence": [
+            "gameplay/part-004-frame-000020.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/111/effects/1",
+          "source_ref": "/gameplay_tracking/events/111/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Agnes Tachyon",
+            "amount": 7,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 484750,
+          "end_ms": 484750,
+          "evidence": [
+            "gameplay/part-004-frame-000020.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/events/111/effects/0",
+          "source_ref": "/gameplay_tracking/events/111/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -13,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 484750,
+          "end_ms": 484750,
+          "evidence": [
+            "gameplay/part-004-frame-000020.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/111/effects/1",
+          "source_ref": "/gameplay_tracking/events/111/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Light Hello",
+            "amount": 2,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 484750,
+          "end_ms": 484750,
+          "evidence": [
+            "gameplay/part-004-frame-000020.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/111/effects/2",
+          "source_ref": "/gameplay_tracking/events/111/effects/2",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Agnes Tachyon",
+            "amount": 7,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 484750,
+          "end_ms": 484750,
+          "evidence": [
+            "gameplay/part-004-frame-000020.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "missed",
+      "after_status": "correct",
+      "image_sha256": "abce89e864e906180381937a1bd191d4739c2cb20e654dcbe061da0b79f31111",
+      "report_sha256": [
+        "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+        "c8f457d0bd5ea689e004b37aba746a69809e17379584b9a23bf1d9993d67f1c2"
+      ]
+    },
+    {
+      "name": "v1-agnes-tachyon",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "reference": {
+        "id": "source",
+        "category": "effect",
+        "phase": "applied",
+        "start_ms": 590000,
+        "end_ms": 590000,
+        "evidence": [
+          "gameplay/part-004-frame-000441.png"
+        ],
+        "payload": {
+          "kind": "friendship_change",
+          "name": "Agnes Tachyon",
+          "amount": 7
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/events/136/effects/0",
+          "source_ref": "/gameplay_tracking/events/136/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -21,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 589750,
+          "end_ms": 590000,
+          "evidence": [
+            "gameplay/part-004-frame-000440.png",
+            "gameplay/part-004-frame-000441.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/136/effects/1",
+          "source_ref": "/gameplay_tracking/events/136/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Director Akikawa",
+            "amount": 2,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 590000,
+          "end_ms": 590000,
+          "evidence": [
+            "gameplay/part-004-frame-000441.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/events/136/effects/0",
+          "source_ref": "/gameplay_tracking/events/136/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -21,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 589750,
+          "end_ms": 590000,
+          "evidence": [
+            "gameplay/part-004-frame-000440.png",
+            "gameplay/part-004-frame-000441.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/136/effects/1",
+          "source_ref": "/gameplay_tracking/events/136/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Agnes Tachyon",
+            "amount": 7,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 590000,
+          "end_ms": 590000,
+          "evidence": [
+            "gameplay/part-004-frame-000441.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/136/effects/2",
+          "source_ref": "/gameplay_tracking/events/136/effects/2",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Director Akikawa",
+            "amount": 2,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 590000,
+          "end_ms": 590000,
+          "evidence": [
+            "gameplay/part-004-frame-000441.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "missed",
+      "after_status": "correct",
+      "image_sha256": "1df7c20bc7d3107b34a6662f1895c2be9542490b41a647743bd2273f5be04655",
+      "report_sha256": [
+        "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+        "c8f457d0bd5ea689e004b37aba746a69809e17379584b9a23bf1d9993d67f1c2"
+      ]
+    },
+    {
+      "name": "v1-super-creek",
+      "source_sha256": "a75008eb095a2d37f9d0b49d09f1a54be8285bd9ef69e243037440a580193174",
+      "reference": {
+        "id": "source",
+        "category": "effect",
+        "phase": "applied",
+        "start_ms": 632750,
+        "end_ms": 632750,
+        "evidence": [
+          "gameplay/part-005-frame-000132.png"
+        ],
+        "payload": {
+          "kind": "friendship_change",
+          "name": "Super Creek",
+          "amount": 7
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/events/144/effects/0",
+          "source_ref": "/gameplay_tracking/events/144/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -21,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 632500,
+          "end_ms": 632750,
+          "evidence": [
+            "gameplay/part-005-frame-000131.png",
+            "gameplay/part-005-frame-000132.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/144/effects/1",
+          "source_ref": "/gameplay_tracking/events/144/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Fine Motion",
+            "amount": 7,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 632750,
+          "end_ms": 632750,
+          "evidence": [
+            "gameplay/part-005-frame-000132.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/events/144/effects/0",
+          "source_ref": "/gameplay_tracking/events/144/effects/0",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "energy_change",
+            "amount": -21,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 632500,
+          "end_ms": 632750,
+          "evidence": [
+            "gameplay/part-005-frame-000131.png",
+            "gameplay/part-005-frame-000132.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/144/effects/1",
+          "source_ref": "/gameplay_tracking/events/144/effects/1",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Fine Motion",
+            "amount": 7,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 632750,
+          "end_ms": 632750,
+          "evidence": [
+            "gameplay/part-005-frame-000132.png"
+          ],
+          "uncertain": false
+        },
+        {
+          "id": "/gameplay_tracking/events/144/effects/2",
+          "source_ref": "/gameplay_tracking/events/144/effects/2",
+          "category": "effect",
+          "phase": "applied",
+          "payload": {
+            "kind": "friendship_change",
+            "name": "Super Creek",
+            "amount": 7,
+            "context_title": "Exercise Bike"
+          },
+          "start_ms": 632750,
+          "end_ms": 632750,
+          "evidence": [
+            "gameplay/part-005-frame-000132.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "missed",
+      "after_status": "correct",
+      "image_sha256": "811ac8e765a05e38a916459387366b36336baa9d6895e29d5e945da9a326e40f",
+      "report_sha256": [
+        "fe54e02719bc5f40982e37a1e79eb0337477efd82ff4304343c04ee4e7e288cd",
+        "c8f457d0bd5ea689e004b37aba746a69809e17379584b9a23bf1d9993d67f1c2"
+      ]
+    },
+    {
+      "name": "independent-01-success",
+      "source_sha256": "24e000837fa4bba40d4e9e7c1c7d6121300a51d166424ea7bf5cfea24f521c18",
+      "reference": {
+        "id": "source",
+        "category": "action",
+        "phase": "committed",
+        "start_ms": 36500,
+        "end_ms": 36500,
+        "evidence": [
+          "gameplay/part-000-frame-000147.png"
+        ],
+        "payload": {
+          "kind": "training",
+          "training_option": "power",
+          "result": "success"
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/turn_action_receipts/0",
+          "source_ref": "/gameplay_tracking/turn_action_receipts/0",
+          "category": "action",
+          "phase": "committed",
+          "payload": {
+            "kind": "training",
+            "training_option": "power",
+            "result": "unknown"
+          },
+          "start_ms": 36250,
+          "end_ms": 36550,
+          "evidence": [
+            "gameplay/part-000-frame-000146.png",
+            "training-inspection/35750/frame-000017.png",
+            "training-inspection/35750/frame-000021.png",
+            "training-inspection/35750/frame-000022.png",
+            "training-inspection/35750/frame-000023.png",
+            "gameplay/part-000-frame-000147.png",
+            "training-inspection/35750/frame-000024.png",
+            "training-inspection/35750/frame-000025.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/turn_action_receipts/0",
+          "source_ref": "/gameplay_tracking/turn_action_receipts/0",
+          "category": "action",
+          "phase": "committed",
+          "payload": {
+            "kind": "training",
+            "training_option": "power",
+            "result": "success"
+          },
+          "start_ms": 36250,
+          "end_ms": 36550,
+          "evidence": [
+            "gameplay/part-000-frame-000146.png",
+            "training-inspection/35750/frame-000017.png",
+            "training-inspection/35750/frame-000021.png",
+            "training-inspection/35750/frame-000022.png",
+            "training-inspection/35750/frame-000023.png",
+            "gameplay/part-000-frame-000147.png",
+            "training-inspection/35750/frame-000024.png",
+            "training-inspection/35750/frame-000025.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "partial",
+      "after_status": "correct",
+      "image_sha256": "8799f5077d9f8585aeefea160924427ce8c5abb13fc8ab057a50c0f515925031",
+      "report_sha256": [
+        "d1ee64a810900aa9c19892951bd6b6d3481faa1427168d62fe12b8eed0fe3cfb",
+        "92c3cc6dd408d0e47e31cf362fd91e17b410b9f9c6e3052b13e028fb2cfa4d67"
+      ]
+    },
+    {
+      "name": "independent-02-success",
+      "source_sha256": "a10bd8261176e2aa79eb991ab0eb6b4b23dc4c8a6ffe13edcb799d43e8982313",
+      "reference": {
+        "id": "source",
+        "category": "action",
+        "phase": "committed",
+        "start_ms": 127750,
+        "end_ms": 127750,
+        "evidence": [
+          "initial-baseline/gameplay/part-001-frame-000032.png"
+        ],
+        "payload": {
+          "kind": "training",
+          "training_option": "stamina",
+          "result": "success"
+        }
+      },
+      "before": [
+        {
+          "id": "/gameplay_tracking/turn_action_receipts/0",
+          "source_ref": "/gameplay_tracking/turn_action_receipts/0",
+          "category": "action",
+          "phase": "committed",
+          "payload": {
+            "kind": "training",
+            "training_option": "stamina",
+            "result": "unknown"
+          },
+          "start_ms": 127300,
+          "end_ms": 127833,
+          "evidence": [
+            "training-recovery-v1/training-inspection/127000/frame-000014.png",
+            "training-recovery-v1/training-inspection/127000/frame-000010.png",
+            "training-recovery-v1/training-inspection/127000/frame-000011.png",
+            "training-recovery-v1/training-inspection/127000/frame-000013.png",
+            "training-recovery-v1/training-inspection/127000/frame-000015.png",
+            "initial-baseline/gameplay/part-001-frame-000031.png",
+            "training-recovery-v1/training-inspection/127000/frame-000017.png",
+            "training-recovery-v1/training-inspection/127000/frame-000018.png",
+            "training-recovery-v1/training-inspection/127000/frame-000019.png",
+            "training-recovery-v1/training-inspection/127000/frame-000020.png",
+            "training-recovery-v1/training-inspection/127000/frame-000021.png",
+            "training-recovery-v1/training-inspection/127000/frame-000022.png",
+            "training-recovery-v1/training-inspection/127000/frame-000023.png",
+            "initial-baseline/gameplay/part-001-frame-000032.png",
+            "training-recovery-v1/training-inspection/127000/frame-000024.png",
+            "training-recovery-v1/training-inspection/127000/frame-000026.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "after": [
+        {
+          "id": "/gameplay_tracking/turn_action_receipts/0",
+          "source_ref": "/gameplay_tracking/turn_action_receipts/0",
+          "category": "action",
+          "phase": "committed",
+          "payload": {
+            "kind": "training",
+            "training_option": "stamina",
+            "result": "success"
+          },
+          "start_ms": 127300,
+          "end_ms": 127833,
+          "evidence": [
+            "training-recovery-v1/training-inspection/127000/frame-000014.png",
+            "training-recovery-v1/training-inspection/127000/frame-000010.png",
+            "training-recovery-v1/training-inspection/127000/frame-000011.png",
+            "training-recovery-v1/training-inspection/127000/frame-000013.png",
+            "training-recovery-v1/training-inspection/127000/frame-000015.png",
+            "initial-baseline/gameplay/part-001-frame-000031.png",
+            "training-recovery-v1/training-inspection/127000/frame-000017.png",
+            "training-recovery-v1/training-inspection/127000/frame-000018.png",
+            "training-recovery-v1/training-inspection/127000/frame-000019.png",
+            "training-recovery-v1/training-inspection/127000/frame-000020.png",
+            "training-recovery-v1/training-inspection/127000/frame-000021.png",
+            "training-recovery-v1/training-inspection/127000/frame-000022.png",
+            "training-recovery-v1/training-inspection/127000/frame-000023.png",
+            "initial-baseline/gameplay/part-001-frame-000032.png",
+            "training-recovery-v1/training-inspection/127000/frame-000024.png",
+            "training-recovery-v1/training-inspection/127000/frame-000026.png"
+          ],
+          "uncertain": false
+        }
+      ],
+      "before_status": "partial",
+      "after_status": "correct",
+      "image_sha256": "e770e3a8449f13d00a58bb7407944ff648b2014ac50f10d2aa5f0427da86d99e",
+      "report_sha256": [
+        "367a168d79d09f1dc7160662fe9802b97eb5c7614d0b0b9c193bd53fd1f5cf4f",
+        "b25dfded27900005937a1f89cf078d3054173a3ea5df5ab89edd0ca7b4246256"
+      ]
+    }
+  ]
+}

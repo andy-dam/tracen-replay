@@ -513,3 +513,51 @@ class HintCardEventTests(unittest.TestCase):
         result = apply(events, rows, candidates, source_sha256=SOURCE)
         self.assertEqual(result['rejected'], [])
         self.assertEqual(result['accepted'][0]['name'], 'Wrapped Skill')
+
+    def test_particle_only_overlay_keeps_cursor_validated_wrapped_candidate_supported(self):
+        """The normal integration pass shares the cache's cursor-only view."""
+        events, rows, candidates = wrapped_fixture()
+        particle = [[460, 848, 505, 893]]
+        for row, observation in zip(rows, candidates[0]['observations']):
+            prefix = row['ocr']['neural'][1]
+            prefix['source'] = 'occluded_receipt_line'
+            row['facts'] = {
+                'occluded_receipt_lines': [{
+                    **deepcopy(prefix),
+                    'confidence': 100.0,
+                    'overlay_boxes': deepcopy(particle),
+                    'animated_overlay_boxes': deepcopy(particle),
+                    'animated_overlay_occluded': True,
+                }],
+            }
+            # The prepared candidate was validated against the cursor-only
+            # copy, so its identity proof has no particle obstruction.
+            observation['receipt_parts']['prefix']['overlay_boxes'] = []
+            observation['receipt_parts']['prefix']['overlay_occluded'] = False
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['rejected'], [])
+        self.assertEqual(result['accepted'][0]['amount'], 2)
+
+    def test_stable_overlay_remains_a_wrapped_identity_negative_control(self):
+        events, rows, candidates = wrapped_fixture()
+        stable = [[522, 850, 535, 865]]
+        particle = [[460, 848, 505, 893]]
+        for row, observation in zip(rows, candidates[0]['observations']):
+            prefix = row['ocr']['neural'][1]
+            prefix['source'] = 'occluded_receipt_line'
+            row['facts'] = {
+                'occluded_receipt_lines': [{
+                    **deepcopy(prefix),
+                    'confidence': 100.0,
+                    'overlay_boxes': [*deepcopy(stable), *deepcopy(particle)],
+                    'animated_overlay_boxes': deepcopy(particle),
+                    'animated_overlay_occluded': True,
+                }],
+            }
+            observation['receipt_parts']['prefix'].update(
+                overlay_boxes=deepcopy(stable), overlay_occluded=True,
+            )
+            observation['overlay_box'] = deepcopy(stable[0])
+        result = apply(events, rows, candidates, source_sha256=SOURCE)
+        self.assertEqual(result['accepted'], [])
+        self.assertEqual(result['rejected'][0]['reason'], 'candidate_does_not_match_source_rows')

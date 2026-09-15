@@ -9,9 +9,46 @@ from pathlib import Path
 from .stats import Reader
 from .reconcile import FIELDS, stable_checkpoints, preview_segments, account
 from .stat_receipt_grammar import normalize_fixed_stat_receipt
+from .ocr_confidence import confidence_percent
 
 PANE = (148, 0, 958, 1080)
 CURRENCIES = ('dance', 'passion', 'vocal', 'visual', 'composure')
+_PHRASE_SUBJECT = r'(Speed|Stamina|Power|Guts|Wit|Skill (?:Pts|Points)|Dance|Passion|Vocals?|Visuals?|Composure|Energy)'
+_CORRUPT_VERB = re.compile(_PHRASE_SUBJECT + r' went (u[a-z]{0,3}|d[a-z]{0,4})\s*(?:b[a-z]?)?\s*(\d+)(?: to new heights)?[.!]?', re.I)
+_CORRUPT_MAXED = re.compile(r'Friendship with (.+?) is ([A-Za-z]{3,7}) out[.!]?', re.I)
+
+
+def _edit_distance(a, b):
+    previous = list(range(len(b) + 1))
+    for i, x in enumerate(a, 1):
+        current = [i]
+        for j, y in enumerate(b, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (x != y)))
+        previous = current
+    return previous[-1]
+
+
+def repair_receipt_phrase(text):
+    """Restore a fixed receipt phrase the cursor or a glyph merge corrupted.
+
+    "Speed went uply 30." and "Wit went upby 10." keep their subject and
+    amount; only the fixed "went up by" / "went down by" wording is restored.
+    "is naxed out" is "is maxed out" within two edits. A missing amount or an
+    unknown subject is not repaired.
+    """
+    if m := _CORRUPT_VERB.fullmatch(text):
+        direction = 'up' if m[2].lower().startswith('u') else 'down'
+        canonical = f"{m[1]} went {direction} by {m[3]}."
+        if canonical.lower() != text.lower().rstrip('!').rstrip('.') + '.' and canonical.lower() != text.lower():
+            return dict(text=canonical, text_normalization='verb_phrase_repair')
+        return None
+    if m := _CORRUPT_MAXED.fullmatch(text):
+        word = m[2].lower()
+        if word != 'maxed' and _edit_distance(word, 'maxed') <= 2:
+            return dict(text=f"Friendship with {m[1]} is maxed out.", text_normalization='fixed_word_repair')
+    return None
+
+
 CHANGE = re.compile(r'^(Speed|Stamina|Power|Guts|Wit|Skill (?:Pts|Points)) went (up|down) by (\d+)(?: to new heights)?[.!]?$', re.I)
 ITEM_DELIVERY = re.compile(r"Here(?:'s|’s) your (.+?)[.!]$", re.I)
 AWARD_CONTEXT = re.compile(
@@ -68,24 +105,48 @@ def _has_item_delivery_context(lines, index):
         return False
     previous = lines[index - 1]
     current = lines[index]
-    return (previous.get('confidence', 0) >= 95
+    previous_confidence = confidence_percent(previous.get('confidence'))
+    return (previous_confidence is not None and previous_confidence >= 95
             and AWARD_CONTEXT.search(previous.get('text', '').strip())
             and _same_receipt_block(previous, current))
+
+
+def _malformed_song_receipt(text):
+    """Reject clipped song headings from the generic ``Learned`` grammar.
+
+    A missing word in ``Learned the song ...`` must not turn the whole quoted
+    sentence into a generic named acquisition.  The exact song grammar above
+    remains the only path that emits ``song_learned``; this helper only closes
+    the fallback path when the source still visibly contains a quoted song
+    phrase.
+    """
+    if not isinstance(text, str) or not re.match(r'^Learned\b', text, re.I):
+        return False
+    if not re.search(r'\bsong\s*["“]', text, re.I):
+        return False
+    return re.fullmatch(r'Learned the song ["“].+?["”][.!]?', text, re.I) is None
 
 
 def effects_from_lines(lines):
     """Only explicit past-tense receipts; plus signs in previews do not qualify."""
     effects = []
     for index, line in enumerate(lines):
-        if line['confidence'] < 60:
+        confidence = confidence_percent(line.get('confidence'))
+        if confidence is None or confidence < 60:
             continue
-        original_text = line['text'].strip()
+        text_value = line.get('text')
+        if not isinstance(text_value, str):
+            continue
+        original_text = text_value.strip()
         fixed_receipt = (normalize_fixed_stat_receipt(original_text)
-                         if line['confidence'] >= 90 else None)
+                         if confidence >= 90 else None)
         text = fixed_receipt['text'] if fixed_receipt else original_text
         # Missing whitespace at an explicit award verb/amount boundary is
         # formatting, not evidence for changing digits or recipient names.
         text = re.sub(r'\b((?:went (?:up|down)|recovered|increased) by)(?=\d)',r'\1 ',text)
+        repaired = repair_receipt_phrase(text) if confidence >= 90 and not fixed_receipt else None
+        if repaired:
+            text = repaired['text']
         effect = None
         if m := CHANGE.fullmatch(text):
             field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
@@ -106,6 +167,10 @@ def effects_from_lines(lines):
             effect=dict(kind='aptitude_change',name=m[1],direction='up',amount=None,rank=None)
         elif m := re.fullmatch(r'Acquired (.+?)\s*[.!]',text,re.I):
             effect=dict(kind='condition_acquired',name=m[1].strip(),mechanical_effect=None)
+        elif m := re.fullmatch(r'Recovered from ([^.!?]+\S)[.!]',text,re.I):
+            # The complete receipt supplies the condition name. A clipped
+            # prefix must not be completed from the action or a name catalog.
+            effect=dict(kind='condition_removed',name=m[1].strip(),mechanical_effect=None)
         elif m := re.fullmatch(r'Unlocked recreation with (.+?)[.!]',text,re.I):
             effect=dict(kind='recreation_unlocked',name=m[1],amount=None)
         elif m := re.fullmatch(r'Inspired by (.+?)[!]',text,re.I):
@@ -144,7 +209,13 @@ def effects_from_lines(lines):
         elif m := re.fullmatch(r'Learned the song ["“](.+?)["”][.!]?', text, re.I):
             effect = dict(kind='song_learned', name=m[1].strip(), acquisition='unknown', cost=None)
         elif m := re.fullmatch(r'Learned (.+?)[.!]', text, re.I):
-            effect = dict(kind='named_acquisition', name=m[1], acquisition='unknown', cost=None)
+            if _malformed_song_receipt(text):
+                # The line is visibly song-shaped but its fixed receipt
+                # keyword is incomplete.  Leave it unresolved instead of
+                # manufacturing a named acquisition from the clipped text.
+                m = None
+            else:
+                effect = dict(kind='named_acquisition', name=m[1], acquisition='unknown', cost=None)
         elif _has_item_delivery_context(lines, index) and (m := ITEM_DELIVERY.fullmatch(text)):
             # Generic named item delivery.  The receipt exposes the item
             # wording but does not establish a quantity or inventory delta.
@@ -174,16 +245,30 @@ def effects_from_lines(lines):
                 parsed.update(normalized_text=text,
                               original_text=original_text,
                               text_normalization=fixed_receipt['text_normalization'])
+            elif repaired:
+                parsed.update(normalized_text=text,
+                              original_text=original_text,
+                              text_normalization=repaired['text_normalization'])
             effects.append(parsed)
     return effects
 
 
-def preview_effects(lines):
+def preview_effects(lines, *, typed=False):
+    """Parse visible lesson effects, optionally retaining typed fields.
+
+    The legacy collection is also used for a broad ``available_effects``
+    summary on lesson menus.  Those entries are intentionally left as
+    parser-owned kind/raw-text facts by default; the richer lesson-card
+    adapter supplies the offer identity and typed fields for that screen.
+    Confirmation parsing opts into ``typed`` because its same-frame projected
+    row has no card envelope to provide the field mapping.
+    """
     result = []
     seen = set()
     for line in lines:
-        text = line['text']
-        if line['confidence']<60 or text in seen:
+        text = line.get('text')
+        confidence = confidence_percent(line.get('confidence'))
+        if not isinstance(text, str) or confidence is None or confidence < 60 or text in seen:
             continue
         seen.add(text)
         kind = None
@@ -191,10 +276,33 @@ def preview_effects(lines):
             kind = 'future_training_modifier'
         elif re.search(r'Friendship Training Effectiveness|Support Chain Event Frequency|Specialty Priority',text,re.I):
             kind = 'queued_concert_bonus'
-        elif re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit|Skill Pts)\s*\+\s*\d+',text,re.I):
-            kind = 'immediate_on_purchase'
+        elif m := re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit|Skill Pts|Energy)\s*\+\s*(\d+)',text,re.I):
+            # This is a parser-owned, same-frame menu/confirmation label.
+            # Keep the typed field and amount with the fact so preview
+            # consumers never need to reinterpret raw text.  Energy is a
+            # distinct effect kind; it is a preview projection until a later
+            # committed receipt proves an applied energy change.
+            label = m[1].casefold()
+            field = {
+                'skill pts': 'skill_points',
+                'energy': 'energy',
+            }.get(label, label)
+            if field == 'energy' and not typed:
+                # Broad lesson-menu summaries do not own an offer identity;
+                # the card adapter will type an Energy row only after it has
+                # associated the row with the card and source geometry.
+                continue
+            kind = 'energy_change' if field == 'energy' else 'immediate_on_purchase'
+            typed_amount = int(m[2])
         if kind:
-            result.append(dict(kind=kind, raw_text=text, awarded=False))
+            effect = dict(kind=kind, raw_text=text, awarded=False)
+            if typed and kind == 'energy_change':
+                effect['field'] = 'energy'
+                effect['amount'] = typed_amount
+            elif typed and kind == 'immediate_on_purchase':
+                effect['field'] = field
+                effect['amount'] = typed_amount
+            result.append(effect)
     return result
 
 
@@ -317,7 +425,9 @@ class GameplayReader:
             facts['name_candidates'] = [x['text'] for x in regions['modal_title'] if x['confidence']>=80]
             facts['projected_performance_points'] = self.numbers(crop, [(392+83*i,846,425+83*i,876) for i in range(5)], CURRENCIES)
             facts['current_stats'] = self.numbers(crop, [(308,376,365,404),(403,376,455,404),(497,376,549,404),(591,376,644,404),(683,376,735,404),(756,376,817,404)], FIELDS)
-            facts['projected_effects'] = preview_effects([x for rows in regions.values() for x in rows])
+            facts['projected_effects'] = preview_effects(
+                [x for rows in regions.values() for x in rows], typed=True
+            )
             facts['awarded_effects'] = []
         if screen == 'lesson_selection':
             facts['performance_points'] = self.numbers(crop, [(345,91,389,119)]+[(344+104*i,88,394+104*i,123) for i in range(1,5)], CURRENCIES)

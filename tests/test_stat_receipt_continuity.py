@@ -4,6 +4,12 @@ from tracen_replay.receipt_stat_continuity import collapse_cross_event_stat_dupl
 
 
 class StatReceiptContinuityTests(unittest.TestCase):
+    def test_repeated_terminal_punctuation_does_not_duplicate_an_award(self):
+        events, rows = self.fixture()
+        rows[-1]['ocr']['neural'][0]['text'] = 'Skill Pts went up by 4..'
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(events[1]['effects'], [])
+
     def fixture(self,field='skill_points',label='Skill Pts',amount=4):
         effect=dict(kind='stat_change',field=field,amount=amount,raw_text=f'{label} went up by {amount}.')
         rows=[]
@@ -34,6 +40,70 @@ class StatReceiptContinuityTests(unittest.TestCase):
             track=events[1]['deduplicated_receipt_effects'][0]['track_evidence']
             self.assertFalse(track[2]['amount_observed'])
             self.assertTrue(all(x['accepted_as_effect'] is False for x in track))
+
+    def test_source_bound_occlusion_fact_can_bridge_a_hidden_middle_frame(self):
+        events, rows = self.fixture()
+        middle = rows[2]['ocr']['neural'][0]
+        middle['overlay_occluded'] = True
+        middle['confidence'] = 0
+        rows[2]['facts']['occluded_receipt_lines'] = [{
+            'text': 'Skill Pts went up by 4.',
+            'box': [315, 805, 530, 837],
+            'confidence': 97,
+            'overlay_boxes': [[410, 815, 430, 840]],
+        }]
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(events[1]['effects'], [])
+        track = events[1]['deduplicated_receipt_effects'][0]['track_evidence']
+        self.assertEqual(track[2]['source'], 'source_occlusion')
+
+    def test_same_box_amount_conflict_cannot_be_hidden_by_a_valid_neural_line(self):
+        events, rows = self.fixture()
+        rows[1]['ocr']['neural'][0]['text'] = 'Skill Pts went up by 4.'
+        rows[1]['ocr']['neural'].append({
+            'text': 'Skill Pts went up by 9.',
+            'confidence': 99,
+            'box': [315, 805, 530, 837],
+        })
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
+    def test_same_box_direction_conflict_cannot_be_hidden_by_a_valid_neural_line(self):
+        events, rows = self.fixture()
+        rows[1]['ocr']['neural'][0]['text'] = 'Skill Pts went up by 4.'
+        rows[1]['ocr']['neural'].append({
+            'text': 'Skill Pts went down by 4.',
+            'confidence': 99,
+            'box': [315, 805, 530, 837],
+        })
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
+    def test_same_box_source_conflict_cannot_be_hidden_by_a_valid_neural_line(self):
+        events, rows = self.fixture()
+        rows[1]['ocr']['neural'][0]['text'] = 'Skill Pts went up by 4.'
+        rows[1]['facts']['occluded_receipt_lines'] = [{
+            'text': 'Skill Pts went up by 9.',
+            'confidence': 99,
+            'box': [315, 805, 530, 837],
+            'overlay_boxes': [[410, 815, 430, 840]],
+        }]
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
+    def test_unproven_occlusion_fact_cannot_bridge_a_hidden_middle_frame(self):
+        events, rows = self.fixture()
+        middle = rows[2]['ocr']['neural'][0]
+        middle['overlay_occluded'] = True
+        middle['confidence'] = 0
+        rows[2]['facts']['occluded_receipt_lines'] = [{
+            'text': 'Skill Pts went up by 4.',
+            'box': [315, 805, 530, 837],
+            'confidence': 97,
+            'overlay_boxes': [],
+        }]
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
 
     def test_boundaries_and_contradictions_prevent_suppression(self):
         for change in ('amount','visible_amount','grammar','field','title','screen','narrative','missing_frame','duplicate_slot','motion','no_strong_middle','conflict','candidate_conflict'):

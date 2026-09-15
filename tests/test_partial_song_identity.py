@@ -83,6 +83,28 @@ class PartialSongIdentityTests(unittest.TestCase):
             else:item['original_text']='Learned the song "Different Song D".'
             self.assertEqual(lesson_receipts(rows,[changed]),[],mutation)
 
+    def test_direct_receipt_note_proof_reconciles_markerless_confirmation(self):
+        rows,event=self.sample()
+        original='Learned the song "Hoppity Sunny Days ".'
+        effect=event['effects'][0]
+        effect.update(name='Hoppity Sunny Days ♪',original_text=original,
+            visual_symbol_observation={
+                'method':'isolated_note_stem_flag_head_and_closing_quote',
+                'symbol':'♪','independent_observations':False,
+            })
+        purchases=lesson_receipts(rows,[event])
+        self.assertEqual(len(purchases),1)
+        self.assertEqual(purchases[0]['requested_name'],'Hoppity Sunny Days')
+        self.assertEqual(purchases[0]['receipt_name'],'Hoppity Sunny Days ♪')
+        self.assertEqual(purchases[0]['name_match_basis'],
+                         'source_symbol_alias_and_repeated_observed_debit')
+        self.assertEqual(source_song_alias(effect),'Hoppity Sunny Days')
+
+        tampered=dict(effect)
+        tampered['visual_symbol_observation']=dict(
+            effect['visual_symbol_observation'],independent_observations=True)
+        self.assertIsNone(source_song_alias(tampered))
+
     def star_sample(self, names):
         rows,event=self.sample()
         for item,name in zip((rows[2],rows[3]),names):

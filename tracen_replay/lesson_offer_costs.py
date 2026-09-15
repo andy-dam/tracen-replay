@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import math
+import re
 from typing import Any
 
 from .gameplay import CURRENCIES
@@ -182,9 +183,44 @@ def _projection_readings(group: list[dict[str, Any]]) -> dict[str, list[dict[str
     return readings
 
 
+def _source_title_name(offer: Any) -> str | None:
+    """Return a source-proved display title when OCR kept a note alias.
+
+    The rich lesson adapter retains the neural ``title.text`` for immutable
+    sidecar identity and puts its source-pixel display name in ``name``.  A
+    cost join may therefore see ``Present March >`` in the raw title and
+    ``Present March ♪`` in the same offer.  Require the exact shared detector
+    method and a mechanically valid suffix before accepting that alias.
+    """
+    if not isinstance(offer, dict):
+        return None
+    title = offer.get("title")
+    if not isinstance(title, dict) or not isinstance(title.get("text"), str):
+        return None
+    name = offer.get("name")
+    if not isinstance(name, str) or not name:
+        return None
+    title_text = title["text"]
+    if name == title_text:
+        return name
+    symbol = offer.get("source_symbol")
+    if not isinstance(symbol, dict) \
+            or symbol.get("method") != "source_title_note_stem_flag_head" \
+            or symbol.get("symbol") != "♪" \
+            or symbol.get("independent_observations") is not False:
+        return None
+    base = re.sub(r"\s*[>▶→]\s*$", "", title_text).rstrip()
+    if not base or name != base + " ♪":
+        return None
+    return name
+
+
 def _offer_title(offer: Any) -> str | None:
     if not isinstance(offer, dict):
         return None
+    source_name = _source_title_name(offer)
+    if source_name is not None:
+        return source_name
     title = offer.get("title")
     if isinstance(title, dict):
         title = title.get("text")
@@ -308,7 +344,15 @@ def _offer_readings(
     for row in menu_rows:
         facts = _row_facts(row)
         assert facts is not None
-        offers = facts.get("lesson_offer_observations", row.get("lesson_offer_observations"))
+        # The rich adapter carries the source-pixel title alias while the
+        # legacy cost sidecar keeps the raw neural title.  Prefer the rich
+        # offer when present; retain the legacy path for rows produced before
+        # the adapter was wired into the fresh pipeline.
+        preview = facts.get("lesson_offer_preview")
+        if isinstance(preview, dict) and isinstance(preview.get("offers"), list):
+            offers = preview["offers"]
+        else:
+            offers = facts.get("lesson_offer_observations", row.get("lesson_offer_observations"))
         if offers is None:
             continue
         if not isinstance(offers, list):
@@ -323,11 +367,9 @@ def _offer_readings(
         if not _offer_is_usable(offer):
             return None
         title = offer.get("title") if isinstance(offer, dict) else None
-        if (
-            not isinstance(title, dict)
-            or title.get("text") != name
-            or (_confidence(title.get("confidence")) or 0) < 97
-        ):
+        if not isinstance(title, dict) or (_confidence(title.get("confidence")) or 0) < 97:
+            return None
+        if title.get("text") != name and _source_title_name(offer) != name:
             return None
         price_values = _offer_prices(offer)
         if price_values is None:

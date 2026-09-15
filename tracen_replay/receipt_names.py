@@ -1,8 +1,768 @@
 """Retain receipt identity uncertainty and resolve evidence-backed variants."""
 
 from copy import deepcopy
+import hashlib
 import math
 import re
+
+
+_SOURCE_BOUND_IDENTITY_BASIS = "source_bound_clean_adjacent_receipt_line"
+_FRIENDSHIP_EFFECT_KINDS = frozenset(("friendship_change", "friendship_status"))
+
+
+def _identity_normal_text(value):
+    return " ".join(str(value or "").split())
+
+
+def _identity_digest(value):
+    return hashlib.sha256(_identity_normal_text(value).encode("utf-8")).hexdigest()
+
+
+def _identity_single_glyph_variant(first, second):
+    """Recognize one OCR insertion, deletion, or substitution in a name.
+
+    This is only used after a source-bound clean receipt proof has matched the
+    same physical slot.  It is deliberately stricter than sentence-level
+    similarity so two different recipients such as ``Alpha Support`` and
+    ``Beta Support`` remain unresolved.
+    """
+
+    left = _identity_normal_text(first).casefold()
+    right = _identity_normal_text(second).casefold()
+    if not left or not right or left == right or abs(len(left) - len(right)) > 1:
+        return False
+    previous = list(range(len(right) + 1))
+    for i, left_char in enumerate(left, start=1):
+        current = [i]
+        for j, right_char in enumerate(right, start=1):
+            current.append(min(
+                current[-1] + 1,
+                previous[j] + 1,
+                previous[j - 1] + (left_char != right_char),
+            ))
+        previous = current
+    return previous[-1] == 1
+
+
+def _identity_box(value):
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return False
+    if any(type(item) not in (int, float) or isinstance(item, bool)
+           or not math.isfinite(float(item)) for item in value):
+        return False
+    left, top, right, bottom = (float(item) for item in value)
+    return 148 <= left < right <= 958 and 770 <= top < bottom <= 1000
+
+
+def _identity_boxes_intersect(first, second):
+    """Return true only when two validated boxes share source pixels."""
+
+    if not (_identity_box(first) and _identity_box(second)):
+        return False
+    first = tuple(float(item) for item in first)
+    second = tuple(float(item) for item in second)
+    return (
+        max(first[0], second[0]) < min(first[2], second[2])
+        and max(first[1], second[1]) < min(first[3], second[3])
+    )
+
+
+def _identity_source_overlay_boxes(row):
+    """Collect immutable overlay boxes recorded for one source row."""
+
+    if not isinstance(row, dict):
+        return []
+    boxes = []
+
+    def collect(value):
+        if not isinstance(value, list):
+            return
+        for box in value:
+            if _identity_box(box):
+                normalized = list(box)
+                if normalized not in boxes:
+                    boxes.append(normalized)
+
+    for key in ("overlay_boxes", "animated_overlay_boxes"):
+        collect(row.get(key))
+    facts = row.get("facts")
+    if not isinstance(facts, dict):
+        return boxes
+    occluded_lines = facts.get("occluded_receipt_lines")
+    if isinstance(occluded_lines, list):
+        for candidate in occluded_lines:
+            if not isinstance(candidate, dict):
+                continue
+            for key in ("overlay_boxes", "animated_overlay_boxes"):
+                collect(candidate.get(key))
+    receipt_overlay = facts.get("receipt_overlay_evidence")
+    if isinstance(receipt_overlay, dict):
+        for key in ("overlay_boxes", "animated_overlay_boxes"):
+            collect(receipt_overlay.get(key))
+    return boxes
+
+
+def _identity_overlay_alignment(row):
+    """Return source-bound overlay alignments retained by receipt parsing."""
+
+    if not isinstance(row, dict):
+        return []
+    values = []
+    top_level = row.get("overlay_alignment")
+    if isinstance(top_level, list):
+        values.extend(top_level)
+    facts = row.get("facts")
+    receipt_overlay = facts.get("receipt_overlay_evidence") if isinstance(facts, dict) else None
+    if isinstance(receipt_overlay, dict) and isinstance(receipt_overlay.get("alignments"), list):
+        values.extend(receipt_overlay["alignments"])
+    return [item for item in values if isinstance(item, dict)]
+
+
+def _identity_source_binding_matches(row, binding):
+    """Require proof provenance to remain equal to its clean source row."""
+
+    if not isinstance(row, dict) or not isinstance(binding, dict) or not binding:
+        return False
+    required = {"source_sha256", "source_frame_sha256", "engine_fingerprint", "model_sha256"}
+    if not required.issubset(binding):
+        return False
+    return all(row.get(key) == value for key, value in binding.items())
+
+
+def _identity_anchor_overlay_intersection(proof, anchor_row, target_box):
+    """Validate recorded anchor overlays when no alignment sidecar exists.
+
+    The fallback is intentionally narrow.  It consumes only overlay boxes
+    copied from the validated source trigger, requires exact membership in the
+    anchor row's overlay evidence, and is used only when that row has no
+    alignment records at all.  It does not estimate a recipient region or
+    create one from sentence length.
+    """
+
+    if _identity_overlay_alignment(anchor_row):
+        return False
+    declared = proof.get("anchor_overlay_boxes") if isinstance(proof, dict) else None
+    if not isinstance(declared, list) or not declared:
+        return False
+    available = _identity_source_overlay_boxes(anchor_row)
+    if not available:
+        return False
+    for box in declared:
+        if not _identity_box(box) or list(box) not in available:
+            return False
+    return any(
+        _identity_boxes_intersect(box, target_box) for box in declared
+    )
+
+
+def _identity_alignment_name_region(row, target_box):
+    """Validate an existing alignment and return its recipient region.
+
+    The region comes from the same alignment helpers used by the source
+    occlusion detector.  No horizontal position is estimated from sentence
+    length or from a character-name catalog.
+    """
+
+    if not _identity_box(target_box):
+        return []
+    try:
+        from .receipt_occlusion import (
+            _friendship_name_glyph_spans,
+            friendship_name_bounds,
+        )
+    except (ImportError, AttributeError):
+        return []
+    line_text = _identity_normal_text(
+        next(
+            (
+                line.get("text")
+                for line in _identity_ocr_lines(row)
+                if isinstance(line, dict)
+                and _identity_same_slot(line.get("box"), target_box)
+            ),
+            "",
+        )
+    )
+    regions = []
+    for alignment in _identity_overlay_alignment(row):
+        alignment_box = alignment.get("line_box")
+        if not _identity_same_slot(alignment_box, target_box):
+            continue
+        # ``annotate`` only treats an alignment as source geometry when its
+        # OCR confidence meets the shared receipt proof threshold.  Identity
+        # recovery must apply the same contract; a digest-shaped alignment
+        # with confidence zero is not evidence for a recipient region.
+        alignment_confidence = alignment.get("confidence")
+        if (type(alignment_confidence) not in (int, float)
+                or isinstance(alignment_confidence, bool)
+                or not math.isfinite(float(alignment_confidence))
+                or float(alignment_confidence) < 95):
+            continue
+        recognized = _identity_normal_text(alignment.get("recognized_text"))
+        if not line_text or not recognized or recognized != line_text:
+            continue
+        try:
+            name_bounds = friendship_name_bounds(
+                alignment_box,
+                alignment.get("words"),
+                alignment.get("columns"),
+                alignment.get("line_length"),
+            )
+            glyph_spans = _friendship_name_glyph_spans(alignment)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            continue
+        if not _identity_box(name_bounds) or not glyph_spans:
+            continue
+        if any(
+            not isinstance(span, (list, tuple))
+            or len(span) != 2
+            or any(type(value) not in (int, float) or isinstance(value, bool)
+                   or not math.isfinite(float(value)) for value in span)
+            or float(span[0]) >= float(span[1])
+            for span in glyph_spans
+        ):
+            continue
+        regions.append((list(name_bounds), [list(span) for span in glyph_spans]))
+    return regions
+
+
+def _identity_recipient_obstruction(row, target_box):
+    """Prove that a source overlay crossed the recipient glyph region."""
+
+    overlays = _identity_source_overlay_boxes(row)
+    if not overlays:
+        return False
+    for name_bounds, glyph_spans in _identity_alignment_name_region(row, target_box):
+        if any(
+            _identity_boxes_intersect(overlay, name_bounds)
+            and any(
+                max(float(span[0]), float(overlay[0]))
+                < min(float(span[1]), float(overlay[2]))
+                for span in glyph_spans
+            )
+            for overlay in overlays
+        ):
+            return True
+    return False
+
+
+def _identity_same_slot(first, second):
+    if not (_identity_box(first) and _identity_box(second)):
+        return False
+    first = tuple(float(item) for item in first)
+    second = tuple(float(item) for item in second)
+    width = max(0, min(first[2], second[2]) - max(first[0], second[0]))
+    height = max(0, min(first[3], second[3]) - max(first[1], second[1]))
+    intersection = width * height
+    union = ((first[2] - first[0]) * (first[3] - first[1])
+             + (second[2] - second[0]) * (second[3] - second[1])
+             - intersection)
+    return union > 0 and intersection / union >= 0.8 and abs(
+        (first[1] + first[3] - second[1] - second[3]) / 2
+    ) <= 3
+
+
+def _identity_adjacent_slot(first, second):
+    """Match the bounded receipt-row geometry used by recovery."""
+
+    if not (_identity_box(first) and _identity_box(second)):
+        return False
+    if _identity_same_slot(first, second):
+        return False
+    first = tuple(float(item) for item in first)
+    second = tuple(float(item) for item in second)
+    upper, lower = sorted((first, second), key=lambda box: (box[1] + box[3]) / 2)
+    upper_center = (upper[1] + upper[3]) / 2
+    lower_center = (lower[1] + lower[3]) / 2
+    return (
+        0 < lower_center - upper_center <= 35
+        and lower[1] - upper[3] <= 6
+        and abs(upper[0] - lower[0]) <= 16
+    )
+
+
+def _identity_semantics(effect):
+    return tuple(effect.get(key) for key in (
+        "kind", "field", "amount", "direction", "value",
+    ))
+
+
+def _identity_field_key(effect):
+    """Use the canonical transaction key for source evidence lookups."""
+
+    return "|".join(str(effect.get(key) or "") for key in (
+        "kind", "field", "name",
+    ))
+
+
+def _identity_exact_effect(first, second):
+    if _identity_semantics(first) != _identity_semantics(second):
+        return False
+    first_name, second_name = first.get("name"), second.get("name")
+    if first_name is None or second_name is None:
+        return first_name is None and second_name is None
+    return _identity_normal_text(first_name).casefold() == _identity_normal_text(second_name).casefold()
+
+
+def _identity_contexts(value):
+    if not isinstance(value, dict):
+        return set()
+    return {
+        item.strip() for key in ("context_title", "context_title_candidate")
+        for item in (value.get(key),)
+        if isinstance(item, str) and item.strip()
+    }
+
+
+def _identity_ocr_lines(row):
+    if not isinstance(row, dict):
+        return []
+    ocr = row.get("ocr")
+    lines = ocr.get("neural") if isinstance(ocr, dict) else None
+    return lines if isinstance(lines, list) else []
+
+
+def _validated_source_identity_proof(effect, event, rows_by_evidence):
+    """Validate one clear adjacent-line proof against the actual source row.
+
+    The proof is produced by the bounded occluded-receipt reread.  Recheck its
+    row, exact OCR text, parsed semantics, geometry, anchor overlay, owner,
+    and recovery window here before it can resolve an existing spelling.  A
+    metadata flag alone is never sufficient.
+    """
+
+    proof = effect.get("source_bound_identity_proof") if isinstance(effect, dict) else None
+    if not isinstance(proof, dict) or proof.get("basis") != _SOURCE_BOUND_IDENTITY_BASIS:
+        return None
+    required = (
+        "source_timestamp_ms", "evidence", "line_box", "source_line_text_sha256",
+        "owner_ref", "owner_start_ms", "owner_end_ms", "owner_context_title",
+        "anchor_source_timestamp_ms", "anchor_evidence", "anchor_line_box",
+        "anchor_source_line_text_sha256", "anchor_window_start_ms",
+        "anchor_window_end_ms", "confidence", "source_binding",
+    )
+    if any(key not in proof for key in required):
+        return None
+    source_timestamp = proof.get("source_timestamp_ms")
+    anchor_timestamp = proof.get("anchor_source_timestamp_ms")
+    owner_start, owner_end = proof.get("owner_start_ms"), proof.get("owner_end_ms")
+    window_start, window_end = (
+        proof.get("anchor_window_start_ms"), proof.get("anchor_window_end_ms")
+    )
+    if any(type(value) is not int or value < 0 for value in (
+        source_timestamp, anchor_timestamp, owner_start, owner_end,
+        window_start, window_end,
+    )):
+        return None
+    if owner_end < owner_start or window_end <= window_start:
+        return None
+    if not window_start <= anchor_timestamp < window_end:
+        return None
+    if not window_start <= source_timestamp < window_end:
+        return None
+    if not owner_start <= anchor_timestamp <= owner_end:
+        return None
+    owner_ref = proof.get("owner_ref")
+    if not isinstance(owner_ref, str) or not owner_ref.strip():
+        return None
+    context = proof.get("owner_context_title")
+    if not isinstance(context, str) or not context.strip():
+        return None
+    evidence = proof.get("evidence")
+    anchor_evidence = proof.get("anchor_evidence")
+    if not isinstance(evidence, str) or not evidence.strip():
+        return None
+    if not isinstance(anchor_evidence, str) or not anchor_evidence.strip():
+        return None
+    if not _identity_box(proof.get("line_box")) or not _identity_box(proof.get("anchor_line_box")):
+        return None
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", str(proof.get("source_line_text_sha256"))):
+        # A digest-shaped value is not enough; the exact source line below
+        # must produce it. This branch also rejects non-string values.
+        return None
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", str(proof.get("anchor_source_line_text_sha256"))):
+        return None
+    confidence = proof.get("confidence")
+    if (type(confidence) not in (int, float) or isinstance(confidence, bool)
+            or not math.isfinite(float(confidence)) or float(confidence) < 95):
+        return None
+    event_bounds = (event.get("first_seen_ms"), event.get("last_seen_ms"))
+    if (type(event_bounds[0]) is not int or type(event_bounds[1]) is not int
+            or event_bounds[1] < event_bounds[0]
+            or not event_bounds[0] <= anchor_timestamp <= event_bounds[1]
+            or not event_bounds[0] <= source_timestamp <= event_bounds[1]):
+        return None
+    event_contexts = _identity_contexts(event)
+    if event_contexts and context.strip() not in event_contexts:
+        return None
+    # Bind the proof to the source-owned recovery row that produced it.  The
+    # owner reference is useful only when it agrees with the validated
+    # recovery metadata; accepting a caller-supplied string here would let a
+    # forged proof attach a clean line to an unrelated outcome event.
+    row = rows_by_evidence.get(evidence) if isinstance(rows_by_evidence, dict) else None
+    anchor_row = rows_by_evidence.get(anchor_evidence) if isinstance(rows_by_evidence, dict) else None
+    if not isinstance(row, dict) or not isinstance(anchor_row, dict):
+        return None
+    if not _identity_source_binding_matches(row, proof.get("source_binding")):
+        return None
+    if row.get("source_timestamp_ms") != source_timestamp or row.get("evidence") != evidence:
+        return None
+    if anchor_row.get("source_timestamp_ms") != anchor_timestamp or anchor_row.get("evidence") != anchor_evidence:
+        return None
+    if row.get("screen") not in ("unknown", "event_outcome"):
+        return None
+    if anchor_row.get("screen") not in ("unknown", "event_outcome"):
+        return None
+    field_evidence = event.get("field_evidence")
+    field_key = _identity_field_key(effect)
+    if not isinstance(field_evidence, dict):
+        return None
+    field_paths = field_evidence.get(field_key)
+    if (not isinstance(field_paths, list) or evidence not in field_paths
+            or not any(
+                isinstance(paths, list) and anchor_evidence in paths
+                for paths in field_evidence.values()
+            )):
+        return None
+    recovery = row.get("facts", {}).get("occluded_receipt_recovery") \
+        if isinstance(row.get("facts"), dict) else None
+    if not isinstance(recovery, dict):
+        return None
+    if (recovery.get("source_timestamp_ms") != source_timestamp
+            or recovery.get("evidence") != evidence
+            or recovery.get("requested_owner_ref") != owner_ref
+            or recovery.get("owner_basis") != "outcome_event"):
+        return None
+    trigger_sources = recovery.get("trigger_sources")
+    if (not isinstance(trigger_sources, list) or not any(
+        isinstance(trigger, dict)
+        and trigger.get("source_timestamp_ms") == anchor_timestamp
+        and trigger.get("evidence") == anchor_evidence
+        and trigger.get("line_box") == proof.get("anchor_line_box")
+        and trigger.get("source_line_text_sha256")
+            == proof.get("anchor_source_line_text_sha256")
+        # The recovery row must retain the complete owner binding selected
+        # from the validated outcome plan.  Matching only the requested owner
+        # field would allow a caller to mutate that field and the proof
+        # together while leaving no source-bound record of which outcome
+        # actually owned the obstructed line.
+        and trigger.get("owner_ref") == owner_ref
+        and trigger.get("owner_start_ms") == owner_start
+        and trigger.get("owner_end_ms") == owner_end
+        and trigger.get("owner_context_title") == context
+        for trigger in trigger_sources
+    )):
+        return None
+    if _identity_contexts(row) and context.strip() not in _identity_contexts(row):
+        return None
+    if _identity_contexts(anchor_row) and context.strip() not in _identity_contexts(anchor_row):
+        return None
+    lines = []
+    for line in _identity_ocr_lines(row):
+        if not isinstance(line, dict) or line.get("box") != proof.get("line_box"):
+            continue
+        if _identity_normal_text(line.get("text")) != _identity_normal_text(effect.get("raw_text")):
+            continue
+        if line.get("overlay_occluded") is True:
+            continue
+        overlays = line.get("overlay_boxes")
+        if isinstance(overlays, list) and overlays:
+            return None
+        line_confidence = line.get("confidence")
+        if (type(line_confidence) not in (int, float) or isinstance(line_confidence, bool)
+                or not math.isfinite(float(line_confidence)) or float(line_confidence) < 95):
+            return None
+        lines.append(line)
+    if len(lines) != 1:
+        return None
+    line = lines[0]
+    if _identity_digest(line.get("text")) != proof.get("source_line_text_sha256"):
+        return None
+    try:
+        from .gameplay import effects_from_lines
+        parsed = effects_from_lines([line])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+    if not any(_identity_exact_effect(effect, candidate) for candidate in parsed):
+        return None
+    if any(proof.get(key) != effect.get(key) for key in (
+        "kind", "field", "amount", "direction", "value",
+    )):
+        return None
+    if proof.get("owner_context_title", "").strip() != context.strip():
+        return None
+
+    anchor_lines = []
+    anchor_facts = anchor_row.get("facts")
+    if not isinstance(anchor_facts, dict):
+        return None
+    for line in anchor_facts.get("occluded_receipt_lines", []):
+        if not isinstance(line, dict) or line.get("box") != proof.get("anchor_line_box"):
+            continue
+        if _identity_digest(line.get("text")) != proof.get("anchor_source_line_text_sha256"):
+            continue
+        overlays = line.get("overlay_boxes")
+        if not isinstance(overlays, list) or not overlays:
+            continue
+        if any(_identity_boxes_intersect(box, proof.get("line_box")) for box in overlays):
+            anchor_lines.append(line)
+    if len(anchor_lines) != 1 or not _identity_adjacent_slot(
+        proof.get("anchor_line_box"), proof.get("line_box")
+    ):
+        return None
+    # The anchor's obstruction normally must cross the recipient region of the
+    # displaced friendship line.  A small set of legacy source rows has the
+    # validated overlay components but no alignment sidecar.  In that case
+    # the source-bound recovery proof may use the exact copied overlay boxes
+    # only after the resolver applies its one-glyph OCR-variant guard.  The
+    # fallback never estimates a name region or treats a neighboring overlay
+    # as identity evidence by itself.
+    recipient_obstructed = _identity_recipient_obstruction(
+        anchor_row, proof.get("line_box")
+    )
+    if not recipient_obstructed and not _identity_anchor_overlay_intersection(
+        proof, anchor_row, proof.get("line_box")
+    ):
+        return None
+    return dict(
+        proof=proof,
+        row=row,
+        anchor_row=anchor_row,
+        line=line,
+        source_timestamp_ms=source_timestamp,
+        anchor_timestamp_ms=anchor_timestamp,
+        line_box=list(proof["line_box"]),
+        owner_ref=owner_ref.strip(),
+        proof_mode=(
+            "source_bound_recipient_overlay"
+            if recipient_obstructed
+            else "source_bound_anchor_overlay_intersection"
+        ),
+    )
+
+
+def _effect_source_observations(effect, event, rows_by_evidence):
+    """Find exact OCR observations for same-occurrence geometry checks."""
+
+    field = _identity_field_key(effect)
+    evidence = event.get("field_evidence", {}).get(field, [])
+    if not isinstance(evidence, list):
+        return []
+    texts = {
+        _identity_normal_text(value) for value in (
+            effect.get("raw_text"), effect.get("normalized_text"), effect.get("original_text")
+        ) if isinstance(value, str) and _identity_normal_text(value)
+    }
+    result = []
+    for path in dict.fromkeys(item for item in evidence if isinstance(item, str)):
+        row = rows_by_evidence.get(path) if isinstance(rows_by_evidence, dict) else None
+        if not isinstance(row, dict) or type(row.get("source_timestamp_ms")) is not int:
+            continue
+        matches = [
+            line for line in _identity_ocr_lines(row)
+            if isinstance(line, dict)
+            and _identity_normal_text(line.get("text")) in texts
+            and _identity_box(line.get("box"))
+            and type(line.get("confidence")) in (int, float)
+            and not isinstance(line.get("confidence"), bool)
+            and math.isfinite(float(line.get("confidence")))
+            and float(line.get("confidence")) >= 95
+        ]
+        if len(matches) == 1:
+            result.append(dict(
+                source_timestamp_ms=row["source_timestamp_ms"],
+                evidence=path,
+                line=matches[0],
+                row=row,
+            ))
+    return result
+
+
+def _identity_observation_has_degradation(observation):
+    """Require source geometry proving why an identity may be displaced.
+
+    A high-confidence OCR spelling remains authoritative unless the same
+    source row contains an obstruction crossing that spelling's own receipt
+    box.  Obstruction on a neighboring line is insufficient.
+    """
+
+    if not isinstance(observation, dict):
+        return False
+    row = observation.get("row")
+    line = observation.get("line")
+    if not isinstance(row, dict) or not isinstance(line, dict):
+        return False
+    line_box = line.get("box")
+    if not _identity_box(line_box):
+        return False
+    return _identity_recipient_obstruction(row, line_box)
+
+
+def _identity_observations_all_degraded(effect, event, rows_by_evidence, observations):
+    """Return true only when every displaced source observation is degraded."""
+
+    if not observations:
+        return False
+    return all(_identity_observation_has_degradation(observation)
+               for observation in observations)
+
+
+def _same_identity_occurrence(clean, other_observations):
+    for observation in other_observations:
+        if abs(clean["source_timestamp_ms"] - observation["source_timestamp_ms"]) > 250:
+            continue
+        if _identity_same_slot(clean["line_box"], observation["line"].get("box")):
+            return True
+    return False
+
+
+def _source_bound_variant_observations(
+    clean_effect, clean_record, other_effect, other_observations,
+):
+    """Treat one OCR glyph variant as degraded under a validated proof.
+
+    Alignment-backed proofs already establish recipient obstruction directly.
+    For legacy rows without alignment sidecars, the recovery proof still
+    carries the exact source overlay boxes and clean source binding.  Permit
+    that narrow fallback only when the competing name differs by one glyph and
+    every competing observation is the same physical receipt slot.  Different
+    names, rows, or source overlays remain unresolved.
+    """
+
+    if not isinstance(clean_effect, dict) or not isinstance(other_effect, dict):
+        return False
+    if not isinstance(clean_record, dict) or clean_record.get("proof_mode") != (
+        "source_bound_anchor_overlay_intersection"
+    ):
+        return False
+    if not _identity_single_glyph_variant(
+        clean_effect.get("name"), other_effect.get("name")
+    ):
+        return False
+    proof = clean_record.get("proof")
+    anchor_row = clean_record.get("anchor_row")
+    if not isinstance(proof, dict) or not isinstance(anchor_row, dict):
+        return False
+    if _identity_overlay_alignment(anchor_row):
+        return False
+    if not _identity_anchor_overlay_intersection(
+        proof, anchor_row, clean_record.get("line_box")
+    ):
+        return False
+    if not isinstance(other_observations, list) or not other_observations:
+        return False
+    clean_timestamp = clean_record.get("source_timestamp_ms")
+    for observation in other_observations:
+        if not isinstance(observation, dict):
+            return False
+        other_row = observation.get("row")
+        other_line = observation.get("line")
+        if not isinstance(other_row, dict) or not isinstance(other_line, dict):
+            return False
+        if type(clean_timestamp) is not int or type(
+            other_row.get("source_timestamp_ms")
+        ) is not int:
+            return False
+        if abs(clean_timestamp - other_row["source_timestamp_ms"]) > 250:
+            return False
+        if not _identity_same_slot(
+            clean_record.get("line_box"), other_line.get("box")
+        ):
+            return False
+        if not _identity_single_glyph_variant(
+            clean_effect.get("raw_text"), other_effect.get("raw_text")
+        ):
+            return False
+    return True
+
+
+def _resolve_source_bound_friendship_identities(event, rows_by_evidence):
+    """Prefer one strictly proven clean name over an obstructed spelling.
+
+    This resolution is limited to the same kind/amount/direction/value and a
+    physically matching receipt occurrence.  A second clean name, an
+    ownerless proof, or a source row outside the event remains unresolved for
+    the existing conservative conflict handler.
+    """
+
+    if not isinstance(event, dict) or not isinstance(event.get("effects"), list):
+        return
+    effects = [
+        effect for effect in event["effects"]
+        if isinstance(effect, dict)
+        and effect.get("kind") in _FRIENDSHIP_EFFECT_KINDS
+        and isinstance(effect.get("name"), str)
+        and effect.get("name").strip()
+    ]
+    validated = {
+        id(effect): _validated_source_identity_proof(effect, event, rows_by_evidence)
+        for effect in effects
+    }
+    removed = set()
+    resolutions = []
+    for clean in effects:
+        clean_record = validated.get(id(clean))
+        if clean_record is None or id(clean) in removed:
+            continue
+        clean_observation = dict(
+            source_timestamp_ms=clean_record["source_timestamp_ms"],
+            line_box=clean_record["line_box"],
+        )
+        related = []
+        for other in effects:
+            if other is clean or id(other) in removed:
+                continue
+            if other.get("name") == clean.get("name") or _identity_semantics(other) != _identity_semantics(clean):
+                continue
+            observations = _effect_source_observations(other, event, rows_by_evidence)
+            if _same_identity_occurrence(clean_observation, observations):
+                related.append((other, observations))
+        if not related:
+            continue
+        # A source-observed clean spelling is a competing identity even when
+        # it has no recovery proof.  Only an observation with positive
+        # obstruction geometry may be displaced by the newly proven clean
+        # adjacent line.  This prevents a neighboring overlay from silently
+        # replacing an ordinary clean line in the same physical slot.
+        competing_clean = [
+            other for other, observations in related
+            if validated.get(id(other)) is not None
+            or not _identity_observations_all_degraded(
+                other, event, rows_by_evidence, observations
+            )
+        ]
+        if competing_clean and clean_record.get("proof_mode") == (
+            "source_bound_anchor_overlay_intersection"
+        ):
+            observation_by_id = {
+                id(other): observations for other, observations in related
+            }
+            competing_clean = [
+                other for other in competing_clean
+                if not _source_bound_variant_observations(
+                    clean,
+                    clean_record,
+                    other,
+                    observation_by_id.get(id(other), []),
+                )
+            ]
+        if competing_clean:
+            continue
+        removed.update(id(other) for other, _ in related)
+        resolutions.append(dict(
+            kind=clean.get("kind"),
+            field=f"{clean.get('kind')}||{clean.get('name')}",
+            accepted_name=clean.get("name"),
+            rejected_name_candidates=sorted({other.get("name") for other, _ in related}),
+            evidence=[clean_record["proof"].get("evidence")],
+            source_timestamp_ms=clean_record["source_timestamp_ms"],
+            source_line_box=clean_record["line_box"],
+            basis="source_bound_clean_same_occurrence",
+        ))
+    if removed:
+        event["effects"] = [effect for effect in event["effects"] if id(effect) not in removed]
+    if resolutions:
+        event.setdefault("resolved_identity_readings", []).extend(resolutions)
 
 
 def _dialogue_text_moved(first,second):
@@ -35,6 +795,7 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
     No spelling is selected. Simultaneous recipients and separate receipt
     positions remain distinct, even when their names and gains are similar.
     """
+    _resolve_source_bound_friendship_identities(event, rows_by_evidence)
     effects=[e for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')]
     def same_slot(ba,bb):
         if len(ba)!=4 or len(bb)!=4:return False

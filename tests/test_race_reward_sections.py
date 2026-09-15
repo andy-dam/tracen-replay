@@ -29,6 +29,50 @@ class RewardSectionTests(unittest.TestCase):
         row=self.row(); row['ocr']['neural'].pop()
         self.assertEqual([x['section'] for x in annotate(row)],['items','items',None])
 
+    def test_validated_optional_bonus_proof_survives_global_header_gate(self):
+        row = self.row()
+        row['ocr']['neural'][1]['confidence'] = 91
+        row['facts']['visible_item_quantities'][-1]['_validated_section_proof'] = {
+            'basis': 'validated_race_quantity_layout_guard',
+            'section': 'bonus',
+            'header': {'text': 'Bonus', 'confidence': 91, 'box': [270, 750, 334, 778]},
+            'source_timestamp_ms': 0,
+            'source_frame_sha256': 'a' * 64,
+        }
+
+        result = annotate(row)
+
+        self.assertEqual([x['section'] for x in result], ['items', 'items', 'bonus'])
+        self.assertEqual(result[-1]['section_header']['confidence'], 91)
+        self.assertNotIn('_validated_section_proof', result[-1])
+
+    def test_invalid_validated_bonus_proof_is_rejected(self):
+        row = self.row()
+        row['ocr']['neural'][1]['confidence'] = 91
+        row['facts']['visible_item_quantities'][-1]['_validated_section_proof'] = {
+            'basis': 'validated_race_quantity_layout_guard',
+            'section': 'bonus',
+            'header': {'text': 'Bonus', 'confidence': 91, 'box': [270, 840, 334, 868]},
+            'source_timestamp_ms': 0,
+            'source_frame_sha256': 'a' * 64,
+        }
+
+        self.assertEqual([x['section'] for x in annotate(row)], ['items', 'items', None])
+
+    def test_validated_bonus_proof_must_bind_source_frame(self):
+        row = self.row()
+        row['ocr']['neural'][1]['confidence'] = 91
+        row['source_frame_sha256'] = 'b' * 64
+        row['facts']['visible_item_quantities'][-1]['_validated_section_proof'] = {
+            'basis': 'validated_race_quantity_layout_guard',
+            'section': 'bonus',
+            'header': {'text': 'Bonus', 'confidence': 91, 'box': [270, 750, 334, 778]},
+            'source_timestamp_ms': 0,
+            'source_frame_sha256': 'a' * 64,
+        }
+
+        self.assertEqual([x['section'] for x in annotate(row)], ['items', 'items', None])
+
     def test_shifted_layout_is_relative_to_visible_headers(self):
         row=self.row(); row['facts']['visible_item_quantities']=row['facts']['visible_item_quantities'][:2]
         row['ocr']['neural']=row['ocr']['neural'][:1]

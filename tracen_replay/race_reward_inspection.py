@@ -170,8 +170,15 @@ def register(root, relative_directory):
     temporary.replace(path)
 
 
-def inspect(source_path, root, start_ms, end_ms, fps=60, model_dir='.local/models/rapidocr'):
-    """Capture a bounded source window, cache OCR, refine badges and register it."""
+def inspect(source_path, root, start_ms, end_ms, fps=60, model_dir='.local/models/rapidocr', *,
+            fixed_quantity_windows=True):
+    """Capture a bounded source window, refine race quantities and register it.
+
+    New bounded captures use the source-reviewed fixed-layout quantity windows
+    by default.  The keyword remains configurable for callers that must
+    reproduce an older inspection policy; the generated sidecar still records
+    whichever policy was selected and is validated before application.
+    """
     from .pipeline import decode_frames
     from .vision import NeuralReader
     from .race_quantity_refinement import generate
@@ -222,39 +229,175 @@ def inspect(source_path, root, start_ms, end_ms, fps=60, model_dir='.local/model
                    evidence=proof.relative_to(directory).as_posix(),
                    source_frame_sha256=_hash(source_frame))
         save_json(cache, raw)
-    generate(directory, model_dir=Path(model_dir))
+    generate(directory, model_dir=Path(model_dir), fixed_quantity_windows=fixed_quantity_windows)
     register(root, relative)
     return dict(directory=relative, frames=len(capture['frames']), registered=True)
 
 
 def merge_reward_rows(base, extra):
-    """Merge same-PTS quantity observations once; conflicting quantities abstain."""
-    by_time = {row['source_timestamp_ms']: copy.deepcopy(row) for row in base}
-    for row in sorted(extra, key=lambda r: (r['source_timestamp_ms'], r['evidence'])):
-        time = row['source_timestamp_ms']
-        old = by_time.get(time)
-        if old is None:
-            by_time[time] = copy.deepcopy(row)
-            continue
-        if old.get('quantity_inspection_conflict'):
-            continue
-        prior = old['facts'].get('visible_item_quantities') or []
-        current = row['facts'].get('visible_item_quantities') or []
+    """Merge same-PTS reward observations once; conflicting quantities abstain.
+
+    A bounded inspection has its own OCR row for the same source frame. The
+    inspection may add reward facts and the two result headers that give those
+    facts section identity, but it must not replace the base row or leak
+    unrelated OCR into the gameplay reading.
+    """
+    def valid_header(line):
+        name = str(line.get('text', '')).strip().casefold() if isinstance(line, dict) else ''
+        if name not in ('items', 'bonus'):
+            return None
+        try:
+            box = line.get('box')
+            confidence = float(line.get('confidence', 0))
+            if not isinstance(box, (list, tuple)) or len(box) != 4:
+                return None
+            left, top, right, bottom = (float(value) for value in box)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not all(value == value and abs(value) != float('inf')
+                   for value in (left, top, right, bottom, confidence)):
+            return None
+        if not (250 <= left < right <= 830 and 500 <= top < bottom <= 900 and confidence >= 97):
+            return None
+        return name
+
+    def merge_header_proof(target, supplement):
+        """Add missing validated reward headers while retaining base OCR."""
+        if not isinstance(supplement, dict):
+            return
+        supplement_ocr = supplement.get('ocr')
+        supplement_lines = supplement_ocr.get('neural') if isinstance(supplement_ocr, dict) else None
+        if not isinstance(supplement_lines, list):
+            return
+        target_ocr = target.get('ocr')
+        if not isinstance(target_ocr, dict):
+            target_ocr = {}
+            target['ocr'] = target_ocr
+        target_lines = target_ocr.get('neural')
+        if not isinstance(target_lines, list):
+            target_lines = []
+            target_ocr['neural'] = target_lines
+        existing = {name for line in target_lines if (name := valid_header(line)) is not None}
+        for line in supplement_lines:
+            name = valid_header(line)
+            if name is not None and name not in existing:
+                target_lines.append(copy.deepcopy(line))
+                existing.add(name)
+
+    def facts_for(row):
+        facts = row.get('facts') if isinstance(row, dict) else None
+        if isinstance(facts, dict):
+            return facts
+        facts = {}
+        if isinstance(row, dict):
+            row['facts'] = facts
+        return facts
+
+    def same_race_anchor(first, second):
+        first_facts = facts_for(first)
+        second_facts = facts_for(second)
+        for field in ('fans', 'fans_gained'):
+            first_value = first_facts.get(field)
+            second_value = second_facts.get(field)
+            if first_value is not None and second_value is not None and first_value != second_value:
+                return False
+        return True
+
+    def quantity_box(item):
+        if not isinstance(item, dict):
+            return None
+        box = item.get('box')
+        if not isinstance(box, (list, tuple)) or len(box) != 4:
+            return None
+        try:
+            values = tuple(float(value) for value in box)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not all(value == value and abs(value) != float('inf') for value in values):
+            return None
+        if not (0 <= values[0] < values[2] <= 1920 and 0 <= values[1] < values[3] <= 1080):
+            return None
+        return values
+
+    def quantity_value(item):
+        value = item.get('quantity') if isinstance(item, dict) else None
+        return value if type(value) is int and value >= 0 else None
+
+    def valid_quantities(items):
+        return isinstance(items, list) and all(
+            quantity_value(item) is not None and quantity_box(item) is not None
+            for item in items
+        )
+
+    def merge_one(target, supplement):
+        target_facts = facts_for(target)
+        supplement_facts = facts_for(supplement)
+        prior = target_facts.get('visible_item_quantities') or []
+        current = supplement_facts.get('visible_item_quantities') or []
+        if not valid_quantities(prior) or not valid_quantities(current):
+            target_facts['visible_item_quantities'] = []
+            target['quantity_inspection_conflict'] = True
+            target.setdefault('quantity_inspection_evidence', []).append(supplement.get('evidence'))
+            merge_header_proof(target, supplement)
+            return
         merged = copy.deepcopy(prior)
         conflict = False
         for item in current:
-            matches = [p for p in merged if len(p.get('box', [])) == len(item.get('box', [])) == 4 and
-                       abs((p['box'][0] + p['box'][2] - item['box'][0] - item['box'][2]) / 2) <= 16 and
-                       abs((p['box'][1] + p['box'][3] - item['box'][1] - item['box'][3]) / 2) <= 16]
-            if len(matches) > 1 or (matches and matches[0]['quantity'] != item['quantity']):
+            item_box = quantity_box(item)
+            matches = [
+                prior_item for prior_item in merged
+                if (quantity_box(prior_item) is not None
+                    and abs((quantity_box(prior_item)[0] + quantity_box(prior_item)[2]
+                            - item_box[0] - item_box[2]) / 2) <= 16
+                    and abs((quantity_box(prior_item)[1] + quantity_box(prior_item)[3]
+                            - item_box[1] - item_box[3]) / 2) <= 16)
+            ]
+            if len(matches) > 1 or (matches and quantity_value(matches[0]) != quantity_value(item)):
                 conflict = True
                 break
             if not matches:
                 merged.append(copy.deepcopy(item))
-        old['facts']['visible_item_quantities'] = [] if conflict else sorted(merged, key=lambda x: (x['box'][1] // 50, x['box'][0]))
+        target_facts['visible_item_quantities'] = [] if conflict else sorted(
+            merged,
+            key=lambda x: (quantity_box(x)[1] // 50, quantity_box(x)[0]),
+        )
         if conflict:
-            old['quantity_inspection_conflict'] = True
-        old.setdefault('quantity_inspection_evidence', []).append(row['evidence'])
+            target['quantity_inspection_conflict'] = True
+        evidence = supplement.get('evidence')
+        if evidence is not None:
+            target.setdefault('quantity_inspection_evidence', []).append(evidence)
+        merge_header_proof(target, supplement)
+
+    by_time = {
+        row['source_timestamp_ms']: copy.deepcopy(row)
+        for row in base
+        if isinstance(row, dict) and type(row.get('source_timestamp_ms')) is int
+    }
+    candidates = [
+        row for row in extra
+        if isinstance(row, dict) and type(row.get('source_timestamp_ms')) is int
+    ]
+    for row in sorted(candidates, key=lambda r: (r['source_timestamp_ms'], str(r.get('evidence', '')))):
+        time = row['source_timestamp_ms']
+        old = by_time.get(time)
+        if old is None:
+            if row.get('screen') == 'race_result':
+                by_time[time] = copy.deepcopy(row)
+            else:
+                interruption = copy.deepcopy(row)
+                interruption['facts'] = dict(facts_for(interruption), visible_item_quantities=[])
+                by_time[time] = interruption
+            continue
+        if old.get('quantity_inspection_conflict'):
+            continue
+        # Supplemental observations can contain playback/other-screen rows
+        # so the continuity caller can retain an interruption. They never
+        # promote a non-result row or supply quantities from another race.
+        if row.get('screen') != 'race_result' or old.get('screen') != 'race_result':
+            continue
+        if not same_race_anchor(old, row):
+            continue
+        merge_one(old, row)
     return [by_time[t] for t in sorted(by_time)]
 
 

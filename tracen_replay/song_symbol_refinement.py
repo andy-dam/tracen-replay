@@ -9,7 +9,6 @@ import argparse
 from copy import deepcopy
 import hashlib
 import json
-import math
 from pathlib import Path
 import re
 
@@ -19,6 +18,7 @@ from PIL import Image
 
 from .refine_contrast import fingerprint
 from .song_symbols import _music_note_observation
+from .ocr_confidence import confidence_percent
 
 VERSION=2
 _RECEIPT=re.compile(r'^Learned the song "(?P<base>.+?)(?P<suffix>\s+[A-Za-z])"(?P<stop>[.!])$')
@@ -26,7 +26,8 @@ _SHA=re.compile(r'^[0-9a-f]{64}$')
 
 
 def _confident(value):
-    return type(value) in (int,float) and math.isfinite(value) and 95<=value<=100
+    value=confidence_percent(value)
+    return value is not None and value>=95
 
 
 def _match(line):
@@ -41,7 +42,12 @@ def _layout(pane,line):
     box=line.get('box')
     if not isinstance(box,(list,tuple)) or len(box)!=4 or any(type(v) is not int for v in box):return None
     if not (148<=box[0]<box[2]<=958 and 0<=box[1]<box[3]<=1080):return None
+    # Preserve the historical geometry when its thresholds see the glyph;
+    # the late result panel is darker, so use the lower same-frame range only
+    # when that first source witness is unavailable.
     symbol=_music_note_observation(pane,line['box'],(145,165))
+    if symbol is None:
+        symbol=_music_note_observation(pane,line['box'],(135,145))
     if symbol is None:return None
     left,top,right,bottom=line['box'];glyph=symbol['box']
     x0=left-148;y0=top-2
@@ -114,7 +120,11 @@ def prepare(raw,proof,reader):
             crop=pane.crop(layout['title_crop_box'])
             rec=reader.engine.text_rec(reader.TextRecInput(img=[np.array(crop)[:,:,::-1]]))
             if len(rec.txts)!=1 or len(rec.scores)!=1:continue
-            title=str(rec.txts[0]).strip();confidence=float(rec.scores[0])*100
+            title=str(rec.txts[0]).strip()
+            try:
+                confidence=confidence_percent(float(rec.scores[0])*100)
+            except (TypeError,ValueError,OverflowError):
+                confidence=None
             if not _confident(confidence) or title!=_match(line)['base']:continue
             coverage=_title_coverage(crop,title)
             if coverage is None:continue

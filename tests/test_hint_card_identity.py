@@ -127,7 +127,8 @@ class HintCardIdentityTests(unittest.TestCase):
             },
         }
 
-    def _patched_recover(self, rows=None, *, detect_side_effect=None, prefix_side_effect=None):
+    def _patched_recover(self, rows=None, *, detect_side_effect=None,
+                         prefix_side_effect=None, model_dir=None):
         rows = self.rows if rows is None else rows
         if detect_side_effect is None:
             detect_side_effect = ["single_circle"] * 3
@@ -162,23 +163,34 @@ class HintCardIdentityTests(unittest.TestCase):
                         "basis": "independent_prefix_crop_ocr_to_verified_overlay_boundary",
                     }
                 )
-        with (
-            patch("tracen_replay.vision.NeuralReader", return_value=self.reader),
-            patch("tracen_replay.inventory_suffix.detect", side_effect=detect_side_effect),
-            patch(
-                "tracen_replay.receipt_occlusion.overlay_boxes",
-                side_effect=lambda image: [
-                    [
-                        604 - (index := int(image.getpixel((0, 0))[0]) - 1) * 5,
-                        854 - (index == 2) * 5,
-                        617 - index * 5,
-                        871 - (index == 2) * 4,
-                    ]
-                ],
-            ),
-            patch("tracen_replay.hint_card_identity._prefix_amount_ocr", side_effect=prefix_side_effect),
-        ):
-            return recover(rows, self.root, source_sha256=SOURCE_SHA)
+        with patch("tracen_replay.vision.NeuralReader", return_value=self.reader) as reader_factory:
+            with (
+                patch("tracen_replay.inventory_suffix.detect", side_effect=detect_side_effect),
+                patch(
+                    "tracen_replay.receipt_occlusion.overlay_boxes",
+                    side_effect=lambda image: [
+                        [
+                            604 - (index := int(image.getpixel((0, 0))[0]) - 1) * 5,
+                            854 - (index == 2) * 5,
+                            617 - index * 5,
+                            871 - (index == 2) * 4,
+                        ]
+                    ],
+                ),
+                patch("tracen_replay.hint_card_identity._prefix_amount_ocr", side_effect=prefix_side_effect),
+            ):
+                if model_dir is None:
+                    result = recover(rows, self.root, source_sha256=SOURCE_SHA)
+                else:
+                    result = recover(
+                        rows,
+                        self.root,
+                        source_sha256=SOURCE_SHA,
+                        model_dir=model_dir,
+                    )
+        if model_dir is not None:
+            reader_factory.assert_called_once_with(model_dir)
+        return result
 
     def _single_line_rows(self):
         """Return two source rows whose visible card has no readable suffix."""
@@ -303,6 +315,10 @@ class HintCardIdentityTests(unittest.TestCase):
             {"single_circle"},
         )
         self.assertTrue(all(item["source_frame_sha256"] for item in candidate["observations"]))
+
+    def test_configured_model_dir_is_forwarded_to_lazy_reader(self):
+        candidates = self._patched_recover(model_dir=Path(".local/models/test-reader"))
+        self.assertEqual(len(candidates), 1)
 
     def test_single_line_receipt_recovers_card_with_unknown_suffix(self):
         rows = self._single_line_rows()

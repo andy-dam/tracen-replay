@@ -18,6 +18,17 @@ MIN_GLYPH_OVERLAP_PX = 3
 GLYPH_ROW_MIN_PIXELS = 8
 GLYPH_ROW_DENSITY = .08
 
+# Result receipts can be covered by the pastel horseshoe/confetti animation
+# that follows a friendship or stat award.  This is separate from the green
+# cursor detector below: the animation is a source-pixel obstruction only and
+# must never be interpreted as a replacement character or a name hint.
+PARTICLE_SCAN_MARGIN = 12
+PARTICLE_MIN_PIXELS = 20
+PARTICLE_MAX_PIXELS = 2400
+PARTICLE_MIN_SIDE = 4
+PARTICLE_MAX_SIDE = 80
+PARTICLE_MIN_OVERLAP_PX = 3
+
 
 def numeric_line(line):
     return 770<=line['box'][1]<1000 and bool(re.search(
@@ -89,11 +100,14 @@ def friendship_name_bounds(box,words,columns,line_length):
     """A readable amount cannot establish a cursor-covered recipient name."""
     if line_length<=0 or len(words)!=len(columns) or any(not c for c in columns):return None
     if any(v<0 or v>=line_length for c in columns for v in c):return None
-    if len(words)<2 or words[0].lower() not in ('friendship','frienlship','friewdship','frendship') or words[1].lower() not in ('with','wh'):return None
+    from .receipt_grammar import friendship_receipt
+    repaired=friendship_receipt(' '.join(words))
+    if len(words)<2:return None
+    if repaired is None and (words[0].lower() not in ('friendship','frienlship','friewdship','frendship') or words[1].lower() not in ('with','wh')):return None
     normalized=[re.sub(r'[.!?]+$','',word).lower() for word in words]
     end=None
     for index in range(2,len(words)):
-        if normalized[index] in ('went','wert','ent') and normalized[index+1:index+3]==['up','by']:
+        if (repaired is not None or normalized[index] in ('went','wert','ent')) and normalized[index+1:index+3]==['up','by']:
             end=index;break
         if normalized[index] in ("didn't","didn’t") and normalized[index+1:index+3]==['go','up']:
             end=index;break
@@ -245,12 +259,162 @@ def overlay_boxes(pane):
     return boxes
 
 
+def _particle_line_box(box):
+    """Return a finite gameplay-space receipt box, or ``None``.
+
+    OCR boxes are expressed in the full 960-pixel gameplay coordinate space,
+    while ``pane`` is the 810-pixel crop whose origin is x=148.  Keeping this
+    validation at the detector boundary prevents a malformed or auxiliary
+    panel box from turning coloured pixels elsewhere in the image into receipt
+    evidence.
+    """
+    if not isinstance(box,(list,tuple)) or len(box)!=4:
+        return None
+    try:
+        values=tuple(float(value) for value in box)
+    except (TypeError,ValueError):
+        return None
+    if (not all(math.isfinite(value) for value in values) or
+        values[2]<=values[0] or values[3]<=values[1] or
+        values[0]<148 or values[2]>958 or values[1]<770 or values[3]>1000):
+        return None
+    return values
+
+
+def _particle_pixel(pixel):
+    """Recognize the saturated pastel animation colours in source pixels.
+
+    The friendship result animation uses pink, cyan, and yellow horseshoes.
+    These channel families deliberately exclude the warm brown receipt ink,
+    white dialogue bubble, and pale game background.  This is an obstruction
+    detector only; it does not classify a glyph or infer a name.
+    """
+    try:
+        red,green,blue=(int(channel) for channel in pixel[:3])
+    except (TypeError,ValueError,IndexError):
+        return False
+    return (
+        (red>=215 and blue>=185 and green<=215 and
+         red-green>=22 and blue-green>=12) or
+        (green>=215 and blue>=210 and red<=215 and
+         green-red>=20 and blue-red>=15) or
+        (red>=220 and green>=220 and blue<=210 and
+         abs(red-green)<=35)
+    )
+
+
+def _particle_pixels(pixels,left,top,right,bottom):
+    """Vectorised :func:`_particle_pixel` over one scan rectangle.
+
+    Same channel tests as the scalar predicate, evaluated with NumPy on the
+    cropped region instead of one ``getpixel`` call per source pixel; the
+    result is the set of matching ``(x, y)`` gameplay-crop coordinates.
+    """
+    import numpy as np
+    region=np.asarray(pixels)[top:bottom,left:right,:3].astype('int16')
+    red,green,blue=region[...,0],region[...,1],region[...,2]
+    mask=(
+        ((red>=215)&(blue>=185)&(green<=215)&(red-green>=22)&(blue-green>=12))|
+        ((green>=215)&(blue>=210)&(red<=215)&(green-red>=20)&(blue-red>=15))|
+        ((red>=220)&(green>=220)&(blue<=210)&(np.abs(red-green)<=35))
+    )
+    ys,xs=np.nonzero(mask)
+    return set(zip((xs+left).tolist(),(ys+top).tolist()))
+
+
+def _particle_intersects(left, right):
+    width=max(0,min(left[2],right[2])-max(left[0],right[0]))
+    height=max(0,min(left[3],right[3])-max(left[1],right[1]))
+    return width>=PARTICLE_MIN_OVERLAP_PX and height>=PARTICLE_MIN_OVERLAP_PX
+
+
+def _blue_receipt_ink(pixel):
+    """The darker blue stroke beneath a bright antialiased receipt fringe."""
+    red,green,blue=pixel
+    return red<180 and green<215 and blue-red>=30 and blue-green>=10
+
+
+def _independent_pastel_core(component,pixels):
+    """Require pastel area beyond the immediate edge of blue text strokes.
+
+    Compressed or brightened blue glyphs can have a solid pastel fringe, not
+    just isolated edge pixels. A particle must have its own 3x3 colour core
+    whose one-pixel border is not dark blue receipt ink. This tests local
+    pixels only; receipt wording and OCR amounts do not enter the decision.
+    """
+    points=set(component)
+    for x,y in component:
+        if not all((x+dx,y+dy) in points for dx in range(3) for dy in range(3)):
+            continue
+        if not any(_blue_receipt_ink(pixels.getpixel((xx,yy)))
+                   for xx in range(max(0,x-1),min(pixels.width,x+4))
+                   for yy in range(max(0,y-1),min(pixels.height,y+4))):
+            return True
+    return False
+
+
+def animated_overlay_boxes(pane,line_boxes):
+    """Find source-pixel particles crossing receipt rows.
+
+    The detector is bounded by the OCR receipt boxes and returns global
+    gameplay coordinates, matching :func:`overlay_boxes`.  It intentionally
+    reports only a physical obstruction.  Later clear source frames must
+    provide the receipt text and identity; this helper never repairs OCR or
+    selects among names.
+    """
+    if pane.size!=(810,1080):
+        raise ValueError('Expected the gameplay crop.')
+    valid=[box for item in line_boxes or [] if (box:=_particle_line_box(item))]
+    if not valid:
+        return []
+    # Receipt OCR boxes are global (x=148..958); the image crop starts at 148.
+    left=max(0,int(math.floor(min(box[0] for box in valid)-PARTICLE_SCAN_MARGIN-148)))
+    right=min(810,int(math.ceil(max(box[2] for box in valid)+PARTICLE_SCAN_MARGIN-148)))
+    top=max(770,int(math.floor(min(box[1] for box in valid)-PARTICLE_SCAN_MARGIN)))
+    bottom=min(1000,int(math.ceil(max(box[3] for box in valid)+PARTICLE_SCAN_MARGIN)))
+    if right<=left or bottom<=top:
+        return []
+    pixels=pane.convert('RGB')
+    pending=_particle_pixels(pixels,left,top,right,bottom)
+    boxes=[]
+    while pending:
+        origin=pending.pop();stack=[origin];component=[origin]
+        while stack:
+            x,y=stack.pop()
+            for nx in (x-1,x,x+1):
+                for ny in (y-1,y,y+1):
+                    point=(nx,ny)
+                    if point in pending:
+                        pending.remove(point);stack.append(point);component.append(point)
+        if not (PARTICLE_MIN_PIXELS<=len(component)<=PARTICLE_MAX_PIXELS):
+            continue
+        # Antialiasing around blue receipt ink can match the pastel mask in
+        # long, thin fringes. Require an actual patch of pastel colour rather
+        # than treating the fringe's bounding rectangle as an obstruction.
+        # This establishes only particle geometry, never the covered text.
+        if not _independent_pastel_core(component,pixels):
+            continue
+        xs=[point[0] for point in component];ys=[point[1] for point in component]
+        component_box=[min(xs)+148,min(ys),max(xs)+1+148,max(ys)+1]
+        width=component_box[2]-component_box[0]
+        height=component_box[3]-component_box[1]
+        if not (PARTICLE_MIN_SIDE<=width<=PARTICLE_MAX_SIDE and
+                PARTICLE_MIN_SIDE<=height<=PARTICLE_MAX_SIDE):
+            continue
+        if not any(_particle_intersects(component_box,box) for box in valid):
+            continue
+        boxes.append(component_box)
+    return sorted(boxes,key=lambda box:(box[1],box[0],box[2],box[3]))
+
+
 def annotate(raw,pane):
     candidates=[i for i,line in enumerate(raw['lines']) if receipt_line(line)]
     if not candidates:return raw
     if raw.get('gameplay_sha256')!=hashlib.sha256(pane.convert('RGB').tobytes()).hexdigest():
         raise ValueError('Receipt overlay proof differs from original OCR pixels.')
-    boxes=overlay_boxes(pane)
+    cursor_boxes=overlay_boxes(pane)
+    particle_boxes=animated_overlay_boxes(pane,[raw['lines'][i]['box'] for i in candidates])
+    boxes=cursor_boxes+particle_boxes
     if not boxes:return raw
     import numpy as np
     pixels=np.asarray(pane.convert('RGB')).astype('int16')
@@ -307,11 +471,16 @@ def annotate(raw,pane):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
                                      basis='padded_views_recover_leading_digit',independent_frame_count=1))
                 continue
+            animated_overlaps=[box for box in overlaps if box in particle_boxes]
             blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps,
+                                animated_overlay_boxes=animated_overlaps,
+                                animated_overlay_occluded=bool(animated_overlaps),
                                 recipient_name_occluded=bool(name_overlaps)))
             line.update(confidence=0,overlay_occluded=True,pre_occlusion_confidence=line['confidence'])
     return dict(raw,lines=lines,occluded_receipt_lines=blocked,resolved_receipt_occlusions=resolved,
-                receipt_overlay_evidence=dict(overlay_boxes=boxes,alignments=raw.get('overlay_alignment',[]),
+                receipt_overlay_evidence=dict(overlay_boxes=cursor_boxes,
+                                              animated_overlay_boxes=particle_boxes,
+                                              alignments=raw.get('overlay_alignment',[]),
                                               provenance=raw.get('receipt_overlay_provenance')))
 
 
@@ -335,4 +504,5 @@ def annotate_path(raw,path,original=None,*,source_sha256=None):
             source_sha256=source_sha256 or origin.get('source_sha256'),source_frame_sha256=origin.get('source_frame_sha256'),
             gameplay_sha256=origin.get('gameplay_sha256'),
             source_timestamp_ms=origin.get('source_timestamp_ms'),evidence=origin.get('evidence')))
-    with Image.open(path) as pane:return annotate(raw,pane)
+    from .frame_cache import open_rgb
+    return annotate(raw,open_rgb(path))

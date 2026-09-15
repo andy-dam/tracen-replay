@@ -6,11 +6,14 @@ sequence. The dialog interrupts item visibility even when race identity persists
 """
 
 from copy import deepcopy
+import re
 
 
 IDENTITY_FIELDS = ('race_name', 'placing', 'fans', 'fans_gained', 'course')
+OPTIONAL_IDENTITY_FIELDS = ('race_grade',)
 ANCHOR_FIELDS = ('placing', 'fans', 'fans_gained')
 COURSE_FIELDS = ('venue', 'surface', 'distance_m', 'distance_category', 'direction')
+_RACE_GRADE_RE = re.compile(r'^(?:DEBUT|G[123]|OP|PRE[- ]?OP|EX)$', re.I)
 HASH_FIELDS = ('source_frame_sha256', 'gameplay_sha256', 'evidence_sha256',
                'source_sha256')
 MAX_SOURCE_STEP_MS = 1000
@@ -35,6 +38,13 @@ def _evidence_paths(row):
 def _valid_scalar(field, value):
     if field == 'race_name':
         return isinstance(value, str) and bool(value.strip())
+    if field == 'race_grade':
+        if not isinstance(value, str):
+            return False
+        value = re.sub(r'\s+', ' ', value.strip()).upper()
+        if value == 'PRE OP':
+            value = 'PRE-OP'
+        return _RACE_GRADE_RE.fullmatch(value) is not None
     if field == 'placing':
         return type(value) is int and value >= 1
     if field in ('fans', 'fans_gained'):
@@ -165,14 +175,15 @@ def _identity_proof(rows):
                      key=_time)
     if not ordered:
         return None
-    field_records = {field: [] for field in IDENTITY_FIELDS}
+    all_identity_fields = IDENTITY_FIELDS + OPTIONAL_IDENTITY_FIELDS
+    field_records = {field: [] for field in all_identity_fields}
     partial_courses = []
     conditions = []
     for row in ordered:
         facts = row.get('facts', {})
         if not isinstance(facts, dict):
             return None
-        for field in IDENTITY_FIELDS:
+        for field in all_identity_fields:
             value = facts.get(field)
             if value is None:
                 continue
@@ -185,6 +196,11 @@ def _identity_proof(rows):
                     partial_courses.append((row, value))
                 continue
             if not _valid_scalar(field, value):
+                # Optional result metadata must remain field-local unknown;
+                # one malformed grade cannot split an otherwise evidenced
+                # result panel continuation.
+                if field in OPTIONAL_IDENTITY_FIELDS:
+                    continue
                 return None
             field_records[field].append(_field_observation(row, field, value))
         condition = facts.get('course_condition')
@@ -205,6 +221,22 @@ def _identity_proof(rows):
         if len(unique) != 1:
             return None
         identity[field] = deepcopy(unique[0])
+    # A grade is useful result metadata, but it is not required to bridge a
+    # playback dialog because older or partially occluded result rows may not
+    # expose the header token.  Preserve it in the continuity proof only when
+    # the observed grade is valid, consistent, and repeated across source
+    # frames; otherwise the race aggregation leaves it field-local unknown.
+    for field in OPTIONAL_IDENTITY_FIELDS:
+        observations = field_records[field]
+        if not observations or not _support_is_repeated(observations):
+            continue
+        values = [item['value'] for item in observations]
+        unique = []
+        for value in values:
+            if value not in unique:
+                unique.append(value)
+        if len(unique) == 1:
+            identity[field] = deepcopy(unique[0])
     for row, partial in partial_courses:
         for key, value in partial.items():
             if value is not None and key in identity['course'] and value != identity['course'][key]:

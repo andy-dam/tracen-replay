@@ -1,10 +1,24 @@
 from copy import deepcopy
 import json
 from importlib import import_module
+from pathlib import Path
+import shutil
 import unittest
+import uuid
 from unittest.mock import patch
 
-from tracen_replay.hint_card_cache import load, prepare, save
+from tracen_replay.hint_card_cache import (
+    _ROW_HASH_VERSION_V1,
+    _ROW_HASH_VERSION_V2,
+    _source_manifest_hash,
+    _span_hashes,
+    _validate_candidate,
+    load,
+    prepare,
+    refresh,
+    save,
+)
+from tracen_replay.stat_state_details import read_goal_turns
 
 
 SOURCE_SHA = "a" * 64
@@ -89,8 +103,83 @@ class HintCardCacheTests(unittest.TestCase):
                 cache_path=self.cache_path,
             )
 
+    @staticmethod
+    def _goal_lines(value):
+        return [
+            {"text": str(value), "confidence": 99.0, "box": [270, 45, 300, 75]},
+            {"text": "turn(s)", "confidence": 99.0, "box": [310, 45, 370, 75]},
+            {"text": "left", "confidence": 99.0, "box": [380, 45, 420, 75]},
+        ]
+
+    def _rows_with_goal_projection(self, value=5, *, include_projection=True):
+        rows = deepcopy(self.rows)
+        for row in rows:
+            lines = row["ocr"]["neural"]
+            lines.extend(self._goal_lines(value))
+            if include_projection:
+                parsed, proof = read_goal_turns(lines)
+                self.assertEqual(parsed, value)
+                row["stats"] = {
+                    "calendar_text": "Classic Year Early Sep",
+                    "turns_remaining_to_goal": parsed,
+                    "turns_remaining_provenance": proof,
+                }
+            else:
+                row["stats"] = {
+                    "calendar_text": "Classic Year Early Sep",
+                    "turns_remaining_to_goal": None,
+                }
+        return rows
+
+    def _write_legacy_cache_for_rows(self, rows, *, representation=None):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        span = [
+            row
+            for row in rows
+            if row["source_timestamp_ms"] in self.candidate["source_timestamps_ms"]
+        ]
+        with self._source_pixels():
+            validation = _validate_candidate(
+                self.candidate,
+                rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+                capture_manifest_sha256=payload["capture_manifest_sha256"],
+            )
+        self.assertIsNotNone(validation)
+        expected_hashes = _span_hashes(
+            span,
+            version=_ROW_HASH_VERSION_V1,
+            legacy_countdown=representation,
+        )
+        self.assertEqual(validation["span_hashes"], _span_hashes(span, version=_ROW_HASH_VERSION_V1))
+        candidate = payload["candidates"][0]
+        candidate["cache_provenance"]["span_rows"] = expected_hashes
+        payload.pop("row_hash_version", None)
+        candidate["cache_provenance"].pop("row_hash_version", None)
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+
     def test_load_revalidates_cache_without_constructing_ocr(self):
         self.assertEqual(self._load(), [self.candidate])
+
+    def test_particle_legacy_ranked_candidate_requires_source_pixel_card_proof(self):
+        rows = deepcopy(self.rows)
+        for row in rows:
+            for line in row["facts"]["occluded_receipt_lines"]:
+                line["animated_overlay_boxes"] = [[585, 870, 599, 888]]
+                line["animated_overlay_occluded"] = True
+        manifest_sha = _source_manifest_hash(self.root)
+        self.assertIsNotNone(manifest_sha)
+        with self._source_pixels():
+            validation = _validate_candidate(
+                self.candidate,
+                rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+                capture_manifest_sha256=manifest_sha,
+                row_hash_version=_ROW_HASH_VERSION_V2,
+            )
+        self.assertIsNone(validation)
 
     def test_default_cache_path_is_model_free(self):
         with self._source_pixels(), patch(
@@ -113,6 +202,100 @@ class HintCardCacheTests(unittest.TestCase):
                     self.root,
                     source_sha256=SOURCE_SHA,
                 )
+
+    def test_new_cache_records_v2_row_hash_and_preserves_current_rows(self):
+        rows = self._rows_with_goal_projection()
+        original = deepcopy(rows)
+        output = self.root / "countdown-v2-cache.json"
+        with self._source_pixels():
+            payload = save(
+                output,
+                [self.candidate],
+                rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+            )
+        self.assertEqual(payload["row_hash_version"], _ROW_HASH_VERSION_V2)
+        self.assertEqual(
+            payload["candidates"][0]["cache_provenance"]["row_hash_version"],
+            _ROW_HASH_VERSION_V2,
+        )
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ):
+            self.assertEqual(load(rows, self.root, SOURCE_SHA, cache_path=output), [self.candidate])
+        self.assertEqual(rows, original)
+
+    def test_v2_rejects_unknown_row_hash_version(self):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        payload["row_hash_version"] = "source-row-v99"
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._assert_invalid()
+
+    def test_v2_rejects_unknown_candidate_row_hash_version(self):
+        payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        payload["candidates"][0]["cache_provenance"]["row_hash_version"] = "source-row-v99"
+        self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
+        self._assert_invalid()
+
+    def test_v2_rejects_countdown_without_matching_immutable_ocr_proof(self):
+        rows = self._rows_with_goal_projection()
+        rows[0]["stats"]["turns_remaining_to_goal"] += 1
+        self._assert_invalid(rows)
+
+    def test_v2_rejects_forged_countdown_provenance(self):
+        rows = self._rows_with_goal_projection()
+        rows[0]["stats"]["turns_remaining_provenance"]["value"] += 1
+        self._assert_invalid(rows)
+
+    def test_v2_rejects_changed_goal_ocr_even_when_projection_is_recomputed(self):
+        rows = self._rows_with_goal_projection()
+        lines = rows[0]["ocr"]["neural"]
+        lines[-3]["text"] = "6"
+        parsed, proof = read_goal_turns(lines)
+        self.assertEqual(parsed, 6)
+        rows[0]["stats"]["turns_remaining_to_goal"] = parsed
+        rows[0]["stats"]["turns_remaining_provenance"] = proof
+        self._assert_invalid(rows)
+
+    def test_v2_keeps_unrelated_stats_source_bound(self):
+        rows = self._rows_with_goal_projection()
+        rows[0]["stats"]["calendar_text"] = "Classic Year Late Sep"
+        self._assert_invalid(rows)
+
+    def test_legacy_cache_migrates_only_none_countdown_representation(self):
+        legacy_rows = self._rows_with_goal_projection(include_projection=False)
+        self._write_legacy_cache_for_rows(legacy_rows)
+        current_rows = self._rows_with_goal_projection()
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ):
+            self.assertEqual(
+                load(current_rows, self.root, SOURCE_SHA, cache_path=self.cache_path),
+                [self.candidate],
+            )
+
+    def test_legacy_cache_migrates_only_absent_countdown_representation(self):
+        legacy_rows = self._rows_with_goal_projection(include_projection=False)
+        self._write_legacy_cache_for_rows(legacy_rows, representation="absent")
+        current_rows = self._rows_with_goal_projection()
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ):
+            self.assertEqual(
+                load(current_rows, self.root, SOURCE_SHA, cache_path=self.cache_path),
+                [self.candidate],
+            )
+
+    def test_legacy_migration_rejects_nonnull_countdown_not_proven_by_ocr(self):
+        legacy_rows = self._rows_with_goal_projection(include_projection=False)
+        self._write_legacy_cache_for_rows(legacy_rows)
+        current_rows = self._rows_with_goal_projection()
+        current_rows[0]["stats"]["turns_remaining_to_goal"] += 1
+        self._assert_invalid(current_rows)
 
     def test_changed_intermediate_row_invalidates_cache(self):
         rows = deepcopy(self.rows)
@@ -244,13 +427,13 @@ class SingleLineHintCardCacheTests(unittest.TestCase):
 
         return _Patches()
 
-    def _load(self, *, suffixes=None):
+    def _load(self, rows=None, *, suffixes=None):
         with self._source_pixels(suffixes=suffixes), patch(
             "tracen_replay.vision.NeuralReader",
             side_effect=AssertionError("cache load must not construct OCR"),
         ):
             return load(
-                self.rows,
+                self.rows if rows is None else rows,
                 self.root,
                 SOURCE_SHA,
                 cache_path=self.cache_path,
@@ -272,6 +455,171 @@ class SingleLineHintCardCacheTests(unittest.TestCase):
         self.assertEqual(loaded[0]["observation_kind"], "single_line_hint_receipt")
         self.assertEqual(loaded[0]["identity_proof"]["rank_state"], "undetermined")
         self.assertIsNone(loaded[0]["identity_proof"]["suffix"])
+
+    def test_parser_derived_choice_preview_and_status_facts_do_not_stale_cache(self):
+        # A newer parser may attach observational facts to a row after this
+        # cache was prepared.  They do not replace the source card/receipt
+        # proof and must not change the persisted source-row fingerprint.
+        rows = deepcopy(self.rows)
+        for row in rows:
+            row.setdefault("facts", {}).update(
+                choice_observation={"selection_verified": False},
+                preview_option=None,
+                preview_overlay_effects=[],
+                preview_overlay_evidence={},
+                preview_overlay_proven=False,
+                preview_modifier_effects=[],
+                preview_modifier_proven=False,
+                rejected_counts={"missing_training_header_or_option": 1},
+                status_badges=[{"kind": "mood_status", "value": "great"}],
+            )
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ):
+            loaded = load(rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
+        self.assertEqual(loaded, [self.candidate])
+
+    def _rows_with_particle_metadata(self, *, boxes, occluded):
+        rows = deepcopy(self.rows)
+        for row in rows:
+            facts = row["facts"]
+            for line in facts["occluded_receipt_lines"]:
+                line["animated_overlay_boxes"] = deepcopy(boxes)
+                line["animated_overlay_occluded"] = occluded
+            facts["receipt_overlay_evidence"]["animated_overlay_boxes"] = deepcopy(boxes)
+        return rows
+
+    def test_neutral_particle_metadata_does_not_stale_legacy_cache(self):
+        rows = self._rows_with_particle_metadata(boxes=[], occluded=False)
+        loaded = self._load(rows)
+        self.assertEqual(loaded, [self.candidate])
+
+    def test_nonempty_particle_metadata_invalidates_legacy_cache(self):
+        rows = self._rows_with_particle_metadata(
+            boxes=[[585, 870, 599, 888]],
+            occluded=True,
+        )
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ), self.assertRaises(ValueError):
+            load(rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
+
+    def test_particle_single_line_candidate_requires_source_pixel_card_proof(self):
+        # The private cursor-only refresh view also applies to single-line
+        # candidates.  Without this check, a matching Meta Only card/receipt
+        # and raw OCR edit could pass while the gameplay pixels stay fixed.
+        rows = self._rows_with_particle_metadata(
+            boxes=[[585, 870, 599, 888]],
+            occluded=True,
+        )
+        manifest_sha = _source_manifest_hash(self.root)
+        self.assertIsNotNone(manifest_sha)
+        with patch(
+            "tracen_replay.inventory_suffix.detect",
+            side_effect=[None, None],
+        ):
+            validation = _validate_candidate(
+                self.candidate,
+                rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+                capture_manifest_sha256=manifest_sha,
+                source_row_view="receipt-occlusion-cursor-only-v1",
+                row_hash_version=_ROW_HASH_VERSION_V2,
+            )
+        self.assertIsNone(validation)
+
+    def test_true_particle_metadata_invalidates_legacy_cache(self):
+        rows = self._rows_with_particle_metadata(boxes=[], occluded=True)
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ), self.assertRaises(ValueError):
+            load(rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
+
+    def test_source_refresh_preserves_particle_metadata_and_reloads_without_ocr(self):
+        rows = self._rows_with_particle_metadata(
+            boxes=[[585, 870, 599, 888]],
+            occluded=True,
+        )
+        original_cache = self.cache_path.read_bytes()
+        output = self.root / "refreshed-hint-card-recovery.json"
+
+        def source_card_proofs(candidate, _readings, proof_root, *, source_sha256):
+            from hashlib import sha256
+            from PIL import Image
+
+            proofs = []
+            for observation in candidate["observations"]:
+                image_path = proof_root / observation["evidence"]
+                with Image.open(image_path) as opened:
+                    image = opened.convert("RGB")
+                    left, top, right, bottom = (
+                        int(value) for value in observation["card"]["box"]
+                    )
+                    crop = image.crop((left - 148, top, right - 148, bottom))
+                proofs.append(
+                    {
+                        "timestamp_ms": observation["timestamp_ms"],
+                        "evidence": observation["evidence"],
+                        "card_text": candidate["name"],
+                        "recognized_text": candidate["name"],
+                        "confidence": 99.0,
+                        "crop_box": list(observation["card"]["box"]),
+                        "pixel_rgb_sha256": sha256(crop.tobytes()).hexdigest(),
+                        "model_fingerprint": "d" * 64,
+                        "basis": "source_bound_card_identity_crop_ocr",
+                    }
+                )
+            return proofs
+
+        with self._source_pixels(), patch(
+            "tracen_replay.hint_card_identity.recover",
+            return_value=[deepcopy(self.candidate)],
+        ), patch(
+            "tracen_replay.hint_card_cache._source_card_identity_proofs",
+            side_effect=source_card_proofs,
+        ):
+            payload = refresh(
+                self.cache_path,
+                rows,
+                self.root,
+                output,
+                source_sha256=SOURCE_SHA,
+            )
+        self.assertEqual(self.cache_path.read_bytes(), original_cache)
+        self.assertEqual(payload["candidate_count"], 1)
+        self.assertEqual(
+            payload["candidates"][0]["cache_provenance"]["source_row_view"],
+            "receipt-occlusion-cursor-only-v1",
+        )
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("refreshed cache load must not construct OCR"),
+        ):
+            loaded = load(rows, self.root, SOURCE_SHA, cache_path=output)
+        self.assertEqual(loaded, [self.candidate])
+
+        tampered = deepcopy(rows)
+        tampered[0]["facts"]["occluded_receipt_lines"][0][
+            "animated_overlay_boxes"
+        ][0][0] += 1
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("tampered cache load must not construct OCR"),
+        ), self.assertRaises(ValueError):
+            load(tampered, self.root, SOURCE_SHA, cache_path=output)
+
+    def test_unallowlisted_fact_change_still_invalidates_cache(self):
+        rows = deepcopy(self.rows)
+        rows[0].setdefault("facts", {})["unallowlisted_parser_fact"] = {"value": 1}
+        with self._source_pixels(), patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ), self.assertRaises(ValueError):
+            load(rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
 
     def test_changed_suffix_interpretation_invalidates_unknown_rank_cache(self):
         with self._source_pixels(suffixes=["single_circle", None]), patch(
@@ -392,6 +740,37 @@ class WrappedHintCardCacheTests(unittest.TestCase):
             "Gained 2 hint l:ve Wrapped",
         )
 
+    def test_particle_wrapped_candidate_requires_source_pixel_card_proof(self):
+        # A cursor-free wrapped row can otherwise be made to agree with a
+        # forged card/receipt/raw OCR label while its gameplay pixels stay
+        # unchanged.  The source-pixel witness is mandatory whenever the
+        # particle detector adds a non-neutral annotation.
+        rows = deepcopy(self.rows)
+        for row in rows:
+            row["facts"] = {
+                "occluded_receipt_lines": [
+                    {
+                        "animated_overlay_boxes": [[585, 870, 599, 888]],
+                        "animated_overlay_occluded": True,
+                    }
+                ]
+            }
+        manifest_sha = _source_manifest_hash(self.root)
+        self.assertIsNotNone(manifest_sha)
+        with patch(
+            "tracen_replay.inventory_suffix.detect",
+            side_effect=[None, None],
+        ):
+            validation = _validate_candidate(
+                self.candidate,
+                rows,
+                self.root,
+                source_sha256=SOURCE_SHA,
+                capture_manifest_sha256=manifest_sha,
+                row_hash_version=_ROW_HASH_VERSION_V2,
+            )
+        self.assertIsNone(validation)
+
     def test_undetermined_rank_is_not_promoted_by_replay_detector(self):
         loaded = self._load(suffixes=["single_circle", "single_circle"])
         self.assertEqual(loaded[0]["identity_proof"]["rank_state"], "undetermined")
@@ -426,6 +805,433 @@ class WrappedHintCardCacheTests(unittest.TestCase):
         payload["candidates"][0]["observations"][0]["card"]["suffix_state"] = "absent_proven"
         self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
         self._assert_invalid()
+
+
+class ActualHintCardCacheTests(unittest.TestCase):
+    @staticmethod
+    def _v11_cache_rows(name):
+        root = Path(
+            ".local/final-reliability-v1/worker-runs/"
+            f"post-recognition-g8-v11-prepared/{name}"
+        )
+        capture_path = root / "capture.json"
+        cache_path = root / "hint-card-recovery.json"
+        if not capture_path.is_file() or not cache_path.is_file():
+            return None
+        capture = json.loads(capture_path.read_text(encoding="utf-8"))
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        times = sorted(
+            {
+                observation["timestamp_ms"]
+                for candidate in cache["candidates"]
+                for observation in candidate["cache_provenance"]["observations"]
+            }
+        )
+        frames = [
+            frame
+            for frame in capture["frames"]
+            if frame.get("source_timestamp_ms") in times
+        ]
+        from tracen_replay.full_recording import cached_readings
+
+        return (
+            root,
+            capture,
+            cache_path,
+            cached_readings(dict(capture, frames=frames), root),
+        )
+
+    def test_actual_v11_prepared_caches_load_after_normal_reparse(self):
+        for name in ("v1", "independent-01"):
+            with self.subTest(root=name):
+                prepared = self._v11_cache_rows(name)
+                if prepared is None:
+                    self.skipTest("actual v11 hint-card cache fixture is unavailable")
+                root, capture, cache_path, rows = prepared
+                with patch(
+                    "tracen_replay.vision.NeuralReader",
+                    side_effect=AssertionError("cache load must not construct OCR"),
+                ):
+                    loaded = load(
+                        rows,
+                        root,
+                        capture["source"]["sha256"],
+                        cache_path=cache_path,
+                    )
+                self.assertEqual(
+                    sorted((candidate["name"], candidate["amount"]) for candidate in loaded),
+                    sorted(
+                        (candidate["name"], candidate["amount"])
+                        for candidate in json.loads(cache_path.read_text(encoding="utf-8"))["candidates"]
+                    ),
+                )
+
+    def test_actual_v11_row_metadata_is_bound_before_hash_compatibility(self):
+        prepared = self._v11_cache_rows("independent-01")
+        if prepared is None:
+            self.skipTest("actual v11 independent-01 hint-card cache fixture is unavailable")
+        root, capture, cache_path, rows = prepared
+        mutations = {
+            "source_sha256": "f" * 64,
+            "source_frame_id": "part-000-frame-000000",
+            "source_frame_path": "part-000/frames/000000.jpg",
+            "source_frame_sha256": "f" * 64,
+            "gameplay_sha256": "f" * 64,
+            "engine_fingerprint": "f" * 64,
+        }
+        model = deepcopy(rows[0]["model_sha256"])
+        model[next(iter(model))] = "f" * 64
+        mutations["model_sha256"] = model
+        for field, value in mutations.items():
+            with self.subTest(field=field):
+                changed = deepcopy(rows)
+                changed[0][field] = value
+                with self.assertRaises(ValueError):
+                    load(
+                        changed,
+                        root,
+                        capture["source"]["sha256"],
+                        cache_path=cache_path,
+                    )
+
+    def test_actual_v11_full_readings_allow_registered_inspection_namespace(self):
+        """Unrelated bound inspection rows must not poison hint replay.
+
+        The normal replay bundle merges base capture rows with registered
+        inspection namespaces.  This uses the real v11 inspection envelope
+        from the prepared source: its ``frame-000015`` identity is valid for
+        that inspection artifact, but intentionally has no entry in the base
+        capture manifest.  The hint candidate still has to validate its own
+        exact base rows and must replay without OCR.
+        """
+        inspection_paths = {
+            "v1": Path("training-gain-source-refinement")
+            / "7dd06ed3b5d4cda64eee4e91.json",
+            "independent-01": Path("training-inspection")
+            / "1026750"
+            / "frame-000001.v2.json",
+        }
+        for name, relative_path in inspection_paths.items():
+            with self.subTest(root=name):
+                prepared = self._v11_cache_rows(name)
+                if prepared is None:
+                    self.skipTest("actual v11 hint-card cache fixture is unavailable")
+                root, capture, cache_path, rows = prepared
+                envelope_path = root / relative_path
+                if not envelope_path.is_file():
+                    self.skipTest("actual v11 inspection envelope is unavailable")
+                inspection_row = json.loads(
+                    envelope_path.read_text(encoding="utf-8")
+                )
+                mixed_rows = [*rows, inspection_row]
+                with patch(
+                    "tracen_replay.vision.NeuralReader",
+                    side_effect=AssertionError("cache load must not construct OCR"),
+                ):
+                    loaded = load(
+                        mixed_rows,
+                        root,
+                        capture["source"]["sha256"],
+                        cache_path=cache_path,
+                    )
+                expected = sorted(
+                    (candidate["name"], candidate["amount"])
+                    for candidate in json.loads(
+                        cache_path.read_text(encoding="utf-8")
+                    )["candidates"]
+                )
+                self.assertEqual(
+                    sorted((candidate["name"], candidate["amount"]) for candidate in loaded),
+                    expected,
+                )
+
+    def test_actual_independent01_cursor_refresh_candidate_integrates_normal_route(self):
+        """A cache-valid particle-obscured receipt survives normal assembly."""
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            self.skipTest('Pillow is unavailable for the source-linked cache fixture')
+        root = Path(
+            '.local/final-reliability-v1/worker-runs/'
+            'post-recognition-g8-v8-prepared/independent-01'
+        )
+        capture_path = root / 'capture.json'
+        cache_path = root / 'hint-card-recovery.json'
+        if not capture_path.is_file() or not cache_path.is_file():
+            self.skipTest('actual v8 independent-01 hint-card fixture is unavailable')
+
+        from tracen_replay.full_recording import cached_readings
+        from tracen_replay.hint_card_events import apply
+
+        capture = json.loads(capture_path.read_text(encoding='utf-8'))
+        cache = json.loads(cache_path.read_text(encoding='utf-8'))
+        straightaway = next(
+            candidate for candidate in cache['candidates']
+            if candidate.get('name') == 'Straightaway Recovery'
+        )
+        straightaway_times = [
+            observation['timestamp_ms']
+            for observation in straightaway['cache_provenance']['observations']
+        ]
+        times = sorted({
+            observation['timestamp_ms']
+            for candidate in cache['candidates']
+            for observation in candidate['cache_provenance']['observations']
+        })
+        frames = [
+            frame for frame in capture['frames']
+            if frame.get('source_timestamp_ms') in times
+        ]
+        rows = cached_readings(dict(capture, frames=frames), root)
+        loaded = load(
+            rows,
+            root,
+            capture['source']['sha256'],
+            cache_path=cache_path,
+        )
+        candidate = next(
+            item for item in loaded if item.get('name') == 'Straightaway Recovery'
+        )
+        event = {
+            'id': 'outcome-straightaway',
+            'kind': 'outcome',
+            'first_seen_ms': min(straightaway_times),
+            'last_seen_ms': max(straightaway_times),
+            'context_title': None,
+            'effects': [],
+            'field_evidence': {},
+            'conflicting_readings': [],
+            'deltas': {},
+        }
+        audit = apply(
+            [event], rows, [candidate], source_sha256=capture['source']['sha256']
+        )
+        self.assertEqual(audit['rejected'], [])
+        self.assertEqual(audit['accepted'][0]['name'], 'Straightaway Recovery')
+        self.assertEqual(audit['accepted'][0]['amount'], 2)
+        self.assertEqual(event['effects'][0]['kind'], 'skill_hint_change')
+
+    def test_actual_v1_unstoppable_cache_accepts_neutral_particle_metadata(self):
+        root = Path(
+            ".local/final-reliability-v1/worker-runs/"
+            "post-recognition-g8-v7-prepared/v1"
+        )
+        capture_path = root / "capture.json"
+        cache_path = root / "hint-card-recovery.json"
+        if not capture_path.is_file() or not cache_path.is_file():
+            self.skipTest("actual v1 hint-card cache fixture is unavailable")
+
+        capture = json.loads(capture_path.read_text(encoding="utf-8"))
+        frames = [
+            frame
+            for frame in capture["frames"]
+            if frame.get("source_timestamp_ms") in (765000, 765250)
+        ]
+        self.assertEqual(len(frames), 2)
+        from tracen_replay.full_recording import cached_readings
+
+        rows = cached_readings(dict(capture, frames=frames), root)
+        self.assertEqual(
+            rows[0]["facts"]["occluded_receipt_lines"][0][
+                "animated_overlay_boxes"
+            ],
+            [],
+        )
+        self.assertFalse(
+            rows[0]["facts"]["occluded_receipt_lines"][0][
+                "animated_overlay_occluded"
+            ]
+        )
+        with patch(
+            "tracen_replay.vision.NeuralReader",
+            side_effect=AssertionError("cache load must not construct OCR"),
+        ):
+            loaded = load(
+                rows,
+                root,
+                capture["source"]["sha256"],
+                cache_path=cache_path,
+            )
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["name"], "Unstoppable")
+        self.assertEqual(loaded[0]["amount"], 3)
+
+    def test_actual_independent01_neutral_candidate_migrates_and_particle_candidate_stays_stale(self):
+        root = Path(
+            ".local/final-reliability-v1/worker-runs/"
+            "post-recognition-g8-v7-prepared/independent-01"
+        )
+        capture_path = root / "capture.json"
+        cache_path = root / "hint-card-recovery.json"
+        if not capture_path.is_file() or not cache_path.is_file():
+            self.skipTest("actual independent-01 hint-card cache fixture is unavailable")
+
+        from tracen_replay.full_recording import cached_readings
+
+        capture = json.loads(capture_path.read_text(encoding="utf-8"))
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        times = sorted(
+            {
+                observation["timestamp_ms"]
+                for candidate in cache["candidates"]
+                for observation in candidate["cache_provenance"]["observations"]
+            }
+        )
+        frames = [
+            frame
+            for frame in capture["frames"]
+            if frame.get("source_timestamp_ms") in times
+        ]
+        rows = cached_readings(dict(capture, frames=frames), root)
+        by_timestamp = {row["source_timestamp_ms"]: row for row in rows}
+        self.assertEqual(
+            [
+                by_timestamp[timestamp]["facts"]["receipt_overlay_evidence"][
+                    "animated_overlay_boxes"
+                ]
+                for timestamp in (301250, 301500, 301750)
+            ],
+            [[], [], []],
+        )
+        self.assertTrue(
+            by_timestamp[523750]["facts"]["receipt_overlay_evidence"][
+                "animated_overlay_boxes"
+            ]
+        )
+        manifest_sha = _source_manifest_hash(root)
+        self.assertIsNotNone(manifest_sha)
+        first, second = cache["candidates"]
+        first_validation = _validate_candidate(
+            first,
+            rows,
+            root,
+            source_sha256=capture["source"]["sha256"],
+            capture_manifest_sha256=manifest_sha,
+            stored_span_hashes=first["cache_provenance"]["span_rows"],
+            stored_observation_provenance=first["cache_provenance"]["observations"],
+            row_hash_version=None,
+        )
+        second_validation = _validate_candidate(
+            second,
+            rows,
+            root,
+            source_sha256=capture["source"]["sha256"],
+            capture_manifest_sha256=manifest_sha,
+            stored_span_hashes=second["cache_provenance"]["span_rows"],
+            stored_observation_provenance=second["cache_provenance"]["observations"],
+            row_hash_version=None,
+        )
+        self.assertIsNotNone(first_validation)
+        self.assertIsNone(second_validation)
+        with self.assertRaises(ValueError):
+            load(
+                rows,
+                root,
+                capture["source"]["sha256"],
+                cache_path=cache_path,
+            )
+
+    def test_actual_independent01_source_refresh_regenerates_particle_candidate(self):
+        root = Path(
+            ".local/final-reliability-v1/worker-runs/"
+            "post-recognition-g8-v7-prepared/independent-01"
+        )
+        capture_path = root / "capture.json"
+        cache_path = root / "hint-card-recovery.json"
+        if not capture_path.is_file() or not cache_path.is_file():
+            self.skipTest("actual independent-01 hint-card cache fixture is unavailable")
+
+        from tracen_replay.full_recording import cached_readings
+
+        capture = json.loads(capture_path.read_text(encoding="utf-8"))
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        times = sorted(
+            {
+                observation["timestamp_ms"]
+                for candidate in cache["candidates"]
+                for observation in candidate["cache_provenance"]["observations"]
+            }
+        )
+        frames = [
+            frame
+            for frame in capture["frames"]
+            if frame.get("source_timestamp_ms") in times
+        ]
+        rows = cached_readings(dict(capture, frames=frames), root)
+        original_cache = cache_path.read_bytes()
+        scratch = Path(".local/test-runs") / f"hint-card-refresh-{uuid.uuid4().hex}"
+        scratch.mkdir(parents=True, exist_ok=False)
+        output = scratch / "hint-card-recovery.json"
+        try:
+            payload = refresh(
+                cache_path,
+                rows,
+                root,
+                output,
+                source_sha256=capture["source"]["sha256"],
+            )
+            with patch(
+                "tracen_replay.vision.NeuralReader",
+                side_effect=AssertionError("refreshed actual cache must not construct OCR"),
+            ):
+                loaded = load(
+                    rows,
+                    root,
+                    capture["source"]["sha256"],
+                    cache_path=output,
+                )
+            self.assertEqual(
+                sorted((candidate["name"], candidate["amount"]) for candidate in loaded),
+                [("Straightaway Recovery", 2), ("Winter Runner", 2)],
+            )
+            self.assertEqual(payload["candidate_count"], 2)
+            self.assertTrue(
+                all(
+                    candidate["cache_provenance"]["source_row_view"]
+                    == "receipt-occlusion-cursor-only-v1"
+                    for candidate in payload["candidates"]
+                )
+            )
+            self.assertTrue(
+                all(
+                    len(candidate["cache_provenance"]["card_identity_proofs"])
+                    == len(candidate["observations"])
+                    and all(
+                        proof["card_text"] == candidate["name"]
+                        and proof["recognized_text"] == candidate["name"]
+                        and proof["pixel_rgb_sha256"]
+                        for proof in candidate["cache_provenance"][
+                            "card_identity_proofs"
+                        ]
+                    )
+                    for candidate in payload["candidates"]
+                )
+            )
+            tampered_payload = json.loads(output.read_text(encoding="utf-8"))
+            wrapped = next(
+                candidate
+                for candidate in tampered_payload["candidates"]
+                if candidate.get("observation_kind") == "wrapped_hint_receipt"
+            )
+            wrapped["cache_provenance"]["card_identity_proofs"][0][
+                "recognized_text"
+            ] = "Meta Only"
+            output.write_text(
+                json.dumps(tampered_payload), encoding="utf-8"
+            )
+            with patch(
+                "tracen_replay.vision.NeuralReader",
+                side_effect=AssertionError("tampered cache load must not construct OCR"),
+            ), self.assertRaises(ValueError):
+                load(
+                    rows,
+                    root,
+                    capture["source"]["sha256"],
+                    cache_path=output,
+                )
+            self.assertEqual(cache_path.read_bytes(), original_cache)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
 
 
 if __name__ == "__main__":

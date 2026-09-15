@@ -25,7 +25,8 @@ class RaceCompletionIntegrationTests(unittest.TestCase):
         self.assertEqual(race['completion_first_seen_ms'], 1000)
         self.assertEqual(report['turn_action_receipts'], [dict(
             kind='race', source_timestamp_ms=1000, evidence=['1000.png','1250.png','2000.png'],
-            race_id=race['id'], click_timestamp_ms=None)])
+            race_id=race['id'], click_timestamp_ms=None,
+            race_name='Example Cup', placing=1)])
         without = reconstruct(rows[2:])
         self.assertEqual(report['fan_accounting'], without['fan_accounting'])
         self.assertEqual(without['turn_action_receipts'][0]['source_timestamp_ms'], 2000)

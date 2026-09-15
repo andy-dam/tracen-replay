@@ -45,6 +45,7 @@ from .vision import NeuralReader, parse
 MIN_CONFIDENCE = 97.0
 MIN_DISTINCT_TIMESTAMPS = 2
 MAX_GROUP_SPAN_MS = 2_000
+OPTIONAL_HEADER_RECOVERY_MIN_CONFIDENCE = 90.0
 GAMEPLAY_X_OFFSET = 148
 SCALE_FACTORS = (1, 2, 3)
 RESAMPLE_NAME = "LANCZOS"
@@ -122,7 +123,7 @@ QUANTITY_FOCUS_RELATIVE_BOX = (0.39, 0.09, 0.89, 1.0)
 # detector fallback; both are focused because their left edge can clip digits.
 # This is a separate policy version so existing artifacts keep their original
 # crop key set and remain strictly reproducible.
-FIXED_QUANTITY_CROP_VARIANT_POLICY = {
+FIXED_QUANTITY_CROP_VARIANT_POLICY_V2 = {
     "name": "fixed_badge_quantity_windows_v2",
     "version": 2,
     "variants": {
@@ -189,6 +190,30 @@ FIXED_QUANTITY_CROP_VARIANT_POLICY = {
     "multi_digit_requires_broad_support": True,
     "scaled_views_count_as_independent_frames": False,
 }
+# Keep the v2 object available for validation of already-sealed artifacts.
+# New fixed-layout generation uses v3 below, which adds a tightly localized
+# single-digit view.  The added view is focused and therefore cannot authorize
+# a multi-digit quantity without a broad view at the same source timestamp.
+FIXED_QUANTITY_CROP_VARIANT_POLICY = FIXED_QUANTITY_CROP_VARIANT_POLICY_V2
+FIXED_QUANTITY_CROP_VARIANT_POLICY_V3 = copy.deepcopy(FIXED_QUANTITY_CROP_VARIANT_POLICY_V2)
+FIXED_QUANTITY_CROP_VARIANT_POLICY_V3["name"] = "fixed_badge_quantity_windows_v3"
+FIXED_QUANTITY_CROP_VARIANT_POLICY_V3["version"] = 3
+FIXED_QUANTITY_CROP_VARIANT_POLICY_V3["variants"]["quantity_focus"] = {
+    "role": "focused",
+    "relative_box": list(QUANTITY_FOCUS_RELATIVE_BOX),
+    "quantity_coverage": "focused_single_digit_only",
+    "leading_digit_safe": False,
+    "max_digits": 1,
+}
+FIXED_QUANTITY_CROP_VARIANT_POLICY_V3["stable_badge_variants"] = [
+    *FIXED_QUANTITY_CROP_VARIANT_POLICY_V2["stable_badge_variants"],
+    "quantity_focus",
+]
+FIXED_QUANTITY_CROP_VARIANT_POLICIES = (
+    FIXED_QUANTITY_CROP_VARIANT_POLICY_V2,
+    FIXED_QUANTITY_CROP_VARIANT_POLICY_V3,
+)
+FIXED_QUANTITY_POLICIES = FIXED_QUANTITY_CROP_VARIANT_POLICIES
 FIXED_QUANTITY_WINDOW_EARLY_RELATIVE_BOX = (0.05, 0.05, 1.0, 1.0)
 FIXED_QUANTITY_WINDOW_MID_RELATIVE_BOX = (0.25, 0.10, 1.0, 1.0)
 FALLBACK_QUANTITY_WINDOW_RELATIVE_BOX = (0.20, 0.10, 1.0, 1.0)
@@ -311,12 +336,18 @@ def _lines(raw: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [line for line in raw.get("lines", []) if isinstance(line, Mapping)]
 
 
-def _header(raw: Mapping[str, Any], text: str, box: Sequence[int]) -> Mapping[str, Any] | None:
+def _header(
+    raw: Mapping[str, Any],
+    text: str,
+    box: Sequence[int],
+    *,
+    minimum_confidence: float = MIN_CONFIDENCE,
+) -> Mapping[str, Any] | None:
     matches = [
         line
         for line in _lines(raw)
         if str(line.get("text", "")).strip().casefold() == text.casefold()
-        and float(line.get("confidence", 0)) >= MIN_CONFIDENCE
+        and float(line.get("confidence", 0)) >= minimum_confidence
         and _within_box(line.get("box", ()), box)
     ]
     return max(matches, key=lambda line: float(line.get("confidence", 0)), default=None)
@@ -360,7 +391,12 @@ def layout_guard(
     return _header(raw, "Items", ITEMS_HEADER_BOX) is not None and _header(raw, "Bonus", BONUS_HEADER_BOX) is not None
 
 
-def _legacy_fixed_geometry_usable(raw: Mapping[str, Any], row: Mapping[str, Any]) -> bool:
+def _legacy_fixed_geometry_usable(
+    raw: Mapping[str, Any],
+    row: Mapping[str, Any],
+    *,
+    allow_optional_header_recovery: bool = False,
+) -> bool:
     """Return whether the old fixed crops are source-compatible for a frame.
 
     ``layout_guard`` intentionally remains broad for validating historical
@@ -370,9 +406,38 @@ def _legacy_fixed_geometry_usable(raw: Mapping[str, Any], row: Mapping[str, Any]
     """
 
     if not layout_guard(raw, row):
-        return False
+        if not allow_optional_header_recovery:
+            return False
+        facts = row.get("facts")
+        if row.get("screen") != "race_result" or not isinstance(facts, Mapping) or \
+                type(facts.get("fans")) is not int or type(facts.get("fans_gained")) is not int or \
+                not isinstance(facts.get("visible_item_quantities"), list) or \
+                facts.get("item_rewards_complete") is not False:
+            return False
+        # Items remains production-confidence gated.  Bonus is optional UI;
+        # accept a lower-confidence exact header only when its fixed position
+        # and the rest of the race-result context remain intact.  This keeps
+        # weak/foreign text from creating a section while allowing source-
+        # visible Bonus labels to reach the fixed-slot quantity reread.
+        if _header(raw, "Items", ITEMS_HEADER_BOX) is None or \
+                _header(
+                    raw,
+                    "Bonus",
+                    BONUS_HEADER_BOX,
+                    minimum_confidence=OPTIONAL_HEADER_RECOVERY_MIN_CONFIDENCE,
+                ) is None:
+            return False
     for name, region in (("Items", ITEMS_HEADER_BOX), ("Bonus", BONUS_HEADER_BOX)):
-        header = _header(raw, name, region)
+        header = _header(
+            raw,
+            name,
+            region,
+            minimum_confidence=(
+                OPTIONAL_HEADER_RECOVERY_MIN_CONFIDENCE
+                if allow_optional_header_recovery and name == "Bonus"
+                else MIN_CONFIDENCE
+            ),
+        )
         if header is None or not _within_box(
             header.get("box", ()),
             (SECTION_HEADER_LEFT, region[1], SECTION_HEADER_RIGHT, region[3]),
@@ -480,8 +545,9 @@ def _fixed_slot_pixel_guard(gameplay_path: Path, source_box: Sequence[Any]) -> b
     if box is None or not gameplay_path.is_file():
         return False
     try:
-        with Image.open(gameplay_path) as image:
-            gameplay = image.convert("RGB")
+        from .frame_cache import open_rgb
+        if True:
+            gameplay = open_rgb(gameplay_path)
             if gameplay.size != (810, 1080):
                 return False
             crop = gameplay.crop(box)
@@ -680,7 +746,12 @@ def _fixed_quantity_variant(
 ) -> dict[str, Any]:
     """Build one fixed-policy variant with immutable coverage metadata."""
 
-    metadata = FIXED_QUANTITY_CROP_VARIANT_POLICY["variants"].get(name)
+    metadata = None
+    for policy_value in FIXED_QUANTITY_POLICIES:
+        candidate = policy_value["variants"].get(name)
+        if isinstance(candidate, Mapping):
+            metadata = candidate
+            break
     if not isinstance(metadata, Mapping):
         raise ValueError("Race quantity refinement fixed quantity variant is unknown.")
     coverage = metadata.get("quantity_coverage")
@@ -1023,7 +1094,9 @@ def _source_crop_variants(
     if quantity_policy is None:
         return [{"variant": None, "role": "broad", "source_box": source_box, "detector": detector}]
     legacy_policy = _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY)
-    fixed_policy = _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY)
+    fixed_policy_v2 = _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY_V2)
+    fixed_policy_v3 = _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY_V3)
+    fixed_policy = fixed_policy_v2 or fixed_policy_v3
     if not legacy_policy and not fixed_policy:
         raise ValueError("Race quantity refinement quantity crop policy changed.")
 
@@ -1058,6 +1131,11 @@ def _source_crop_variants(
                     canonical_box, FIXED_QUANTITY_WINDOW_MID_RELATIVE_BOX,
                 )),
             ]
+            if fixed_policy_v3:
+                variants.append((
+                    "quantity_focus",
+                    _fixed_quantity_window_crop_box(canonical_box, QUANTITY_FOCUS_RELATIVE_BOX),
+                ))
             if any(box is None for _, box in variants):
                 raise ValueError("Race quantity refinement fixed quantity window geometry is invalid.")
             return [
@@ -1443,6 +1521,7 @@ def _artifact_for_group(
     base_item: Mapping[str, Any] | None = None,
     allow_fixed_fallback: bool = False,
     fixed_quantity_windows: bool = False,
+    allow_optional_header_recovery: bool = False,
 ) -> dict[str, Any]:
     base = base_item or group[0]
     base_raw = base["raw"]
@@ -1462,7 +1541,7 @@ def _artifact_for_group(
     observations_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     expected_keys_by_slot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     quantity_policy = (
-        FIXED_QUANTITY_CROP_VARIANT_POLICY
+        FIXED_QUANTITY_CROP_VARIANT_POLICY_V3
         if fixed_quantity_windows
         else QUANTITY_CROP_VARIANT_POLICY if dynamic_enabled else None
     )
@@ -1618,6 +1697,7 @@ def _artifact_for_group(
         "scale_factors": list(SCALE_FACTORS),
         "detector_padding": DETECTOR_PADDING,
         "crop_resolution_policy": copy.deepcopy(FIXED_SLOT_FALLBACK_POLICY) if allow_fixed_fallback else None,
+        "allow_optional_header_recovery": bool(allow_optional_header_recovery),
         "identity_verified": False,
         "list_complete": False,
         "item_identity_verified": False,
@@ -1709,7 +1789,11 @@ def generate(
         # its narrow historical geometry.  The relative policy is selected for
         # shifted sections even when both broad legacy header windows happen to
         # match.
-        if _legacy_fixed_geometry_usable(raw, row):
+        if _legacy_fixed_geometry_usable(
+            raw,
+            row,
+            allow_optional_header_recovery=fixed_quantity_windows,
+        ):
             section_layout = None
         else:
             try:
@@ -1773,6 +1857,7 @@ def generate(
                 base_item=group[0],
                 allow_fixed_fallback=True,
                 fixed_quantity_windows=fixed_quantity_windows,
+                allow_optional_header_recovery=fixed_quantity_windows,
             )
         except (OSError, ValueError, KeyError, TypeError, Image.DecompressionBombError) as exc:
             frame_id = group[0]["identity"]["frame_id"]
@@ -1958,7 +2043,10 @@ def _validate_raw_observation(
         "source_manifest_row_id", "source_recording_sha256", "reader_fingerprint",
         "model_sha256", "preprocessing",
     )
-    fixed_quantity_policy = _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY)
+    fixed_quantity_policy = any(
+        _mapping_equal(quantity_policy, policy_value)
+        for policy_value in FIXED_QUANTITY_POLICIES
+    )
     if quantity_policy is not None:
         required += ("crop_variant", "crop_variant_role")
     if fixed_quantity_policy:
@@ -2084,9 +2172,10 @@ def _validate_raw_observation(
         raise ValueError("Race quantity refinement crop proof hash mismatch.")
     _validate_gameplay_pixels(source_path, gameplay_path, raw, observation, root, validated_pixels)
     try:
-        with Image.open(gameplay_path) as gameplay_image, Image.open(crop_path) as crop_image:
-            gameplay = gameplay_image.convert("RGB")
-            crop = crop_image.convert("RGB")
+        from .frame_cache import open_rgb
+        if True:
+            gameplay = open_rgb(gameplay_path)
+            crop = open_rgb(crop_path)
             expected = gameplay.crop(tuple(expected_crop_box))
             if scale != 1:
                 expected = expected.resize((expected.width * scale, expected.height * scale), Image.Resampling.LANCZOS)
@@ -2133,7 +2222,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     quantity_policy = artifact.get("quantity_crop_policy")
     if quantity_policy is not None and not (
         _mapping_equal(quantity_policy, QUANTITY_CROP_VARIANT_POLICY)
-        or _mapping_equal(quantity_policy, FIXED_QUANTITY_CROP_VARIANT_POLICY)
+        or any(_mapping_equal(quantity_policy, policy_value) for policy_value in FIXED_QUANTITY_POLICIES)
     ):
         raise ValueError("Race quantity refinement quantity crop policy changed.")
     section_anchor_metadata = artifact.get("section_anchor_policy")
@@ -2155,7 +2244,13 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         if base_layout is None:
             raise ValueError("Race quantity refinement section layout guard failed.")
     elif not layout_guard(raw, row):
-        raise ValueError("Race quantity refinement layout guard failed.")
+        if artifact.get("allow_optional_header_recovery") is not True or \
+                not _legacy_fixed_geometry_usable(
+                    raw,
+                    row,
+                    allow_optional_header_recovery=True,
+                ):
+            raise ValueError("Race quantity refinement layout guard failed.")
     row_key = _race_key(row)
     if row_key is None or artifact.get("race_key") != list(row_key):
         raise ValueError("Race quantity refinement race identity changed.")
@@ -2362,6 +2457,42 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     return summaries
 
 
+def _validated_section_headers(raw: Mapping[str, Any], *, allow_optional_bonus: bool) -> dict[str, dict[str, Any]]:
+    """Return unique source headers proven by the validated fixed-layout guard.
+
+    The normal reward-section annotator intentionally requires production
+    confidence.  A fixed quantity artifact may opt into the bounded optional
+    Bonus recovery path, so carry that already-validated header proof through
+    application without lowering the annotator's global threshold.
+    """
+
+    result: dict[str, dict[str, Any]] = {}
+    for name, region in (("Items", ITEMS_HEADER_BOX), ("Bonus", BONUS_HEADER_BOX)):
+        minimum = OPTIONAL_HEADER_RECOVERY_MIN_CONFIDENCE if allow_optional_bonus and name == "Bonus" else MIN_CONFIDENCE
+        matches = [
+            line for line in _lines(raw)
+            if str(line.get("text", "")).strip().casefold() == name.casefold()
+            and _within_box(line.get("box", ()), region)
+        ]
+        matches = [line for line in matches if float(line.get("confidence", 0)) >= minimum]
+        if len(matches) != 1:
+            continue
+        header = matches[0]
+        if not _within_box(header.get("box", ()), (SECTION_HEADER_LEFT, region[1], SECTION_HEADER_RIGHT, region[3])):
+            continue
+        try:
+            if abs(float(header["box"][3]) - LEGACY_HEADER_BASELINES[name]) > 8:
+                continue
+        except (TypeError, ValueError, IndexError):
+            continue
+        result[name.casefold()] = {
+            "text": str(header.get("text", "")).strip(),
+            "confidence": float(header.get("confidence", 0)),
+            "box": list(header["box"]),
+        }
+    return result
+
+
 def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[str, Any] | None = None, root: str | Path | None = None) -> dict[str, Any]:
     """Apply only accepted quantities, without identity or completeness claims.
 
@@ -2388,6 +2519,26 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
     new_facts = dict(facts)
     quantities = [dict(entry) if isinstance(entry, Mapping) else entry for entry in facts["visible_item_quantities"]]
     conflicts = list(new_facts.get("quantity_refinement_conflicts", []))
+    section_headers = _validated_section_headers(
+        raw,
+        allow_optional_bonus=artifact.get("allow_optional_header_recovery") is True,
+    ) if raw is not None else {}
+
+    def section_proof(slot_id: Any) -> dict[str, Any] | None:
+        if not isinstance(slot_id, str) or "-" not in slot_id:
+            return None
+        section = slot_id.split("-", 1)[0]
+        header = section_headers.get(section)
+        if header is None:
+            return None
+        return {
+            "basis": "validated_race_quantity_layout_guard",
+            "section": section,
+            "header": copy.deepcopy(header),
+            "source_timestamp_ms": raw.get("source_timestamp_ms") if raw is not None else None,
+            "source_frame_sha256": raw.get("source_frame_sha256") if raw is not None else None,
+        }
+
     for slot in artifact.get("slots", []):
         slot_id = slot.get("slot_id") if isinstance(slot, Mapping) else None
         accepted = summaries.get(slot_id, {}).get("accepted") if summaries else (slot.get("accepted") if isinstance(slot, Mapping) else None)
@@ -2434,8 +2585,10 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
                 existing = quantities[index]
                 if existing.get("quantity") != quantity:
                     conflicts.append({"slot_id": slot.get("slot_id"), "existing": existing.get("quantity"), "refined": quantity})
+                elif (proof := section_proof(slot_id)) is not None:
+                    existing["_validated_section_proof"] = proof
             continue
-        quantities.append({
+        refined_item = {
             "quantity": quantity,
             "name": None,
             "box": list(box),
@@ -2443,7 +2596,10 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
             "confidence": accepted.get("confidence"),
             "refinement": "race_quantity_source_consensus",
             "refinement_support_timestamps_ms": list(timestamps),
-        })
+        }
+        if (proof := section_proof(slot_id)) is not None:
+            refined_item["_validated_section_proof"] = proof
+        quantities.append(refined_item)
     def position_key(item: tuple[int, Any]) -> tuple[Any, ...]:
         index, entry = item
         box = entry.get("box") if isinstance(entry, Mapping) else None
