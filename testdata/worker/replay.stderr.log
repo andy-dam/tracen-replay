@@ -1,0 +1,7 @@
+{"readings": 8504, "stage": "replay_loaded", "wall_s": 497.5, "rss_mb": 583, "peak_rss_mb": 603}
+{"name": "assemble", "stage": "stage_done", "wall_s": 634.2, "rss_mb": 632, "peak_rss_mb": 632}
+{"name": "validate_output", "stage": "stage_done", "wall_s": 636.3, "rss_mb": 647, "peak_rss_mb": 654}
+{"name": "save_report", "stage": "stage_done", "wall_s": 637.5, "rss_mb": 647, "peak_rss_mb": 1006}
+{"name": "timeline_document", "bytes": 835755, "stage": "stage_done", "wall_s": 637.5, "rss_mb": 647, "peak_rss_mb": 1006}
+{"name": "viewer", "stage": "stage_done", "wall_s": 638.8, "rss_mb": 853, "peak_rss_mb": 1264}
+{"stage": "complete", "report": "C:\\Users\\andy-\\Documents\\Code\\umamusume-ai\\.local\\final-reliability-v1\\worker-runs\\post-recognition-g8-v11-prepared\\v1\\report.json", "fully_verified": false}

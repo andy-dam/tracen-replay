@@ -1,0 +1,30 @@
+{
+ "schema_version": "tracen-replay/timeline-v1",
+ "report_schema_version": "tracen-replay/full-recording-v1",
+ "source": {"name": "mini.mp4", "sha256": "0000000000000000000000000000000000000000000000000000000000000001", "duration_ms": 120000, "width": 1920, "height": 1080},
+ "recognition": {"model": "test", "device": "cpu"},
+ "turns": [
+  {"id": "turn-001", "label": "Junior Year Pre-Debut", "phase": "Junior Year Pre-Debut", "calendar_value": null, "start_ms": 22000, "end_ms": 24250, "window_kind": "unresolved_phase", "action_status": "missing_action", "action_count": 0,
+   "opening": {"stats": null, "performance": null},
+   "accounting": {"stats": {"speed": {"before": null, "after": 137, "status": "missing_endpoint", "direct": null, "derived": null, "unresolved": null}}}},
+  {"id": "turn-002", "label": "Junior Year Early Jul", "phase": "Junior Year", "calendar_value": "Junior Year Early Jul", "start_ms": 24250, "end_ms": 60000, "window_kind": "calendar", "action_status": "one_action", "action_count": 1,
+   "opening": {"stats": {"speed": 137, "stamina": 190, "power": 187, "guts": 112, "wit": 150, "skill_points": 120}, "performance": {"dance": 7, "passion": 8, "vocal": 0, "visual": 10, "composure": 12}},
+   "accounting": {"stats": {"speed": {"before": 137, "after": 150, "status": "balanced_observations", "direct": 13, "derived": 0, "unresolved": 0},
+                            "power": {"before": 187, "after": 200, "status": "unexplained_change", "direct": 6, "derived": 0, "unresolved": 7}}}}
+ ],
+ "entries": [
+  {"id": "entry-0001", "kind": "outcome", "turn_id": null, "first_seen_ms": 13000, "last_seen_ms": 15500, "assignment_basis": "outside_observed_turns", "conflicts_present": false,
+   "changes": {"stats": {"stamina": {"amount": 54, "basis": "observed_receipt"}}},
+   "detail": {"context_title": "Legacy inheritance", "effects": [{"kind": "stat_change", "field": "stamina", "amount": 54}]}},
+  {"id": "entry-0002", "kind": "training", "turn_id": "turn-002", "first_seen_ms": 29833, "last_seen_ms": 30367, "assignment_basis": "observed_within_calendar_window", "conflicts_present": false,
+   "changes": {"stats": {"speed": {"amount": 13, "basis": "observed_training_gain"}, "power": {"amount": 6, "basis": "observed_training_gain"}}},
+   "detail": {"training_option": "speed", "training_name": "Running", "training_outcome": "success"}},
+  {"id": "entry-0003", "kind": "committed_action", "turn_id": "turn-002", "first_seen_ms": 29833, "last_seen_ms": 29833, "assignment_basis": "observed_within_calendar_window", "training_option": "speed", "action_kind": "training", "reward_link_status": "linked_event"},
+  {"id": "entry-0004", "kind": "skill_purchase_batch", "turn_id": "turn-002", "first_seen_ms": 50000, "last_seen_ms": 50250, "assignment_basis": "observed_within_calendar_window",
+   "changes": {"stats": {"skill_points": {"amount": -100, "basis": "committed_skill_debit"}}},
+   "detail": {"spent_skill_points": 100, "cost_basis": "observed_debit"}}
+ ],
+ "summary": {"field_status_counts": {"balanced_observations": 1, "unexplained_change": 1, "missing_endpoint": 1}, "action_statuses": {"missing_action": 1, "one_action": 1}, "observed_turn_windows": 2,
+             "entry_counts": {"outcome": 1, "training": 1, "committed_action": 1, "skill_purchase_batch": 1}, "stage_failures": []},
+ "note": "synthetic fixture for tests"
+}

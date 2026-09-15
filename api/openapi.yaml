@@ -1,0 +1,217 @@
+openapi: 3.1.0
+info:
+  title: Tracen Replay local API
+  version: 0.1.0
+  description: |
+    Local HTTP surface of the Tracen Replay application. One service, one
+    Python analyzer job at a time, loopback only. Every fact the viewer shows
+    comes from the analyzer's timeline document (schema tracen-replay/timeline-v1);
+    the full report is served only as an unmodified download.
+servers:
+  - url: http://127.0.0.1:8765
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      responses:
+        "200": {description: alive}
+  /readyz:
+    get:
+      summary: Readiness probes (python, ffmpeg, models, analyzer, sources)
+      responses:
+        "200": {description: ready, content: {application/json: {schema: {$ref: "#/components/schemas/Readiness"}}}}
+        "503": {description: not ready, content: {application/json: {schema: {$ref: "#/components/schemas/Readiness"}}}}
+  /api/sources:
+    get:
+      summary: Recordings the service may analyze, with server-issued ids
+      responses:
+        "200":
+          description: sources
+          content: {application/json: {schema: {type: object, properties: {sources: {type: array, items: {$ref: "#/components/schemas/Source"}}}}}}
+  /api/jobs:
+    get:
+      summary: Every job, newest first
+      responses:
+        "200": {description: jobs, content: {application/json: {schema: {type: object, properties: {jobs: {type: array, items: {$ref: "#/components/schemas/Job"}}}}}}}
+    post:
+      summary: Queue an analysis of a source
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [source_id], properties: {source_id: {type: string}}}}}
+      responses:
+        "202": {description: queued, content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "400": {$ref: "#/components/responses/Error"}
+        "404": {$ref: "#/components/responses/Error"}
+        "429": {description: queue full, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorBody"}}}}
+  /api/jobs/{id}:
+    get:
+      summary: One job
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: job, content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/jobs/{id}/cancel:
+    post:
+      summary: Cancel a queued or running job; the worker's process tree is stopped first
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: cancelled (or the state reached within the wait bound), content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "409": {description: not cancellable in its current state; the job is included}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/jobs/{id}/events:
+    get:
+      summary: Server-sent events for one job
+      description: |
+        `event: job` carries the current record first; `event: progress` carries
+        each change (status, stage, percent for the OCR pass only); a final
+        `event: job` follows the terminal event and the stream closes.
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: event stream, content: {text/event-stream: {}}}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/jobs/{id}/log:
+    get:
+      summary: Tail of the worker log (last 64 KiB)
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: text, content: {text/plain: {}}}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/reports:
+    get:
+      summary: Validated reports, produced by jobs or imported
+      responses:
+        "200": {description: reports, content: {application/json: {schema: {type: object, properties: {reports: {type: array, items: {$ref: "#/components/schemas/Report"}}}}}}}
+  /api/reports/{id}/summary:
+    get:
+      summary: Run metadata, recognition stack, accounting and entry counts, stage failures
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: summary}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/reports/{id}/turns:
+    get:
+      summary: Turn navigator without entries
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: turn summaries, content: {application/json: {schema: {type: object, properties: {turns: {type: array, items: {$ref: "#/components/schemas/TurnSummary"}}}}}}}
+  /api/reports/{id}/turns/{turn}:
+    get:
+      summary: One turn with its opening states, per-field accounting and entries
+      parameters: [{$ref: "#/components/parameters/id"}, {name: turn, in: path, required: true, schema: {type: string}}]
+      responses:
+        "200": {description: turn detail}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/reports/{id}/turns/{turn}/correction:
+    get:
+      summary: The viewer's fill-in for one turn, with its check against the next observed values
+      responses:
+        "200": { description: "{correction, verification}; both null when nothing was filled in" }
+        "404": { description: unknown report or turn, or corrections not stored by this service }
+    put:
+      summary: Store (replace) the viewer's fill-in for one turn and check it
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: object, nullable: true, description: "kind (training|rest|outing|race), training_option, name, gains {field: amount}" }
+                changes: { type: array, items: { type: object, properties: { field: { type: string }, channel: { type: string }, amount: { type: integer }, note: { type: string } } } }
+                note: { type: string }
+      responses:
+        "200": { description: "{correction, verification}" }
+        "400": { description: invalid correction }
+    delete:
+      summary: Remove the viewer's fill-in for one turn
+      responses:
+        "204": { description: removed }
+  /api/reports/{id}/corrections:
+    get:
+      summary: Every fill-in the viewer made on the report, each with its check
+      responses:
+        "200": { description: "{corrections: [{correction, verification}]}" }
+  /api/reports/{id}/unassigned:
+    get:
+      summary: Entries outside every observed turn window
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: entries}
+  /api/reports/{id}/download:
+    get:
+      summary: The unmodified report.json
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: report, content: {application/json: {}}}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/reports/{id}/frame:
+    get:
+      summary: A frame of the recording at a source timestamp, extracted on demand
+      parameters:
+        - {$ref: "#/components/parameters/id"}
+        - {name: ms, in: query, required: true, schema: {type: integer, minimum: 0}, description: source timestamp in milliseconds, as carried by every entry}
+      responses:
+        "200": {description: JPEG, content: {image/jpeg: {}}}
+        "400": {$ref: "#/components/responses/Error"}
+        "404": {description: recording or frame unavailable}
+components:
+  parameters:
+    id: {name: id, in: path, required: true, schema: {type: string}}
+  responses:
+    Error: {description: error, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorBody"}}}}
+  schemas:
+    ErrorBody:
+      type: object
+      properties: {error: {type: object, properties: {code: {type: string}, message: {type: string}}}}
+    Readiness:
+      type: object
+      properties:
+        ready: {type: boolean}
+        checks: {type: array, items: {type: object, properties: {name: {type: string}, ok: {type: boolean}, note: {type: string}}}}
+    Source:
+      type: object
+      properties: {id: {type: string}, name: {type: string}, size: {type: integer}}
+    Job:
+      type: object
+      description: One analysis attempt. Status values: queued, running, succeeded, completed_with_stage_failures, failed, cancelled, interrupted.
+      properties:
+        id: {type: string}
+        source_id: {type: string}
+        source_name: {type: string}
+        status: {type: string}
+        created_at: {type: string, format: date-time}
+        started_at: {type: string, format: date-time}
+        finished_at: {type: string, format: date-time}
+        stage: {type: string, description: latest worker stage name}
+        ocr_processed: {type: integer}
+        ocr_total: {type: integer}
+        error: {type: object, properties: {code: {type: string}, message: {type: string}}}
+        stage_failures: {type: array, items: {type: object, properties: {stage: {type: string}, error: {type: string}}}}
+        report_id: {type: string, description: set when the job produced a validated report}
+    Report:
+      type: object
+      properties:
+        id: {type: string}
+        job_id: {type: string}
+        origin: {type: string, enum: [job, imported]}
+        source_name: {type: string}
+        source_sha256: {type: string}
+        report_sha256: {type: string}
+        created_at: {type: string, format: date-time}
+        duration_ms: {type: integer}
+        turns: {type: integer}
+        entries: {type: integer}
+    TurnSummary:
+      type: object
+      properties:
+        id: {type: string}
+        label: {type: string}
+        phase: {type: string}
+        calendar_value: {}
+        start_ms: {type: integer, nullable: true}
+        end_ms: {type: integer, nullable: true}
+        window_kind: {type: string}
+        action_status: {type: string}
+        action_count: {type: integer}
+        entry_count: {type: integer}
+        opening_observed: {type: boolean, description: false when the analyzer never observed the opening state; show it as unknown}
+        accounting_status_counts: {type: object, additionalProperties: {type: integer}}

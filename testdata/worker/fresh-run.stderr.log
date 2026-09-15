@@ -1,0 +1,553 @@
+{"stage": "capture", "part": 0, "through_seconds": 120, "frames": 480}
+{"stage": "capture", "part": 1, "through_seconds": 240, "frames": 960}
+{"stage": "capture", "part": 2, "through_seconds": 360, "frames": 1440}
+{"stage": "capture", "part": 3, "through_seconds": 480, "frames": 1920}
+{"stage": "capture", "part": 4, "through_seconds": 600, "frames": 2400}
+{"stage": "capture", "part": 5, "through_seconds": 720, "frames": 2880}
+{"stage": "capture", "part": 6, "through_seconds": 840, "frames": 3360}
+{"stage": "capture", "part": 7, "through_seconds": 960, "frames": 3840}
+{"stage": "capture", "part": 8, "through_seconds": 1080, "frames": 4320}
+{"stage": "capture", "part": 9, "through_seconds": 1200, "frames": 4800}
+{"stage": "capture", "part": 10, "through_seconds": 1320, "frames": 5280}
+{"stage": "capture", "part": 11, "through_seconds": 1440, "frames": 5760}
+{"stage": "capture", "part": 12, "through_seconds": 1560, "frames": 6240}
+{"stage": "capture", "part": 13, "through_seconds": 1680, "frames": 6720}
+{"stage": "capture", "part": 14, "through_seconds": 1800, "frames": 7200}
+{"stage": "capture", "part": 15, "through_seconds": 1920, "frames": 7680}
+{"stage": "capture", "part": 16, "through_seconds": 2040, "frames": 8160}
+{"stage": "capture", "part": 17, "through_seconds": 2160, "frames": 8640}
+{"stage": "capture", "part": 18, "through_seconds": 2280, "frames": 9120}
+{"stage": "capture", "part": 19, "through_seconds": 2400, "frames": 9600}
+{"stage": "capture", "part": 20, "through_seconds": 2447.4761, "frames": 9790}
+{"name": "capture", "stage": "stage_done", "wall_s": 83.0}
+{"stage": "ocr", "processed": 100, "total": 9790, "cached": 0, "elapsed_seconds": 16, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:26:17,002 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:26:17,079 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:26:17,095 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:26:17,096 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:26:17,150 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:26:17,167 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 200, "total": 9790, "cached": 0, "elapsed_seconds": 23, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 300, "total": 9790, "cached": 0, "elapsed_seconds": 35, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 400, "total": 9790, "cached": 0, "elapsed_seconds": 45, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 500, "total": 9790, "cached": 0, "elapsed_seconds": 55, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 600, "total": 9790, "cached": 0, "elapsed_seconds": 73, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 700, "total": 9790, "cached": 0, "elapsed_seconds": 89, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 800, "total": 9790, "cached": 0, "elapsed_seconds": 105, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:27:48,467 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 900, "total": 9790, "cached": 0, "elapsed_seconds": 116, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 1000, "total": 9790, "cached": 0, "elapsed_seconds": 130, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:28:11,673 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:11,921 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:11,949 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:11,986 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:12,017 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:13,870 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:13,939 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:13,958 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:14,036 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:28:14,050 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 1100, "total": 9790, "cached": 0, "elapsed_seconds": 139, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 1200, "total": 9790, "cached": 0, "elapsed_seconds": 149, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:28:38,873 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 1300, "total": 9790, "cached": 0, "elapsed_seconds": 164, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:28:45,766 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 1400, "total": 9790, "cached": 0, "elapsed_seconds": 174, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 1500, "total": 9790, "cached": 0, "elapsed_seconds": 190, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:29:17,393 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 1600, "total": 9790, "cached": 0, "elapsed_seconds": 205, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 1700, "total": 9790, "cached": 0, "elapsed_seconds": 220, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:29:46,505 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 1800, "total": 9790, "cached": 0, "elapsed_seconds": 231, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 1900, "total": 9790, "cached": 0, "elapsed_seconds": 242, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 2000, "total": 9790, "cached": 0, "elapsed_seconds": 256, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:30:16,240 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:16,429 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:16,565 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:16,610 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:16,627 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:18,778 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:18,783 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:18,872 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:18,872 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2100, "total": 9790, "cached": 0, "elapsed_seconds": 265, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 2200, "total": 9790, "cached": 0, "elapsed_seconds": 274, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:30:41,491 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:41,526 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:41,624 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2300, "total": 9790, "cached": 0, "elapsed_seconds": 286, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:30:42,038 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:42,065 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:42,135 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:42,137 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:44,716 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:44,717 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2400, "total": 9790, "cached": 0, "elapsed_seconds": 294, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:30:53,285 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:53,287 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:53,302 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,715 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,802 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,809 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,828 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,856 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,890 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,899 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,920 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:30:54,950 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2500, "total": 9790, "cached": 0, "elapsed_seconds": 300, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:30:55,780 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2600, "total": 9790, "cached": 0, "elapsed_seconds": 310, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:31:19,977 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2700, "total": 9790, "cached": 0, "elapsed_seconds": 325, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 2800, "total": 9790, "cached": 0, "elapsed_seconds": 337, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:31:45,300 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:31:45,369 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 2900, "total": 9790, "cached": 0, "elapsed_seconds": 351, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 3000, "total": 9790, "cached": 0, "elapsed_seconds": 366, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 3100, "total": 9790, "cached": 0, "elapsed_seconds": 383, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:32:24,795 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:24,908 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:24,939 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:25,541 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:25,602 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:25,618 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:25,660 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 3200, "total": 9790, "cached": 0, "elapsed_seconds": 391, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:32:28,085 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:28,105 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:28,141 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:28,167 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:30,994 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:31,008 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:31,080 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:31,082 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:32,785 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 3300, "total": 9790, "cached": 0, "elapsed_seconds": 397, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 3400, "total": 9790, "cached": 0, "elapsed_seconds": 411, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:32:53,971 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:32:54,048 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 3500, "total": 9790, "cached": 0, "elapsed_seconds": 422, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 3600, "total": 9790, "cached": 0, "elapsed_seconds": 438, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:33:15,534 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:15,637 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:21,576 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:21,885 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:21,933 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:21,952 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:21,994 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:22,802 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:22,864 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:22,874 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:22,885 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 3700, "total": 9790, "cached": 0, "elapsed_seconds": 448, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:33:24,692 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:33,099 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 3800, "total": 9790, "cached": 0, "elapsed_seconds": 461, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:33:46,608 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:46,632 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:46,706 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 3900, "total": 9790, "cached": 0, "elapsed_seconds": 471, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:33:49,040 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,057 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,058 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,127 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,150 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,151 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,187 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:33:49,212 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 4000, "total": 9790, "cached": 0, "elapsed_seconds": 478, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 4100, "total": 9790, "cached": 0, "elapsed_seconds": 491, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 4200, "total": 9790, "cached": 0, "elapsed_seconds": 505, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:34:31,729 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:34:36,414 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:34:36,491 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 4300, "total": 9790, "cached": 0, "elapsed_seconds": 521, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:34:43,783 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 4400, "total": 9790, "cached": 0, "elapsed_seconds": 532, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:34:51,703 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:34:51,771 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 4500, "total": 9790, "cached": 0, "elapsed_seconds": 546, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 4600, "total": 9790, "cached": 0, "elapsed_seconds": 558, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:35:14,897 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,031 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,162 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,197 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,200 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,713 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,745 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:15,772 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:18,726 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:18,758 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:18,759 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:18,812 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:18,849 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:19,815 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 4700, "total": 9790, "cached": 0, "elapsed_seconds": 564, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:35:20,209 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:21,474 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:21,549 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:21,557 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:21,566 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:26,008 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:26,094 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 4800, "total": 9790, "cached": 0, "elapsed_seconds": 575, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 4900, "total": 9790, "cached": 0, "elapsed_seconds": 587, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:35:44,935 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:45,391 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:45,405 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:45,423 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:45,423 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:47,268 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:47,286 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:47,309 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:35:47,345 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5000, "total": 9790, "cached": 0, "elapsed_seconds": 595, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:36:01,781 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:01,858 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5100, "total": 9790, "cached": 0, "elapsed_seconds": 607, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:36:04,944 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:05,002 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:05,023 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,246 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,292 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,349 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,382 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,386 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,437 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,470 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:06,696 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5200, "total": 9790, "cached": 0, "elapsed_seconds": 613, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 5300, "total": 9790, "cached": 0, "elapsed_seconds": 624, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 5400, "total": 9790, "cached": 0, "elapsed_seconds": 638, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:36:35,692 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:42,773 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5500, "total": 9790, "cached": 0, "elapsed_seconds": 650, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:36:48,958 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:49,037 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:36:56,277 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5600, "total": 9790, "cached": 0, "elapsed_seconds": 663, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 5700, "total": 9790, "cached": 0, "elapsed_seconds": 675, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:37:12,217 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:12,302 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:12,444 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:12,723 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:12,731 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:12,792 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:15,005 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:15,047 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:15,094 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:15,124 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:15,134 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5800, "total": 9790, "cached": 0, "elapsed_seconds": 681, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:37:17,858 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:17,905 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:17,919 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:17,935 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:19,488 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 5900, "total": 9790, "cached": 0, "elapsed_seconds": 687, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:37:26,460 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:37:26,538 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6000, "total": 9790, "cached": 0, "elapsed_seconds": 699, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 6100, "total": 9790, "cached": 0, "elapsed_seconds": 712, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 6200, "total": 9790, "cached": 0, "elapsed_seconds": 726, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:38:05,945 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:11,897 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:11,973 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6300, "total": 9790, "cached": 0, "elapsed_seconds": 738, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:38:18,696 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6400, "total": 9790, "cached": 0, "elapsed_seconds": 748, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:38:24,892 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:24,997 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:25,065 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:25,179 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:25,180 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:25,243 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:25,247 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:26,412 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:26,420 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:26,500 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:26,508 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:26,542 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:27,958 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6500, "total": 9790, "cached": 0, "elapsed_seconds": 755, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:38:35,841 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:35,856 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:36,662 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:36,962 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:36,997 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:36,997 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:37,067 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:37,102 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:37,105 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:37,141 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:37,165 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:37,198 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:38,042 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6600, "total": 9790, "cached": 0, "elapsed_seconds": 763, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 6700, "total": 9790, "cached": 0, "elapsed_seconds": 771, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:38:48,407 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:48,714 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:48,763 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:48,791 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:38:48,797 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6800, "total": 9790, "cached": 0, "elapsed_seconds": 778, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:39:05,203 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:05,203 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 6900, "total": 9790, "cached": 0, "elapsed_seconds": 793, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:39:12,630 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7000, "total": 9790, "cached": 0, "elapsed_seconds": 806, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 7100, "total": 9790, "cached": 0, "elapsed_seconds": 819, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:39:36,760 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:36,954 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:37,170 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:37,228 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:37,234 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:37,239 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:38,759 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:38,810 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:38,837 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:38,891 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:38,911 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:40,183 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7200, "total": 9790, "cached": 0, "elapsed_seconds": 825, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:39:41,223 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:41,256 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:41,286 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:41,296 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:44,188 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:46,405 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:46,471 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:47,181 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:47,196 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:47,215 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:47,264 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7300, "total": 9790, "cached": 0, "elapsed_seconds": 832, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:39:53,045 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:53,130 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:54,529 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:54,590 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:39:54,636 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7400, "total": 9790, "cached": 0, "elapsed_seconds": 839, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:40:00,824 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:00,890 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7500, "total": 9790, "cached": 0, "elapsed_seconds": 854, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:40:11,990 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:18,946 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:19,014 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7600, "total": 9790, "cached": 0, "elapsed_seconds": 867, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 7700, "total": 9790, "cached": 0, "elapsed_seconds": 879, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 7800, "total": 9790, "cached": 0, "elapsed_seconds": 892, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:40:54,672 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:54,880 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:55,524 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:55,532 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:55,603 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:55,608 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 7900, "total": 9790, "cached": 0, "elapsed_seconds": 901, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:40:57,550 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:57,584 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:57,621 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:40:57,637 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8000, "total": 9790, "cached": 0, "elapsed_seconds": 910, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 8100, "total": 9790, "cached": 0, "elapsed_seconds": 923, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:41:18,358 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8200, "total": 9790, "cached": 0, "elapsed_seconds": 932, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:41:34,677 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8300, "total": 9790, "cached": 0, "elapsed_seconds": 940, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:41:35,428 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:35,429 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:35,434 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:35,511 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:35,512 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:41,244 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8400, "total": 9790, "cached": 0, "elapsed_seconds": 947, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:41:48,526 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:48,838 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:48,907 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:48,934 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:50,388 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:50,442 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:50,462 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:50,487 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:41:50,540 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8500, "total": 9790, "cached": 0, "elapsed_seconds": 955, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 8600, "total": 9790, "cached": 0, "elapsed_seconds": 968, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:42:15,327 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8700, "total": 9790, "cached": 0, "elapsed_seconds": 981, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:42:18,235 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:18,305 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:18,793 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:18,829 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:18,846 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:20,895 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:20,919 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:20,980 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:20,993 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:21,059 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8800, "total": 9790, "cached": 0, "elapsed_seconds": 987, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:42:29,090 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 8900, "total": 9790, "cached": 0, "elapsed_seconds": 1001, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:42:44,296 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:44,851 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:44,974 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 9000, "total": 9790, "cached": 0, "elapsed_seconds": 1010, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 9100, "total": 9790, "cached": 0, "elapsed_seconds": 1015, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:42:53,320 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:42:53,571 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 9200, "total": 9790, "cached": 0, "elapsed_seconds": 1020, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 9300, "total": 9790, "cached": 0, "elapsed_seconds": 1025, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:43:04,199 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 9400, "total": 9790, "cached": 0, "elapsed_seconds": 1030, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:43:06,465 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:06,541 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:06,624 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:06,635 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 9500, "total": 9790, "cached": 0, "elapsed_seconds": 1037, "device": "dml", "pool": "process"}
+{"stage": "ocr", "processed": 9600, "total": 9790, "cached": 0, "elapsed_seconds": 1046, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:43:22,455 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:22,716 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:23,869 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:24,803 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:24,824 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:25,106 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:25,106 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:25,113 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:26,262 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 9700, "total": 9790, "cached": 0, "elapsed_seconds": 1051, "device": "dml", "pool": "process"}
+[33m[WARNING] 2026-09-14 00:43:29,641 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:30,197 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:30,649 [RapidOCR] main.py:132: The text detection result is empty[0m
+[33m[WARNING] 2026-09-14 00:43:30,699 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "ocr", "processed": 9790, "total": 9790, "cached": 0, "elapsed_seconds": 1057, "device": "dml", "pool": "process"}
+{"name": "base_readings", "readings": 9790, "stage": "stage_done", "wall_s": 1140.9}
+{"name": "automatic_refinement", "stage": "stage_done", "wall_s": 1373.8}
+{"name": "race_quantity_refinement", "stage": "stage_done", "wall_s": 1509.7}
+{"name": "reload_readings", "readings": 9790, "stage": "stage_done", "wall_s": 2291.7}
+{"name": "hint_card_preparation", "stage": "stage_done", "wall_s": 2292.3}
+{"name": "inspections_merged", "stage": "stage_done", "wall_s": 2292.3}
+{"stage": "receipt_inspection", "start_ms": 101250, "frames": 83}
+{"stage": "receipt_inspection", "start_ms": 360000, "frames": 30}
+{"stage": "receipt_inspection", "start_ms": 547500, "frames": 30}
+{"stage": "receipt_inspection", "start_ms": 703500, "frames": 45}
+{"stage": "receipt_inspection", "start_ms": 1331500, "frames": 38}
+{"stage": "receipt_inspection", "start_ms": 1355750, "frames": 30}
+{"stage": "receipt_inspection", "start_ms": 1411250, "frames": 60}
+[33m[WARNING] 2026-09-14 01:04:05,104 [RapidOCR] main.py:132: The text detection result is empty[0m
+{"stage": "receipt_inspection", "start_ms": 1445000, "frames": 30}
+{"stage": "receipt_inspection", "start_ms": 1861250, "frames": 38}
+{"stage": "receipt_inspection", "start_ms": 2003500, "frames": 38}
+{"name": "numeric_receipt_recovery", "stage": "stage_done", "wall_s": 2410.3}
+{"stage": "receipt_inspection", "start_ms": 904750, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 1076500, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 1587250, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 1880500, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 2003250, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 2136250, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 2209750, "frames": 6}
+{"stage": "receipt_inspection", "start_ms": 55250, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 68000, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 77500, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 95000, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 117250, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 132000, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 155500, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 175500, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 195250, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 218000, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 293000, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 323750, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 339500, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 357000, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 394250, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 546750, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 674750, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 721500, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 738250, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 774000, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 846000, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 946500, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1020500, "frames": 90}
+{"stage": "receipt_inspection", "start_ms": 1107250, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1257250, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1274500, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1369000, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1381750, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1481750, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1548250, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1559250, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1573500, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1714000, "frames": 60}
+{"stage": "receipt_inspection", "start_ms": 1720750, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1732500, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1860500, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 1891000, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 2027500, "frames": 75}
+{"stage": "receipt_inspection", "start_ms": 2097750, "frames": 60}
+{"name": "training_gain_recovery", "stage": "stage_done", "wall_s": 3501.8}
+{"name": "inspection_loads", "stage": "stage_done", "wall_s": 3501.8}
+{"stage": "receipt_inspection", "start_ms": 40000, "frames": 31}
+{"stage": "receipt_inspection", "start_ms": 68000, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 87500, "frames": 27}
+{"stage": "receipt_inspection", "start_ms": 99500, "frames": 27}
+{"stage": "receipt_inspection", "start_ms": 105000, "frames": 49}
+{"stage": "receipt_inspection", "start_ms": 176500, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 181250, "frames": 38}
+{"stage": "receipt_inspection", "start_ms": 325000, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 347500, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 360250, "frames": 34}
+{"stage": "receipt_inspection", "start_ms": 397000, "frames": 42}
+{"stage": "receipt_inspection", "start_ms": 401000, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 452250, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 457000, "frames": 27}
+{"stage": "receipt_inspection", "start_ms": 547500, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 549250, "frames": 31}
+{"stage": "receipt_inspection", "start_ms": 630000, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 633750, "frames": 49}
+{"stage": "receipt_inspection", "start_ms": 659250, "frames": 31}
+{"stage": "receipt_inspection", "start_ms": 675750, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 703500, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 722250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 747250, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 777500, "frames": 38}
+{"stage": "receipt_inspection", "start_ms": 873500, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 893250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 924250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 947500, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 990000, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 1049250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1068750, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1246000, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1252000, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 1275250, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1355500, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1357250, "frames": 34}
+{"stage": "receipt_inspection", "start_ms": 1360500, "frames": 42}
+{"stage": "receipt_inspection", "start_ms": 1399000, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1411000, "frames": 34}
+{"stage": "receipt_inspection", "start_ms": 1465250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1574250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1587500, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1647750, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1721500, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1838000, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 1861250, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 1864500, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1891750, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 1980000, "frames": 23}
+{"stage": "receipt_inspection", "start_ms": 2003500, "frames": 19}
+{"stage": "receipt_inspection", "start_ms": 2030750, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 2125500, "frames": 27}
+{"stage": "receipt_inspection", "start_ms": 2147750, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 2210250, "frames": 16}
+{"stage": "receipt_inspection", "start_ms": 2369500, "frames": 23}
+{"name": "occluded_receipt_recovery", "stage": "stage_done", "wall_s": 3955.3}
+{"name": "assemble", "stage": "stage_done", "wall_s": 4104.6}
+{"stage": "receipt_inspection", "start_ms": 1363250, "frames": 12}
+{"name": "boundary_state_recovery", "stage": "stage_done", "wall_s": 4111.4}
+{"name": "assemble_after_boundary", "stage": "stage_done", "wall_s": 4256.5}
+{"name": "validate_output", "stage": "stage_done", "wall_s": 4279.9}
+{"name": "save_report", "stage": "stage_done", "wall_s": 4281.2}
+{"name": "timeline_document", "bytes": 677903, "stage": "stage_done", "wall_s": 4281.2}
+{"name": "viewer", "stage": "stage_done", "wall_s": 4283.0}
+{"stage": "complete", "report": "C:\\Users\\andy-\\Documents\\Code\\umamusume-ai\\.local\\final-reliability-v1\\worker-runs\\fourth-declared-retest-v30\\report.json", "fully_verified": false}
