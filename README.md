@@ -51,7 +51,9 @@ cd web && npm run build
 ```
 
 Tests that depend on locally preserved recordings skip when those files are
-absent.
+absent. Two tests create symbolic links and skip on Windows unless the
+account may create them (Developer Mode or an elevated shell); they run on
+CI, so a green local run on Windows is not the whole suite.
 
 ## Documentation
 
