@@ -9,7 +9,7 @@ import EntryList from "./EntryList.vue";
 // The turn's decision, its caveats and its log. The stats of the turn sit
 // under the recording, beside this pane.
 const props = defineProps<{ turn: Turn; entries: Entry[]; summaryTurn: TurnSummary | null; reportId: string; correction: Correction | null; verification: Verification | null; videoMs?: number | null }>();
-const emit = defineEmits<{ seek: [ms: number]; changed: [] }>();
+const emit = defineEmits<{ seek: [ms: number]; changed: []; reviewing: [open: boolean] }>();
 const focusEntry = ref<string | null>(null);
 function editEntry(id: string) {
   focusEntry.value = id;
@@ -18,6 +18,7 @@ function editEntry(id: string) {
 
 // The viewer's own fill-in for this turn, and whether it adds up.
 const editing = ref(false);
+watch(editing, (open) => emit("reviewing", open), { immediate: true });
 watch(() => props.turn.id, () => {
   editing.value = false;
   focusEntry.value = null;
@@ -55,7 +56,7 @@ const action = computed(() => {
   const option = chosen.training_option ?? (typeof d.training_option === "string" ? d.training_option : "");
   let text = chosen.action_kind === "training" ? `${option ? option[0].toUpperCase() + option.slice(1) : "Unknown"} Training` : (chosen.action_kind ?? "action").replaceAll("_", " ");
   if (name && chosen.action_kind !== "training") text = `${text[0].toUpperCase() + text.slice(1)}: ${name}`;
-  return { text, ms: chosen.first_seen_ms, more: actions.length - 1 };
+  return { text, ms: chosen.first_seen_ms, more: actions.length - 1, option: chosen.action_kind === 'training' ? option : '', kind: chosen.action_kind ?? '' };
 });
 
 // The caveats of this window: the turn's own, then each flagged entry.
@@ -92,7 +93,7 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
           <span v-if="turn.window_kind !== 'calendar_turn' && turn.window_kind !== 'phase_race_turn' && turn.window_kind !== 'countdown_segment'"> · window: {{ turn.window_kind.replaceAll("_", " ") }}, its start is the time the state was observed</span>
         </p>
       </div>
-      <div class="turn-action" :class="{ none: !action }">
+      <div class="turn-action" :class="[{ none: !action }, action?.option ? 'opt-' + action.option : '', action?.kind && action.kind !== 'training' ? 'kind-' + action.kind : '']">
         <template v-if="action">
           <span class="ta-label">Chose</span>
           <button class="linkish strong" :disabled="action.ms === null" @click="action.ms !== null && emit('seek', action.ms)">{{ action.text }}</button>

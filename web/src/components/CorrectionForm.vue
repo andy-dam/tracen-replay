@@ -6,7 +6,8 @@ import { entryName, entryWarnings } from "../warnings";
 
 // The review editor for one turn. The report keeps its own reading; the
 // viewer's edits are stored beside it and checked by the server against the
-// values observed at the start of the next turn.
+// values observed at the start of the next turn. The editor mirrors that
+// check live, so the viewer sees the turn add up while typing.
 const props = defineProps<{
   reportId: string;
   turn: Turn;
@@ -25,22 +26,36 @@ const PERF_FIELDS = ["dance", "passion", "vocal", "visual", "composure"] as cons
 const LABEL: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", skill_points: "Skill Pts", dance: "Dance", passion: "Passion", vocal: "Vocal", visual: "Visual", composure: "Composure" };
 const OPTIONS = ["speed", "stamina", "power", "guts", "wit"] as const;
 const ADDED_KINDS = ["event", "training", "race", "rest", "outing", "purchase"] as const;
+const KIND_LABEL: Record<string, string> = { event: "Event", training: "Training", race: "Race", rest: "Rest", outing: "Outing", purchase: "Purchase" };
+const OWNER_WORD: Record<string, string> = { training: "the training", event: "the event whose number was cut off", lesson: "the lesson", race: "the race" };
+
+// A field key is "channel:field"; every amount map below is keyed that way.
+type Key = string;
+const keyOf = (channel: string, field: string): Key => `${channel}:${field}`;
+const split = (key: Key) => {
+  const [channel, field] = key.split(":");
+  return { channel, field };
+};
 
 const actionKind = ref("");
 const option = ref("speed");
 const name = ref("");
 const gains = reactive<Record<string, string>>({});
-const amounts = reactive<Record<string, string>>({});
-const notes = reactive<Record<string, string>>({});
+const amounts = reactive<Record<Key, string>>({}); // the viewer's own amount per gap
+const notes = reactive<Record<Key, string>>({});
+const mode = reactive<Record<Key, "" | "entry" | "added" | "amount">>({});
+const assigned = reactive<Record<Key, string>>({}); // gap -> entry id it was added to
+const confirmed = reactive<Record<Key, boolean>>({}); // worked-out gaps the viewer accepted
 const note = ref("");
 const busy = ref(false);
 const error = ref("");
 const result = ref<Verification | null>(props.verification);
 const showAllEntries = ref(false);
+const openNotes = reactive<Record<string, boolean>>({});
 
 interface EntryRow {
   id: string;
-  amounts: Record<string, string>; // "channel:field" -> text
+  amounts: Record<Key, string>;
   deleted: boolean;
   reviewed: boolean;
   note: string;
@@ -51,76 +66,118 @@ interface AddedRow {
   kind: string;
   title: string;
   time: string; // m:ss
-  amounts: Record<string, string>;
+  amounts: Record<Key, string>;
   note: string;
 }
 const added = ref<AddedRow[]>([]);
 
 const canFillAction = computed(() => !!props.summaryTurn?.expects_one_action && (!props.hasAction || !!props.correction?.action));
 
-// The differences: stats whose values at this turn and the next do not add
-// up, or that were worked out onto the training from the difference.
-const rows = computed(() => {
-  const existing = new Set((props.correction?.changes ?? []).map((c) => c.field));
-  const out: { field: string; before: number | null; after: number | null; recorded: number; residual: number | null; workedOut: number; windowStart: number | null; windowEnd: number | null }[] = [];
-  for (const field of STAT_FIELDS) {
-    const fa = props.turn.accounting?.stats?.[field];
-    const before = fa?.before ?? null;
-    const after = fa?.after ?? null;
-    const workedOut = fa?.turn_difference ?? 0;
-    const recorded = (fa?.direct ?? 0) + (fa?.derived ?? 0) - workedOut;
-    const residual = before !== null && after !== null ? after - before - recorded : null;
-    const status = fa?.status ?? "";
-    const open = (residual !== null && residual !== 0) || ["unexplained_change", "unresolved_attribution", "missing_endpoint"].includes(status);
-    if (open || existing.has(field) || workedOut) out.push({ field, before, after, recorded, residual, workedOut, windowStart: fa?.window_start_ms ?? null, windowEnd: fa?.window_end_ms ?? null });
+// The gaps: fields whose values at this turn and the next do not add up, or
+// that the report worked out from the difference between turns.
+interface Gap {
+  key: Key;
+  channel: string;
+  field: string;
+  before: number | null;
+  after: number | null;
+  recorded: number;
+  residual: number | null;
+  workedOut: number;
+  owner: string;
+  windowStart: number | null;
+  windowEnd: number | null;
+}
+const gaps = computed<Gap[]>(() => {
+  const existing = new Set((props.correction?.changes ?? []).map((c) => keyOf(c.channel ?? "stats", c.field)));
+  const owners = new Map((props.summaryTurn?.differences ?? []).map((d) => [keyOf(d.channel, d.field), d.owner ?? ""]));
+  const out: Gap[] = [];
+  for (const [channel, fields] of [["stats", STAT_FIELDS], ["performance", PERF_FIELDS]] as const) {
+    for (const field of fields) {
+      const fa = props.turn.accounting?.[channel]?.[field];
+      const before = fa?.before ?? null;
+      const after = fa?.after ?? null;
+      const workedOut = fa?.turn_difference ?? 0;
+      const recorded = (fa?.direct ?? 0) + (fa?.derived ?? 0) - workedOut;
+      const residual = before !== null && after !== null ? after - before - recorded : null;
+      const status = fa?.status ?? "";
+      const open = (residual !== null && residual !== 0) || ["unexplained_change", "unresolved_attribution"].includes(status);
+      const key = keyOf(channel, field);
+      if (open || existing.has(key) || workedOut) out.push({ key, channel, field, before, after, recorded, residual, workedOut, owner: owners.get(key) ?? "", windowStart: fa?.window_start_ms ?? null, windowEnd: fa?.window_end_ms ?? null });
+    }
   }
   return out;
 });
+const gapAmount = (g: Gap) => (g.residual !== null ? g.residual : g.workedOut);
 
 function reportedAmount(e: Entry, channel: string, field: string): number | null {
   const c = e.changes?.[channel]?.[field];
   return c && typeof c.amount === "number" ? c.amount : null;
 }
-function fieldsOf(e: Entry): { channel: string; field: string }[] {
-  const out: { channel: string; field: string }[] = [];
-  for (const channel of ["stats", "performance"]) for (const field of Object.keys(e.changes?.[channel] ?? {})) out.push({ channel, field });
+// Whether the report counted this change in its accounting, as the server sees it.
+function counted(e: Entry, channel: string, field: string): boolean {
+  const c = e.changes?.[channel]?.[field];
+  return !!c && typeof c.amount === "number" && !!c.basis && !e.conflicts_present;
+}
+function fieldsOf(e: Entry): Key[] {
+  const out: Key[] = [];
+  for (const channel of ["stats", "performance"]) for (const field of Object.keys(e.changes?.[channel] ?? {})) out.push(keyOf(channel, field));
   return out;
 }
 function flagged(e: Entry): boolean {
   return entryWarnings(e).length > 0;
 }
+function edited(e: Entry): boolean {
+  const row = entryRows[e.id];
+  if (!row) return false;
+  if (row.deleted || row.reviewed || row.note.trim()) return true;
+  return Object.entries(row.amounts).some(([key, text]) => {
+    const { channel, field } = split(key);
+    const reported = reportedAmount(e, channel, field);
+    return text.trim() !== (reported === null ? "" : String(reported));
+  });
+}
 const editableEntries = computed(() => props.entries.filter((e) => fieldsOf(e).length || flagged(e)));
 const shownEntries = computed(() => {
   if (showAllEntries.value) return editableEntries.value;
-  return editableEntries.value.filter((e) => flagged(e) || props.correction?.entries?.[e.id] || e.id === props.focusEntry);
+  return editableEntries.value.filter((e) => flagged(e) || props.correction?.entries?.[e.id] || e.id === props.focusEntry || edited(e) || Object.values(assigned).includes(e.id));
 });
+// Entries a gap can be added to: the turn's events with a time, most recent first.
+const assignable = computed(() => props.entries.filter((e) => e.kind !== "committed_action" && e.first_seen_ms !== null));
 
 function load() {
   const c = props.correction;
   actionKind.value = c?.action?.kind ?? "";
   option.value = c?.action?.training_option || "speed";
   name.value = c?.action?.name ?? "";
-  for (const f of STAT_FIELDS) {
-    gains[f] = c?.action?.gains?.[f] !== undefined ? String(c.action!.gains![f]) : "";
-    const change = c?.changes.find((x) => x.field === f && (x.channel ?? "stats") === "stats");
-    amounts[f] = change ? String(change.amount) : "";
-    notes[f] = change?.note ?? "";
+  for (const f of STAT_FIELDS) gains[f] = c?.action?.gains?.[f] !== undefined ? String(c.action!.gains![f]) : "";
+  for (const key of Object.keys(amounts)) delete amounts[key];
+  for (const key of Object.keys(notes)) delete notes[key];
+  for (const key of Object.keys(mode)) delete mode[key];
+  for (const key of Object.keys(assigned)) delete assigned[key];
+  for (const key of Object.keys(confirmed)) delete confirmed[key];
+  for (const ch of c?.changes ?? []) {
+    const key = keyOf(ch.channel ?? "stats", ch.field);
+    amounts[key] = String(ch.amount);
+    notes[key] = ch.note ?? "";
+    mode[key] = "amount";
   }
   for (const key of Object.keys(entryRows)) delete entryRows[key];
   for (const e of props.entries) {
     const edit = c?.entries?.[e.id];
     const row: EntryRow = { id: e.id, amounts: {}, deleted: !!edit?.deleted, reviewed: !!edit?.reviewed, note: edit?.note ?? "" };
-    for (const { channel, field } of fieldsOf(e)) {
+    for (const key of fieldsOf(e)) {
+      const { channel, field } = split(key);
       const override = edit?.changes?.[channel]?.[field];
       const reported = reportedAmount(e, channel, field);
-      row.amounts[`${channel}:${field}`] = override !== undefined ? String(override) : reported !== null ? String(reported) : "";
+      row.amounts[key] = override !== undefined ? String(override) : reported !== null ? String(reported) : "";
     }
-    for (const [channel, fields] of Object.entries(edit?.changes ?? {})) for (const [field, v] of Object.entries(fields)) row.amounts[`${channel}:${field}`] = String(v);
+    for (const [channel, fields] of Object.entries(edit?.changes ?? {})) for (const [field, v] of Object.entries(fields)) row.amounts[keyOf(channel, field)] = String(v);
     entryRows[e.id] = row;
   }
   added.value = (c?.added ?? []).map((a) => ({
     id: a.id, kind: a.kind, title: a.title ?? "", time: a.time_ms != null ? clock(a.time_ms) : "",
-    amounts: Object.fromEntries(Object.entries(a.changes ?? {}).flatMap(([ch, fs]) => Object.entries(fs).map(([f, v]) => [`${ch}:${f}`, String(v)]))),
+    amounts: Object.fromEntries(Object.entries(a.changes ?? {}).flatMap(([ch, fs]) => Object.entries(fs).map(([f, v]) => [keyOf(ch, f), String(v)]))),
     note: a.note ?? "",
   }));
   note.value = c?.note ?? "";
@@ -151,27 +208,194 @@ function parseClock(v: string): number | null {
 function signed(n: number) {
   return n > 0 ? `+${n}` : String(n);
 }
-function window(a: number | null | undefined, b: number | null | undefined) {
-  return a != null && b != null ? `between ${clock(a)} and ${clock(b)}` : "";
+function windowText(a: number | null | undefined, b: number | null | undefined) {
+  return a != null && b != null ? `${clock(a)} to ${clock(b)}` : "";
 }
 
-function addEvent() {
-  added.value.push({ id: "user-" + Date.now().toString(36), kind: "event", title: "", time: props.videoMs != null ? clock(props.videoMs) : clock(props.turn.start_ms ?? 0), amounts: {}, note: "" });
+// ---- resolving a gap ----
+function chooseMode(g: Gap, m: "entry" | "added" | "amount") {
+  if (mode[g.key] === m) {
+    clearGap(g);
+    return;
+  }
+  clearGap(g);
+  mode[g.key] = m;
+  if (m === "amount") amounts[g.key] = signed(gapAmount(g)).replace("+", "");
+  if (m === "added") {
+    const row = newAdded();
+    row.amounts[g.key] = String(gapAmount(g));
+    assigned[g.key] = row.id;
+    scrollTo("review-" + row.id);
+  }
+}
+// Undo whatever this gap's current mode put elsewhere.
+function clearGap(g: Gap) {
+  const m = mode[g.key];
+  if (m === "entry" && assigned[g.key]) {
+    const row = entryRows[assigned[g.key]];
+    const e = props.entries.find((x) => x.id === assigned[g.key]);
+    if (row && e) {
+      const reported = reportedAmount(e, g.channel, g.field);
+      if (reported === null && !fieldsOf(e).includes(g.key)) delete row.amounts[g.key];
+      else row.amounts[g.key] = reported === null ? "" : String(reported);
+    }
+  }
+  if (m === "added" && assigned[g.key]) added.value = added.value.filter((a) => a.id !== assigned[g.key]);
+  delete assigned[g.key];
+  delete confirmed[g.key];
+  amounts[g.key] = "";
+  mode[g.key] = "";
+}
+function assignTo(g: Gap, entryId: string) {
+  if (mode[g.key] === "entry" && assigned[g.key]) clearGap(g);
+  mode[g.key] = "entry";
+  if (!entryId) return;
+  const e = props.entries.find((x) => x.id === entryId);
+  const row = entryRows[entryId];
+  if (!e || !row) return;
+  const reported = reportedAmount(e, g.channel, g.field) ?? 0;
+  row.amounts[g.key] = String(reported + gapAmount(g));
+  assigned[g.key] = entryId;
+  scrollTo("review-" + entryId);
+}
+function confirmWorkedOut(g: Gap) {
+  // "Looks right": the worked-out amount stands; mark its owner reviewed.
+  const was = confirmed[g.key];
+  clearGap(g);
+  const owner = props.entries.find((e) => (g.owner === "training" ? e.kind === "training" : e.kind !== "committed_action") && e.changes?.[g.channel]?.[g.field]);
+  if (was) return;
+  confirmed[g.key] = true;
+  if (owner && entryRows[owner.id]) entryRows[owner.id].reviewed = true;
+}
+async function scrollTo(id: string) {
+  await nextTick();
+  document.getElementById(id)?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function newAdded(): AddedRow {
+  const row: AddedRow = { id: "user-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: "event", title: "", time: props.videoMs != null ? clock(props.videoMs) : clock(props.turn.start_ms ?? 0), amounts: {}, note: "" };
+  added.value.push(row);
+  return row;
 }
 function removeAdded(id: string) {
   added.value = added.value.filter((a) => a.id !== id);
+  for (const key of Object.keys(assigned)) if (assigned[key] === id) clearGap(gaps.value.find((g) => g.key === key)!);
 }
-function addField(row: { amounts: Record<string, string> }, key: string) {
+function addField(row: { amounts: Record<Key, string> }, key: Key) {
   if (key && !(key in row.amounts)) row.amounts[key] = "";
+}
+function dropField(row: { amounts: Record<Key, string> }, key: Key) {
+  delete row.amounts[key];
+}
+function useVideoTime(row: AddedRow) {
+  if (props.videoMs != null) row.time = clock(props.videoMs);
+}
+function bump(row: { amounts: Record<Key, string> }, key: Key, delta: number) {
+  const n = num(row.amounts[key] ?? "") ?? 0;
+  row.amounts[key] = String(n + delta);
+}
+
+// ---- the live check, the same arithmetic the server applies on save ----
+interface LiveField {
+  key: Key;
+  field: string;
+  before: number | null;
+  after: number | null;
+  recorded: number;
+  supplied: number;
+  residual: number | null;
+  status: "balanced" | "off" | "open" | "unverifiable" | "turn_difference";
+  off: number;
+}
+const live = computed(() => {
+  const supplied: Record<Key, number> = {};
+  const adjust: Record<Key, number> = {};
+  const add = (map: Record<Key, number>, key: Key, n: number) => (map[key] = (map[key] ?? 0) + n);
+  if (actionKind.value) for (const f of STAT_FIELDS) add(supplied, keyOf("stats", f), num(gains[f] ?? "") ?? 0);
+  for (const [key, text] of Object.entries(amounts)) add(supplied, key, num(text) ?? 0);
+  for (const a of added.value) for (const [key, text] of Object.entries(a.amounts)) add(supplied, key, num(text) ?? 0);
+  for (const e of props.entries) {
+    const row = entryRows[e.id];
+    if (!row) continue;
+    for (const key of fieldsOf(e)) {
+      const { channel, field } = split(key);
+      const reported = reportedAmount(e, channel, field);
+      const isCounted = counted(e, channel, field);
+      if (row.deleted) {
+        if (isCounted) add(adjust, key, -(reported ?? 0));
+        continue;
+      }
+      const text = row.amounts[key] ?? "";
+      const override = text.trim() === "" ? (reported !== null ? 0 : null) : num(text);
+      if (override === null || override === reported) continue;
+      add(adjust, key, isCounted ? override - (reported ?? 0) : override);
+    }
+    if (!row.deleted) for (const [key, text] of Object.entries(row.amounts)) if (!fieldsOf(e).includes(key)) add(adjust, key, num(text) ?? 0);
+  }
+  const fields: LiveField[] = [];
+  let balanced = true;
+  let observed = 0;
+  for (const [channel, names] of [["stats", STAT_FIELDS], ["performance", PERF_FIELDS]] as const) {
+    for (const field of names) {
+      const key = keyOf(channel, field);
+      const fa = props.turn.accounting?.[channel]?.[field];
+      const give = (supplied[key] ?? 0) + (adjust[key] ?? 0);
+      const touchedByEdit = (adjust[key] ?? 0) !== 0;
+      let recorded = 0;
+      let extra = 0;
+      let residual: number | null = null;
+      if (fa) {
+        recorded = (fa.direct ?? 0) + (fa.derived ?? 0);
+        extra = fa.turn_difference ?? 0;
+        if ((supplied[key] ?? 0) !== 0 && extra !== 0) recorded -= extra;
+        if (fa.before !== null && fa.before !== undefined && fa.after !== null && fa.after !== undefined) residual = fa.after - fa.before - recorded;
+      }
+      const touched = give !== 0 || touchedByEdit || (residual !== null && residual !== 0) || extra !== 0;
+      if (!touched) continue;
+      let status: LiveField["status"];
+      if (give === 0 && !touchedByEdit && extra !== 0 && residual === 0) status = "turn_difference";
+      else if (give === 0 && !touchedByEdit) status = "open";
+      else if (residual === null) status = "unverifiable";
+      else if (residual === give) {
+        status = "balanced";
+        observed++;
+      } else {
+        status = "off";
+        balanced = false;
+      }
+      fields.push({ key, field, before: fa?.before ?? null, after: fa?.after ?? null, recorded, supplied: give, residual, status, off: residual === null ? 0 : residual - give });
+    }
+  }
+  const off = fields.filter((f) => f.status === "off");
+  const open = fields.filter((f) => f.status === "open" && f.residual !== null && f.residual !== 0);
+  const text = off.length
+    ? `Off by ${off.map((f) => `${LABEL[f.field]} ${signed(f.off)}`).join(", ")}`
+    : open.length
+      ? `${open.length} gap${open.length === 1 ? "" : "s"} still open`
+      : balanced && observed > 0
+        ? "Adds up"
+        : "Nothing to check yet";
+  const cls = off.length ? "off" : open.length ? "warn" : balanced && observed > 0 ? "ok" : "na";
+  return { fields, text, cls, byKey: Object.fromEntries(fields.map((f) => [f.key, f])) as Record<Key, LiveField> };
+});
+function gapState(g: Gap): { text: string; cls: string } {
+  const f = live.value.byKey[g.key];
+  if (!f) return { text: "", cls: "" };
+  if (f.status === "balanced") return { text: "covered", cls: "ok" };
+  if (f.status === "off") return { text: `${signed(f.off)} still open`, cls: "warn" };
+  if (f.status === "turn_difference") return { text: "worked out by the report", cls: "na" };
+  if (f.status === "unverifiable") return { text: "cannot be checked", cls: "na" };
+  return { text: "open", cls: "warn" };
 }
 
 async function save() {
   error.value = "";
   const changes: CorrectionChange[] = [];
-  for (const f of STAT_FIELDS) {
-    const n = num(amounts[f] ?? "");
-    if (amounts[f]?.trim() && n === null) return void (error.value = `${LABEL[f]}: enter a whole number`);
-    if (n) changes.push({ field: f, amount: n, note: notes[f]?.trim() || undefined });
+  for (const [key, text] of Object.entries(amounts)) {
+    const { channel, field } = split(key);
+    const n = num(text);
+    if (text.trim() && n === null) return void (error.value = `${LABEL[field]}: enter a whole number`);
+    if (n) changes.push({ field, channel: channel === "stats" ? undefined : channel, amount: n, note: notes[key]?.trim() || undefined });
   }
   let action = null;
   if (actionKind.value) {
@@ -190,7 +414,7 @@ async function save() {
     const edit: EntryEdit = {};
     const ch: Record<string, Record<string, number>> = {};
     for (const [key, text] of Object.entries(row.amounts)) {
-      const [channel, field] = key.split(":");
+      const { channel, field } = split(key);
       const n = num(text);
       if (text.trim() && n === null) return void (error.value = `${entryName(e)} ${LABEL[field] ?? field}: enter a whole number`);
       const reported = reportedAmount(e, channel, field);
@@ -207,7 +431,7 @@ async function save() {
   for (const a of added.value) {
     const ch: Record<string, Record<string, number>> = {};
     for (const [key, text] of Object.entries(a.amounts)) {
-      const [channel, field] = key.split(":");
+      const { channel, field } = split(key);
       const n = num(text);
       if (text.trim() && n === null) return void (error.value = `${a.title || "added event"} ${LABEL[field] ?? field}: enter a whole number`);
       if (n) (ch[channel] ??= {})[field] = n;
@@ -245,124 +469,158 @@ async function remove() {
 </script>
 
 <template>
-  <div class="fillin">
-    <div class="row" style="justify-content: space-between; align-items: baseline">
-      <b>Review This Turn</b>
-      <button class="btn quiet small" @click="emit('close')">Close</button>
-    </div>
-    <p class="muted small" style="margin: 4px 0 10px">The report keeps its own reading. What you enter here is stored beside it and checked against the stats observed at the start of the next turn.</p>
-
-    <div v-if="rows.length" class="fillin-block">
-      <b class="small">Differences</b>
-      <div v-for="r in rows" :key="r.field" class="diff-line">
-        <div class="diff-text">
-          <span class="strong">{{ LABEL[r.field] }} {{ r.residual !== null ? signed(r.residual) : r.workedOut ? signed(r.workedOut) : "?" }}</span>
-          <template v-if="r.workedOut"> was worked out from the difference between turns onto the training</template>
-          <template v-else-if="r.residual === null"> cannot be checked: a value before or after this turn was not observed</template>
-          <template v-else> is not covered by any captured event</template>
-          <template v-if="window(r.windowStart, r.windowEnd)"> · <button class="linkish" @click="emit('seek', r.windowStart!)">{{ window(r.windowStart, r.windowEnd) }}</button></template>
-          <span class="muted"> · observed {{ r.before ?? "?" }} → {{ r.after ?? "?" }}, report explains {{ signed(r.recorded) }}</span>
-        </div>
-        <div class="diff-inputs">
-          <input v-model="amounts[r.field]" type="text" inputmode="numeric" :placeholder="r.workedOut ? `${signed(r.workedOut)} worked out` : 'amount you saw'" />
-          <input v-model="notes[r.field]" type="text" placeholder="where it came from (e.g. an event's receipt)" maxlength="500" />
-        </div>
+  <div class="rv">
+    <header class="rv-head">
+      <div class="rv-title">
+        <span class="overline" style="margin: 0">Review</span>
+        <span class="pill" :class="live.cls">{{ live.text }}</span>
       </div>
-    </div>
+      <button class="icon-btn small" title="Close the review" @click="emit('close')">✕</button>
+    </header>
+    <p class="rv-lede">The report keeps its own reading. What you enter is stored beside it and checked against the stats at the start of the next turn.</p>
 
-    <div v-if="canFillAction" class="fillin-block">
-      <b class="small">Action</b>
-      <div class="fillin-row">
-        <select v-model="actionKind">
-          <option value="">Not filled in</option>
-          <option value="training">Training</option>
-          <option value="rest">Rest</option>
-          <option value="outing">Outing</option>
-          <option value="race">Race</option>
-        </select>
-        <template v-if="actionKind === 'training'">
-          <select v-model="option">
-            <option v-for="o in OPTIONS" :key="o" :value="o">{{ LABEL[o] }}</option>
+    <section v-if="gaps.length" class="rv-section">
+      <h4 class="rv-h">Gaps to explain <span class="rv-count">{{ gaps.length }}</span></h4>
+      <div v-for="g in gaps" :key="g.key" class="gap" :class="[gapState(g).cls, { resolved: gapState(g).cls === 'ok' }]">
+        <div class="gap-top">
+          <i class="sd" :class="g.field"></i>
+          <b class="gap-name">{{ LABEL[g.field] }}</b>
+          <span class="gap-amt" :class="gapAmount(g) > 0 ? 'up' : 'down'">{{ signed(gapAmount(g)) }}</span>
+          <span class="gap-eq">{{ g.before ?? "?" }} → {{ g.after ?? "?" }}<template v-if="g.recorded"> · report explains {{ signed(g.recorded) }}</template></span>
+          <button v-if="windowText(g.windowStart, g.windowEnd)" class="gap-seek" title="Seek the recording to where the change happened" @click="emit('seek', g.windowStart!)">▶ {{ windowText(g.windowStart, g.windowEnd) }}</button>
+          <span class="gap-state" :class="gapState(g).cls">{{ gapState(g).text }}</span>
+        </div>
+        <p v-if="g.workedOut" class="gap-note">The report worked {{ signed(g.workedOut) }} onto {{ OWNER_WORD[g.owner] ?? "its only possible source" }} from the difference between turns. Confirm it, or say where it really came from.</p>
+        <p v-else-if="g.residual === null" class="gap-note">A value before or after this turn was not observed, so this field cannot be checked.</p>
+        <div class="seg">
+          <button v-if="g.workedOut" :class="{ on: confirmed[g.key] }" @click="confirmWorkedOut(g)">Looks right</button>
+          <button :class="{ on: mode[g.key] === 'entry' }" :disabled="!assignable.length" @click="chooseMode(g, 'entry')">Belongs to an event</button>
+          <button :class="{ on: mode[g.key] === 'added' }" @click="chooseMode(g, 'added')">Missed event</button>
+          <button :class="{ on: mode[g.key] === 'amount' }" @click="chooseMode(g, 'amount')">Enter amount</button>
+        </div>
+        <div v-if="mode[g.key] === 'entry'" class="gap-detail">
+          <select :value="assigned[g.key] ?? ''" @change="assignTo(g, ($event.target as HTMLSelectElement).value)">
+            <option value="">Which event?</option>
+            <option v-for="e in assignable" :key="e.id" :value="e.id">{{ clock(e.first_seen_ms) }} · {{ entryName(e) }}</option>
           </select>
-          <input v-model="name" type="text" placeholder="training name (optional)" maxlength="80" />
-        </template>
-        <input v-else-if="actionKind" v-model="name" type="text" placeholder="name (optional)" maxlength="80" />
-      </div>
-      <div v-if="actionKind === 'training'" class="fillin-gains">
-        <label v-for="f in STAT_FIELDS" :key="f"><span>{{ LABEL[f] }}</span><input v-model="gains[f]" type="text" inputmode="numeric" placeholder="+0" /></label>
-      </div>
-    </div>
-
-    <div class="fillin-block">
-      <div class="row" style="justify-content: space-between; align-items: baseline">
-        <b class="small">Events in this turn <span class="muted">{{ shownEntries.length }} of {{ editableEntries.length }}</span></b>
-        <button v-if="editableEntries.length > shownEntries.length || showAllEntries" class="linkish small" @click="showAllEntries = !showAllEntries">{{ showAllEntries ? "Show flagged only" : "Show all" }}</button>
-      </div>
-      <p v-if="!shownEntries.length" class="muted small">Nothing flagged. "Show all" lists every event with an amount.</p>
-      <div v-for="e in shownEntries" :id="'review-' + e.id" :key="e.id" class="review-entry" :class="{ deleted: entryRows[e.id]?.deleted, focus: e.id === focusEntry }">
-        <div class="review-head">
-          <button class="linkish" :disabled="e.first_seen_ms === null" @click="e.first_seen_ms !== null && emit('seek', e.first_seen_ms)"><span class="tabular">{{ clock(e.first_seen_ms) }}</span></button>
-          <span class="strong">{{ entryName(e) }}</span>
-          <span v-if="flagged(e)" class="tag pink small">{{ entryWarnings(e).map((w) => w.text).join("; ") }}</span>
+          <span v-if="assigned[g.key]" class="muted small">{{ signed(gapAmount(g)) }} {{ LABEL[g.field] }} added to that event below</span>
         </div>
-        <div v-if="entryRows[e.id]" class="review-fields">
-          <label v-for="key in Object.keys(entryRows[e.id].amounts)" :key="key"><span>{{ LABEL[key.split(':')[1]] ?? key.split(':')[1] }}</span><input v-model="entryRows[e.id].amounts[key]" type="text" inputmode="numeric" :disabled="entryRows[e.id].deleted" /></label>
-          <select class="add-field" @change="addField(entryRows[e.id], ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
+        <div v-else-if="mode[g.key] === 'amount'" class="gap-detail">
+          <label class="amt"><span>{{ LABEL[g.field] }}</span><input v-model="amounts[g.key]" type="text" inputmode="numeric" placeholder="amount" /></label>
+          <input v-model="notes[g.key]" type="text" class="grow" placeholder="where it came from" maxlength="500" />
+        </div>
+        <div v-else-if="mode[g.key] === 'added'" class="gap-detail muted small">Fill in the missed event below; its {{ LABEL[g.field] }} is set to {{ signed(gapAmount(g)) }}.</div>
+      </div>
+    </section>
+
+    <section v-if="canFillAction" class="rv-section">
+      <h4 class="rv-h">This turn's action</h4>
+      <div class="seg">
+        <button :class="{ on: actionKind === '' }" @click="actionKind = ''">Not filled in</button>
+        <button v-for="k in ['training', 'rest', 'outing', 'race']" :key="k" :class="{ on: actionKind === k }" @click="actionKind = k">{{ KIND_LABEL[k] }}</button>
+      </div>
+      <div v-if="actionKind" class="gap-detail">
+        <select v-if="actionKind === 'training'" v-model="option">
+          <option v-for="o in OPTIONS" :key="o" :value="o">{{ LABEL[o] }} training</option>
+        </select>
+        <input v-model="name" type="text" class="grow" :placeholder="actionKind === 'training' ? 'training name (optional)' : 'name (optional)'" maxlength="80" />
+      </div>
+      <div v-if="actionKind === 'training'" class="rv-amounts">
+        <label v-for="f in STAT_FIELDS" :key="f" class="amt"><i class="sd" :class="f"></i><span>{{ LABEL[f] }}</span><input v-model="gains[f]" type="text" inputmode="numeric" placeholder="+0" /></label>
+      </div>
+    </section>
+
+    <section class="rv-section">
+      <h4 class="rv-h">
+        Events in this turn <span class="rv-count">{{ shownEntries.length }}<template v-if="shownEntries.length !== editableEntries.length"> of {{ editableEntries.length }}</template></span>
+        <button v-if="editableEntries.length > shownEntries.length || showAllEntries" class="linkish small" style="margin-left: auto" @click="showAllEntries = !showAllEntries">{{ showAllEntries ? "Flagged only" : "Show all" }}</button>
+      </h4>
+      <p v-if="!shownEntries.length" class="muted small">Nothing is flagged in this turn. "Show all" lists every event with an amount.</p>
+      <div v-for="e in shownEntries" :id="'review-' + e.id" :key="e.id" class="rv-entry" :class="{ deleted: entryRows[e.id]?.deleted, focus: e.id === focusEntry, edited: edited(e) }">
+        <div class="rv-entry-head">
+          <button class="tchip" :disabled="e.first_seen_ms === null" @click="e.first_seen_ms !== null && emit('seek', e.first_seen_ms)">{{ clock(e.first_seen_ms) }}</button>
+          <b class="rv-entry-name">{{ entryName(e) }}</b>
+          <span v-if="flagged(e)" class="tag pink small">{{ entryWarnings(e).map((w) => w.text).join("; ") }}</span>
+          <span v-if="entryRows[e.id]?.deleted" class="tag grey small">removed</span>
+        </div>
+        <div v-if="entryRows[e.id]" class="rv-amounts">
+          <label v-for="key in Object.keys(entryRows[e.id].amounts)" :key="key" class="amt" :class="{ changed: entryRows[e.id].amounts[key].trim() !== String(reportedAmount(e, split(key).channel, split(key).field) ?? '') }">
+            <i class="sd" :class="split(key).field"></i><span>{{ LABEL[split(key).field] ?? split(key).field }}</span>
+            <button class="step" tabindex="-1" :disabled="entryRows[e.id].deleted" @click="bump(entryRows[e.id], key, -1)">−</button>
+            <input v-model="entryRows[e.id].amounts[key]" type="text" inputmode="numeric" :disabled="entryRows[e.id].deleted" />
+            <button class="step" tabindex="-1" :disabled="entryRows[e.id].deleted" @click="bump(entryRows[e.id], key, 1)">+</button>
+            <button v-if="reportedAmount(e, split(key).channel, split(key).field) === null" class="step x" title="remove this stat" @click="dropField(entryRows[e.id], key)">✕</button>
+          </label>
+          <select class="add-field" :disabled="entryRows[e.id].deleted" @change="addField(entryRows[e.id], ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
             <option value="">+ stat</option>
             <option v-for="f in STAT_FIELDS" :key="f" :value="'stats:' + f">{{ LABEL[f] }}</option>
             <option v-for="f in PERF_FIELDS" :key="f" :value="'performance:' + f">{{ LABEL[f] }}</option>
           </select>
-          <label class="check"><input v-model="entryRows[e.id].reviewed" type="checkbox" /> reviewed</label>
-          <label class="check"><input v-model="entryRows[e.id].deleted" type="checkbox" /> not real, remove</label>
-          <input v-model="entryRows[e.id].note" type="text" placeholder="note" maxlength="500" class="review-note" />
+        </div>
+        <div v-if="entryRows[e.id]" class="rv-entry-foot">
+          <button class="toggle" :class="{ on: entryRows[e.id].reviewed }" @click="entryRows[e.id].reviewed = !entryRows[e.id].reviewed">✓ Reviewed</button>
+          <button class="toggle danger" :class="{ on: entryRows[e.id].deleted }" @click="entryRows[e.id].deleted = !entryRows[e.id].deleted">Not real</button>
+          <button v-if="!openNotes[e.id] && !entryRows[e.id].note" class="linkish small" @click="openNotes[e.id] = true">Add a note</button>
+          <input v-else v-model="entryRows[e.id].note" type="text" class="grow" placeholder="note" maxlength="500" />
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="fillin-block">
-      <div class="row" style="justify-content: space-between; align-items: baseline">
-        <b class="small">Events the report missed</b>
-        <button class="btn quiet small" @click="addEvent">Add an Event</button>
-      </div>
-      <div v-for="a in added" :key="a.id" class="review-entry added">
-        <div class="review-fields">
-          <select v-model="a.kind">
-            <option v-for="k in ADDED_KINDS" :key="k" :value="k">{{ k[0].toUpperCase() + k.slice(1) }}</option>
-          </select>
-          <input v-model="a.title" type="text" placeholder="title (e.g. Shine On Forever)" maxlength="80" style="min-width: 160px" />
-          <label><span>at</span><input v-model="a.time" type="text" placeholder="m:ss" style="width: 70px" /></label>
-          <label v-for="key in Object.keys(a.amounts)" :key="key"><span>{{ LABEL[key.split(':')[1]] ?? key.split(':')[1] }}</span><input v-model="a.amounts[key]" type="text" inputmode="numeric" /></label>
+    <section class="rv-section">
+      <h4 class="rv-h">Events the report missed <span v-if="added.length" class="rv-count">{{ added.length }}</span><button class="btn small" style="margin-left: auto" @click="newAdded()">+ Add an event</button></h4>
+      <p v-if="!added.length" class="muted small">Something happened that the report has no entry for? Add it with its time and what it changed.</p>
+      <div v-for="a in added" :id="'review-' + a.id" :key="a.id" class="rv-entry added">
+        <div class="seg small">
+          <button v-for="k in ADDED_KINDS" :key="k" :class="{ on: a.kind === k }" @click="a.kind = k">{{ KIND_LABEL[k] }}</button>
+        </div>
+        <div class="rv-entry-head">
+          <input v-model="a.title" type="text" class="grow" placeholder="title, as the game shows it" maxlength="80" />
+          <label class="amt time"><span>at</span><input v-model="a.time" type="text" placeholder="m:ss" /></label>
+          <button class="btn small quiet" :disabled="videoMs == null" title="use the recording's current time" @click="useVideoTime(a)">Use video time</button>
+        </div>
+        <div class="rv-amounts">
+          <label v-for="key in Object.keys(a.amounts)" :key="key" class="amt changed">
+            <i class="sd" :class="split(key).field"></i><span>{{ LABEL[split(key).field] ?? split(key).field }}</span>
+            <button class="step" tabindex="-1" @click="bump(a, key, -1)">−</button>
+            <input v-model="a.amounts[key]" type="text" inputmode="numeric" />
+            <button class="step" tabindex="-1" @click="bump(a, key, 1)">+</button>
+            <button class="step x" title="remove this stat" @click="dropField(a, key)">✕</button>
+          </label>
           <select class="add-field" @change="addField(a, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
             <option value="">+ stat</option>
             <option v-for="f in STAT_FIELDS" :key="f" :value="'stats:' + f">{{ LABEL[f] }}</option>
             <option v-for="f in PERF_FIELDS" :key="f" :value="'performance:' + f">{{ LABEL[f] }}</option>
           </select>
-          <input v-model="a.note" type="text" placeholder="note" maxlength="500" class="review-note" />
-          <button class="linkish small" @click="removeAdded(a.id)">remove</button>
+        </div>
+        <div class="rv-entry-foot">
+          <input v-model="a.note" type="text" class="grow" placeholder="note (optional)" maxlength="500" />
+          <button class="linkish small danger" @click="removeAdded(a.id)">Remove</button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="fillin-row" style="margin-top: 8px">
-      <label>Note</label>
-      <input v-model="note" type="text" placeholder="optional" maxlength="500" style="flex: 1" />
-    </div>
-    <div class="row" style="gap: 8px; margin-top: 10px; flex-wrap: wrap">
-      <button class="btn primary small" :disabled="busy" @click="save">Save and Check</button>
-      <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Remove My Edits</button>
-      <span v-if="error" class="warn small">{{ error }}</span>
-    </div>
+    <footer class="rv-foot">
+      <input v-model="note" type="text" class="grow" placeholder="a note about this turn (optional)" maxlength="500" />
+      <div class="rv-foot-actions">
+        <span v-if="error" class="warn-text small">{{ error }}</span>
+        <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Remove my edits</button>
+        <button class="btn primary" :disabled="busy" @click="save">Save and check</button>
+      </div>
+    </footer>
 
     <div v-if="result" class="verify" :class="result.verified ? 'ok' : result.balanced ? 'na' : 'off'">
       <b>{{ result.summary }}</b>
-      <div v-for="f in result.fields" :key="f.channel + f.field" class="small tabular">
-        {{ LABEL[f.field] ?? f.field }}:<template v-if="f.status === 'balanced' || f.status === 'off'"> {{ f.before ?? "?" }} + {{ signed(f.recorded) }} report + {{ signed(f.supplied) }} yours</template>
-        <template v-if="f.status === 'balanced'"> = {{ f.after }} observed ✓</template>
-        <template v-else-if="f.status === 'off'"> ≠ {{ f.after }} observed (off by {{ signed((f.residual ?? 0) - f.supplied) }})</template>
-        <template v-else-if="f.status === 'open'"> {{ signed(f.residual ?? 0) }} still not covered by any event {{ window(f.window_start_ms, f.window_end_ms) }}</template>
-        <template v-else-if="f.status === 'turn_difference'"> {{ signed(f.turn_difference) }} worked out from the difference between turns; enter your own amount above to replace it</template>
-        <template v-else> the value before or after was not observed, so this cannot be checked</template>
-      </div>
+      <ul class="verify-list">
+        <li v-for="f in result.fields" :key="f.channel + f.field" :class="f.status">
+          <i class="sd" :class="f.field"></i><b>{{ LABEL[f.field] ?? f.field }}</b>
+          <template v-if="f.status === 'balanced' || f.status === 'off'"><span class="tabular">{{ f.before ?? "?" }} {{ signed(f.recorded) }} report {{ signed(f.supplied) }} yours</span></template>
+          <span v-if="f.status === 'balanced'" class="vs ok">= {{ f.after }} ✓</span>
+          <span v-else-if="f.status === 'off'" class="vs off">≠ {{ f.after }}, off by {{ signed((f.residual ?? 0) - f.supplied) }}</span>
+          <span v-else-if="f.status === 'open'" class="vs warn">{{ signed(f.residual ?? 0) }} still not covered<template v-if="windowText(f.window_start_ms, f.window_end_ms)"> · {{ windowText(f.window_start_ms, f.window_end_ms) }}</template></span>
+          <span v-else-if="f.status === 'turn_difference'" class="vs na">{{ signed(f.turn_difference) }} worked out by the report; enter your own amount to replace it</span>
+          <span v-else class="vs na">a value before or after was not observed</span>
+        </li>
+      </ul>
     </div>
   </div>
 </template>

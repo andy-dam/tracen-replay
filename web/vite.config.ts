@@ -10,10 +10,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    // The dev server proxies the API to a running service; TRACEN_API picks
+    // a different instance (for example one started on another port).
     proxy: {
-      "/api": "http://127.0.0.1:8765",
-      "/healthz": "http://127.0.0.1:8765",
-      "/readyz": "http://127.0.0.1:8765",
+      "/api": process.env.TRACEN_API ?? "http://127.0.0.1:8765",
+      "/healthz": process.env.TRACEN_API ?? "http://127.0.0.1:8765",
+      "/readyz": process.env.TRACEN_API ?? "http://127.0.0.1:8765",
     },
   },
 });

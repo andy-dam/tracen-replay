@@ -100,23 +100,35 @@ limited per address. There is no password reset; delete the row in the
 
 The analyzer does the bulk of the work; the viewer checks what it flags and
 can edit anything. Each turn's pane has "Review This Turn". It opens the
-review editor with four parts:
+review editor, which grows to its content while the recording stays in view,
+and shows a live verdict ("Adds up", "2 gaps still open", "Off by Power +3")
+that is recomputed as the viewer types, with the same arithmetic the server
+applies on save. Its parts:
 
-- the differences: for each stat whose values at this turn and the next do
-  not add up, the amount and the time window between the two observations
-  ("Power +10 between 10:21 and 10:57"), with a link that seeks the recording
-  there. When the difference has only one possible owner, the report has
-  already worked it out onto that owner and says so ("worked out from the
-  difference between turns onto the training / the event whose number was
-  cut off / the lesson"); it is an estimate the viewer can replace. The
-  owners are the turn's only training whose result was not read (or whose
-  badge was read clipped, so the shown amount completes the read digits), the
-  one receipt that named the stat but lost its number, the one lesson whose
-  cost was not observed, or the one race of a race turn for its skill points;
-- the turn's action, when the report saw none or got it wrong;
-- the report's own entries: every amount is editable, an entry can be
-  removed from the arithmetic, and a flagged entry can be marked reviewed;
-- events the viewer adds, with a kind, a title, a time and their changes.
+- **Gaps to explain.** One card per stat whose values at this turn and the
+  next do not add up: the amount, the values before and after, what the
+  report already explains, and a chip that seeks the recording to the window
+  between the two observations. Each gap offers three ways to explain it:
+  "Belongs to an event" adds the amount to one of the turn's events (chosen
+  from a list), "Missed event" creates a new event below with the amount
+  filled in, and "Enter amount" takes a number and a note. When the report has
+  already worked the difference out onto its only possible owner (the turn's
+  only training whose result was not read or whose badge was read clipped,
+  the one receipt that named the stat but lost its number, the one lesson
+  whose cost was not observed, or the one race of a race turn for its skill
+  points), the card says so and offers "Looks right" beside the three ways;
+  a viewer's own amount replaces the worked-out one. A card turns green once
+  the live check covers it.
+- **This turn's action**, when the report saw none or got it wrong: a
+  segmented choice of training, rest, outing or race, with the training's
+  option and gains.
+- **Events in this turn.** Flagged events by default, every event with an
+  amount on request. Each amount is a chip with a stepper; a stat can be
+  added or removed; "Reviewed" and "Not real" are toggles; a note folds out.
+- **Events the report missed**, each with a kind, a title, a time (one click
+  takes the recording's current time) and its changes.
+- **Save and check** at the bottom stores the edits and shows the server's
+  verdict per field.
 
 Edits are stored per viewer beside the report and never written into it.
 On every read the service checks them against the turn's observed
