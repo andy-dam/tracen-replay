@@ -1,50 +1,70 @@
 # Tracen Replay
 
-Replay analysis for Umamusume: Pretty Derby.
+Tracen Replay turns a recording of an Umamusume: Pretty Derby career into a
+turn-by-turn report: every half-month turn with its stats and rank letters,
+every training, race, purchase, song, skill and event, each linked to the
+second of the recording it was read from. The report is reviewed in the
+browser beside the video, and anything the analyzer flags can be checked and
+corrected there.
 
-Tracen Replay is being developed to turn gameplay recordings into editable timelines. Screen recognition and field extraction will connect each observation to a source frame, helping players review training runs and compare their progress.
+Everything runs on one computer. A recording is uploaded in the browser, the
+analyzer reads it, and the report appears in the same page. Nothing leaves
+the machine.
 
-**Status:** a local Python pipeline analyzes full recordings into source-linked actions, six-field stat accounting, lesson/skill transactions, races and concerts. It targets one English 1080p layout. Checkpoint accounting has been checked on two development recordings; complete action/effect recall remains open. The Go application and Azure deployment remain planned.
+## Parts
 
-## Run locally
+| Part | Where | What it does |
+| --- | --- | --- |
+| The service | `cmd/tracen`, `internal/`, `api/openapi.yaml` | One Go binary: accounts, uploads, the analysis queue, reports, corrections, and the HTTP API. |
+| The client | `web/` | The Vue browser client, built by Vite and embedded into the binary. |
+| The analyzer | `analyzer/tracen_replay` | The Python worker that reads the recording: frame capture, OCR, bounded 60 fps rereads, assembly into turns and entries, accounting. |
 
-With Python 3.11+ and FFmpeg/ffprobe on `PATH`, install the analyzer (`pip install -e ./analyzer[vision]`; the Python package, its tests and tools live under `analyzer/`, the Go service under `cmd/` and `internal/`, the browser client under `web/`) and run from the repository root:
+## Run it
+
+Prerequisites: Go, Node.js, Python 3.11 or newer with the analyzer installed
+(`pip install -e ./analyzer[vision]`), ffmpeg on `PATH`, and the OCR models
+under `.local/models/rapidocr`.
 
 ```powershell
-python -m tracen_replay "C:\path\to\recording.mp4" --start 25 --duration 57 --output .local/runs/pilot-01
+cd web && npm ci && npm run build && cd ..
+go build -o tracen.exe ./cmd/tracen
+.\tracen.exe
 ```
 
-Open the generated `index.html` to inspect the frames. The CLI leaves screen labels unknown and can import source-linked reference annotations. See the [local pipeline guide](docs/local-pipeline.md) for requirements, output format, annotation support, and tests.
+Open http://127.0.0.1:8765/, create an account, upload a recording and press
+Analyze. A full career of about 1 GB at 1080p takes roughly 45 minutes on a
+desktop machine. The [local application guide](docs/local-app.md) covers the
+flags, the report page, the review editor and the messages you can expect.
 
-Install the `analysis` extra and Tesseract, then add `--gameplay-only` to analyze the five attributes, skill points, and supported mechanics without reading the side log. Training previews do not count as completed actions, and unresolved differences trigger bounded additional sampling. See the [gameplay-only guide](docs/gameplay-only.md) for supported fields and remaining reliability gates. Legacy `--track-stats` uses the auxiliary log and cannot be combined with this mode.
+The analyzer also runs on its own from the repository root:
 
-## Planned features
+```powershell
+python -m tracen_replay.analysis_job "C:\path\to\recording.mp4" --output .local\runs\one --workers 4 --model-dir .local\models\rapidocr
+```
 
-- Timestamped timelines of training screens, events, and race results.
-- Extracted stats and turn labels with source frames and unreadable values marked explicitly.
-- Corrections that preserve the original prediction.
-- Side-by-side run comparison and report export.
-- Background video processing on Azure.
+## Tests
 
-The full-recording neural runner processes video locally and investigates short training animations at higher frame rates. See [setup and commands](docs/full-recording-analysis.md) and [measured results and limitations](docs/results-gameplay-only.md).
+```powershell
+python -X utf8 -m unittest discover -s analyzer/tests -t analyzer
+go test ./...
+cd web && npm run build
+```
 
-## Design
-
-A Go service will handle the web application, uploads, and job lifecycle. A Python worker will process video and run the vision model. Azure Blob Storage, SQL Database, and Queue Storage will provide media storage, durable state, and work delivery.
-
-See the [architecture](docs/architecture.md) for the data flow and recovery model.
+Tests that depend on locally preserved recordings skip when those files are
+absent.
 
 ## Documentation
 
-- [Roadmap](docs/roadmap.md)
-- [Gameplay-only mechanics and validation](docs/gameplay-only.md)
-- [Full-recording analysis](docs/full-recording-analysis.md)
-- [Development results](docs/results-gameplay-only.md)
-- [Local pipeline](docs/local-pipeline.md)
-- [Local ledger milestone](docs/milestone-local-ledger.md)
-- [Log identity and outcome visibility](docs/milestone-log-identity.md)
-- [Architecture](docs/architecture.md)
-- [Deployment design](docs/deployment.md)
-- [Model evaluation](docs/evaluation.md)
+- [Local application guide](docs/local-app.md): build, start, accounts, uploads, the report page, review and corrections.
+- [Architecture](docs/architecture.md): the service, the client and the analyzer, and how a recording becomes a report.
+- [Analyzer pipeline](docs/analyzer-pipeline.md): the stages from frame capture to the timeline, and the evidence policy.
+- [Recognition rules](docs/recognition-rules.md): what is read from each screen, what proves it, and what is never inferred.
+- [Report contract](docs/report-contract.md): the fields of `report.json` and `timeline.json`.
+- [Turn ledger](docs/turn-ledger.md): turn windows and the action each turn holds.
+- [Analysis job](docs/analysis-job.md): the process contract between the service and the analyzer.
+- [Evaluation](docs/evaluation.md): how the analyzer is validated, and the plan for learned readers.
+- [OCR performance](docs/ocr-performance.md): sampling rates, worker pools and device selection.
+- [Roadmap](docs/roadmap.md) and [hosting later](docs/deployment.md).
 
-Recognition results and a hosted demo will be added as those capabilities become available.
+Repository conventions for contributors and coding agents are in
+[AGENTS.md](AGENTS.md).

@@ -4,6 +4,12 @@ Read and follow [AGENTS.md](AGENTS.md) before making changes. It is the shared s
 
 All commits must use Conventional Commits: `<type>[optional scope][!]: <description>`. Follow the commit rules and examples in AGENTS.md.
 
-## Current local continuation
+## Local session records
 
-For the analyzer reliability work, read [.local/final-reliability-v1/CLAUDE-HANDOFF.md](.local/final-reliability-v1/CLAUDE-HANDOFF.md) in full before running or changing anything. It contains the stopping point, remaining failures, immutable evaluation inputs, and ordered resume commands. This is local session context; do not publish it or the generated artifacts. The reliability goal is at its judgement step (G9, candidate v38 pending its batch and the untouched-set pass); the Go application milestone is in progress with the user's go-ahead of 2026-09-14 (see docs/go-api-plan.md and docs/milestone-go-app.md).
+Evaluation inputs, sealed analyzer snapshots, preserved runs and the working
+handoff for the analyzer's reliability work live under `.local/` (start with
+`.local/final-reliability-v1/CLAUDE-HANDOFF.md`). Read the handoff in full
+before running or changing anything in the analyzer's evaluation. It is local
+session context: never publish it, the generated artifacts, or the recordings,
+and never name its candidate labels or the recordings' creators in committed
+code, tests or documentation.

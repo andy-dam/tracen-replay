@@ -85,7 +85,8 @@ type FieldAccounting struct {
 	// and replaceable by a viewer.
 	TurnDifference *int `json:"turn_difference,omitempty"`
 	// TurnDifferenceOwner names what the difference was worked onto:
-	// "training", "event" (a receipt that lost its number) or "lesson".
+	// "training", "event" (a receipt that lost its number), "lesson" or
+	// "race" (the one race paying a turn's skill points).
 	TurnDifferenceOwner string `json:"turn_difference_owner,omitempty"`
 	// WindowStartMS and WindowEndMS bound the two observations compared.
 	WindowStartMS *int64 `json:"window_start_ms,omitempty"`
@@ -318,13 +319,13 @@ func expectsOneAction(turn Turn) bool {
 // Difference is one stat change between two observations that no captured
 // event covers, or that was worked out from the difference onto its only
 // possible owner: the sole training, the one receipt that lost its number,
-// or the one lesson without an observed cost.
+// the one lesson without an observed cost, or the one race for skill points.
 type Difference struct {
 	Channel       string `json:"channel"`
 	Field         string `json:"field"`
 	Amount        int    `json:"amount"`
 	WorkedOut     bool   `json:"worked_out"`      // assigned to its only possible owner from the difference
-	Owner         string `json:"owner,omitempty"` // training, event or lesson when worked out
+	Owner         string `json:"owner,omitempty"` // training, event, lesson or race when worked out
 	WindowStartMS *int64 `json:"window_start_ms,omitempty"`
 	WindowEndMS   *int64 `json:"window_end_ms,omitempty"`
 }

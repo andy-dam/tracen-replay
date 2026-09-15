@@ -1,110 +1,208 @@
-# Turn ledger
+# The turn ledger
 
-The Python report now includes a `turn_ledger` projection with schema
-`tracen-replay/turn-ledger-v1`. It joins the existing evidence collections for
-the Go consumer; it does not rerun OCR or invent missing changes. The report
-validator recomputes the projection and rejects stale or altered ledger data.
-When `causal_accounting` is present, it also recomputes that projection from
-the source collections. Altered contribution amounts, evidence references,
-observed/derived bases, duplicates, and comparison statuses fail validation.
-Historical reports may omit the additive terminal metadata; supplied metadata
-must match the projection. These consistency checks do not certify OCR truth.
+`turn_ledger.build` (`analyzer/tracen_replay/turn_ledger.py`) is a
+reproducible projection over a finished report's `gameplay_tracking`
+collections. It groups the readings into turn windows, assigns every
+timeline-worthy fact to the window that contains it, and records each
+window's committed action. It does not rerun OCR, invent a boundary state,
+or invent an award: every field it emits is a JSON pointer into a collection
+the report already has, or a value copied from one. `report_contract.validate`
+recomputes this projection and rejects a report whose stored `turn_ledger`
+does not match it exactly.
 
-Each window contains its observed calendar label, boundaries, committed action
-count, starting and later observed states, chronological entry references, and
-stat/performance comparison references. Entries point into `gameplay_tracking`
-with JSON pointers. Consumers resolve those pointers in the same report.
+A turn ledger requires `gameplay_tracking.auxiliary_log_used` to be `false`;
+it is built only from `readings`, never from a legacy auxiliary log.
 
-- Dated windows use repeated half-month observations. Pre-debut countdowns
-  identify segments that may contain more than one action. A phase without a
-  readable countdown remains an unresolved phase, not a fabricated turn.
-  `expects_one_action` distinguishes these cases.
-- The finale keeps one calendar label and one countdown for its three turns
-  (train, then the Qualifier; train, then the Semifinal; train, then the
-  Finals). There each finale race ends its turn: the next home observation
-  after a `race_result` screen opens the following window
-  (`boundary_basis: finale_race_advance`, evidence including the result
-  frame). Such windows have `window_kind: phase_race_turn`, are labelled by
-  the race that ends them and carry `scheduled_race`; the race is counted as
-  `scheduled_race_actions`, not as the turn's decision, so a trained finale
-  turn has `one_action`. The screens after the Finals carry the label but no
-  training, so they stay in the Finals window. The last pre-debut countdown
-  turn ("1 turns to goal") works the same way when its window holds both the
-  player's decision and the goal race: the race becomes `scheduled_race` and
-  the window a `phase_race_turn`; when the countdown was confirmed only after
-  the training, the race stands alone in the window and is its one action.
-- A window's committed training action carries `identity_basis` in its receipt:
-  `observed_gains` (its stat gains were read), `repeated_result_frames` (its
-  result screen was read on two or more frames) or `repeated_training_name`
-  (the training's name was read on two distinct frames). A single result frame
-  with no read gains and its name read once is not committed, so its window
-  reports `missing_action` rather than an invented decision.
-- `states.stats` contains all five stats and skill points when observed.
-  `states.performance` contains Dance, Passion, Vocal, Visual and Composure.
-  A missing state is `null`, not zeros or a carried-forward value.
-- An opening state is the first observed state before the action in that
-  window. Its timestamp and `exact_turn_boundary` flag remain visible. A later
-  state's values are not moved backward to fill an opening. Matching explicit
-  source observations can link an unchanged stat checkpoint across dates.
-- Repeated complete source readings can also establish an opening when their
-  short duration does not qualify them as accounting checkpoints. Two distinct
-  timestamps must agree; conflicting, singleton and uncertain-calendar readings
-  remain unresolved. `source_ref` identifies the source record and `values_ref`
-  points directly to its numeric mapping. Use `values_ref` for both checkpoint
-  and reading-backed states; `supporting_source_refs` preserves corroborating
-  observations. This does not add a synthetic accounting interval.
-- One complete source snapshot can also be corroborated by nearby partial
-  readings when every field repeats at another distinct timestamp within one
-  second. `field_corroboration` records each value pointer, time and proof.
-  All opening values still come from one actual snapshot. Conflicting values,
-  intervening events/purchases and uncertain calendar transitions veto this
-  fallback; separate partial readings never synthesize a complete state.
-- A closing state can refer to the next window's first observed state or the
-  last observed state after the final action. Neither promises the value at an
-  unseen exact boundary. Events before the next first state remain visible in
-  the timeline; this observation link does not reassign their cause.
-- Events retain changes and field evidence. Hints have separate entries with
-  their first linked receipt time when available. An event spanning two
-  windows remains unassigned with both candidate windows listed. Temporal
-  proximity never establishes that an event was caused by training.
-- Race, lesson, song, concert and skill records are references to the original
-  transactions. They are not additional awards to sum on top of their event
-  receipts. Unparsed receipt candidates stay visible and unaccepted.
-- Ambiguous effect candidates have their own entries, including uncertain hint
-  names. Their observed alternatives and amounts are retained, but
-  `accepted_award` is false and `occurrence_count` is unknown. Do not count each
-  spelling alternative as a separate hint gain.
+## What a turn window is
 
-Resource comparisons link adjacent observed states and retain their original
-supported changes and residuals. A comparison spanning multiple turns is one
-shared object. Count it once by `source_ref`; never split its amount or assign
-its residual to one of those turns. Stat comparisons link their supporting
-events, and performance comparisons link the original transaction records.
+A window is not one calendar day; it is the source interval between two
+successive confirmed calendar or countdown observations
+(`turn_ledger._windows`). Three kinds of window exist, distinguished by
+`window_kind`:
 
-The causal accounting projection adds `transition_kind` and per-field
-`endpoint_availability` without changing the historical arithmetic statuses.
-`next_turn: no_next_turn` means that the ledger has no following turn; it does
-not mean a terminal value was zero or that the final screens were invisible.
-`not_observed` describes the report's evidence, not a source-wide visibility
-finding. When a terminal closing observation exists, `terminal_observation`
-retains its value pointer and actual timestamp. Its
-`later_numeric_contribution_refs` identify recognized changes extending beyond
-that observation. For example, skill points observed before a later purchase
-must not be presented as the post-purchase balance. Even an empty later-change
-list does not establish complete coverage or verified run completion.
+- **`calendar_turn`**: a dated half-month turn, identified by its calendar
+  text (`date_key`).
+- **`countdown_segment`**: a pre-debut phase identified only by its "N turns
+  to goal" countdown, when the calendar text itself does not carry a date.
+  A phase whose countdown was never read stays an **`unresolved_phase`**
+  instead of being split or numbered by guesswork.
+- **`phase_race_turn`**: a window whose scheduled race, not the player, ends
+  it (see below).
 
-`causal_accounting.terminal_observations` also exposes readable completion-hub,
-finish-confirmation, and final-summary facts within the final ledger segment.
-Each observation contains values from one frame, the exact field pointers,
-timestamp, and evidence path. Final attributes and earlier skill or performance
-points remain separate observations; missing fields are never borrowed from
-another frame. Conflicting readings in the same frame remain explicit.
-`later_unquantified_change_refs` also flags confirmed skill purchases whose
-cost is unknown, even when no numeric debit could be recorded. These records
-are observations only, never additional changes or proof of run completion.
+A window needs at least two distinct observed timestamps carrying its
+calendar/countdown identity to be confirmed; a single observation is
+rejected as `single_calendar_observation` and stays visible in
+`calendar_issues`, not as a turn. A countdown or date reading that
+contradicts both of its neighbors (11, then 0, then 10) is rejected as
+`calendar_transient_misread` instead of splitting the turn; its neighbors
+are rejoined when they carry the same value. A newly observed phase closes
+the previous dated turn even before its own countdown is readable; a missing
+countdown inside an already-numbered phase is not a reset.
 
-The ledger checks types, source bounds, key references and arithmetic
-consistency. It does not certify interpretation of the source video. In
-particular, `complete_event_history` stays false until coverage has been
-verified independently. The completed bounded source and attribution checks
-are recorded in [the first integration acceptance](first-go-acceptance.md).
+## The goal race rule
+
+The finale keeps one calendar label and one countdown across all three of
+its turns (train, then the Qualifier; train, then the Semifinal; train, then
+the Finals). There, each finale race ends its own turn instead of the
+calendar: the next home observation after a `race_result` screen opens the
+next window (`boundary_basis: finale_race_advance`). Such a window is
+`window_kind: phase_race_turn`, labeled by the race that ends it, and carries
+`scheduled_race`; the race itself is counted under `scheduled_race_actions`,
+not as the turn's decision, so a trained finale turn still shows
+`action_status: one_action`. The screens after the Finals keep the finale
+label but offer no training menu, so they stay inside the Finals window
+instead of becoming a turn of their own.
+
+The last pre-debut countdown turn ("1 turns to goal") works the same way,
+with one added condition: its window's race becomes `scheduled_race` (and
+the window `phase_race_turn`) only when that window *also* holds the
+player's decision, i.e. the countdown was confirmed before or alongside the
+training action. If the countdown was confirmed only after the training
+(the race is the first calendar-bearing thing in the window), the race
+stands alone in the window and is that window's one action, not a scheduled
+race running alongside a separate decision. This resolution happens after
+every window's actions are known (`turn_ledger.build`, the final loop over
+`turns`): a window whose `goal_race` was tentatively set is only promoted to
+`phase_race_turn` when it also contains a non-race action.
+
+## Assigning entries to turns
+
+Every event, committed action, transaction, unparsed receipt candidate and
+ambiguous effect candidate becomes one timeline entry via `turn_ledger.add`.
+An entry's `assignment_basis` explains how it landed on its turn:
+
+| `assignment_basis` | Meaning |
+| --- | --- |
+| `observed_within_calendar_window` | the entry's whole time span sits inside exactly one confirmed turn window; it is assigned (`turn_id` set) |
+| `unconfirmed_calendar_transition` | the entry overlaps a rejected/uncertain calendar reading (`calendar_issues`); never assigned |
+| `crosses_calendar_boundary` | the entry's span overlaps more than one confirmed window; listed on each as a `candidate_turn_id`, assigned to none |
+| `outside_observed_turns` | the entry's span touches no confirmed window at all |
+
+An assigned entry is appended to its turn's `timeline_refs`; an entry that
+overlaps turns without being assigned is appended to each candidate's
+`ambiguous_timeline_refs` instead. This is deliberately strict: temporal
+proximity to a turn's action is never treated as proof that the action
+caused the entry.
+
+## Action statuses
+
+Every window's committed decisions are the entries of kind
+`committed_action` assigned to it, excluding the scheduled race in a
+`phase_race_turn` (`scheduled_race_actions` are counted separately).
+`action_status` is one of:
+
+- **`one_action`**: exactly one decision in the window.
+- **`missing_action`**: no decision in the window.
+- **`multiple_actions`**: more than one decision in the window.
+
+`action_count` is the number of decisions counted. `expects_one_action` is
+`true` only for `window_kind` values `calendar_turn` and `phase_race_turn`
+(a resolved window); an `unresolved_phase` or a bare `countdown_segment`
+does not carry that expectation, because its boundaries may still contain
+more than one action.
+
+A training only becomes a `committed_action` in the first place when its
+receipt clears one of the three `identity_basis` bars documented in
+[analyzer-pipeline.md](analyzer-pipeline.md#rules-by-screen): observed gains,
+a repeated result screen, or a repeated training name (or, for a banner-only
+training, `training_banner`). A single result frame with no read gains and a
+name read only once stays an uncommitted training result, which is why a
+window can legitimately report `missing_action` instead of an invented
+decision.
+
+## Opening and closing states
+
+For each turn and each channel (`stats`, `performance`), the ledger picks one
+**opening** state: the earliest of a few candidate kinds, in this order of
+preference by observation time, not by kind:
+
+1. a **stable checkpoint** already established by `reconcile.stable_checkpoints`
+   (or by another reading repeating one of that checkpoint's values through a
+   `supporting_frames` proof) that falls before the turn's action;
+2. a **repeated source reading**: two distinct source timestamps in the
+   window, before the action, showing the exact same complete value tuple
+   (`_repeated_source_state`, `basis: first_repeated_source_state_before_action`);
+3. a **corroborated snapshot**: one complete source reading whose every field
+   independently repeats at another timestamp within one second of it, with
+   no intervening event and no calendar uncertainty in between
+   (`_corroborated_source_state`, `basis: complete_source_snapshot_with_repeated_field_corroboration`);
+4. the same corroboration applied to a **partial** reading, filling only the
+   fields that snapshot actually shows (`basis:
+   partial_source_snapshot_with_repeated_field_corroboration`).
+
+Two distinct timestamps must agree; a conflicting, singleton, or
+calendar-uncertain reading resolves nothing and leaves the opening
+`not_observed_before_action` (or `partially_observed` when only some fields
+came through). `exact_turn_boundary` is `true` only when the opening's
+observed timestamp equals the window's own start; a later value is never
+moved backward to stand in for an unobserved boundary.
+
+A turn's **closing** state, for every turn but the last, is simply the next
+turn's opening (`closing_basis: next_turn_first_observed_state`); an event
+that happens between the closing observation and the next turn's own action
+still shows up on the next turn's timeline, because this is an observation
+link, not a claim about exactly when the state changed. The last turn's
+closing state is the last observed reading after its action
+(`basis: last_observed_state_after_action`,
+`closing_basis: last_observed_state_not_inferred_completion`); when nothing
+was observed after the action, `closing_basis` is `unavailable`.
+
+`boundary_state_recovery.apply_opening_endpoint_projections` runs after the
+ledger's own resolution and can fill an opening that recovery proved was
+visible before the action; an accepted or rejected projection is recorded
+under `opening_endpoint_projection`.
+
+## Resource comparisons
+
+Stat and performance checkpoints are compared the same way the causal
+accounting module compares them: each comparison links exactly one adjacent
+checkpoint pair, states its `observed_change`, `supported_change` and
+`unexplained_change` per field, and lists the turns it overlaps
+(`spans_multiple_turns`). A comparison spanning more than one turn is one
+shared object, counted once by its `source_ref`; its residual is never
+divided or assigned to just one of those turns.
+
+## How the client uses it
+
+The client and the service read the compact `timeline.json` projection built
+from this ledger, not the ledger itself; see
+[report-contract.md](report-contract.md) for that document's exact fields. In
+short, each timeline turn keeps the ledger's `action_status`, `action_count`,
+`expects_one_action`, `window_kind`, `scheduled_race` and opening values;
+each timeline entry keeps the ledger's assigned `turn_id`, its first/last
+seen timestamps, and its changes with the accounting basis behind each one,
+so a viewer can tell a window with a real, single, well-evidenced decision
+from one that is still `missing_action`, `multiple_actions`, or resting on an
+`unresolved_phase`.
+
+Concretely, `internal/timeline.Document.TurnSummaries()` backs
+`GET /api/reports/{id}/turns` (the season strip: one row per window with its
+opening values and any unresolved or worked-out differences),
+`Document.Turn`/`TurnEntries` back `GET /api/reports/{id}/turns/{turn}` (one
+window plus its assigned entries, with a viewer correction overlay when one
+exists), and `Document.Unassigned()` backs `GET /api/reports/{id}/unassigned`.
+`web/src/components/TurnPane.vue` reads `expects_one_action` directly to pick
+its empty-window message: "no decision expected in this window" when it is
+false, "no action was seen in this window" when a decision was expected but
+the window is `missing_action`. `web/src/components/StatBar.vue` flags any
+field whose accounting carries a `turn_difference` as "worked out from the
+turn difference" rather than rendering it like a directly observed change.
+
+## Limitations the ledger states about itself
+
+`turn_ledger.build` attaches these limitations to every result, and they
+still hold:
+
+- Calendar windows identify observed turn labels, not exact action times.
+- A first observed state may follow unobserved changes at the start of a
+  turn.
+- A shared resource comparison must be counted once by `source_ref`, never
+  once per turn it touches.
+- Timeline proximity never proves an event was caused by the turn's
+  committed action.
+- Missing, ambiguous and unparsed effects are not converted into zero
+  changes.
+
+`complete_event_history` stays `false` on every turn; the ledger's internal
+consistency checks (types, source bounds, key references, arithmetic
+agreement) are not a claim that the underlying video was read completely.

@@ -1,66 +1,56 @@
-# OCR performance measurements
+# OCR performance
 
-The full third-recording baseline processed 10,099 samples at 4 FPS across
-42:04.583 of footage. Its OCR stage took 5,489 seconds, approximately 91.5 minutes,
-using four CPU workers. This excludes subsequent semantic validation and fixes.
-It is a measured stage duration, not a promise of total analysis time.
+## Sampling rate
 
-A subsequent targeted training pass captured 5,878 observations across 57
-automatically selected windows, covering 195.5 seconds of footage at a requested
-30 FPS. It took 1,389 seconds (23.2 minutes) using one specialized CPU OCR reader
-and reusing the earlier 98-frame probe. This duration includes source hashing,
-decoding, cache reads, OCR, parsing and evidence writes. It excludes subsequent
-source revalidation and timeline reconstruction. Its effective rate is not
-directly comparable with the full-frame worker benchmark below because the
-reader uses different crops and cached work.
+`tracen_replay.full_recording` decodes the whole recording once at a base
+rate of 1 to 8 sampled frames per second; the default, and the rate the
+service asks for, is 4 fps (`analysis_job --fps`, default `4.0`). Within that
+base pass, bounded windows the analyzer flags as needing a denser look (a
+training result animation, an unresolved boundary) get a second, narrower
+pass decoded at 60 fps instead of resampling the same base-pass frames; the
+report labels this a "reread".
 
-Window selection came from detected training results in the frozen baseline.
-This avoids dense processing of the entire video, but does not establish recall
-for training screens the baseline failed to detect. The 57-window capture and
-completion manifest are retained under `independent-02/training-recovery-v1/`.
+## OCR worker pool
 
-## CPU worker trial
+`analysis_job` and the underlying `full_recording` CLI take `--workers`
+(1-8, default 4) for the base OCR pass and `--dense-workers` (1-8, default
+`--workers` minus one, at least one) for the dense reread passes. The Go
+service exposes the same controls as `-workers` and `-dense-workers` on
+`cmd/tracen`; its flag help notes that each dense worker can peak near
+5-6 GB of memory, so `-dense-workers` is effectively the memory knob of a
+run, separate from `-workers`.
 
-A bounded trial on a Ryzen 5 9600X used the same 48 evenly spaced frames from the
-original development recording for each configuration. Each worker initialized
-and warmed its own OCR reader before timing. The measured section includes image
-loading, crop preparation and OCR. It excludes video decoding, evidence/cache
-writes, later refinement passes and source review. Each ONNX Runtime session used
-two intra-operation threads and one inter-operation thread.
+## Device selection
 
-| Workers | Time for 48 frames | Frames/second | Average logical CPU cores used |
-| --- | ---: | ---: | ---: |
-| 2 | 24.00 s | 2.00 | 3.55 |
-| 4 | 26.45 s | 1.81 | 5.25 |
-| 6 | 25.81 s | 1.86 | 6.79 |
-| 8 | 27.96 s | 1.72 | 5.90 |
+`tracen_replay.vision.ocr_device()` resolves the OCR execution provider.
+`TRACEN_REPLAY_OCR_DEVICE` can force `cpu`, `dml` or `cuda`; the default,
+`auto`, asks the installed `onnxruntime` for its available execution
+providers and picks the first of `DmlExecutionProvider` (DirectML) then
+`CUDAExecutionProvider` (CUDA), falling back to the CPU provider if neither
+is present. The Go service passes this through as `-ocr-device` (default
+`auto`) on `cmd/tracen`. DirectML sessions are not safe to share across
+threads of one process, so when `dml` is selected, `full_recording` gives
+each OCR worker its own process.
 
-All four configurations produced exactly equal raw OCR outputs. This checks
-consistency across worker counts, not correctness against source labels.
-Increasing workers did not improve throughput in this single small trial.
-Contention and per-frame processing overhead remain candidates for profiling;
-the trial does not isolate their relative contributions. No production default
-was changed on this evidence alone.
+## What a report says about the device
 
-Local artifacts are stored under `.local/ocr-worker-benchmark-v1/`: the selection
-manifest binds source-frame hashes and reader code, each worker result retains
-its complete observations, and `comparison.json` contains timing and equality
-results. The trial changes no recording cache or frozen evaluation output.
+Every report's `recognition` object records `enabled`, `model` (the RapidOCR
+detector/recognizer model names) and `device`, the resolved value from
+`ocr_device()` (`dml`, `cuda` or `cpu`). This is the actual provider the run
+used, not the requested setting; `cmd/tracen`'s readiness check reports the
+requested `-ocr-device` value and notes that the resolved device is the
+report's own field.
 
-## GPU path
+## One observed run
 
-The installed runtime exposes `CPUExecutionProvider` and
-`AzureExecutionProvider`, but no CUDA provider. The Azure provider name does not
-mean this pipeline is using Azure cloud compute. The local RapidOCR configuration
-has CUDA disabled, so the RTX 5060 Ti is not currently used for OCR.
+In one end-to-end run of the service on this machine, a 40-minute 1080p
+recording produced 9,556 sampled frames at the base rate, and the OCR pass
+over them took about 25 minutes with 3 workers on the auto-selected device.
+This is a single observed run, taken from the service's job record, not a
+controlled benchmark: it does not isolate device, worker count, resolution
+or recording length as separate variables, and it should not be read as a
+throughput guarantee for a different machine or recording.
 
-RapidOCR supports ONNX Runtime's CUDA provider. A GPU experiment should use a
-separate environment with compatible ONNX Runtime, CUDA and cuDNN versions, then
-verify that the actual detector and recognizer sessions use CUDA without silent
-CPU fallback. Merely installing a GPU package is not sufficient evidence.
-See the [ONNX Runtime CUDA provider documentation](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html).
-
-Benchmark the same source-bound frames, include startup and transfer overhead,
-and compare parsed fields and source-labeled results as well as speed. GPU batch
-size and CPU worker count need separate tuning. GPU acceleration may improve
-inference; it does not remove source review or resolve ambiguous observations.
+See [analysis-job.md](analysis-job.md) for the full set of worker
+controls and [evaluation.md](evaluation.md) for how OCR reading errors are
+tracked and, eventually, reduced with learned readers.

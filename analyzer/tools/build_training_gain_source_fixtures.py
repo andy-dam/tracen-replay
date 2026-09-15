@@ -1049,8 +1049,8 @@ artifact = {
             "sha256": sha256(DERIVED_PATH),
         },
         "checklist": {
-            "path": "docs/final-analyzer-reliability-checklist.md",
-            "sha256": sha256(ROOT / "docs/final-analyzer-reliability-checklist.md"),
+            "path": ".local/final-reliability-v1/final-analyzer-reliability-checklist.md",
+            "sha256": sha256(ROOT / ".local/final-reliability-v1/final-analyzer-reliability-checklist.md"),
         },
         "synthetic_test_files": [
             {

@@ -1,90 +1,137 @@
 # Architecture
 
-This document describes the proposed hosted system. A standalone [local evidence pipeline](local-pipeline.md) now extracts timestamped frames and exports reports. The services, APIs, recognition model, and hosted data model below are not yet implemented.
+The application is three parts: the service, the client and the analyzer.
+See [local-app.md](local-app.md) for how to build and run them, and
+[analysis-job.md](analysis-job.md) for the worker contract between the
+service and the analyzer.
 
-## Components
+## The three parts
 
-```mermaid
-flowchart LR
-    U[Browser] -->|Uploads, reports, corrections| A[Go application]
-    A -->|Media and artifacts| B[Azure Blob Storage]
-    A --> D[(Azure SQL Database)]
-    A -->|Committed job notifications| Q[Azure Queue Storage]
-    Q -->|Work delivery| W[Python processing job]
-    W -->|Claim, heartbeat, completion| A
-    W -->|Video and report files| B
-```
+**The service** is the Go binary `tracen` (`cmd/tracen`, package `main`,
+plus `internal/*`). It serves the HTTP API and the browser client from one
+process, keeps a SQLite database of accounts, uploads, jobs and reports, and
+runs the analyzer as a child process for each submitted recording.
 
-The Go application will serve the compiled frontend and own authentication, uploads, run metadata, and job state. The Python worker will decode recordings, classify screens, extract visible fields, and assemble reports. Requests will return a job identifier instead of waiting for video analysis.
+**The client** is the Vue application under `web/`. It is built once with
+Vite and embedded into the binary (`internal/webassets`); the service serves
+it at `/`. The client only ever talks to the service's `/api` routes
+(`web/src/api.ts`) and knows recordings, jobs and reports by the server-issued
+ids the service hands it, never by a file path.
 
-The proposed runtime is Go with a SQL Server driver, Python with PyTorch and FFmpeg, and a TypeScript frontend. Local development will use SQL Server Developer and local files or Azurite. Production identities and storage behavior will be verified in Azure.
+**The analyzer** (`the worker`) is the Python package `tracen_replay` under
+`analyzer/`. The service runs it as
+`python -m tracen_replay.analysis_job <recording> --output <run dir> ...`,
+one recording per invocation. It does the recognition and accounting; the
+service treats its `report.json` as opaque and reads only `timeline.json`.
 
-## Data model
+## How a recording becomes a report
 
-| Record | Contents |
-|---|---|
-| Run | Owner, source object/hash, duration, layout, status, retention deadline |
-| Job | Run, state, attempt, lease token/expiry, worker identity, stage, error |
-| Report | Run/job, schema version, immutable result key, pipeline/model hashes |
-| Correction | Report version, event/field, original and replacement values, editor, revision |
-| Upload reservation | Owner, generated object key, reserved bytes, expiry, completion |
-| Outbox item | Job ID, dispatch state, availability time, attempts |
+1. The browser uploads a video to `POST /api/recordings`. The service streams
+   it to `<data>/recordings/<user>/`, hashes it, and stores a `recordings`
+   row (`internal/jobs.Recording`).
+2. The browser submits an analysis with `POST /api/jobs`, naming the upload's
+   id. `internal/jobs.Manager.Submit` resolves the id to the caller's own
+   upload, checks the queue limit, creates a `jobs` row in status `queued`,
+   and creates `<data>/jobs/<job id>/`.
+3. `Manager.Run` pulls one queued job at a time and starts the worker
+   (`internal/runner.Exec`) with the command `internal/worker.Command`
+   builds: the recording, an output directory
+   (`<data>/jobs/<job id>/run/`), the OCR worker counts, the model
+   directory, `--prune-frames`, `--prune-working-data` (unless the service
+   was started with `-keep-working-data`), and `--owner-pid` set to the
+   service's own process id.
+4. While the worker runs, its stderr progress lines are parsed
+   (`internal/worker.ParseProgress`) and written into the job row (stage,
+   OCR processed/total); `internal/jobs.Hub` fans the same updates out to
+   `GET /api/jobs/{id}/events` subscribers over server-sent events. Full
+   stderr is copied to `<data>/jobs/<job id>/worker.log`.
+5. On exit, the service decodes the worker's single stdout JSON object
+   (`internal/worker.Interpret`), verifies the report file's hash and the
+   timeline's schema (`internal/worker.Verify`), and loads the timeline
+   (`internal/timeline.Load`). A job that passes becomes `succeeded` or
+   `completed_with_stage_failures` and a `reports` row is created pointing at
+   `report.json` and `timeline.json` inside the run directory; any other
+   outcome leaves the job `failed`, `cancelled` or `interrupted` with an
+   `error` code and message.
+6. The client reads the report through `GET /api/reports/{id}/...` routes,
+   which serve data built from `timeline.json` (turns, entries, summary) plus
+   the recording for playback (`GET /api/recordings/{id}/video`, served with
+   range requests) or an extracted frame when the recording is not on this
+   machine.
 
-SQL constraints will prevent duplicate authoritative results and conflicting reservations. Corrections will reference an immutable report version; reanalysis will create a new report rather than silently transferring edits to different events.
+## Process model
 
-Report events will contain an ID, type, start/end timestamps, evidence frames, extracted fields, prediction origin, and confidence where available. Timestamps will use media presentation times in integer milliseconds. Unknown fields will be null rather than zero.
+- **One analyzer job at a time.** `Manager.Run` loops over the queue and
+  starts exactly one worker process; a second submission waits in the queue.
+- **Queue limit.** `Submit` counts jobs in status `queued`
+  (`internal/store.CountByStatus`) and rejects a new submission with
+  `QueueFullError` (HTTP 429, code `queue_full`) once the count reaches
+  `-queue`.
+- **Cancellation.** `Manager.Cancel` on a queued job marks it `cancelled`
+  directly. On a running job it cancels the job's context; `runner.Exec.Run`
+  then kills the worker's whole process tree and waits up to its kill grace
+  (five seconds by default) before returning.
+- **Interruption recovery on restart.** `Manager.Recover` runs once at
+  startup and marks every job still `running` from a previous process as
+  `interrupted` (`internal/store.MarkInterrupted`); an interrupted job is
+  never resubmitted automatically.
+- **Owner-pid watchdog.** The worker command always carries `--owner-pid`
+  with the service's own process id. The Python worker watches that pid with
+  `psutil` and, once it is gone, kills every process it started and exits
+  with status 3: if the service dies without shutting down cleanly, nobody
+  would read the result and an orphaned analysis would otherwise keep the
+  GPU and memory busy.
+- **Windows job object.** On Windows, `internal/runner` assigns the worker
+  process to a job object created with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`
+  (`internal/runner/tree_windows.go`). Closing the job's handle, which
+  happens whenever the service process ends, ends every process still in it;
+  cancellation also calls `TerminateJobObject` directly, falling back to
+  `taskkill /T /F` for a child that could not be assigned to the job object.
 
-Report validation will check schema version, object ownership, size limits, and timestamp bounds before publication.
+## Storage layout
 
-## Submission and execution
+Everything lives under the `-data` directory (default `.local/tracen-data`):
 
-1. An authenticated request creates a run and reserves upload capacity in SQL.
-2. Go streams the clip to a generated private Blob key while enforcing the byte limit. Partial uploads are cleaned up on failure.
-3. Finalization verifies actual object metadata and creates a job and outbox item in one transaction. Repeated finalization is idempotent.
-4. A dispatcher sends the job ID to Queue Storage. An event-triggered worker receives the message and requests a claim for that job.
-5. An atomic conditional SQL update assigns a fresh lease token, increments the attempt, and changes the job to running. Only one claimant can succeed.
-6. The worker validates the media, processes bounded frame batches, and writes artifacts to an attempt-specific prefix.
-7. Completion validates the current lease and report artifacts, then commits the result and terminal job state together.
+| Path | Contents |
+| --- | --- |
+| `tracen.db` | SQLite database: `users`, `sessions`, `recordings`, `jobs`, `reports`, `corrections` tables (`internal/store`) |
+| `recordings/<user>/` | Uploaded video files, named by their server-issued id |
+| `jobs/<job id>/run/` | The worker's output directory for one job: `report.json`, `timeline.json`, the viewer page, and (unless pruned) frame and OCR working data |
+| `jobs/<job id>/worker.log` | The worker's full stderr for that job |
+| `frames/` | On-demand frame cache (`internal/artifacts.Frames`), used when a report's recording is unavailable or a specific frame is requested |
 
-The initial upload path will enforce size in Go. Direct browser uploads may be added later; a temporary Blob access token alone does not enforce the application's upload-size limit.
+## Security posture
 
-## Job lifecycle and recovery
+- The server listens on a loopback address only (`-addr`, default
+  `127.0.0.1:8765`); `ServeHTTP` rejects any request whose `Host` header is
+  not in `AllowedHosts` (`localhost`, `127.0.0.1`, `::1`, plus the
+  configured listen host) with `bad_host`, and rejects a cross-origin
+  non-GET request with `bad_origin`.
+- Passwords are hashed with PBKDF2-HMAC-SHA256, 600,000 iterations, a
+  16-byte per-user salt (`internal/auth.HashPassword`); the hash never
+  leaves the store.
+- Sessions are an HttpOnly, `SameSite=Strict` cookie named `tracen_session`
+  holding a random token; only the token's SHA-256 is stored
+  (`internal/store`), so a copy of the database cannot be replayed as a
+  login. Sign-in is rate limited per address.
+- Every `/api` route except `/api/auth/*` requires a valid session
+  (`unauthenticated`, HTTP 401 otherwise).
+- Uploads, jobs and reports are scoped to the account that created them: a
+  `recordings`, `jobs` or `reports` row with a `user_id` is visible only to
+  that user (`internal/jobs.Manager.resolve`, `owns` in `internal/api`).
+  Reports registered with `tracen import` (see `cmd/tracen/import.go`) carry
+  no owner and are visible to every signed-in user.
 
-Jobs progress through queued, running, and completed states. Transient failures enter a delayed retry state; invalid inputs fail without repeated execution. Queued or running work can be cancelled.
+## Packages
 
-- A new lease token for every attempt fences out stale workers.
-- Heartbeats extend the active SQL lease; queue-message visibility is renewed separately.
-- Duplicate notifications for completed jobs are harmless. Messages for an actively leased job are delayed rather than triggering another authoritative execution.
-- Queue messages are deleted after a terminal outcome. Repeated failures enter an application-managed poison queue with a sanitized reason.
-- Completion retries with the same accepted result are idempotent.
-- Cancellation revokes result acceptance and terminates child processing.
-- An outbox recovery job resends committed but undispatched jobs and recovers expired leases. Recovery does not depend on the API process staying active.
-- Cleanup removes expired uploads and artifacts from abandoned attempts.
-
-Starting defaults are a two-minute lease, 20-second heartbeats, three attempts, and a ten-minute execution timeout for short clips. These settings require validation against measured runtime. Retry counts apply across queue deliveries and container restarts.
-
-## Perception
-
-The pipeline will probe the media, sample timestamped frames, classify screens, group stable segments, read selected fields, and assemble candidate events.
-
-The local pilot samples at 4 fps by default and accepts up to 8 fps. Recording inspection found choices and results that disappear within a second, so fixed-rate sampling does not guarantee event coverage. Denser sampling around detected transitions remains planned. Sampling and smoothing will be versioned and evaluated for missed short events.
-
-A visible training menu will establish only that the menu appeared. An inferred action will require supporting transition or result evidence. Original predictions, supporting frames, and user corrections will remain distinguishable.
-
-## Identity and media access
-
-Entra ID and Container Apps authentication will protect private application operations. Go will verify ownership on every run, report, correction, and file request. The browser will not connect directly to SQL.
-
-The application and worker will use separate managed identities with minimum resource permissions. Worker endpoints will authorize a service identity separately from user sessions. Platform identity headers will be trusted only through the configured authenticated ingress.
-
-Media containers will remain private. Authorized playback will use short-lived links. After source retention expires, reports will retain permitted thumbnails and timestamps; local-file reattachment can restore playback after hash/duration verification.
-
-The decoder will run without elevated privileges, with bounded memory, execution time, and temporary storage. Work requests will reference server-issued object keys rather than arbitrary shell commands or remote URLs.
-
-## Verification
-
-API tests will cover ownership isolation, upload caps, idempotency, cancellation, quota reservations, and stale-lease rejection. Worker tests will cover malformed media, presentation timestamps, report validation, and a small real clip.
-
-Integration checks will interrupt an active worker, recover its job, reject its stale completion, and verify that API redeployment preserves results. Frontend checks will cover progress, evidence, correction conflicts, and expired media.
-
-Logs will include job/request IDs, attempts, stage durations, artifact sizes, and pipeline versions. Tokens, signed URLs, and full user data will be excluded. Operational measurements will include queue age, processing failures, latency, memory, and retained bytes.
+| Package | Role |
+| --- | --- |
+| `internal/api` | HTTP handlers: routes requests to the job manager, store, auth service and timeline documents; enforces host/origin checks and per-user visibility |
+| `internal/auth` | User accounts and sessions: password hashing, session tokens, sign-in rate limiting |
+| `internal/artifacts` | Confined access to a job's files: the report, the log tail, and frames extracted on demand |
+| `internal/jobs` | The job lifecycle: admission, the durable queue, the single worker loop, cancellation and restart recovery |
+| `internal/runner` | Starts the analyzer as a child process and kills its whole process tree on cancellation or shutdown |
+| `internal/store` | The SQLite-backed store for jobs, reports, uploaded recordings, users and sessions |
+| `internal/timeline` | Reads the compact `timeline.json` document the analyzer writes; the only analyzer output the browser-facing endpoints are built on |
+| `internal/webassets` | Embeds the built browser client and serves it with a single-page fallback |
+| `internal/worker` | The Go side of the analyzer contract: builds the worker command, parses its progress lines, decodes and verifies its terminal result |

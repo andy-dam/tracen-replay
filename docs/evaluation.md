@@ -1,137 +1,152 @@
-# Model evaluation
+# Evaluation
 
-For the current run analyzer's source-based evaluation and known integration
-requirements, see [the full-run baseline](full-run-baseline.md). The model
-evaluation plan below is a separate experiment.
+How the analyzer's output is checked today, and the plan for the learned
+readers that will replace its remaining hand-tuned OCR-repair heuristics.
 
-The latest follow-up results are in [turn explanation improvements](turn-explanation-improvements.md), including missing endpoints, unresolved attribution, and the limits of full-turn numeric accounting.
+## Part A: how the analyzer is validated
 
-The initial model will classify Umamusume screens in recorded gameplay. Evaluation will compare recognition quality and CPU cost across template matching, frozen pretrained features, and fine-tuning. No model results are available yet.
+### Sealed code under test
 
-## Dataset
+`analyzer/tools/snapshot_analyzer_implementation.py` copies `tracen_replay`,
+`tools`, `lab` and `pyproject.toml` into a snapshot directory together with a
+`code-manifest.json` listing every file's SHA-256 and an overall manifest
+hash. `verify()` re-hashes the working tree and the copied files against that
+manifest and fails if either has changed. Recording a run's manifest hash
+alongside its report ties that report to the exact code that produced it, so
+two reports can be compared knowing whether the code changed between them.
 
-Starting categories are training, event dialog, race result, home/menu, and other. A recording audit will establish label definitions and examples of ambiguous transitions before the taxonomy is frozen.
+### Unit tests
 
-Each source manifest will record the recording hash, parent session, dimensions, duration, language/layout, timestamps, labels, annotator, and dataset version. Publication permission will be recorded separately from application access.
+Run the suite from the repository root:
 
-An initial annotation pilot will use 200–500 diverse frames to identify label problems. Collection will then expand across independent sessions and rare screen types. Near-duplicate frames will not substitute for recording diversity.
+```
+python -X utf8 -m unittest discover -s analyzer/tests -t analyzer
+```
 
-Stable intervals may be labeled together, with separate inspection of boundary frames. Raw recordings will remain outside Git; the repository will contain manifests and selected publishable fixtures.
+Tests that depend on locally preserved fixtures (frozen source caches,
+prepared recording sidecars, installed OCR models) call `self.skipTest(...)`
+or `@unittest.skipUnless(...)` when those fixtures are not present, so the
+suite still passes on a clean checkout. Rule tests build a small fixture of
+frame readings, checkpoints and events, then assert what the rule under test
+does with them; the aim is one focused test per rule rather than one test
+that exercises a whole report.
 
-## Splits
+### Fresh runs as acceptance evidence
 
-Train, validation, and test sets will be grouped by source recording/session. Clips cut from the same run, duplicates, and augmentations will stay in the same split. An initial 60/20/20 group split is provisional and will be adjusted for class coverage before evaluation.
+The acceptance evidence for a change is a fresh, full run of `analysis_job`
+on a recording that was held out from developing the change, and recordings
+from more than one recorder are used so a rule is not tuned and graded on the
+same source. A recording used to tune a rule is never counted as evidence for
+that rule.
 
-Small datasets will use grouped cross-validation for exploratory measurements, with new sessions reserved for final testing. Model selection, thresholds, and preprocessing will use training/validation only.
+`full_recording --reparse-only` rebuilds a report from a preserved run's
+cached OCR observations without starting a new OCR pass. It is the declared
+way to retest a parser or accounting change: the two reports are compared
+directly, field by field. It cannot exercise a new 60 fps reread window,
+because that reread only runs against the source video, so a change to
+reread window selection or its OCR is judged only on a fresh run.
 
-Randomly splitting neighboring frames would leak nearly identical scenes across sets. Confidence intervals will therefore resample independent recordings where sufficient groups are available, and reports will disclose the group count.
+### What is compared between two reports
 
-## Comparisons
+- Event counts, grouped by kind and timestamp.
+- Lesson purchases and their prices.
+- Songs, races, skill purchases and concerts.
+- Dialogue choices.
+- The accounting's field counts across its five statuses:
+  `balanced_observations`, `balanced_with_derived_changes`,
+  `unexplained_change`, `unresolved_attribution`, `missing_endpoint`.
+- The turn ledger's action status per turn (`one_action`, `missing_action`,
+  `multiple_actions`).
+
+A change is accepted only when every difference between the two reports is
+explained by the rule that changed. An unexplained difference blocks
+acceptance until it is understood.
+
+### The accounting as the measure
+
+Every turn's opening stats plus its entries must equal the next turn's
+opening stats. The counts of `unexplained_change` and
+`unresolved_attribution` fields, of `missing_action` and `multiple_actions`
+turns, and of unpriced purchases are the analyzer's reliability numbers, per
+recording. This document does not restate any of those counts; read them
+from the run's own report.
+
+### Human verification
+
+The review layer lets a viewer correct a turn's action and its entries and
+add missed events. Corrections are stored per viewer, separately from the
+report, and on every read the service checks them against the turn's
+observed endpoints: opening stats plus what the report explains plus the
+viewer's edits must equal the next turn's observed opening stats. See
+[local-app.md](local-app.md) for the review editor and its routes.
+
+## Part B: learned readers
+
+### Why
+
+The rules already decide which screen is on frame and what an event means
+from OCR text and layout; that decision is not the source of the analyzer's
+remaining errors. The errors that remain are reading errors on small, fixed
+crops: a stat badge misread or clipped at its edge, a zero drawn too dim to
+detect, a counter hidden behind the player's cursor, the song note glyph that
+marks a song receipt, and receipt words mangled by compression or motion
+blur. A learned reader targeted at exactly those crops is a narrower, more
+tractable model than a screen classifier, and it plugs into the same
+evidence-and-accounting structure the analyzer already has.
+
+### The accounting as a label source
+
+The causal accounting is a source of labels without hand annotation. Every
+field the accounting marks `balanced_observations` or
+`balanced_with_derived_changes` is a crop with a value confirmed by the
+turn-to-turn arithmetic. Every field marked `unexplained_change` or
+`unresolved_attribution` is a labeled hard case. Every one of those has an
+evidence path: a frame and a timestamp the report already carries. A dataset
+for a crop reader can be built by walking reports for these labels, not by
+having a person look at frames and type in values.
+
+### First model: badge and counter reader
+
+A small CNN over the fixed stat-badge and resource-counter crops, predicting
+a digit string with a confidence. Compare it against three conditions on the
+same crops and labels:
 
 | Condition | Method |
 |---|---|
-| Template baseline | Fixed-region image matching with validation-selected thresholds |
-| Frozen features | Pretrained small vision backbone with a trained linear classifier |
-| Fine-tuned model | The same backbone and head adapted to the labeled recordings |
+| Baseline | The current OCR reader (RapidOCR) |
+| Frozen backbone | A pretrained small vision backbone with a trained linear head |
+| Fine-tuned backbone | The same backbone and head, unfrozen and adapted |
 
-Candidate backbones include small ResNet and MobileNet variants. Comparisons will share labels, input regions, and held-out data. Architecture, initialization weights, preprocessing, and dependency versions will be recorded.
+### Second model: confusion-aware text repair
 
-Training will begin with the new classifier head and then evaluate unfreezing the backbone with a smaller learning rate. Checkpoint selection will use validation performance. Finalists will be repeated across training seeds when resources permit.
+A model trained on receipt lines paired with their resolved names, learning
+which character confusions the recognizer actually makes instead of the
+fixed edit-distance thresholds each rule sets by hand today (see
+[roadmap.md](roadmap.md) for the related plan to unify those thresholds into
+one shared vocabulary repair).
 
-Augmentations will reflect supported recordings: moderate brightness, scaling, and compression changes. Transforms that remove or reverse label-defining UI will be excluded unless representative of actual supported inputs. The implementation can follow the standard [PyTorch transfer-learning pattern](https://docs.pytorch.org/tutorials/beginner/transfer_learning_tutorial.html).
+### Later: boundary and animation-state detection
 
-## Confidence and temporal consistency
+Using the current rules' boundary and animation-state decisions as labels,
+once the two reader models above are in place.
 
-The classifier will include an other category and an abstention path. Neither alone establishes reliable detection of every unseen screen.
+### Splits and integration
 
-Thresholds will be selected on validation data. Reports will include automatic coverage alongside accuracy of accepted predictions. Model scores will not be presented as calibrated correctness probabilities without calibration evidence.
+Splits are grouped by recording and by recorder, the same grouping the
+accounting evidence already carries; a recording held out for testing is
+never used to pick a threshold. A model is one more reader: it yields an
+observation with a frame, a value and a confidence, exactly like an OCR
+reading does today. The causal accounting stays the arbiter of what is
+accepted; a model's output never fills a report field on its own.
 
-Temporal smoothing will be evaluated separately from raw frame classification. The pipeline will preserve supporting frame timestamps and report missed short events or delayed boundaries.
+### Metrics
 
-## Metrics
+- Fewer `unexplained_change` and `unresolved_attribution` fields on held-out
+  recordings, compared to the current OCR baseline on the same recordings.
+- Per-field accepted-read accuracy and coverage (the accounting's balanced
+  fields as ground truth).
+- CPU inference latency per crop, since the worker runs without a GPU
+  guarantee (see [ocr-performance.md](ocr-performance.md)).
 
-| Component | Measurements |
-|---|---|
-| Screen recognition | Macro-F1, per-class precision/recall, confusion matrix, coverage, accepted-read accuracy |
-| Event assembly | Event precision/recall, false events per minute, missed events, boundary timing error |
-| Field extraction | Exact-match accuracy and coverage for each selected field |
-| Runtime | CPU inference latency, end-to-end throughput, peak memory, model size |
-
-Event evaluation will use hand-labeled whole-clip timelines and one-to-one matching by type and a predefined temporal criterion. Matching rules will be fixed before final testing.
-
-OCR quality will be measured independently of screen classification. Visible stat and turn extraction will begin with a few supported fields; unreadable values will remain unknown.
-
-Results will include representative errors, class counts by recording/split, hardware details, sampling settings, and variability across training runs where available. The deployed method will be selected from measured quality and resource use; fine-tuning is not assumed to outperform the baseline.
-
-## Inheritance occurrence scoring
-
-Effect references may explicitly set `include_inheritance_occurrences: true`
-to score source-proven minimum counts for inheritance sparks and inspirations.
-The default preserves one prediction per canonical effect and the existing
-score format. The opt-in mode recomputes occurrence evidence from the report's
-source readings; it does not trust a cached count or change the extraction report.
-
-Only unambiguous, disjoint lines within one source frame establish multiplicity.
-Repeated frames and alternate crops cannot be added together. With
-`first_exact_effect_observation` timing, each additional unit belongs to the
-earliest frame that proves its ordinal, even if the first unit falls in a
-different evaluation window. Event-start timing retains its explicit shared
-event-time convention. Once an ordinal has an earlier witness, redisplaying
-that lower bound in a later window does not create another occurrence.
-Diagnostics retain the source witness and the event's
-minimum count; total activation counts remain unknown. This scores an observed
-lower bound, not complete scrolling coverage or inferred numeric awards.
-
-## Corrections and dataset versions
-
-User corrections will be stored separately from predictions and reviewed before becoming training labels. Contributing data to model development will require opt-in. Existing test recordings will remain excluded from subsequent training sets used for the same reported comparison.
-
-Every dataset update will record provenance and split membership. New analyses will preserve their model and dataset-version references so changes can be traced.
-
-## Reference-index diagnostics
-
-`tracen_replay.reference_index` organizes source-reviewed reference intervals into deterministic, non-overlapping partitions. It preserves every registered reference and any explicitly selected revision, then records overlaps, cadence ties, scope crossings, incomplete annotations, and missing or extra effects. Build an index with the coverage registry:
-
-```powershell
-python -m tracen_replay.reference_index build RUN_DIRECTORY `
-  --coverage RUN_DIRECTORY/source-review-coverage.json `
-  --output RUN_DIRECTORY/reference-index-v1/index.json
-```
-
-An optional mapping file selects an immutable revision for a registered reference while retaining the original. The file is a JSON object keyed by the registered reference path:
-
-```json
-{
-  "review/effects-reference.json": {
-    "path": "review/effects-reference-v2.json",
-    "sha256": "<variant-file-sha256>",
-    "kind": "source-adjudication",
-    "prediction_informed": true,
-    "reason": "Explain why this version is retained."
-  }
-}
-```
-
-Pass it with `--mapping MAPPINGS.json`. A mapped file must remain inside the run directory, have the same source hash, interval, and sampling cadence as its registered parent, and match the declared file hash. There is no built-in recording-specific mapping catalog.
-
-Score an existing index against a report and its evidence:
-
-```powershell
-python -m tracen_replay.reference_index score RUN_DIRECTORY `
-  --index RUN_DIRECTORY/reference-index-v1/index.json `
-  --report RUN_DIRECTORY/report.json `
-  --evidence-root RUN_DIRECTORY `
-  --output RUN_DIRECTORY/reference-index-v1/score.json
-```
-
-The score file is a diagnostic index. Its per-reference counts and partition rows must not be added together: overlapping windows, revisions, and different cadences can describe the same source interval. `full_recording_effect_recall_measured` and `aggregate_accuracy_claimed` therefore remain false, even when every declared partition has a passing local score. A clean reference also does not establish a holdout result; `independent_test_established` remains false until a recording-level split and untouched run are documented. Hash or source mismatches fail closed, while evaluator validation errors are reported as bounded reference blockers and unexpected runtime errors are allowed to surface.
-
-## Model release
-
-The [shared evaluator and causal-accounting milestone](evaluation-hardening.md) documents the common occurrence matcher, explicit source-QA overlays, three-recording comparisons, compact regression fixtures and reproduction commands. Its scores remain separate from historical section-specific adjudications. Balanced resource totals do not certify complete event history.
-
-Each model artifact will include a manifest with data/split hashes, architecture, initialization weights, training configuration, seed, preprocessing, selected checkpoint, evaluation output, and checksum.
-
-The worker will load weights once per process and stream bounded batches of sampled frames. Cloud deployment will use measured CPU and memory requirements. Runtime conversions such as quantization or ONNX export will require a quality comparison before adoption.
-
-Release checks will cover the report contract, held-out evaluation, and a full pipeline fixture. Previous artifacts will remain available for rollback. Reproduction will preserve configuration and evidence without promising byte-identical training across different hardware or library versions.
+No results are reported here until a model exists; this section is a plan,
+not a record of a run.

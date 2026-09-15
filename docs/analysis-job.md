@@ -1,96 +1,109 @@
-# Analysis job boundary
+# The analysis job boundary
 
-`tracen_replay.analysis_job` wraps the existing full-recording producer in a
-small machine-readable worker interface. It is useful for a local process now
-and gives the future Go service one stable command boundary to call.
+`tracen_replay.analysis_job` (`analyzer/tracen_replay/analysis_job.py`) wraps
+the full-recording producer in a small machine-readable worker interface: one
+process, one recording, progress on stderr, exactly one JSON result object on
+stdout. The service calls it through `internal/worker.Command`, reads its
+progress with `internal/worker.ParseProgress`, and interprets its result with
+`internal/worker.Interpret` and `internal/worker.Verify`. See
+[architecture.md](architecture.md) for how this fits into the service as a
+whole.
 
-Run it with a source recording and a run directory:
+## Command line
 
-```powershell
-python -m tracen_replay.analysis_job "C:\path\to\recording.mp4" `
-  --output "C:\path\to\run" --workers 4
+```
+python -m tracen_replay.analysis_job <source> --output <run dir> [options]
 ```
 
-The wrapper accepts the producer's bounded controls: `--fps`, `--workers`
-(the OCR worker count; it also sizes the post-refinement reinterpretation of
-the cached rows), `--dense-workers` (the worker processes of the dense
-re-read OCR passes; default `--workers` minus one, at least one; each dense
-worker can peak near 5-6 GB, so this is the memory knob of a run),
-`--model-dir`, and `--reparse-only`, plus `--prune-frames`, which deletes the
-frame images under the run directory after the report has been validated (the
-report and the timeline locate every fact by its source timestamp; a pruned
-run can no longer be re-parsed or have its evidence paths re-validated, so keep
-the frames when a later parser pass over the same OCR is wanted). Reparse mode still requires the source
-path so cached evidence can be checked against the recording; it uses cached
-observations rather than starting OCR.
+`source` is a local video file; `--output` is the run directory the worker
+writes into. The service always adds `-X utf8` to the interpreter invocation
+and runs it with `WorkDir` (the directory containing the `tracen_replay`
+package) as the working directory.
 
-`--prune-working-data` goes further than `--prune-frames`: after the report
-is validated it deletes every directory under the run root (frames, per-frame
-OCR caches, crops and recovery inputs, about 1 GB for a full career), keeping
-the top-level files: `report.json`, `timeline.json`, the viewer page and the
-capture and identity metadata. The success envelope records the removed
-directories, files and bytes as `pruned_working_data`. The Go service passes
-it unless started with `-keep-working-data`. A run pruned this way cannot be
-re-parsed; keep the working data when a later parser pass over the same OCR
-is wanted.
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--fps` | `4.0` | base sampling rate, 1 to 8 FPS |
+| `--workers` | `4` | OCR worker count, 1 to 8; also sizes the pooled reinterpretation of cached rows |
+| `--dense-workers` | workers minus one, at least one | worker processes for the dense re-read OCR passes, 1 to 8; each can peak near 5-6 GB, so this is the memory knob of a run |
+| `--model-dir` | `.local/models/rapidocr` | local OCR model directory |
+| `--reparse-only` | off | use cached observations instead of starting OCR |
+| `--replay-input-manifest` | none | a source-bound replay input manifest for cached parsing from a disposable cache clone; requires `--reparse-only` |
+| `--replay-input-root` | `--output` | the disposable cache root the manifest reads from; must equal `--output` |
+| `--prune-frames` | off | after the report is validated, delete the frame images under `--output` |
+| `--prune-working-data` | off | after the report is validated, delete every directory under `--output` (frames, OCR caches, crops, recovery inputs); the top-level files stay |
+| `--owner-pid` | none | process id that owns this job; the worker ends itself, with its own worker processes, once that process is gone |
 
-`--owner-pid N` names the process that owns the job (the Go service passes
-its own id). The worker watches it through psutil and, as soon as that
-process is gone, kills every process it started and exits with status 3: the
-owner was the only reader of the result, and an orphaned analysis would
-otherwise keep the GPU and gigabytes of memory busy for an hour. A pid that
-is not running when the job starts is rejected as `invalid_owner_pid`. Direct
-command-line runs leave the flag out.
+The service always passes `--prune-frames`; it passes `--prune-working-data`
+unless started with `-keep-working-data`, and always passes `--owner-pid`
+with its own process id. `--replay-input-manifest` and `--replay-input-root`
+are used by `analyzer/tools/replay_cached_recording.py` for an isolated
+cached replay, not by the service.
 
-Here, saved observations include extracted gameplay frames, timestamps, OCR
-text and geometry, and source-bound refinement readings. Reanalysis rebuilds
-events, turn assignments, accounting, and the report from those observations;
-it does not reuse the previous report's conclusions. It verifies the current
-interpretation of saved evidence, not fresh decoding or OCR. Recognition
-changes require fresh processing of the affected source frames. A fresh
-end-to-end evaluation starts from the MP4 in a new run directory, and its
-recognition accuracy must still be graded separately from worker success.
+The OCR device is not a command-line flag: it comes from the
+`TRACEN_REPLAY_OCR_DEVICE` environment variable, `auto` (default), `cpu`,
+`dml` or `cuda`. `auto` resolves to DirectML when onnxruntime provides it,
+then CUDA, then the CPU provider. `internal/worker.Command.Env` sets this
+variable from the service's `-ocr-device` flag; a machine without a
+supported GPU still analyzes on the CPU, more slowly. The resolved device is
+written to the OCR progress lines and to the report's `recognition.device`,
+which the timeline carries.
 
-Fresh runs perform a bounded source-driven reread after the base OCR pass.
-The producer discovers weak panel component and status-badge observations from
-the raw cache, reuses one `NeuralReader` for those candidates, and writes only
-source-bound `performance-panel-refinement` and `status-badge-refinement`
-sidecars. The limits are controlled by `--max-auto-refinement-frames` and
-`--max-status-refinement-frames`; unresolved candidates and budget exclusions
-are recorded in `automatic-refinement.json` and in the report. Reparse mode
-loads and validates existing sidecars through the same cache path, reports
-missing refinements as unresolved, and never constructs an OCR reader.
+### `--reparse-only` and `--replay-input-manifest`
 
-Fresh runs also prepare source-bound hint-card recoveries from the refined
-base readings before adding dense inspection rows. This uses the configured
-model directory and preserves an existing cache through validation rather
-than overwriting it. Reanalysis only loads existing hint-card recoveries;
-it does not create missing ones or run the preparation OCR.
+`--reparse-only` rebuilds events, turn assignments, accounting and the
+report from observations already cached under the run directory; it does not
+start OCR and does not reuse the previous report's conclusions. It still
+requires the source path so cached evidence can be checked against the
+recording.
 
-For a cache with nested inspection or recovery namespaces, pass the validated
-source-bound manifest and use the same disposable directory for both input and
-output:
+`--replay-input-manifest` (always with `--reparse-only`) consumes only the
+manifest's declared source hashes, raw observations, inspection/recovery
+rows and raw sidecar refinements; it never loads accepted report values.
+`--replay-input-root` must equal `--output`, so emitted evidence stays in the
+worker root.
 
-```powershell
-python -m tracen_replay.analysis_job "C:\path\to\recording.mp4" `
-  --output "C:\path\to\worker-run" --reparse-only `
-  --replay-input-manifest "C:\path\to\replay-input-manifest.json" `
-  --replay-input-root "C:\path\to\worker-run"
+### `--prune-frames` and `--prune-working-data`
+
+Both run only after the report has passed validation. `--prune-frames`
+deletes frame image files (`.png`, `.jpg`, `.jpeg`, `.webp`) anywhere under
+the run directory and removes directories left empty; the report and the
+timeline locate every fact by its source timestamp, so a pruned run can no
+longer be re-parsed or have its evidence paths re-validated.
+`--prune-working-data` goes further: it deletes every top-level directory
+under the run root entirely (frames, per-frame OCR caches, crops, recovery
+inputs, about 1 GB for a full career), keeping only the top-level files:
+`report.json`, `timeline.json`, the viewer page, and the capture and
+identity metadata. A run pruned this way cannot be re-parsed.
+
+## Progress lines (stderr)
+
+Progress is JSON objects, one per line, interleaved with the producer's own
+warnings and tracebacks (`internal/worker.ParseProgress` ignores any line
+that is not a JSON object with a `stage` field). Stage boundaries:
+
+```json
+{"stage": "stage_done", "name": "...", "wall_s": 12.3, "rss_mb": 512, "peak_rss_mb": 900}
 ```
 
-The manifest mode consumes only its source hashes, raw observations, declared
-inspection/recovery rows, and raw sidecar refinements. It never loads accepted
-report values; `reference.accepted_report_sha256` is comparison metadata only.
-The disposable worker root must be populated from a safe cache clone before
-the command runs. `analyzer/tools/replay_cached_recording.py` accepts the same
-manifest through `--replay-input-manifest` for an isolated cached replay whose
-output directory may be separate from its input root.
-That replay path also records the bounded automatic-refinement audit against
-the manifest's base namespace and runs the source choice adapter before it
-writes `candidate-report.json`; it remains OCR-free.
+A stage that failed but did not abort the run:
 
-The wrapper sends producer progress and diagnostics to stderr. On success it
-writes exactly one JSON object to stdout:
+```json
+{"stage": "stage_failed", "name": "...", "error": "..."}
+```
+
+The OCR stage is the only line with a meaningful percentage:
+
+```json
+{"stage": "ocr", "processed": 120, "total": 400}
+```
+
+`internal/worker.Progress.Percent` reports `100 * processed / total` only
+for `stage: "ocr"` lines with `total > 0`.
+
+## Result envelope (stdout)
+
+On success or partial success the worker writes exactly one JSON object to
+stdout:
 
 ```json
 {
@@ -104,91 +117,69 @@ writes exactly one JSON object to stdout:
   "full_source_processed": true,
   "fully_verified": false,
   "go_ready": false,
-  "timeline_path": "C:\path\to\run\timeline.json",
+  "timeline_path": "C:\\path\\to\\run\\timeline.json",
   "worker_version": {"package": "0.1.0", "code_digest": "..."}
 }
 ```
 
-`worker_version` identifies the worker on every terminal object, successes
-and failures alike: the installed package version and a SHA-256 over the
-analyzer's source files. A caller can pin the worker it was validated with.
+`status` is `succeeded`, `completed_with_stage_failures` (with a
+`stage_failures` array of `{stage, error}`), or `failed` (with an `error`
+object of `{code, message}` instead of the success fields). `worker_version`
+(package version plus a SHA-256 digest of the analyzer's source) is present
+on every terminal object, success or failure. When `--prune-frames` ran, the
+object also carries `pruned_frames: {files, bytes}`; when
+`--prune-working-data` ran, it also carries
+`pruned_working_data: {directories, files, bytes}`.
 
-The OCR device comes from the `TRACEN_REPLAY_OCR_DEVICE` environment
-variable: `auto` (default: DirectML when onnxruntime provides it, then CUDA,
-then the CPU provider), or an explicit `dml`, `cuda` or `cpu`. A machine
-without a supported GPU still analyzes with the same models on the CPU,
-more slowly. The resolved device is written to the OCR progress lines and to
-the report's `recognition.device`, which the timeline carries.
+`full_source_processed`, `fully_verified` and `go_ready` are report
+verification results, separate from job completion: a successfully produced
+report can still have any of them `false`. `go_ready` is not a computed
+decision for the current milestone and remains `false`.
 
-`timeline_path` names the compact timeline document written next to the
-report: the turns with their opening states and per-field accounting status,
-and every ledger entry with its timestamps, changes and accepted basis, without
-image paths or OCR text (under 1 MB for a full career against 150-180 MB for
-`report.json`). With `--prune-frames` the record also carries `pruned_frames`
-(`files`, `bytes`).
+## Exit codes
 
-Enrichment stages that fail (automatic refinement, hint-card preparation,
-inspection loads, the bounded recoveries, event choices, causal accounting,
-the timeline document, the viewer) do not abort the run: the producer records
-each under `report.stage_failures` (`stage`, `error`, `traceback`), leaves that
-stage's block out, and continues. The wrapper then reports
-`status: completed_with_stage_failures` with the `stage`/`error` pairs, still
-with exit code 0 and every success field; treat it as a completed job with
-warnings. Capture, OCR, cached-reading loads, the turn ledger and the report
-contract remain fatal; on a fatal error the producer writes
-`report-partial.json` (the report assembled so far plus the failure) before
-the wrapper emits `producer_failed`.
+| Code | Meaning |
+| --- | --- |
+| `0` | `status: succeeded` or `status: completed_with_stage_failures` |
+| `1` | producer or report failure (`status: failed`) |
+| `2` | input failure before the producer ran (`status: failed`) |
+| `3` | the worker ended itself because `--owner-pid` is no longer running (used only with `--owner-pid`) |
 
-Progress lines on stderr are JSON objects. Stage boundaries emit
-`{"stage": "stage_done", "name": ..., "wall_s": ..., "rss_mb": ..., "peak_rss_mb": ...}`
-(memory fields when psutil is installed); the OCR stage emits
-`{"stage": "ocr", "processed": n, "total": m, ...}`, which is the only line with
-a meaningful percentage.
+## Error codes
 
-`status: succeeded` means that the producer returned, wrote `report.json`,
-and the report passed the full-recording contract, including its versioned
-turn ledger. Historical reports without that ledger remain readable through
-the generic report validator, but the worker rejects them with
-`missing_turn_ledger`. The three boolean fields
-are report verification results. They remain separate from job completion, so
-a successfully produced report can still have `fully_verified` or `go_ready`
-set to `false`. The legacy `go_ready` field currently remains false; it is not
-a computed decision for the bounded first-integration milestone. See
-[the acceptance record](first-go-acceptance.md) for that decision and its limits.
+Input failures (exit 2), from `JobInputError`: `invalid_arguments`,
+`source_not_found`, `output_not_directory`, `invalid_fps`, `invalid_workers`,
+`invalid_dense_workers`, `invalid_owner_pid`, `replay_manifest_not_found`,
+`replay_root_mismatch`, `source_unreadable`, `invalid_paths`.
 
-Input, producer, and report failures each produce one JSON object with
-`status: failed` and an `error` containing a stable `code` and human-readable
-`message`. Input failures return exit code 2; producer and report failures
-return exit code 1. A failed job never emits report hash or success fields.
-An existing `report.json` must be updated or replaced by the producer; a
-producer no-op is reported as `report_stale`. The wrapper hashes the requested
-source before and after production and requires both that hash and
-`report.source.sha256` to agree, otherwise it reports `source_mismatch`.
+Producer and report failures (exit 1): `producer_failed`, `source_mismatch`,
+`report_missing`, `report_stale`, `report_unreadable`, `invalid_report`,
+`missing_turn_ledger`, `invalid_report_status`, `invalid_fully_verified`,
+`invalid_go_ready`, `invalid_full_source_processed`, `invalid_evidence_root`,
+`evidence_root_mismatch`, `evidence_outside_root`, `evidence_missing`.
 
-`evidence_root` is the absolute run directory that owns the report's relative
-frame and observation evidence. Keep that directory with the report when
-passing the result to another process. A report stored below a larger cached
-evidence bundle must be invoked through a run directory whose evidence paths
-resolve correctly. If a report includes `evaluation_context.evidence_root`, the
-declared path must resolve to the worker's actual output root; a conflicting
-declaration fails with `evidence_root_mismatch` and never redirects path
-resolution. Relative traversal, absolute paths, and symlinks that resolve
-outside the run directory fail with `evidence_outside_root`. A cited path that
-resolves inside the root must also identify an existing file; missing files and
-in-root directories fail with `evidence_missing`. Hash and verification
-metadata, including nested `*_sha256` and `*_verified` values, are not evidence
-paths. The wrapper does not relocate or rewrite evidence.
+A failed job never emits `report_sha256` or the other success fields. An
+existing `report.json` that the producer did not update is reported as
+`report_stale`. The wrapper hashes the source file before and after
+production and requires that hash and `report.source.sha256` to agree, or it
+reports `source_mismatch`.
 
-The report contract permits unknown OCR values, partial inventory visibility,
-and unresolved mechanics. The producer assembles the [turn ledger](turn-ledger.md)
-from its observed records. This worker boundary checks that projection and the
-verification status; successful execution does not establish complete semantic
-recall.
+On the Go side, `internal/worker.DecodeTerminal` and `Interpret` add their
+own contract errors when the worker's output does not meet the boundary
+described here: `bad_terminal_output`, `multiple_terminal_objects`,
+`schema_mismatch`, `status_exit_mismatch`. `internal/worker.Verify` adds
+`report_missing`, `report_hash_mismatch`, `timeline_missing` and
+`timeline_invalid` when the files a completed result names do not check out.
 
-Dialogue menus are passed through the source choice adapter before report
-assembly. It reuses the raw OCR lines and the matching gameplay crop, records
-preview menus separately, and merges only bilateral or explicitly verified
-selection witnesses into `gameplay_tracking.dialogue_choices`. The same
-committed choice is therefore represented once in the derived ledger while the
-full `event_choice_observations` envelope remains available to semantic
-consumers.
+## The output directory after a run
+
+Every artifact of a job lives under its run directory (`--output`,
+`<data>/jobs/<job id>/run/` in the service). After a successful run it
+contains at least `report.json` and `timeline.json`; a viewer page and
+capture/identity metadata are also written at the top level. Unless the run
+was pruned, it also holds the sampled and re-read frame images, per-frame OCR
+caches, crops and recovery inputs. `evidence_root` in the result envelope
+names this directory; it must stay together with the report, since the
+report's evidence paths resolve relative to it. The worker's own stderr is
+not part of the run directory; the service copies it to
+`<data>/jobs/<job id>/worker.log` separately.

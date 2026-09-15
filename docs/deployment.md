@@ -1,77 +1,54 @@
-# Deployment design
+# Hosting later
 
-Azure is the target platform. Infrastructure templates and deployment commands will be added with the implementation; this document describes the intended topology and operational requirements.
+The application runs as one local binary today (see
+[architecture.md](architecture.md) and [local-app.md](local-app.md)). This
+document is not a deployment plan; it records what the current design already
+keeps hostable, and what would still have to change before it could run as a
+hosted service.
 
-## Resources
+## Already hostable
 
-| Resource | Responsibility |
-|---|---|
-| Container Apps, Consumption | Go API and compiled frontend, HTTPS ingress, application revisions |
-| Container Apps Jobs | Finite CPU video-processing tasks and scheduled recovery |
-| Blob Storage | Private source recordings, thumbnails, report bundles, model artifacts |
-| SQL Database | Runs, job leases, corrections, reservations, transactional outbox |
-| Queue Storage | Job notifications and poison-message handling |
-| Entra ID / managed identities | User authentication and service-to-service permissions |
-| Container Registry | Versioned application and worker images |
-| Azure Monitor / Log Analytics | Operational metrics and bounded diagnostic logs |
-| Bicep | Reproducible resource configuration |
+- **The client never learns storage layout.** The Vue client (`web/`) knows
+  recordings, jobs and reports only by the server-issued ids the API returns
+  (`web/src/api.ts`). It never receives or sends a file path, so moving
+  uploads or job output to a different kind of storage does not change the
+  client.
+- **The worker contract is a process boundary.** The service calls the
+  analyzer as a subprocess and reads back one JSON result over stdout plus
+  progress lines over stderr (`internal/worker`, documented in
+  [analysis-job.md](analysis-job.md)). Nothing about that contract assumes
+  the worker runs on the same machine as the caller, only that the caller can
+  start a process and read its output.
+- **Jobs and reports are rows in one database.** `internal/store` keeps
+  `users`, `sessions`, `recordings`, `jobs`, `reports` and `corrections` in a
+  single SQLite file today. The `internal/jobs.Store` and `auth.Store`
+  interfaces that the rest of the service talks to name only their methods,
+  not SQLite, so a different backing store implements the same interface.
+- **Uploads are one directory.** Recordings are written under
+  `<data>/recordings/<user>/` (`internal/api/uploads.go`) and read back by
+  id; nothing else in the service depends on them being local files as
+  opposed to objects fetched by key.
+- **The OCR device is a worker flag.** `internal/worker.Command.Env` selects
+  `auto`, `cpu`, `dml` or `cuda` through an environment variable
+  (`TRACEN_REPLAY_OCR_DEVICE`); the worker does not assume it runs on the
+  same hardware class as the service that starts it.
 
-The frontend and API will share one origin. Application and worker images will be separate so inference dependencies do not increase the web service's footprint.
+## What would have to change
 
-## Release sequence
+- **Auth beyond local accounts.** Sessions today are a cookie checked against
+  rows in the local database (`internal/auth`), sized for accounts on one
+  machine, not for a multi-tenant or internet-facing deployment.
+- **An object store for uploads and job outputs.** `recordings/<user>/` and
+  `jobs/<id>/run/` are local directories on the machine running the service;
+  a hosted deployment needs uploads and job outputs to live somewhere every
+  service instance and worker can reach.
+- **A queue that outlives one process.** `internal/jobs.Manager` runs one
+  worker at a time from an in-process queue and recovers from a restart by
+  marking in-flight jobs interrupted, never replaying them
+  (`Manager.Recover`). A hosted deployment needs a queue that survives the
+  service process itself and can hand a job to a different worker instance.
+- **GPU workers.** The analyzer's OCR stage picks a device from the machine
+  it runs on (`auto`, `cpu`, `dml`, `cuda`); running workers separately from
+  the API means provisioning and addressing GPU-capable workers instead of
+  spawning a local child process.
 
-1. Deploy a sample-report application and verify HTTPS, health checks, logs, and rollback.
-2. Configure user authentication and separate application/worker identities.
-3. Add private storage, SQL migrations, upload admission, and ownership checks.
-4. Run the worker manually on a fixture, then enable queue-triggered execution.
-5. Add bounded scheduled outbox recovery and retention cleanup.
-6. Deploy a checksum-pinned model after local evaluation and CPU profiling.
-
-The queue scaler starts job executions; worker code remains responsible for receiving messages, extending visibility, and acknowledging terminal outcomes. [Container Apps Jobs](https://learn.microsoft.com/en-us/azure/container-apps/jobs)
-
-Managed identities will provide resource access without embedding storage-account keys in application code. User authentication remains a separate concern. [Managed identities](https://learn.microsoft.com/en-us/azure/container-apps/managed-identity), [application authentication](https://learn.microsoft.com/en-us/azure/container-apps/authentication)
-
-## Configuration
-
-Deployment configuration will specify the resource group and region, image digests, model checksum, authentication settings, storage locations, SQL connection settings, queue names, and application limits.
-
-Credentials will be provided through managed identity or deployment secret configuration. Browser assets will contain no database or storage credentials. SQL access will use an explicitly authorized principal and the minimum required network access.
-
-Initial public access will be limited to prepared sample reports. Video submission will be enabled only after authentication, ownership isolation, admission limits, and cleanup have been verified.
-
-## Resource limits
-
-The following are initial application settings, subject to profiling:
-
-| Setting | Initial value |
-|---|---|
-| Accepted media | H.264 MP4, up to 1080p / 60 fps input |
-| Clip duration / size | 120 seconds / 40 MiB |
-| Raw-media reservation ceiling | 400 MiB, including pending uploads |
-| Report bundle | Up to 10 MiB |
-| Admission | One active job per user; five jobs/day globally |
-| Worker concurrency | One execution |
-| Per-attempt timeout / attempts | Ten minutes / three |
-| Raw-media retention | 24 hours |
-
-Frame sampling will keep decoded working sets bounded. Model size, CPU latency, and peak memory will determine worker allocation. Longer clips require revised runtime and capacity measurements.
-
-The API will initially scale from zero to one replica. SQL connection lifetimes and recovery schedules will account for idle behavior. Retention will combine Blob lifecycle rules with application cleanup; lifecycle deletion may occur after the configured expiration time.
-
-## Capacity and cost
-
-Compute, database activity, storage capacity and operations, queue requests, registry storage, log ingestion, and network transfer are separate consumption categories. Free allowances, where applicable, do not establish a zero-cost guarantee for the full deployment. Current pricing and subscription limits should be checked before provisioning. [Container Apps billing](https://learn.microsoft.com/en-us/azure/container-apps/billing), [SQL free-offer behavior](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer?view=azuresql)
-
-Admission controls will reserve capacity before uploads and reject new work when limits are reached. A global pause will disable new analyses without interrupting report export. Billing alerts will supplement resource limits, not replace them.
-
-## Release verification and rollback
-
-Each release will record source revision, image digests, schema migration version, model checksum, and infrastructure revision. Verification will cover a fixture run, authorization failures, retry recovery, and report compatibility.
-
-Application and model rollback will restore pinned prior artifacts. Database changes will favor backward-compatible migrations; destructive changes require an export and a recovery plan.
-
-Operational reports will record input bytes/duration, execution time, allocated CPU/memory, retained artifacts, and measured service consumption. Logs will omit tokens, signed URLs, and full recordings.
-
-## Teardown
-
-Before removing an environment, admission will be disabled, active jobs drained or cancelled, and retained reports exported. Cleanup will inventory storage, registry, database, queues, and diagnostics resources in addition to the application itself. Local fixture processing and exported reports will remain independent of the hosted environment.

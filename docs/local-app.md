@@ -277,7 +277,7 @@ message next to the control that caused it.
 | the upload is being analyzed | `recording_in_use` (HTTP 409) | cancel or wait for the analysis before deleting it |
 | no frame at that time | `frame_unavailable` | ffmpeg could not decode a frame there |
 
-## Limits of the local milestone
+## Limits
 
 - One analysis at a time; a full career recording takes roughly 40 to 60
   minutes on a GeForce RTX 5060 Ti with four OCR workers.
