@@ -82,7 +82,7 @@ The manifest mode consumes only its source hashes, raw observations, declared
 inspection/recovery rows, and raw sidecar refinements. It never loads accepted
 report values; `reference.accepted_report_sha256` is comparison metadata only.
 The disposable worker root must be populated from a safe cache clone before
-the command runs. `scripts/replay_cached_recording.py` accepts the same
+the command runs. `analyzer/tools/replay_cached_recording.py` accepts the same
 manifest through `--replay-input-manifest` for an isolated cached replay whose
 output directory may be separate from its input root.
 That replay path also records the bounded automatic-refinement audit against

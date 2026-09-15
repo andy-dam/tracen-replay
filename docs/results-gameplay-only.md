@@ -726,7 +726,7 @@ A fixed 01:00-01:16 source review checks all explicit bottom-dialogue effects vi
 The earlier 15 reviewed point examples remain narrow fixtures, not a full-run accuracy score.
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m unittest discover -s analyzer/tests -t analyzer -v
 python -m tracen_replay.receipt_review tests/fixtures/full-action-receipt-review-v1.json .local/full-recording/run-01/report.json --evidence-root .local/full-recording/run-01 --output .local/full-action-receipt-evaluation.json
 python -m tracen_replay.candidate_review tests/fixtures/unparsed-receipt-review-v1.json .local/full-recording/run-01/report.json --evidence-root .local/full-recording/run-01 --output .local/receipt-candidate-evaluation.json
 python -m tracen_replay.transaction_evaluate tests/fixtures/lesson-concert-sequence-v1.json .local/full-recording/run-01/report.json --output .local/lesson-concert-evaluation.json

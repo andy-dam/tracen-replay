@@ -55,7 +55,7 @@ The evaluation deliverables are complete. All 36 reproduction commands passed wi
 For an artifact-integrity snapshot, run:
 
 ```powershell
-.venv/Scripts/python.exe scripts/baseline_status.py .local/full-run-baseline-v1 --output .local/full-run-baseline-v1/status.json
+.venv/Scripts/python.exe analyzer/lab/baseline_status.py .local/full-run-baseline-v1 --output .local/full-run-baseline-v1/status.json
 ```
 
 This command checks hashes and artifact presence. It explicitly does not certify visual correctness or mark the baseline complete.

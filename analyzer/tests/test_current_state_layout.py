@@ -1,0 +1,201 @@
+import copy
+import json
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+
+import numpy as np
+from PIL import Image, ImageOps
+
+from tracen_replay.current_state_layout import detect_current_state_layout
+
+
+REPO = Path(__file__).resolve().parents[2]
+SOURCE_CASES = (
+    REPO / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/neural/part-015-frame-000201.json",
+    REPO / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/neural/part-015-frame-000257.json",
+    REPO / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/neural/part-017-frame-000407.json",
+    REPO / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/neural/part-018-frame-000040.json",
+)
+SHOGI_SOURCE = (
+    REPO
+    / ".local/final-reliability-v1/worker-runs/fourth-declared-retest-v10/neural/part-015-frame-000246.json"
+)
+
+
+def line(text, box, confidence=99.0):
+    return {"text": text, "box": list(box), "confidence": confidence}
+
+
+def current_lines(*, header="Career", wit_value="1023", wit_confidence=99.0):
+    rows = [
+        ("Speed", 320, "1372", "/1623"),
+        ("Stamina", 425, "256", "/1300"),
+        ("Power", 520, "967", "/1400"),
+        ("Guts", 618, "409", "/1500"),
+        ("Wit", 710, wit_value, "/1300"),
+    ]
+    result = [line(header, (156, 5, 217, 29))] if header else []
+    for label, center_x, value, cap in rows:
+        result.extend([
+            line(label, (center_x - 35, 697, center_x + 35, 722)),
+            line(value, (center_x - 25, 720, center_x + 35, 748),
+                 wit_confidence if label == "Wit" else 99.0),
+            line(cap, (center_x - 30, 742, center_x + 35, 766)),
+        ])
+    result.extend([
+        line("Skill Pts", (754, 692, 834, 722)),
+        line("1991", (753, 722, 834, 760)),
+    ])
+    return result
+
+
+class CurrentStateLayoutTests(unittest.TestCase):
+    def test_complete_current_bar_is_source_anchored(self):
+        result = detect_current_state_layout(
+            current_lines(), header="Career", current_grid=False,
+        )
+
+        self.assertEqual(result["status"], "recognized")
+        self.assertTrue(result["current_grid"])
+        self.assertEqual(result["basis"],
+                         "same_frame_current_stat_bar_labels_values_and_caps")
+        self.assertEqual(result["observed"]["stat_row_count"], 5)
+        self.assertFalse(result["observed"]["colour_signal"])
+        self.assertEqual(result["header_status"], "same_frame_header")
+
+    def test_complete_bar_can_prove_state_when_header_was_missed(self):
+        result = detect_current_state_layout(
+            current_lines(header=""), header="", current_grid=False,
+        )
+
+        self.assertTrue(result["current_grid"])
+        self.assertEqual(result["header"], None)
+        self.assertEqual(result["header_status"], "header_not_visible")
+
+    def test_rank_touched_value_can_open_fixed_crop_but_is_not_decoded(self):
+        result = detect_current_state_layout(
+            current_lines(wit_value="U41246", wit_confidence=84.364),
+            header="Career",
+            current_grid=False,
+        )
+
+        self.assertTrue(result["current_grid"])
+        wit = next(row for row in result["field_geometry"] if row["field"] == "wit")
+        self.assertEqual(wit["value"]["text"], "U41246")
+
+    def test_applied_result_proof_vetoes_current_state(self):
+        result = detect_current_state_layout(
+            current_lines(),
+            header="Career",
+            result_layout={"result_grid": True},
+        )
+
+        self.assertFalse(result["current_grid"])
+        self.assertEqual(result["rejections"]["applied_result_layout"], 1)
+
+    def test_partial_or_unrelated_rows_do_not_authorize_current_state(self):
+        lines = [line("Career", (156, 5, 217, 29))]
+        lines.extend([
+            line("Speed", (285, 697, 360, 722)),
+            line("1372", (304, 720, 366, 748)),
+            line("/1623", (305, 742, 365, 766)),
+            line("Skill Pts", (754, 692, 834, 722)),
+            line("1991", (753, 722, 834, 760)),
+        ])
+
+        result = detect_current_state_layout(lines, header="Career")
+
+        self.assertFalse(result["current_grid"])
+        self.assertIn("incomplete_current_panel", result["rejections"])
+
+    def test_shogi_result_cards_are_not_current_bar(self):
+        if not SHOGI_SOURCE.is_file():
+            self.skipTest("Shogi source cache is unavailable")
+        raw = json.loads(SHOGI_SOURCE.read_text(encoding="utf-8"))
+        result = detect_current_state_layout(
+            raw["lines"], header=raw.get("header"), current_grid=False,
+        )
+
+        self.assertFalse(result["current_grid"])
+        self.assertEqual(result["status"], "rejected")
+
+    def test_malformed_geometry_and_confidence_fail_closed(self):
+        lines = copy.deepcopy(current_lines())
+        lines[1]["box"] = [10**10000, 697, 360, 722]
+        lines[2]["confidence"] = 101
+
+        result = detect_current_state_layout(lines, header="Career")
+
+        self.assertFalse(result["current_grid"])
+        self.assertGreaterEqual(result["rejections"].get("line_geometry", 0), 1)
+        self.assertGreaterEqual(result["rejections"].get("line_confidence", 0), 1)
+
+    def test_source_cases_from_late_projection_diagnostic_are_recognized(self):
+        available = [path for path in SOURCE_CASES if path.is_file()]
+        if len(available) != len(SOURCE_CASES):
+            self.skipTest("late projection source cache is unavailable")
+        for path in available:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            with self.subTest(path=path.name):
+                result = detect_current_state_layout(
+                    raw["lines"], header=raw.get("header"),
+                    current_grid=raw.get("current_grid", False),
+                )
+                self.assertTrue(result["current_grid"])
+                self.assertEqual(result["observed"]["stat_row_count"], 5)
+
+    def test_neural_reader_promotes_translucent_current_bar_before_crops(self):
+        from unittest.mock import patch
+
+        detector_lines = current_lines()
+        boxes = [
+            np.asarray([
+                [entry["box"][0] - 148, entry["box"][1]],
+                [entry["box"][2] - 148, entry["box"][1]],
+                [entry["box"][2] - 148, entry["box"][3]],
+                [entry["box"][0] - 148, entry["box"][3]],
+            ], dtype=float)
+            for entry in detector_lines
+        ]
+
+        class Engine:
+            def __call__(self, _image):
+                return SimpleNamespace(
+                    boxes=boxes,
+                    txts=[entry["text"] for entry in detector_lines],
+                    scores=[entry["confidence"] / 100 for entry in detector_lines],
+                )
+
+            def text_rec(self, request):
+                return SimpleNamespace(
+                    txts=["?"] * len(request.img),
+                    scores=[0.99] * len(request.img),
+                )
+
+        from tracen_replay.vision import NeuralReader
+
+        reader = object.__new__(NeuralReader)
+        reader.np = np
+        reader.Image = Image
+        reader.ImageOps = ImageOps
+        reader.TextRecInput = lambda *, img: SimpleNamespace(img=img)
+        reader.engine = Engine()
+        reader.models = {}
+        reader.fingerprint = "current-layout-test"
+        pane = Image.new("RGB", (810, 1080), (30, 40, 50))
+
+        with patch("tracen_replay.preview_recovery.recover_in_memory",
+                   side_effect=lambda raw, _pane, reader: raw):
+            raw = reader.read(pane)
+
+        self.assertTrue(raw["current_grid"])
+        self.assertEqual(
+            raw["current_state_layout"]["basis"],
+            "same_frame_current_stat_bar_labels_values_and_caps",
+        )
+        self.assertEqual(raw["current_state_layout"]["observed"]["stat_row_count"], 5)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -77,7 +77,7 @@ An annotation links to a sample only when their source timestamps match at milli
 ## Verify
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m unittest discover -s analyzer/tests -t analyzer -v
 ```
 
 The tests generate a tiny synthetic variable-frame-rate video locally. They check source-time offsets, evidence links, annotation provenance, wrong-source rejection, invalid media, output preservation, and failure cleanup. No gameplay recordings are required or downloaded. Temporary test files stay under ignored `.local/test-runs/`.
@@ -164,4 +164,4 @@ This evaluates sparse development examples, not every frame or event. It does
 not measure event recall, prove log occurrence identity, or establish performance
 on unseen recordings. Additional independent recordings remain necessary.
 
-Run extraction and accounting tests with `.venv\Scripts\python.exe -m unittest discover -s tests -v`. Default tests do not require gameplay recordings. Recognition on actual recordings still needs separate visual validation and independent sessions; unit-test success is not an OCR accuracy score.
+Run extraction and accounting tests with `.venv\Scripts\python.exe -m unittest discover -s analyzer/tests -t analyzer -v`. Default tests do not require gameplay recordings. Recognition on actual recordings still needs separate visual validation and independent sessions; unit-test success is not an OCR accuracy score.

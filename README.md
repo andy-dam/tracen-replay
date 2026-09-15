@@ -8,7 +8,7 @@ Tracen Replay is being developed to turn gameplay recordings into editable timel
 
 ## Run locally
 
-With Python 3.11+ and FFmpeg/ffprobe on `PATH`, run from the repository root:
+With Python 3.11+ and FFmpeg/ffprobe on `PATH`, install the analyzer (`pip install -e ./analyzer[vision]`; the Python package, its tests and tools live under `analyzer/`, the Go service under `cmd/` and `internal/`, the browser client under `web/`) and run from the repository root:
 
 ```powershell
 python -m tracen_replay "C:\path\to\recording.mp4" --start 25 --duration 57 --output .local/runs/pilot-01

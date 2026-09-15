@@ -63,6 +63,6 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - name: Install the package with the OCR runtime (CPU provider on Linux, DirectML build on Windows)
-        run: python -m pip install -e ".[vision]"
+        run: python -m pip install -e "./analyzer[vision]"
       - name: Unit and contract tests (tests that need local models or recordings skip themselves)
-        run: python -X utf8 -m unittest discover -s tests -p "test_*.py"
+        run: python -X utf8 -m unittest discover -s analyzer/tests -t analyzer -p "test_*.py"

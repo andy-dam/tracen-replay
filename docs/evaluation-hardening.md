@@ -81,23 +81,23 @@ Arithmetic closure does not independently verify every effect. State-derived gai
 
 ## Reproduction
 
-Run `.venv/Scripts/python.exe -m unittest discover -s tests -q` from the repository root.
+Run `.venv/Scripts/python.exe -m unittest discover -s analyzer/tests -t analyzer -q` from the repository root.
 
 The local artifact root is `.local/evaluation-hardening-v1/`. Final reports are `final/{recording}-report.json`; final comparisons are `final/{recording}-comparison-v3.json`. `final/integrity-audit.json` binds their hashes and reference inputs. Recording names are `v1`, `independent-01` and `independent-02`.
 
 Reproduce a comparison or integrity audit into a new output file:
 
 ```powershell
-.venv/Scripts/python.exe scripts/compare_hardening_reports.py --before .local/evaluation-hardening-v1/before/.local/full-recording/v1/go-integration-replay-v3/candidate-report.json --after .local/evaluation-hardening-v1/final/v1-report.json --corpus .local/evaluation-hardening-v1/v1-corpus.json --output .local/evaluation-hardening-v1/v1-comparison-recheck.json
-.venv/Scripts/python.exe scripts/audit_evaluation_hardening.py --output .local/evaluation-hardening-v1/integrity-recheck.json
+.venv/Scripts/python.exe analyzer/lab/compare_hardening_reports.py --before .local/evaluation-hardening-v1/before/.local/full-recording/v1/go-integration-replay-v3/candidate-report.json --after .local/evaluation-hardening-v1/final/v1-report.json --corpus .local/evaluation-hardening-v1/v1-corpus.json --output .local/evaluation-hardening-v1/v1-comparison-recheck.json
+.venv/Scripts/python.exe analyzer/lab/audit_evaluation_hardening.py --output .local/evaluation-hardening-v1/integrity-recheck.json
 ```
 
-`scripts/evaluate_observations.py` grades one reference/report pair. `scripts/import_baseline_adjudications.py` converts historical source-QA records into overlays. `scripts/refresh_causal_accounting.py` refreshes only the derived accounting view.
+`analyzer/lab/evaluate_observations.py` grades one reference/report pair. `analyzer/lab/import_baseline_adjudications.py` converts historical source-QA records into overlays. `analyzer/tools/refresh_causal_accounting.py` refreshes only the derived accounting view.
 
-`scripts/replay_cached_recording.py` reparses source-bound OCR and refinements, merges configured inspections and reconstructs a report into a new directory. It checks the video hash and forbids new OCR. Use `{recording}-replay-config.json` for the first two recordings and `independent-02-replay-config-v3.json` for the third:
+`analyzer/tools/replay_cached_recording.py` reparses source-bound OCR and refinements, merges configured inspections and reconstructs a report into a new directory. It checks the video hash and forbids new OCR. Use `{recording}-replay-config.json` for the first two recordings and `independent-02-replay-config-v3.json` for the third:
 
 ```powershell
-.venv/Scripts/python.exe scripts/replay_cached_recording.py .local/evaluation-hardening-v1/independent-02-replay-config-v3.json --output .local/evaluation-hardening-v1/third-full-cache-recheck
+.venv/Scripts/python.exe analyzer/tools/replay_cached_recording.py .local/evaluation-hardening-v1/independent-02-replay-config-v3.json --output .local/evaluation-hardening-v1/third-full-cache-recheck
 ```
 
 The third recording needs its training/native recovery manifests, relocated receipt cache, song/currency refinements and validated race-identity evidence. Omitting those historical inputs is not an equivalent comparison. The replay configurations make them explicit.

@@ -55,7 +55,7 @@ func run() error {
 	dataDir := flag.String("data", filepath.Join(".local", "tracen-data"), "directory for the database, job outputs and frame cache")
 	sourcesDir := flag.String("sources", "", "folder with the recordings the browser may choose from (required)")
 	python := flag.String("python", defaultPython(), "python interpreter with the analyzer dependencies")
-	workDir := flag.String("workdir", ".", "directory containing the tracen_replay package")
+	workDir := flag.String("workdir", "analyzer", "directory containing the tracen_replay package")
 	modelDir := flag.String("model-dir", filepath.Join(".local", "models", "rapidocr"), "OCR model directory")
 	ffmpeg := flag.String("ffmpeg", "ffmpeg", "ffmpeg executable for frame extraction")
 	workers := flag.Int("workers", 4, "OCR worker processes per job")

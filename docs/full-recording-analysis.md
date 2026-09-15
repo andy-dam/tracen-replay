@@ -17,7 +17,7 @@ The full-recording runner samples the source from beginning to end, then inspect
 Install Python, FFmpeg, and the vision extra:
 
 ```powershell
-python -m pip install -e ".[vision]"
+python -m pip install -e "./analyzer[vision]"
 ```
 
 The neural reader uses RapidOCR 3.9.2 with ONNX Runtime 1.29.0, PP-OCRv6 small text detection, and English PP-OCRv5 mobile recognition. The first invocation downloads model weights into `.local/models/rapidocr`. Subsequent recognition runs locally on the CPU. The video is never sent to an OCR service. No cloud account is required for this analysis stage.

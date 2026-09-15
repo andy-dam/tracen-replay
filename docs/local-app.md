@@ -10,7 +10,7 @@ leaves the machine; the server listens on the loopback interface only.
 - Go 1.25 (`go.mod` pins the toolchain; `GOTOOLCHAIN=local` avoids a download).
 - Node 22 with npm (builds the browser client once).
 - Python 3.12 or newer in a virtual environment with the analyzer installed:
-  `python -m pip install -e ".[vision]"` (RapidOCR, onnxruntime with DirectML on
+  `python -m pip install -e "./analyzer[vision]"` (RapidOCR, onnxruntime with DirectML on
   Windows, Pillow, psutil). The CPU provider is used when no supported GPU exists
   (`docs/analysis-job.md`, `TRACEN_REPLAY_OCR_DEVICE`).
 - ffmpeg on `PATH` (or named with `-ffmpeg`), used for frame extraction.
@@ -54,7 +54,7 @@ directory, so no user path is hardcoded):
 | `-addr` | `127.0.0.1:8765` | listen address; keep it on loopback |
 | `-data` | `.local/tracen-data` | database, job outputs (`jobs/<id>/`), frame cache |
 | `-python` | `.venv/Scripts/python.exe` (`.venv/bin/python` elsewhere) | interpreter with the analyzer installed |
-| `-workdir` | `.` | directory containing the `tracen_replay` package |
+| `-workdir` | `analyzer` | directory containing the `tracen_replay` package |
 | `-model-dir` | `.local/models/rapidocr` | OCR models |
 | `-ffmpeg` | `ffmpeg` | ffmpeg executable |
 | `-workers` | `4` | OCR worker processes per job |
@@ -67,7 +67,7 @@ Example with everything explicit, as a configuration you can keep in a script:
 
 ```powershell
 .\tracen.exe -addr 127.0.0.1:8765 -data .local\tracen-data -sources D:\recordings `
-  -python .venv\Scripts\python.exe -workdir . -model-dir .local\models\rapidocr `
+  -python .venv\Scripts\python.exe -workdir analyzer -model-dir .local\models\rapidocr `
   -workers 4 -dense-workers 2 -queue 2 -ocr-device auto
 ```
 

@@ -62,14 +62,14 @@ The integrity audit verifies the starting reports, unrelated existing work, curr
 Run tests:
 
 ```powershell
-.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m unittest discover -s analyzer/tests -t analyzer -q
 ```
 
 Prepare/reparse recovery observations and rebuild a report into new output paths:
 
 ```powershell
-.venv/Scripts/python.exe scripts/prepare_receipt_recovery.py .local/core-accounting-v1/before/v1-report.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/core-accounting-v1/v1-recheck-input --reparse-only
-.venv/Scripts/python.exe scripts/replay_core_accounting.py .local/core-accounting-v1/before/v1-report.json --observations .local/core-accounting-v1/v1-recheck-input/observations.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/core-accounting-v1/recheck/v1-report.json
+.venv/Scripts/python.exe analyzer/tools/prepare_receipt_recovery.py .local/core-accounting-v1/before/v1-report.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/core-accounting-v1/v1-recheck-input --reparse-only
+.venv/Scripts/python.exe analyzer/lab/replay_core_accounting.py .local/core-accounting-v1/before/v1-report.json --observations .local/core-accounting-v1/v1-recheck-input/observations.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/core-accounting-v1/recheck/v1-report.json
 ```
 
 Use `independent-01-replay-config.json` for the second recording and `independent-02-replay-config-v3.json` for the third. These rebuild from all preserved parsed observations plus source-checked recovery samples; they do not rerun OCR across entire videos. Omit `--reparse-only` to permit bounded new recovery samples. Full processing through `tracen_replay.full_recording` runs this recovery stage before final reconstruction.
@@ -77,5 +77,5 @@ Use `independent-01-replay-config.json` for the second recording and `independen
 To audit the three freshly rebuilt reports, supply their directory and a new audit-output path. Existing comparison files are checked for reproducibility; missing comparisons are written:
 
 ```powershell
-.venv/Scripts/python.exe scripts/audit_core_accounting.py --final .local/core-accounting-v1/recheck --output .local/core-accounting-v1/recheck/integrity-audit.json
+.venv/Scripts/python.exe analyzer/lab/audit_core_accounting.py --final .local/core-accounting-v1/recheck --output .local/core-accounting-v1/recheck/integrity-audit.json
 ```

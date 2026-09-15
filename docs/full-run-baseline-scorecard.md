@@ -38,7 +38,7 @@ Remaining evaluation limits include ungraded source-label gaps, obscured amounts
 Run the grading commands in the linked section scorecards first, then assemble these tables from their JSON outputs:
 
 ```powershell
-.venv/Scripts/python.exe scripts/build_baseline_scorecard.py .local/full-run-baseline-v1 --output .local/full-run-baseline-v1/combined-scorecard.json --markdown docs/full-run-baseline-scorecard.md
+.venv/Scripts/python.exe analyzer/lab/build_baseline_scorecard.py .local/full-run-baseline-v1 --output .local/full-run-baseline-v1/combined-scorecard.json --markdown docs/full-run-baseline-scorecard.md
 ```
 
 `combined-scorecard.json` records the input artifact hashes and metric definitions. The assembler verifies the frozen analyzer/report and source-hash bindings. It leaves incomplete sections pending and does not certify visual review completion.

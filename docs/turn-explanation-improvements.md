@@ -67,15 +67,15 @@ The local artifacts are under `.local/turn-explanations-v1/`. `before/` preserve
 Run the tests:
 
 ```powershell
-.venv/Scripts/python.exe -m unittest discover -s tests -q
+.venv/Scripts/python.exe -m unittest discover -s analyzer/tests -t analyzer -q
 ```
 
 Reproduce one report from existing caches into fresh paths:
 
 ```powershell
-.venv/Scripts/python.exe scripts/prepare_training_gain_recovery.py .local/turn-explanations-v1/before/v1-report.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/turn-explanations-v1/recheck/v1-training.json --reparse-only
-.venv/Scripts/python.exe scripts/prepare_boundary_state_recovery.py .local/turn-explanations-v1/before/v1-report.json --observations .local/turn-explanations-v1/recheck/v1-training.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/turn-explanations-v1/recheck/v1-combined.json --reparse-only
-.venv/Scripts/python.exe scripts/replay_turn_explanations.py .local/turn-explanations-v1/before/v1-report.json --observations .local/turn-explanations-v1/recheck/v1-combined.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/turn-explanations-v1/recheck/v1-report.json
+.venv/Scripts/python.exe analyzer/tools/prepare_training_gain_recovery.py .local/turn-explanations-v1/before/v1-report.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/turn-explanations-v1/recheck/v1-training.json --reparse-only
+.venv/Scripts/python.exe analyzer/tools/prepare_boundary_state_recovery.py .local/turn-explanations-v1/before/v1-report.json --observations .local/turn-explanations-v1/recheck/v1-training.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/turn-explanations-v1/recheck/v1-combined.json --reparse-only
+.venv/Scripts/python.exe analyzer/lab/replay_turn_explanations.py .local/turn-explanations-v1/before/v1-report.json --observations .local/turn-explanations-v1/recheck/v1-combined.json --config .local/evaluation-hardening-v1/v1-replay-config.json --output .local/turn-explanations-v1/recheck/v1-report.json
 ```
 
 Use `independent-01-replay-config.json` for the second recording and `independent-02-replay-config-v3.json` for the third. Omit `--reparse-only` to permit bounded new probes. These commands reconstruct the full report from preserved observations and selected additional source frames; they do not rerun OCR over every frame of the video.
@@ -83,5 +83,5 @@ Use `independent-01-replay-config.json` for the second recording and `independen
 After rebuilding all three reports in a new directory, audit them with:
 
 ```powershell
-.venv/Scripts/python.exe scripts/audit_turn_explanations.py .local/turn-explanations-v1/recheck --output .local/turn-explanations-v1/recheck/integrity-audit.json
+.venv/Scripts/python.exe analyzer/lab/audit_turn_explanations.py .local/turn-explanations-v1/recheck --output .local/turn-explanations-v1/recheck/integrity-audit.json
 ```
