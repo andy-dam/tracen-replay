@@ -5,6 +5,15 @@ This record covers the bounded analyzer milestone in
 It does not certify complete recognition of a run. The report retains
 `fully_verified: false` and incomplete event histories.
 
+For the latest analyzer improvements and remaining explanation gaps, see
+[turn explanation improvements](turn-explanation-improvements.md). The original
+acceptance counts and manifest below describe the earlier bounded milestone.
+
+A separate [full-run source evaluation](full-run-baseline.md) is complete, with
+remaining recognition gaps and evidence limits recorded in its scorecard and
+gap register. Its Go representation requirements supplement the bounded
+acceptance below; neither evaluation establishes exhaustive event recognition.
+
 The analyzer is accepted for its first local Go integration. All six items in
 the bounded checklist are complete. No Go application code is included here.
 The [acceptance manifest](first-go-acceptance.json) binds the implementation,
@@ -123,6 +132,10 @@ acceptance record governs the start of integration. Neither it nor worker
 success changes `fully_verified` or `complete_event_history`.
 
 ## Remaining work after integration
+
+The latest [core-accounting report](core-accounting-improvements.md) records the subsequent fixes, remaining field-comparison gaps and source checks. Its completion is a bounded analyzer milestone, not certification of complete run reconstruction. Go must also preserve field corroboration and distinguish numeric recovery requests, processed probes and accepted effects.
+
+The subsequent [evaluation and causal-accounting milestone](evaluation-hardening.md) adds a source-linked `causal_accounting` report view and strengthens recognition without changing this acceptance record's limited scope. The Go consumer must preserve direct/derived basis, missing endpoints, unresolved attribution and canonical contribution references; overlapping comparison views are not additional awards.
 
 Improve recognition of obscured names, optional inventory pages and concert
 totals; reduce missing boundary observations and unresolved transactions; and
