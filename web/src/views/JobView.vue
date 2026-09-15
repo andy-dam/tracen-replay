@@ -100,7 +100,7 @@ async function cancel() {
         <div class="row" style="margin-top: 8px">
           <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the report</a>
           <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker log</a>
-          <a class="btn quiet" href="#/">Back to your runs</a>
+          <a class="btn quiet" href="#/runs">Back to runs</a>
         </div>
       </template>
     </div>

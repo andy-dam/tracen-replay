@@ -159,10 +159,17 @@ async function analyze(sourceId: string) {
   }
 }
 
-async function remove(recording: Recording) {
-  if (!window.confirm(`Delete ${recording.name}? Reports made from it stay.`)) return;
+// Deleting a run removes the recording and every report made from it; a
+// run that is only a report (its recording already gone) removes the report.
+async function remove(run: Run) {
+  const reports = run.report ? [run.report, ...run.earlier] : [];
+  const what = run.recording
+    ? `Delete ${run.name}? The recording${reports.length ? ` and ${reports.length === 1 ? "its report" : `its ${reports.length} reports`}` : ""} will be removed.`
+    : `Delete the report for ${run.name}? Getting it back means analyzing the recording again.`;
+  if (!window.confirm(what)) return;
   try {
-    await api.deleteRecording(recording.id);
+    for (const r of reports) await api.deleteReport(r.id);
+    if (run.recording) await api.deleteRecording(run.recording.id);
     await load();
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : (e as Error).message;
@@ -184,16 +191,18 @@ onMounted(() => {
 });
 onUnmounted(() => window.clearInterval(timer));
 
-function status(run: Run): { text: string; cls: string } {
+// What a run is waiting on. A run whose report is ready says nothing here:
+// the Open button is the state.
+function status(run: Run): { text: string; cls: string } | null {
   if (run.job && active(run.job)) {
     const pct = run.job.ocr_total && run.job.stage === "ocr" ? ` ${Math.round((100 * (run.job.ocr_processed ?? 0)) / run.job.ocr_total)}%` : "";
     return { text: run.job.status === "queued" ? "Queued" : `Analyzing${pct}`, cls: "warn" };
   }
-  if (run.report) return { text: run.madeBy?.status === "completed_with_stage_failures" ? "Report ready, stages skipped" : "Report ready", cls: "ok" };
+  if (run.report) return run.madeBy?.status === "completed_with_stage_failures" ? { text: "Some stages were skipped", cls: "warn" } : null;
   if (run.job?.status === "failed") return { text: "Analysis failed", cls: "bad" };
   if (run.job?.status === "interrupted") return { text: "Analysis interrupted", cls: "bad" };
   if (run.job?.status === "cancelled") return { text: "Analysis cancelled", cls: "" };
-  return { text: "Uploaded", cls: "" };
+  return { text: "Not analyzed yet", cls: "" };
 }
 
 function meta(run: Run): string[] {
@@ -213,7 +222,7 @@ function hideBroken(e: Event) {
 <template>
   <div class="page-head">
     <div>
-      <h1>Your runs</h1>
+      <h1>Runs</h1>
       <p>Upload a career recording, analyze it, open the report. One analysis runs at a time; a full career takes about 45 minutes.</p>
     </div>
   </div>
@@ -261,6 +270,7 @@ function hideBroken(e: Event) {
           </span>
           <span class="rf total"><b>{{ statTotal(facts[run.report.id]) }}</b><small>total</small></span>
         </div>
+        <a v-if="run.report && facts[run.report.id]?.toCheck" class="run-review" :href="`#/reports/${encodeURIComponent(run.report.id)}`">{{ facts[run.report.id].toCheck }} turn{{ facts[run.report.id].toCheck === 1 ? "" : "s" }} to review</a>
         <div v-if="run.earlier.length" class="run-earlier">
           <button class="linkish" @click="opened[run.key] = !opened[run.key]">{{ opened[run.key] ? "Hide" : "Show" }} {{ run.earlier.length }} earlier {{ run.earlier.length === 1 ? "analysis" : "analyses" }}</button>
           <ul v-if="opened[run.key]">
@@ -272,19 +282,18 @@ function hideBroken(e: Event) {
         </div>
       </div>
       <div class="run-side">
-        <span class="pill" :class="[status(run).cls, { live: run.job && active(run.job) }]">{{ status(run).text }}</span>
-        <span v-if="run.report && facts[run.report.id]?.toCheck" class="pill warn">{{ facts[run.report.id].toCheck }} to review</span>
+        <span v-if="status(run)" class="run-state" :class="[status(run)!.cls, { live: run.job && active(run.job) }]">{{ status(run)!.text }}</span>
         <div class="run-actions">
           <a v-if="run.report" class="btn small primary" :href="`#/reports/${encodeURIComponent(run.report.id)}`">Open</a>
           <template v-if="run.job && active(run.job)">
             <a class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Progress</a>
-            <button class="btn small quiet" @click="cancel(run.job.id)">Cancel</button>
+            <button class="btn small" @click="cancel(run.job.id)">Cancel</button>
           </template>
           <template v-else>
             <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze</button>
             <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
-            <button v-if="run.report && run.sourceId" class="btn small quiet" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze again</button>
-            <button v-if="run.recording" class="btn small quiet danger" @click="remove(run.recording)">Delete</button>
+            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze again</button>
+            <button v-if="run.recording || run.report" class="btn small danger" @click="remove(run)">Delete</button>
           </template>
         </div>
       </div>

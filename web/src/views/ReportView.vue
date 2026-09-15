@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { api, type Correction, type Entry, type Summary, type Turn, type TurnSummary, type Verification } from "../api";
+import { replaceHash } from "../route";
 import { clock, PERFORMANCE_FIELDS, statusText, when } from "../format";
 import { entryWarnings, turnWarnings } from "../warnings";
 import Timeline from "../components/Timeline.vue";
@@ -129,7 +130,7 @@ function select(id: string, ms?: number | null) {
     }
     pendingSeek = ms;
   }
-  window.location.hash = `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(id)}`;
+  replaceHash(`#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(id)}`);
   const replay = document.querySelector(".replay");
   if (replay && replay.getBoundingClientRect().top < 0) replay.scrollIntoView({ block: "start", behavior: "smooth" });
 }
@@ -150,7 +151,7 @@ function onVideoTime(ms: number) {
   const t = turnAt(ms);
   if (!t || t.id === current.value) return;
   followingVideo = true;
-  window.location.hash = `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(t.id)}`;
+  replaceHash(`#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(t.id)}`);
 }
 
 function perfAfter(field: string): number | null {
@@ -214,8 +215,9 @@ const checkCount = computed(() => {
   <template v-if="summary">
     <header class="run-head">
       <div class="run-title">
+        <a class="back" href="#/runs">‹ Runs</a>
         <div class="overline">Career run</div>
-        <h1>{{ summary.report.source_name || summary.source.name }}</h1>
+        <h1 :title="summary.report.source_name || summary.source.name">{{ summary.report.source_name || summary.source.name }}</h1>
         <p class="muted">
           {{ when(summary.report.created_at) }} · {{ clock(summary.source.duration_ms) }} · {{ summary.turns }} turns
           <span v-if="explained.total"> · {{ explained.ok }} of {{ explained.total }} stat changes fully explained</span>

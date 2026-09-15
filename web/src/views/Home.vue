@@ -21,7 +21,7 @@ function start() {
       <h1>Your career run, turn by turn.</h1>
       <p class="lede">Upload a recording of a career. Get every turn's stats with their rank letters, every training, race, purchase and event, and the video at the moment each one happened.</p>
       <div class="row" style="gap: 10px; margin-top: 24px">
-        <a v-if="user" class="btn primary big" href="#/runs">Open your runs</a>
+        <a v-if="user" class="btn primary big" href="#/runs">Open runs</a>
         <button v-else class="btn primary big" @click="start">Get started</button>
         <a class="btn big" href="#tour">See what you get</a>
       </div>
@@ -98,10 +98,10 @@ function start() {
   </section>
 
   <section id="start" class="start">
-    <div v-if="user" class="start-card">
+    <div v-if="user" class="start-card signed">
       <h2>You are signed in</h2>
-      <p class="muted">Your uploads and reports are under Your runs.</p>
-      <a class="btn primary big" href="#/runs">Open your runs</a>
+      <p class="muted">Your uploads and reports are under Runs.</p>
+      <a class="btn primary big" href="#/runs">Open runs</a>
     </div>
     <template v-else>
       <div class="start-copy">

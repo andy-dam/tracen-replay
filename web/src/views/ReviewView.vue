@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { api, type Correction, type Entry, type Summary, type Turn, type TurnSummary, type Verification } from "../api";
+import { replaceHash } from "../route";
 import { clock, fullLabel, PERFORMANCE_FIELDS } from "../format";
 import { committedAction, entryWarnings, turnWarnings } from "../warnings";
 import CorrectionForm from "../components/CorrectionForm.vue";
@@ -90,8 +91,8 @@ function perfAfter(field: string): number | null {
         </p>
       </div>
       <nav class="review-nav">
-        <a class="btn small" :class="{ disabled: !prev }" :href="prev ? reviewHref(prev.id) : undefined">‹ Previous turn</a>
-        <a class="btn small" :class="{ disabled: !next }" :href="next ? reviewHref(next.id) : undefined">Next turn ›</a>
+        <button class="btn small" :disabled="!prev" @click="prev && replaceHash(reviewHref(prev.id))">‹ Previous turn</button>
+        <button class="btn small" :disabled="!next" @click="next && replaceHash(reviewHref(next.id))">Next turn ›</button>
       </nav>
     </header>
 

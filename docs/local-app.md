@@ -155,8 +155,8 @@ recording, each a different screen (a training turn's home screen, a support
 event with its stat popup and the same log line, a race result, the Grand
 Concert lesson menu) alternate with captures of the report (the replay row and
 the analytics, light and dark) under `web/public/shots/`; the sign-in card
-is at the bottom. "Your Runs" (`#/runs`) is the signed-in
-home:
+is at the bottom. "Runs" (`#/runs`) is the signed-in home, one row per
+recording:
 
 - **Upload.** Drop a recording (mp4, mov, webm or mkv) on the page or choose a
   file; the upload streams to `<data>/recordings/<user>/` with a progress bar
@@ -171,9 +171,15 @@ home:
   best run (the highest five-stat total at the end of a career) with its
   stat bar. Each finished run's row shows its final stats with rank letters
   and how many of its turns ask for a review.
-  Deleting an upload removes the file; reports already made from it stay.
-- **Reports.** Every report the account may open, newest first. Reports
-  imported with `tracen import` belong to no account and are visible to all.
+- **Runs.** A row is a recording with the latest report made from it;
+  reports from earlier analyses of the same recording are listed under the
+  row, not as rows of their own. "Analyze again" queues a new analysis and
+  the previous report moves into that list. "Delete" removes the recording
+  and every report made from it (`DELETE /api/reports/{id}` removes a
+  report with its corrections, cached frames and run directory). A report
+  whose recording is gone is a row by itself with only Open and Delete.
+  Reports imported with `tracen import` belong to no account, are visible
+  to all and cannot be deleted from the page.
 
 ## The report page
 
@@ -191,7 +197,9 @@ recorded; it never derives a value of its own. It reads like a replay:
   guts, wit) or marks a race, rest or outing; hatched cells are turns where no
   action was seen, dashed cells were not observed at all, and a dot marks a
   cell holding more than one observed window. Clicking a cell, `←`/`→`, or
-  the Previous/Next buttons select a turn. On narrow screens the scrubber
+  the Previous/Next buttons select a turn; the turn is in the address so it
+  can be linked to, but moving between turns replaces the history entry, so
+  the browser's Back button leaves the report rather than retracing turns. On narrow screens the scrubber
   wraps into one row per year.
 - **Recording.** A normal player (scrub bar, play, pause, volume, full
   screen) with one-second and one-frame steps beside it. Selecting a turn

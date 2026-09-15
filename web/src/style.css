@@ -332,7 +332,9 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 .run-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(520px, 660px); gap: 32px; align-items: end; padding: 26px 0 18px; }
 @media (max-width: 960px) { .run-head { grid-template-columns: 1fr; } }
 .run-title { min-width: 0; }
-.run-title h1 { overflow-wrap: anywhere; word-break: break-word; }
+.run-title .back { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--ink-2); text-decoration: none; }
+.run-title .back:hover { color: var(--green-ink); }
+.run-title h1 { font-size: clamp(22px, 2.4vw, 30px); overflow-wrap: anywhere; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .run-title p { margin: 6px 0 0; }
 .run-final-label { font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
 
@@ -469,10 +471,10 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 .kinds button.active { color: #fff; background: var(--lilac); }
 .kinds button.active .n { color: #ecebfb; }
 .entries { list-style: none; margin: 0; padding: 0; }
-.entry { display: grid; grid-template-columns: 54px 1fr; gap: 8px; padding: 7px 4px; margin: 0 -4px; border-bottom: 1px solid var(--line-2); border-radius: 8px; transition: background 140ms; }
+.entry { display: grid; grid-template-columns: 74px 1fr; gap: 8px; padding: 7px 4px; margin: 0 -4px; border-bottom: 1px solid var(--line-2); border-radius: 8px; transition: background 140ms; }
 .entry:hover { background: var(--bg-3); }
 .entry:last-child { border-bottom: 0; }
-.entry .t { font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
+.entry .t { display: flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
 .entry .t button { font: inherit; font-weight: 700; color: var(--green-ink); background: var(--green-soft); border: 0; border-radius: 999px; padding: 1px 7px; cursor: pointer; transition: background 140ms, color 140ms, transform 140ms var(--ease); }
 .entry .t button:hover { background: var(--green); color: #fff; transform: scale(1.06); }
 .entry-body { min-width: 0; }
@@ -625,8 +627,15 @@ table.sources td.down { color: var(--blue); font-weight: 700; }
 .run-name a { text-decoration: none; }
 .run-name a:hover { color: var(--green-ink); }
 .run-meta { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
-.run-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.run-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.run-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.run-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.run-state { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.run-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.run-state.warn { color: var(--warn-ink); }
+.run-state.bad { color: var(--stat-stamina); }
+.run-state.live::before { animation: pulse 1.6s ease-out infinite; }
+.run-review { display: inline-block; margin-top: 7px; font-size: 12.5px; font-weight: 700; color: var(--warn-ink); text-decoration: none; }
+.run-review:hover { text-decoration: underline; }
 .run-earlier { margin-top: 8px; font-size: 12.5px; }
 .run-earlier ul { list-style: none; margin: 6px 0 0; padding: 4px 0 0 10px; border-left: 2px solid var(--line); }
 .run-earlier li { padding: 2px 0; }
@@ -667,6 +676,8 @@ img.dark { display: none; }
 @media (max-width: 860px) { .start { grid-template-columns: 1fr; } }
 .start h2 { font-size: 26px; }
 .start-card { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.start-card.signed { display: grid; justify-items: start; gap: 6px; }
+.start-card.signed p { margin: 0 0 8px; }
 
 /* The review editor: the viewer explains a turn's gaps, checked live the
    way the server checks a saved correction. */
@@ -769,8 +780,8 @@ img.dark { display: none; }
 .fillin-summary .pill.off { background: #fde3df; color: #b4382a; }
 :root[data-theme="dark"] .fillin-summary .pill.off { background: #43211c; color: #f4a094; }
 .fillin-summary .pill.na { background: var(--bg-3); color: var(--ink-2); }
-.edit-btn { font: inherit; font-size: 12px; border: 0; background: transparent; color: var(--ink-3); cursor: pointer; padding: 0 4px; }
-.edit-btn:hover { color: var(--green-ink); }
-.edit-btn.edited { color: var(--green-ink); }
+.entry .t .edit-btn, .edit-btn { font: inherit; font-size: 12px; line-height: 1; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; padding: 3px 4px; }
+.entry .t .edit-btn:hover, .edit-btn:hover { background: var(--bg-3); color: var(--green-ink); transform: none; }
+.entry .t .edit-btn.edited, .edit-btn.edited { color: var(--green-ink); }
 .diffbox { border-color: var(--orange, #f0762f); }
 .tag.small { font-size: 10px; padding: 1px 6px; }
