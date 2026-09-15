@@ -305,8 +305,8 @@ def _cards(
     """Return a complete visible card set, preserving source order.
 
     A repeated full menu establishes its identity through slot completeness
-    and repetition at two distinct timestamps (``_advance_pending``), exactly
-    as the sealed v9-v12 implementations did; ordinary menu text carries no
+    and repetition at two distinct timestamps (``_advance_pending``), as
+    earlier implementations did; ordinary menu text carries no
     per-card confidence gate here.  The parser already separates high
     confidence ``offered_card_candidates`` from geometry-complete
     ``offered_card_slots``; requiring every slot to read above a fixed

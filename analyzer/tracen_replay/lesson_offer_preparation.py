@@ -1268,21 +1268,6 @@ def _parse_recording(value: str) -> tuple[str, dict[str, Any]]:
     return name, {"source_root": Path(raw_path), "base_folder": base_folder}
 
 
-def default_recordings(repository_root: str | Path | None = None) -> dict[str, dict[str, Any]]:
-    root = Path(repository_root or Path(__file__).resolve().parents[2])
-    return {
-        "v1": {"source_root": root / ".local/full-recording/v1", "base_folder": ""},
-        "independent-01": {
-            "source_root": root / ".local/full-recording/independent-01",
-            "base_folder": "",
-        },
-        "independent-02": {
-            "source_root": root / ".local/full-recording/independent-02",
-            "base_folder": "initial-baseline",
-        },
-    }
-
-
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1296,7 +1281,7 @@ def main(argv: list[str] | None = None) -> None:
         action="append",
         type=_parse_recording,
         metavar="NAME=PATH",
-        help="input cache (repeatable); defaults to v1, independent-01, independent-02",
+        help="input cache (repeatable, at least one): NAME=PATH, or NAME=PATH:BASE_FOLDER for a nested base folder",
     )
     parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
     parser.add_argument(
@@ -1334,12 +1319,11 @@ def main(argv: list[str] | None = None) -> None:
         help=f"maximum source timestamp gap for fallback occurrence grouping (default: {DEFAULT_OCCURRENCE_GAP_MS})",
     )
     args = parser.parse_args(argv)
-    if args.recording:
-        recordings = dict(args.recording)
-        # The CLI form binds source hashes from each capture manifest; it does
-        # not accept labels or expected amounts as configuration.
-    else:
-        recordings = default_recordings()
+    if not args.recording:
+        parser.error("give at least one --recording NAME=PATH")
+    # The CLI form binds source hashes from each capture manifest; it does
+    # not accept labels or expected amounts as configuration.
+    recordings = dict(args.recording)
     summary = prepare_all(
         recordings,
         args.output,
@@ -1365,7 +1349,6 @@ __all__ = [
     "DEFAULT_MAX_OCR_CROPS",
     "DEFAULT_MAX_OCR_BATCHES",
     "LessonOfferPreparationError",
-    "default_recordings",
     "discover",
     "group_lesson_offer_candidates",
     "select_lesson_offer_occurrences",

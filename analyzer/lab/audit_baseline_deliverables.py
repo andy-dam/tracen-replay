@@ -77,7 +77,7 @@ def main():
          'unique_purchase_count':len(counts),'within_section_atom_reuse':[],
          'source_label_count':sum(x['source_label_count'] for x in state['sections']),
          'freeze':{'analyzer_files':state['analyzer_files_checked'],'report_sha256':state['report_sha256']},
-         'limitations':['Semantic completion is assessed in docs/full-run-baseline-audit.md.',
+         'limitations':['Semantic completion is assessed in the local evaluation records, not by this audit.',
                         'Link existence and hash integrity do not prove screenshot interpretations.',
                         'Purchase joins count completed batches once; component and acquisition effects are not additional purchases.']}
     (root/'deliverables-audit.json').write_text(json.dumps(out,indent=2)+'\n',encoding='utf-8')

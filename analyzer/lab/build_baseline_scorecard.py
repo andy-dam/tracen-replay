@@ -120,7 +120,7 @@ def build(root, repo):
         records.append(record)
     return {'report_sha256': state['report_sha256'], 'inputs_sha256': inputs,
             'sections': records, 'pending_sections': [x['section'] for x in records if 'pending' in x],
-            'review_completion': 'Not determined by this assembler; see docs/full-run-baseline-audit.md.',
+            'review_completion': 'Not determined by this assembler; see the local evaluation records.',
             'definitions': {
                 'action_kind_and_option': 'Committed action kind and selected training option; race name/placing where labeled. Does not require participant identity, training success metadata or exact calendar boundary.',
                 'training_success_field': 'Source-observed successful result supplied as success. Unknown predictions are abstentions, not assertions of failure.',
