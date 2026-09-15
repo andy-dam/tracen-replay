@@ -342,6 +342,24 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertEqual(turns[1]['window_kind'], 'unresolved_phase')
         self.assertEqual(turns[2]['calendar_value'], 1)
 
+    def test_the_phase_read_before_its_first_countdown_is_that_countdown_turn(self):
+        # The recording opens on Pre-Debut frames whose countdown is not yet
+        # legible; nothing is played before "11 turns to goal" appears.
+        source = report()
+        source['gameplay_tracking']['readings'] = [reading(100, 'Junior Year Pre-Debut'),
+            reading(300, 'Junior Year Pre-Debut'), reading(1000, 'Junior Year Pre-Debut', 11),
+            reading(1200, 'Junior Year Pre-Debut', 11), reading(3000, 'Junior Year Pre-Debut', 10),
+            reading(3200, 'Junior Year Pre-Debut', 10)]
+        source['gameplay_tracking']['turn_action_receipts'] = [dict(kind='training', source_timestamp_ms=2000)]
+        turns = build(source)['turns']
+        self.assertEqual([(t['window_kind'], t['calendar_value'], t['start_ms']) for t in turns],
+                         [('countdown_segment', 11, 100), ('countdown_segment', 10, 3000)])
+        self.assertEqual(turns[0]['action_status'], 'one_action')
+        # With something played before the countdown was read, the phase window stays its own turn.
+        source['gameplay_tracking']['turn_action_receipts'] = [dict(kind='training', source_timestamp_ms=500)]
+        turns = build(source)['turns']
+        self.assertEqual([t['window_kind'] for t in turns], ['unresolved_phase', 'countdown_segment', 'countdown_segment'])
+
     def test_skipped_calendar_dates_do_not_assign_gap_action_to_earlier_date(self):
         source = report()
         source['gameplay_tracking']['readings'] = [reading(100), reading(200),

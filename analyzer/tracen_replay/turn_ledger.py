@@ -173,7 +173,7 @@ def _race_name(row):
     return name.strip() if isinstance(name, str) and name.strip() else None
 
 
-def _windows(readings, duration):
+def _windows(readings, duration, action_times=()):
     """Use successive repeated calendar/countdown observations, not action count.
 
     The finale keeps one calendar label and one countdown for its three turns
@@ -250,7 +250,26 @@ def _windows(readings, duration):
             kept[-1]['rows'].extend(group['rows'])
             continue
         kept.append(group)
-    confirmed = kept
+    # A phase read before its countdown (the first Pre-Debut frames, before
+    # "11 turns to goal" is legible) is the start of that first countdown
+    # turn, not a turn of its own, as long as nothing was played in it.
+    # A phase window that holds an action stays separate.
+    folded = []
+    for index, group in enumerate(kept):
+        key = group['key']
+        following = kept[index + 1] if index + 1 < len(kept) else None
+        if (key[1] is None and group.get('race_advance') is None and following is not None
+                and following['key'][0] == key[0] and following['key'][1] is not None
+                and following.get('race_advance') is None):
+            start = group['rows'][0]['source_timestamp_ms']
+            end = following['rows'][0]['source_timestamp_ms']
+            acted = (any(r.get('completed_action') or r.get('screen') in _ACTION_SCREENS for r in group['rows'])
+                     or any(start <= t < end for t in action_times))
+            if not acted:
+                following['rows'] = group['rows'] + following['rows']
+                continue
+        folded.append(group)
+    confirmed = folded
     windows = []
     for issue in rejected:
         issue['start_ms'] = issue['first_seen_ms']
@@ -339,7 +358,9 @@ def build(report):
                 raise ValueError('One evidence path cannot identify different source times')
             evidence_times[proof] = time
             evidence_rows[proof] = row
-    turns, calendar_issues = _windows(readings, duration)
+    turns, calendar_issues = _windows(readings, duration, action_times=[
+        _time(a.get('source_timestamp_ms'), duration, 'action') for a in data.get('turn_action_receipts', [])
+        if type(a.get('source_timestamp_ms')) is int])
     timeline = []
 
     def uncertain(start, end):

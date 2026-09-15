@@ -25,7 +25,11 @@ successive confirmed calendar or countdown observations
 - **`countdown_segment`**: a pre-debut phase identified only by its "N turns
   to goal" countdown, when the calendar text itself does not carry a date.
   A phase whose countdown was never read stays an **`unresolved_phase`**
-  instead of being split or numbered by guesswork.
+  instead of being split or numbered by guesswork. The exception is the
+  phase's opening frames: when the phase is read before its first countdown
+  is legible and nothing is played before that countdown appears, those
+  frames are the start of the first countdown turn, not a window of their
+  own.
 - **`phase_race_turn`**: a window whose scheduled race, not the player, ends
   it (see below).
 
