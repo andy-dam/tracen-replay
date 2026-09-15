@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import type { Correction, Entry, Turn, TurnSummary, Verification } from "../api";
 import { clock, repeatsYear, shortLabel, yearOf } from "../format";
-import { entryName, entryWarnings, turnWarnings } from "../warnings";
+import { committedAction, entryName, entryWarnings, turnWarnings } from "../warnings";
 import EntryList from "./EntryList.vue";
 
 // The turn's decision, its caveats and its log. The stats of the turn sit
@@ -38,17 +38,7 @@ const filled = computed(() => {
 
 // The decision of the turn, in the ledger's own words: the first committed
 // action that is not the scheduled race.
-const action = computed(() => {
-  const actions = props.entries.filter((e) => e.kind === "committed_action");
-  const chosen = actions.find((e) => e.action_kind !== "race") ?? actions[0];
-  if (!chosen) return null;
-  const d = (chosen.detail ?? {}) as Record<string, unknown>;
-  const name = [d.training_name, d.name, d.race_name, d.title].find((v) => typeof v === "string" && v) as string | undefined;
-  const option = chosen.training_option ?? (typeof d.training_option === "string" ? d.training_option : "");
-  let text = chosen.action_kind === "training" ? `${option ? option[0].toUpperCase() + option.slice(1) : "Unknown"} Training` : (chosen.action_kind ?? "action").replaceAll("_", " ");
-  if (name && chosen.action_kind !== "training") text = `${text[0].toUpperCase() + text.slice(1)}: ${name}`;
-  return { text, ms: chosen.first_seen_ms, more: actions.length - 1, option: chosen.action_kind === 'training' ? option : '', kind: chosen.action_kind ?? '' };
-});
+const action = computed(() => committedAction(props.entries));
 
 // The caveats of this window: the turn's own, then each flagged entry.
 // Collapsed to three lines until asked.
@@ -85,19 +75,19 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
         </p>
       </div>
       <div class="turn-action" :class="[{ none: !action }, action?.option ? 'opt-' + action.option : '', action?.kind && action.kind !== 'training' ? 'kind-' + action.kind : '']">
-        <template v-if="action">
-          <span class="ta-label">Chose</span>
+        <template v-if="filled && correction?.action">
+          <span class="ta-label">Played</span>
+          <span class="strong">{{ filled.text.split(" · ")[0] }}</span>
+          <span class="muted small">{{ action ? `you corrected the report's "${action.text}"` : "filled in by you" }}<template v-if="filled.state === 'ok'"> · adds up</template><template v-else-if="filled.state === 'off'"> · does not add up</template></span>
+        </template>
+        <template v-else-if="action">
+          <span class="ta-label">Played</span>
           <button class="linkish strong" :disabled="action.ms === null" @click="action.ms !== null && emit('seek', action.ms)">{{ action.text }}</button>
           <span v-if="action.more > 0" class="muted small">and {{ action.more }} more action{{ action.more === 1 ? "" : "s" }}</span>
         </template>
-        <template v-else-if="filled && correction?.action">
-          <span class="ta-label">Filled in</span>
-          <span class="strong">{{ filled.text.split(" · ")[0] }}</span>
-          <span class="muted small">{{ filled.state === "ok" ? "verified against the next turn" : filled.state === "off" ? "does not add up" : "not checkable" }}</span>
-        </template>
         <template v-else>
-          <span class="ta-label">Chose</span>
-          <span class="muted">{{ summaryTurn && !summaryTurn.expects_one_action ? "no decision expected in this window" : "no action was seen in this window" }}</span>
+          <span class="ta-label">Played</span>
+          <span class="muted">not seen by the report · <a :href="reviewHref">say what you played</a></span>
         </template>
       </div>
     </div>
@@ -106,19 +96,19 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
       <div class="review-cta" :class="filled ? filled.state : warnings.serious || differences.length ? 'needs' : 'clear'">
         <div class="review-cta-text">
           <template v-if="filled">
-            <b><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Reviewed · adds up" : filled.state === "off" ? "Reviewed · does not add up" : "Reviewed · not checkable" }}</span></b>
+            <b><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Saved · adds up" : filled.state === "off" ? "Saved · doesn't add up yet" : "Saved" }}</span></b>
             <span class="small">{{ filled.text }}</span>
           </template>
-          <template v-else-if="differences.length || warnings.serious">
-            <b>{{ differences.length ? `${differences.length} stat gap${differences.length === 1 ? "" : "s"}` : "" }}{{ differences.length && warnings.items.length ? " · " : "" }}{{ warnings.items.length ? `${warnings.items.length} flagged event${warnings.items.length === 1 ? "" : "s"}` : "" }}</b>
-            <span class="small muted">Open the review to see what each one means and how to settle it, with the recording beside you.</span>
+          <template v-else-if="differences.length || warnings.serious || !action">
+            <b>{{ [differences.length ? `${differences.length} number${differences.length === 1 ? "" : "s"} that don't add up` : "", warnings.items.length ? `${warnings.items.length} line${warnings.items.length === 1 ? "" : "s"} to check` : "", !action ? "what was played is missing" : ""].filter(Boolean).join(" · ") }}</b>
+            <span class="small muted">The check screen shows what each one means and asks you plain questions, with the recording beside you.</span>
           </template>
           <template v-else>
-            <b>Nothing flagged in this turn</b>
-            <span class="small muted">You can still correct an amount or add an event the report missed.</span>
+            <b>Nothing to check in this turn</b>
+            <span class="small muted">You can still fix a number, say what was played, or add something the report missed.</span>
           </template>
         </div>
-        <a class="btn" :class="filled ? '' : 'primary'" :href="reviewHref">{{ filled ? "Edit review" : "Review this turn" }}</a>
+        <a class="btn" :class="filled ? '' : 'primary'" :href="reviewHref">{{ filled ? "Edit my check" : "Check this turn" }}</a>
       </div>
       <div v-if="differences.length" class="warnbox diffbox">
         <b>Differences Between Turns <span class="muted small" style="font-weight: 700">{{ differences.length }}</span></b>

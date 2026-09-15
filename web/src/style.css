@@ -429,6 +429,7 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 .steps-strip li.done b { background: var(--green); color: #fff; }
 .steps-strip li.off { opacity: 0.55; }
 @media (max-width: 640px) { .steps-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.gap-q { margin: 8px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--ink); }
 .gap-how { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--bg-2); border: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-2); }
 .advice { margin: 6px 0 0; padding: 0 0 0 16px; font-size: 12.5px; color: var(--ink-2); display: grid; gap: 3px; }
 .advice li::marker { color: var(--pink); }

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { api, type Correction, type Entry, type Summary, type Turn, type TurnSummary, type Verification } from "../api";
 import { clock, fullLabel, PERFORMANCE_FIELDS } from "../format";
-import { entryWarnings, turnWarnings } from "../warnings";
+import { committedAction, entryWarnings, turnWarnings } from "../warnings";
 import CorrectionForm from "../components/CorrectionForm.vue";
 import StatBar from "../components/StatBar.vue";
 import VideoPanel from "../components/VideoPanel.vue";
@@ -24,7 +24,8 @@ const summaryTurn = computed(() => turns.value.find((t) => t.id === props.turnId
 const index = computed(() => turns.value.findIndex((t) => t.id === props.turnId));
 const prev = computed(() => (index.value > 0 ? turns.value[index.value - 1] : null));
 const next = computed(() => (index.value >= 0 && index.value < turns.value.length - 1 ? turns.value[index.value + 1] : null));
-const hasAction = computed(() => entries.value.some((e) => e.kind === "committed_action"));
+const reportAction = computed(() => committedAction(entries.value));
+const hasAction = computed(() => reportAction.value !== null);
 const reportHref = computed(() => `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(props.turnId)}`);
 const reviewHref = (id: string) => `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(id)}/review`;
 
@@ -34,7 +35,7 @@ const asks = computed(() => {
   const gaps = (t?.differences ?? []).length;
   const flaggedEntries = entries.value.filter((e) => entryWarnings(e).some((w) => w.serious)).length;
   const notes = entries.value.filter((e) => entryWarnings(e).length && !entryWarnings(e).some((w) => w.serious)).length;
-  const noAction = t?.action_status === "missing_action" && t.expects_one_action;
+  const noAction = !hasAction.value;
   return { gaps, flaggedEntries, notes, noAction, turnNotes: t ? turnWarnings(t) : [] };
 });
 
@@ -79,7 +80,7 @@ function perfAfter(field: string): number | null {
       <div>
         <a class="back" :href="reportHref">‹ Back to the report</a>
         <div class="row" style="gap: 8px; margin-top: 8px">
-          <span class="overline" style="margin: 0">Review a turn</span>
+          <span class="overline" style="margin: 0">Check a turn</span>
           <span v-if="turn.scheduled_race" class="tag pink">{{ turn.scheduled_race }}</span>
         </div>
         <h1>{{ fullLabel(turn.label, turn.phase) }}</h1>
@@ -106,28 +107,28 @@ function perfAfter(field: string): number | null {
           </span>
         </div>
         <div class="howto">
-          <b>How reviewing works</b>
+          <b>How this works</b>
           <ol>
-            <li>Each gap below says what changed and where to look. Press its ▶ chip to seek the recording there.</li>
-            <li>Watch what happened, then pick how to explain it: it belongs to an event already listed, the report missed an event, or you can only give the number.</li>
-            <li>Flagged events carry a note on what the flag means and what to check. Mark them Reviewed once you have.</li>
-            <li>The verdict at the top updates as you go. Save when it adds up, or save anyway to keep your notes.</li>
+            <li>The report read your recording. Where a number doesn't add up between two turns, it asks you to look.</li>
+            <li>Press a ▶ chip to jump the video there and watch what happened. Then answer the question under it.</li>
+            <li>Say what you played this turn if the report didn't see it, tick the lines that look right, and add anything the game showed that isn't in the log.</li>
+            <li>The badge at the top turns green when it all adds up. Save when you're done; you can always come back.</li>
           </ol>
         </div>
       </aside>
 
       <section class="review-main">
         <div class="review-asks">
-          <span v-if="asks.gaps" class="ask warn">{{ asks.gaps }} stat gap{{ asks.gaps === 1 ? "" : "s" }} to explain</span>
-          <span v-if="asks.noAction" class="ask warn">no action seen: fill it in</span>
-          <span v-if="asks.flaggedEntries" class="ask warn">{{ asks.flaggedEntries }} flagged event{{ asks.flaggedEntries === 1 ? "" : "s" }}</span>
+          <span v-if="asks.gaps" class="ask warn">{{ asks.gaps }} number{{ asks.gaps === 1 ? "" : "s" }} that don't add up</span>
+          <span v-if="asks.noAction" class="ask warn">what was played is missing</span>
+          <span v-if="asks.flaggedEntries" class="ask warn">{{ asks.flaggedEntries }} line{{ asks.flaggedEntries === 1 ? "" : "s" }} to check</span>
           <span v-if="asks.notes" class="ask">{{ asks.notes }} note{{ asks.notes === 1 ? "" : "s" }}</span>
-          <span v-if="!asks.gaps && !asks.noAction && !asks.flaggedEntries" class="ask ok">Nothing is flagged in this turn</span>
+          <span v-if="!asks.gaps && !asks.noAction && !asks.flaggedEntries" class="ask ok">Nothing to check in this turn</span>
         </div>
         <ul v-if="asks.turnNotes.length" class="review-turn-notes">
           <li v-for="(w, i) in asks.turnNotes" :key="i" :class="{ serious: w.serious }">{{ w.text }}</li>
         </ul>
-        <CorrectionForm :report-id="reportId" :turn="turn" :summary-turn="summaryTurn" :entries="entries" :has-action="hasAction" :correction="correction" :verification="verification" :video-ms="seekMs" guided @saved="loadTurn" @seek="(ms) => (seekMs = ms)" />
+        <CorrectionForm :report-id="reportId" :turn="turn" :summary-turn="summaryTurn" :entries="entries" :has-action="hasAction" :report-action="reportAction" :correction="correction" :verification="verification" :video-ms="seekMs" guided @saved="loadTurn" @seek="(ms) => (seekMs = ms)" />
       </section>
     </div>
   </template>

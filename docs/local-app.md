@@ -124,9 +124,10 @@ and what to do about it. The editor's parts:
   points), the card says so and offers "Looks right" beside the three ways;
   a viewer's own amount replaces the worked-out one. A card turns green once
   the live check covers it.
-- **This turn's action**, when the report saw none or got it wrong: a
-  segmented choice of training, rest, outing or race, with the training's
-  option and gains.
+- **What did you play this turn?** On every turn, including the pre-debut
+  ones: the report's own reading is shown and preselected when it saw one,
+  and the viewer can pick training (with its option and gains), rest, outing
+  or race instead, or fill it in when the report saw nothing.
 - **Events in this turn.** Flagged events by default, every event with an
   amount on request. Each amount is a chip with a stepper; a stat can be
   added or removed; "Reviewed" and "Not real" are toggles; a note folds out.

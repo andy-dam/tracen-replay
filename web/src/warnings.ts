@@ -90,6 +90,19 @@ export function gapAdvice(field: string, amount: number, workedOut: boolean, win
   return `${what}${where}, and no event in the report accounts for it. Seek there and watch for what changed it. If it was one of the events listed below, choose Belongs to an event. If the game showed something the report has no entry for, choose Missed event. If you can read the number but cannot tell which event, choose Enter amount.`;
 }
 
+/** The turn's decision as the report read it: the first committed action that is not the scheduled race. */
+export function committedAction(entries: Entry[]): { text: string; ms: number | null; more: number; option: string; kind: string } | null {
+  const actions = entries.filter((e) => e.kind === "committed_action");
+  const chosen = actions.find((e) => e.action_kind !== "race") ?? actions[0];
+  if (!chosen) return null;
+  const d = (chosen.detail ?? {}) as Detail;
+  const name = [d.training_name, d.name, d.race_name, d.title].find((v) => typeof v === "string" && v) as string | undefined;
+  const option = chosen.training_option ?? (typeof d.training_option === "string" ? d.training_option : "");
+  let text = chosen.action_kind === "training" ? `${option ? option[0].toUpperCase() + option.slice(1) : "Unknown"} Training` : (chosen.action_kind ?? "action").replaceAll("_", " ");
+  if (name && chosen.action_kind !== "training") text = `${text[0].toUpperCase() + text.slice(1)}: ${name}`;
+  return { text, ms: chosen.first_seen_ms, more: actions.length - 1, option: chosen.action_kind === "training" ? option : "", kind: chosen.action_kind ?? "" };
+}
+
 export function entryName(e: Entry): string {
   const d = (e.detail ?? {}) as Detail;
   const name = [d.training_name, d.name, d.race_name, d.title].find((v) => typeof v === "string" && v) as string | undefined;
