@@ -8,7 +8,10 @@ they are: every test names a root here by what it is, not by where it sits.
 
 ``TRACEN_LOCAL_EVIDENCE`` overrides the base directory (default ``.local``,
 resolved against the current working directory, which the suite runs from
-the repository root).
+the repository root). Evidence roots stay relative, as the analyzer's own
+inputs are; only ``scratch()`` directories are absolute, because tests create
+symbolic links there and a link whose target is a relative path resolves
+against the link's own directory, not the working directory.
 """
 import os
 import unittest
@@ -107,7 +110,11 @@ def needs(key: str, *parts: str):
 
 
 def scratch(name: str) -> Path:
-    """A writable directory for a test's own outputs under the local base."""
-    path = BASE / "test-runs" / name
+    """A writable directory for a test's own outputs under the local base.
+
+    The path is absolute so that symbolic links a test makes inside it point
+    where the test means them to.
+    """
+    path = (BASE / "test-runs" / name).resolve()
     path.mkdir(parents=True, exist_ok=True)
     return path
