@@ -110,9 +110,10 @@ review editor with four parts:
   already worked it out onto that owner and says so ("worked out from the
   difference between turns onto the training / the event whose number was
   cut off / the lesson"); it is an estimate the viewer can replace. The
-  owners are the turn's only training whose result was not read, the one
-  receipt that named the stat but lost its number, or the one lesson whose
-  cost was not observed;
+  owners are the turn's only training whose result was not read (or whose
+  badge was read clipped, so the shown amount completes the read digits), the
+  one receipt that named the stat but lost its number, the one lesson whose
+  cost was not observed, or the one race of a race turn for its skill points;
 - the turn's action, when the report saw none or got it wrong;
 - the report's own entries: every amount is editable, an entry can be
   removed from the arithmetic, and a flagged entry can be marked reviewed;

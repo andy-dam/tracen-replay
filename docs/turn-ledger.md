@@ -28,7 +28,11 @@ with JSON pointers. Consumers resolve those pointers in the same report.
   the race that ends them and carry `scheduled_race`; the race is counted as
   `scheduled_race_actions`, not as the turn's decision, so a trained finale
   turn has `one_action`. The screens after the Finals carry the label but no
-  training, so they stay in the Finals window.
+  training, so they stay in the Finals window. The last pre-debut countdown
+  turn ("1 turns to goal") works the same way when its window holds both the
+  player's decision and the goal race: the race becomes `scheduled_race` and
+  the window a `phase_race_turn`; when the countdown was confirmed only after
+  the training, the race stands alone in the window and is its one action.
 - A window's committed training action carries `identity_basis` in its receipt:
   `observed_gains` (its stat gains were read), `repeated_result_frames` (its
   result screen was read on two or more frames) or `repeated_training_name`
