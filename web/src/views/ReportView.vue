@@ -36,6 +36,7 @@ let pendingSeek: number | null = null;
 let followingVideo = false;
 
 const current = computed(() => props.turnId || turns.value[0]?.id || "");
+const summaryTurn = computed(() => turns.value.find((t) => t.id === current.value) ?? null);
 
 async function loadTurn(id: string) {
   if (!id) return;
@@ -235,8 +236,10 @@ const checkCount = computed(() => {
         <VideoPanel :report-id="reportId" :ms="seekMs" :available="summary.video_available" :duration-ms="summary.source.duration_ms" @time="onVideoTime" />
         <div v-if="turn" class="under-video">
           <h3 class="pane-h" style="margin-top: 8px">Stats at the Start of the Turn</h3>
-          <p v-if="!turn.opening.stats" class="muted small">No opening observation for this turn. Unknown values are not zeros.</p>
-          <StatBar :stats="turn.opening.stats" :after="turn.accounting.stats" :verified="verifiedFields" compact />
+          <p v-if="!turn.opening.stats && summaryTurn?.opening_estimate" class="muted small">The stat bar was not on screen this turn (a race day). Values carried from the previous turn's entries, marked ≈.</p>
+          <p v-else-if="!turn.opening.stats" class="muted small">No opening observation for this turn. Unknown values are not zeros.</p>
+          <StatBar v-if="!turn.opening.stats && summaryTurn?.opening_estimate" :stats="summaryTurn.opening_estimate.stats" carried compact />
+          <StatBar v-else :stats="turn.opening.stats" :after="turn.accounting.stats" :verified="verifiedFields" compact />
           <div v-if="turn.opening.performance || turn.accounting.performance" class="perf">
             <span v-for="f in PERFORMANCE_FIELDS" :key="f" class="perf-chip" :class="f" :title="`${f}: ${perf(f) ?? '?'}${perfAfter(f) !== null ? ' → ' + perfAfter(f) : ''}${turn.accounting.performance?.[f] ? ' · ' + statusText(turn.accounting.performance[f].status) : ''}`">
               <b>{{ f[0].toUpperCase() + f.slice(1, 2) }}</b><span class="pv">{{ perf(f) ?? "?" }}</span><template v-if="perfAfter(f) !== null"><span class="pa">→{{ perfAfter(f) }}</span><em v-if="perfDelta(f)" :class="perfDelta(f)! > 0 ? 'up' : 'down'">{{ perfDelta(f)! > 0 ? "+" : "" }}{{ perfDelta(f) }}</em></template>

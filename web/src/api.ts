@@ -90,6 +90,9 @@ export interface TurnSummary {
   action_kind?: string;
   training_option?: string;
   opening: Opening;
+  /** The previous turn's opening plus what its entries explain, when this turn's opening was never on screen. */
+  opening_estimate?: Opening;
+  opening_estimate_basis?: string;
 }
 
 export interface Turn extends Omit<TurnSummary, "entry_count" | "opening_observed" | "accounting_status_counts" | "action_kind" | "training_option"> {

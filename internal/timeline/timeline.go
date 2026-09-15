@@ -264,6 +264,32 @@ type TurnSummary struct {
 	// Opening carries the observed opening values so a stat chart across
 	// turns needs no per-turn requests.
 	Opening Opening `json:"opening"`
+	// OpeningEstimate stands in when the turn's opening was never on screen
+	// (a race-day hub shows no stat bar): the previous turn's observed
+	// opening plus what its entries explain. It is an estimate to display as
+	// such, never an observation; OpeningEstimateBasis says where it came from.
+	OpeningEstimate      *Opening `json:"opening_estimate,omitempty"`
+	OpeningEstimateBasis string   `json:"opening_estimate_basis,omitempty"`
+}
+
+// carriedOpening is the previous turn's opening plus the direct and derived
+// changes its accounting explains, per stat, when every stat has both; nil
+// otherwise. It never fills a field the previous turn did not observe.
+func carriedOpening(previous Turn) map[string]*int {
+	if previous.Opening.Stats == nil {
+		return nil
+	}
+	fields := previous.Accounting["stats"]
+	out := make(map[string]*int, len(previous.Opening.Stats))
+	for field, before := range previous.Opening.Stats {
+		acct, ok := fields[field]
+		if before == nil || !ok || acct.Direct == nil || acct.Derived == nil {
+			return nil
+		}
+		value := *before + *acct.Direct + *acct.Derived
+		out[field] = &value
+	}
+	return out
 }
 
 // TurnSummaries lists every turn with its entry count and the count of each
@@ -286,7 +312,7 @@ func (d *Document) TurnSummaries() []TurnSummary {
 		}
 	}
 	out := make([]TurnSummary, 0, len(d.Turns))
-	for _, turn := range d.Turns {
+	for index, turn := range d.Turns {
 		statuses := map[string]int{}
 		for _, fields := range turn.Accounting {
 			for _, field := range fields {
@@ -305,6 +331,12 @@ func (d *Document) TurnSummaries() []TurnSummary {
 			AccountingStatus: statuses, ActionKind: action.ActionKind, TrainingOption: action.TrainingOption,
 			Opening: turn.Opening,
 		})
+		if turn.Opening.Stats == nil && index > 0 {
+			if carried := carriedOpening(d.Turns[index-1]); carried != nil {
+				out[len(out)-1].OpeningEstimate = &Opening{Stats: carried}
+				out[len(out)-1].OpeningEstimateBasis = "carried_from_previous_turn"
+			}
+		}
 	}
 	return out
 }

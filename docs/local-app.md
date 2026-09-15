@@ -221,8 +221,11 @@ recorded; it never derives a value of its own. It reads like a replay:
   analysis stages and the entries outside every observed window are listed
   here too; those entries are never folded into a neighbouring turn.
 - **Stats across the run.** Below the replay, the opening value of each stat
-  at every turn as a wide line chart (a turn without an opening observation
-  breaks the line rather than being interpolated); clicking the chart opens
+  at every turn as a wide line chart. A turn whose opening was never on
+  screen (a race-day hub shows no stat bar) is drawn as a hollow point at the
+  value carried from the previous turn's entries, marked ≈ in the tooltip and
+  under the recording; a turn with neither breaks the line rather than being
+  interpolated. Clicking the chart opens
   the nearest turn. Beside it, each stat's first and last value, rank, gain
   and the number of turns that trained it.
 - **How the run was played.** Counted from the ledger only: turn choices

@@ -14,6 +14,8 @@ const props = defineProps<{
   compact?: boolean;
   // Fields the viewer filled in and the server verified against the next observed value.
   verified?: string[] | null;
+  // The values are carried from the previous turn's entries, not read on screen.
+  carried?: boolean;
 }>();
 
 const FIELDS = [...CORE_STATS, "skill_points"];
@@ -76,9 +78,9 @@ onUnmounted(() => {
   <div class="statbar" :class="{ compact }">
     <div v-for="f in FIELDS" :key="f" class="sb-cell" :class="f">
       <div class="sb-name">{{ STAT_NAMES[f] }}</div>
-      <div class="sb-body" :title="value(f) === null ? 'not observed' : String(value(f))">
+      <div class="sb-body" :title="value(f) === null ? 'not observed' : carried ? `about ${value(f)}, carried from the previous turn's entries` : String(value(f))">
         <RankBadge v-if="f !== 'skill_points'" :value="value(f)" :small="compact" />
-        <span class="sb-value" :class="{ unknown: value(f) === null }">{{ shown[f] ?? "?" }}</span>
+        <span class="sb-value" :class="{ unknown: value(f) === null, carried }">{{ carried && shown[f] !== null && shown[f] !== undefined ? "≈" : "" }}{{ shown[f] ?? "?" }}</span>
       </div>
       <div v-if="acct(f)" class="sb-after" :class="{ warn: isWarn(f) }" :title="statusText(acct(f)!.status)">
         <span v-if="acct(f)!.after !== null">→ {{ acct(f)!.after }}<span v-if="delta(f)" class="sb-delta" :class="delta(f)! > 0 ? 'up' : 'down'"> {{ delta(f)! > 0 ? "+" : "" }}{{ delta(f) }}</span></span>
