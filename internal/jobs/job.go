@@ -58,13 +58,13 @@ type Job struct {
 	SourceName   string                `json:"source_name"`
 	Status       Status                `json:"status"`
 	CreatedAt    time.Time             `json:"created_at"`
-	StartedAt    time.Time             `json:"started_at,omitempty"`
-	FinishedAt   time.Time             `json:"finished_at,omitempty"`
+	StartedAt    time.Time             `json:"started_at,omitzero"`
+	FinishedAt   time.Time             `json:"finished_at,omitzero"`
 	OutputDir    string                `json:"output_dir"`
 	LogPath      string                `json:"log_path,omitempty"`
 	PID          int                   `json:"pid,omitempty"`
 	Stage        string                `json:"stage,omitempty"`
-	StageAt      time.Time             `json:"stage_at,omitempty"`
+	StageAt      time.Time             `json:"stage_at,omitzero"`
 	OCRProcessed int                   `json:"ocr_processed,omitempty"`
 	OCRTotal     int                   `json:"ocr_total,omitempty"`
 	Error        *Failure              `json:"error,omitempty"`
@@ -151,10 +151,4 @@ type Source struct {
 	Name string `json:"name"`
 	Path string `json:"-"`
 	Size int64  `json:"size"`
-}
-
-// Sources resolves server-issued identifiers to recordings.
-type Sources interface {
-	List() ([]Source, error)
-	Resolve(id string) (Source, error)
 }
