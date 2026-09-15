@@ -3,26 +3,17 @@ import { computed, ref, watch } from "vue";
 import type { Correction, Entry, Turn, TurnSummary, Verification } from "../api";
 import { clock, repeatsYear, shortLabel, yearOf } from "../format";
 import { entryName, entryWarnings, turnWarnings } from "../warnings";
-import CorrectionForm from "./CorrectionForm.vue";
 import EntryList from "./EntryList.vue";
 
 // The turn's decision, its caveats and its log. The stats of the turn sit
 // under the recording, beside this pane.
 const props = defineProps<{ turn: Turn; entries: Entry[]; summaryTurn: TurnSummary | null; reportId: string; correction: Correction | null; verification: Verification | null; videoMs?: number | null }>();
-const emit = defineEmits<{ seek: [ms: number]; changed: []; reviewing: [open: boolean] }>();
-const focusEntry = ref<string | null>(null);
-function editEntry(id: string) {
-  focusEntry.value = id;
-  editing.value = true;
+const emit = defineEmits<{ seek: [ms: number]; changed: [] }>();
+// Reviewing happens on its own screen; the pane only points there.
+const reviewHref = computed(() => `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(props.turn.id)}/review`);
+function editEntry() {
+  window.location.hash = reviewHref.value;
 }
-
-// The viewer's own fill-in for this turn, and whether it adds up.
-const editing = ref(false);
-watch(editing, (open) => emit("reviewing", open), { immediate: true });
-watch(() => props.turn.id, () => {
-  editing.value = false;
-  focusEntry.value = null;
-});
 const differences = computed(() => props.summaryTurn?.differences ?? []);
 const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson", race: "race" };
 function ownerWord(owner?: string) {
@@ -112,17 +103,24 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
     </div>
 
     <div class="pane-scroll">
-      <div v-if="filled && !editing" class="fillin-summary">
-        <span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Filled in · adds up" : filled.state === "off" ? "Filled in · does not add up" : "Filled in · not checkable" }}</span>
-        <span>{{ filled.text }}</span>
-        <button class="linkish small" @click="editing = true">Edit</button>
+      <div class="review-cta" :class="filled ? filled.state : warnings.serious || differences.length ? 'needs' : 'clear'">
+        <div class="review-cta-text">
+          <template v-if="filled">
+            <b><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Reviewed · adds up" : filled.state === "off" ? "Reviewed · does not add up" : "Reviewed · not checkable" }}</span></b>
+            <span class="small">{{ filled.text }}</span>
+          </template>
+          <template v-else-if="differences.length || warnings.serious">
+            <b>{{ differences.length ? `${differences.length} stat gap${differences.length === 1 ? "" : "s"}` : "" }}{{ differences.length && warnings.items.length ? " · " : "" }}{{ warnings.items.length ? `${warnings.items.length} flagged event${warnings.items.length === 1 ? "" : "s"}` : "" }}</b>
+            <span class="small muted">Open the review to see what each one means and how to settle it, with the recording beside you.</span>
+          </template>
+          <template v-else>
+            <b>Nothing flagged in this turn</b>
+            <span class="small muted">You can still correct an amount or add an event the report missed.</span>
+          </template>
+        </div>
+        <a class="btn" :class="filled ? '' : 'primary'" :href="reviewHref">{{ filled ? "Edit review" : "Review this turn" }}</a>
       </div>
-      <div v-else-if="!editing" class="fillin-summary">
-        <button class="btn quiet small" @click="editing = true">Review This Turn</button>
-        <span class="muted small">Edit any event or amount, add what the report missed; it is checked against the next turn's stats.</span>
-      </div>
-      <CorrectionForm v-if="editing" :report-id="reportId" :turn="turn" :summary-turn="summaryTurn" :entries="entries" :has-action="!!action" :correction="correction" :verification="verification" :focus-entry="focusEntry" :video-ms="videoMs" @saved="emit('changed')" @close="editing = false" @seek="(ms) => emit('seek', ms)" />
-      <div v-if="differences.length && !editing" class="warnbox diffbox">
+      <div v-if="differences.length" class="warnbox diffbox">
         <b>Differences Between Turns <span class="muted small" style="font-weight: 700">{{ differences.length }}</span></b>
         <div v-for="d in differences" :key="d.channel + d.field" class="small">
           <b>{{ DIFF_LABEL[d.field] ?? d.field }} {{ d.amount > 0 ? '+' : '' }}{{ d.amount }}</b>

@@ -8,7 +8,8 @@ import EntryList from "./EntryList.vue";
 // The index of everything the report states with a caveat, grouped by turn.
 // Every line is a link: a turn line opens the turn, an entry line opens the
 // turn and seeks the recording to that entry.
-const props = defineProps<{ turns: TurnSummary[]; entries: Entry[]; unassigned: Entry[]; stageFailures: { stage: string; error: string }[] }>();
+const props = defineProps<{ reportId: string; turns: TurnSummary[]; entries: Entry[]; unassigned: Entry[]; stageFailures: { stage: string; error: string }[] }>();
+const reviewHref = (id: string) => `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(id)}/review`;
 const emit = defineEmits<{ select: [id: string, ms?: number | null]; seek: [ms: number] }>();
 const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson", race: "race" };
 const DIFF_LABEL: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", skill_points: "Skill Pts", dance: "Dance", passion: "Passion", vocal: "Vocal", visual: "Visual", composure: "Composure" };
@@ -72,6 +73,7 @@ const totals = computed(() => {
             <button class="linkish strong" @click="emit('select', g.turn.id)">{{ fullLabel(g.turn.label, g.turn.phase) }}</button>
             <span class="muted small">{{ clock(g.turn.start_ms) }}</span>
             <span v-if="g.serious" class="tag pink">check</span>
+            <a class="btn small" style="margin-left: auto" :href="reviewHref(g.turn.id)">Review</a>
           </div>
           <div v-if="g.notes.length" class="small" :class="g.serious ? 'warn-text' : 'muted'">{{ g.notes.join(" · ") }}</div>
           <ul v-if="g.items.length" class="check-items">

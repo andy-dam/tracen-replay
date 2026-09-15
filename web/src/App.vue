@@ -4,10 +4,11 @@ import { api, ApiError, type User } from "./api";
 import Home from "./views/Home.vue";
 import Runs from "./views/Runs.vue";
 import ReportView from "./views/ReportView.vue";
+import ReviewView from "./views/ReviewView.vue";
 import JobView from "./views/JobView.vue";
 import Logo from "./components/Logo.vue";
 
-// Hash routing keeps the client dependency-free: #/, #/reports/<id>/<turn>, #/jobs/<id>.
+// Hash routing keeps the client dependency-free: #/, #/reports/<id>/<turn>, #/reports/<id>/<turn>/review, #/jobs/<id>.
 const hash = ref(window.location.hash);
 const onHash = () => (hash.value = window.location.hash);
 onMounted(() => window.addEventListener("hashchange", onHash));
@@ -15,6 +16,7 @@ onUnmounted(() => window.removeEventListener("hashchange", onHash));
 
 const route = computed(() => {
   const parts = hash.value.replace(/^#\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "reports" && parts[1] && parts[2] && parts[3] === "review") return { name: "review", id: decodeURIComponent(parts[1]), turn: decodeURIComponent(parts[2]) };
   if (parts[0] === "reports" && parts[1]) return { name: "report", id: decodeURIComponent(parts[1]), turn: parts[2] ? decodeURIComponent(parts[2]) : "" };
   if (parts[0] === "jobs" && parts[1]) return { name: "job", id: decodeURIComponent(parts[1]), turn: "" };
   if (parts[0] === "runs") return { name: "runs", id: "", turn: "" };
@@ -106,6 +108,7 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
       <Home v-if="route.name === 'home' || !user" :user="user" @signed-in="signedIn" />
       <Runs v-else-if="route.name === 'runs'" />
       <ReportView v-else-if="route.name === 'report'" :report-id="route.id" :turn-id="route.turn" />
+      <ReviewView v-else-if="route.name === 'review'" :report-id="route.id" :turn-id="route.turn" />
       <JobView v-else-if="route.name === 'job'" :job-id="route.id" />
     </main>
   </div>

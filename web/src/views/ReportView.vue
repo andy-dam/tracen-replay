@@ -28,8 +28,6 @@ const unassigned = ref<Entry[]>([]);
 const finalStats = ref<Record<string, number | null> | null>(null);
 const seekMs = ref<number | null>(null);
 const tab = ref<"turn" | "check">("turn");
-// While a review is open the pane grows with its content instead of scrolling inside the video's height.
-const reviewing = ref(false);
 const error = ref("");
 // A warning link opens a turn and then seeks to the entry once the turn is loaded.
 let pendingSeek: number | null = null;
@@ -247,15 +245,15 @@ const checkCount = computed(() => {
         </div>
         <p class="muted small" style="margin: 10px 0 0">← and → move between turns. Any time in the log jumps the recording there. <a :href="api.downloadUrl(summary.report.id)">Download report.json</a></p>
       </div>
-      <div class="replay-pane" :class="{ reviewing }" :style="paneHeight && !reviewing ? { height: paneHeight + 'px' } : undefined">
+      <div class="replay-pane" :style="paneHeight ? { height: paneHeight + 'px' } : undefined">
         <div class="tabs">
           <button :class="{ active: tab === 'turn' }" @click="tab = 'turn'">This Turn</button>
           <button :class="{ active: tab === 'check' }" @click="tab = 'check'">Check<span v-if="checkCount" class="tab-count">{{ checkCount }}</span></button>
         </div>
         <div class="pane-body">
           <Transition name="fade" mode="out-in">
-            <TurnPane v-if="tab === 'turn' && turn" :key="'turn-' + turn.id" :turn="turn" :entries="entries" :summary-turn="turns.find((t) => t.id === turn!.id) ?? null" :report-id="props.reportId" :correction="correction" :verification="verification" :video-ms="seekMs" @changed="loadTurn(current)" @seek="(ms) => (seekMs = ms)" @reviewing="(open) => (reviewing = open)" />
-            <CheckPane v-else-if="tab === 'check'" key="check" :turns="turns" :entries="allEntries" :unassigned="unassigned" :stage-failures="summary.summary.stage_failures" @select="select" @seek="(ms) => (seekMs = ms)" />
+            <TurnPane v-if="tab === 'turn' && turn" :key="'turn-' + turn.id" :turn="turn" :entries="entries" :summary-turn="turns.find((t) => t.id === turn!.id) ?? null" :report-id="props.reportId" :correction="correction" :verification="verification" :video-ms="seekMs" @changed="loadTurn(current)" @seek="(ms) => (seekMs = ms)" />
+            <CheckPane v-else-if="tab === 'check'" key="check" :report-id="props.reportId" :turns="turns" :entries="allEntries" :unassigned="unassigned" :stage-failures="summary.summary.stage_failures" @select="select" @seek="(ms) => (seekMs = ms)" />
           </Transition>
         </div>
       </div>

@@ -99,11 +99,16 @@ limited per address. There is no password reset; delete the row in the
 ## Reviewing and editing a report
 
 The analyzer does the bulk of the work; the viewer checks what it flags and
-can edit anything. Each turn's pane has "Review This Turn". It opens the
-review editor, which grows to its content while the recording stays in view,
-and shows a live verdict ("Adds up", "2 gaps still open", "Off by Power +3")
-that is recomputed as the viewer types, with the same arithmetic the server
-applies on save. Its parts:
+can edit anything. Each turn's pane says what the turn asks for ("2 stat gaps
+· 1 flagged event") with a "Review this turn" button; the Check tab has the
+same button per turn. It opens the review screen
+(`#/reports/{id}/{turn}/review`): the recording and the turn's stats stay on
+the left, and the guided editor takes the right column, with a four-step
+strip (explain the gaps, check the flagged events, add what the report
+missed, save) and a live verdict ("Adds up", "2 gaps still open", "Off by
+Power +3") recomputed as the viewer types with the same arithmetic the server
+applies on save. Every gap and every flag carries a sentence on what it means
+and what to do about it. The editor's parts:
 
 - **Gaps to explain.** One card per stat whose values at this turn and the
   next do not add up: the amount, the values before and after, what the
@@ -159,6 +164,12 @@ home:
   from them are visible only to the account that made them.
 - **Analyze.** Queues one analysis of the recording; the job page shows the
   stage, the OCR progress and the elapsed time, and it can be cancelled.
+- **Dashboard.** Above the list, once a report exists: careers analyzed and
+  their turns, minutes of recording read, the share of stat changes the
+  reports fully explain, the number of turns waiting for a review, and the
+  best run (the highest five-stat total at the end of a career) with its
+  stat bar. Each finished run's row shows its final stats with rank letters
+  and how many of its turns ask for a review.
   Deleting an upload removes the file; reports already made from it stay.
 - **Reports.** Every report the account may open, newest first. Reports
   imported with `tracen import` belong to no account and are visible to all.

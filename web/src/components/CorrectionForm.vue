@@ -2,7 +2,7 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { api, ApiError, type AddedEvent, type Correction, type CorrectionChange, type Entry, type EntryEdit, type Turn, type TurnSummary, type Verification } from "../api";
 import { clock } from "../format";
-import { entryName, entryWarnings } from "../warnings";
+import { entryName, entryWarnings, gapAdvice } from "../warnings";
 
 // The review editor for one turn. The report keeps its own reading; the
 // viewer's edits are stored beside it and checked by the server against the
@@ -18,6 +18,8 @@ const props = defineProps<{
   verification: Verification | null;
   focusEntry?: string | null;
   videoMs?: number | null;
+  /** On the review screen: show the steps and the advice, and no close button. */
+  guided?: boolean;
 }>();
 const emit = defineEmits<{ saved: []; close: []; seek: [ms: number] }>();
 
@@ -472,12 +474,18 @@ async function remove() {
   <div class="rv">
     <header class="rv-head">
       <div class="rv-title">
-        <span class="overline" style="margin: 0">Review</span>
+        <span class="overline" style="margin: 0">{{ guided ? "Your review" : "Review" }}</span>
         <span class="pill" :class="live.cls">{{ live.text }}</span>
       </div>
-      <button class="icon-btn small" title="Close the review" @click="emit('close')">✕</button>
+      <button v-if="!guided" class="icon-btn small" title="Close the review" @click="emit('close')">✕</button>
     </header>
     <p class="rv-lede">The report keeps its own reading. What you enter is stored beside it and checked against the stats at the start of the next turn.</p>
+    <ol v-if="guided" class="steps-strip">
+      <li :class="{ done: gaps.length && gaps.every((g) => gapState(g).cls !== 'warn'), off: !gaps.length }"><b>1</b> Explain the gaps</li>
+      <li :class="{ done: shownEntries.length && shownEntries.every((e) => entryRows[e.id]?.reviewed || entryRows[e.id]?.deleted), off: !shownEntries.length }"><b>2</b> Check the flagged events</li>
+      <li :class="{ done: added.length }"><b>3</b> Add what the report missed</li>
+      <li :class="{ done: !!result }"><b>4</b> Save and check</li>
+    </ol>
 
     <section v-if="gaps.length" class="rv-section">
       <h4 class="rv-h">Gaps to explain <span class="rv-count">{{ gaps.length }}</span></h4>
@@ -490,8 +498,9 @@ async function remove() {
           <button v-if="windowText(g.windowStart, g.windowEnd)" class="gap-seek" title="Seek the recording to where the change happened" @click="emit('seek', g.windowStart!)">▶ {{ windowText(g.windowStart, g.windowEnd) }}</button>
           <span class="gap-state" :class="gapState(g).cls">{{ gapState(g).text }}</span>
         </div>
-        <p v-if="g.workedOut" class="gap-note">The report worked {{ signed(g.workedOut) }} onto {{ OWNER_WORD[g.owner] ?? "its only possible source" }} from the difference between turns. Confirm it, or say where it really came from.</p>
-        <p v-else-if="g.residual === null" class="gap-note">A value before or after this turn was not observed, so this field cannot be checked.</p>
+        <p v-if="g.residual === null && !g.workedOut" class="gap-note">A value before or after this turn was not observed, so this field cannot be checked.</p>
+        <p v-else-if="guided" class="gap-how">{{ gapAdvice(g.field, gapAmount(g), !!g.workedOut, windowText(g.windowStart, g.windowEnd)) }}<template v-if="g.workedOut"> The report put it on {{ OWNER_WORD[g.owner] ?? "its only possible source" }}.</template></p>
+        <p v-else-if="g.workedOut" class="gap-note">The report worked {{ signed(g.workedOut) }} onto {{ OWNER_WORD[g.owner] ?? "its only possible source" }} from the difference between turns. Confirm it, or say where it really came from.</p>
         <div class="seg">
           <button v-if="g.workedOut" :class="{ on: confirmed[g.key] }" @click="confirmWorkedOut(g)">Looks right</button>
           <button :class="{ on: mode[g.key] === 'entry' }" :disabled="!assignable.length" @click="chooseMode(g, 'entry')">Belongs to an event</button>
@@ -540,9 +549,12 @@ async function remove() {
         <div class="rv-entry-head">
           <button class="tchip" :disabled="e.first_seen_ms === null" @click="e.first_seen_ms !== null && emit('seek', e.first_seen_ms)">{{ clock(e.first_seen_ms) }}</button>
           <b class="rv-entry-name">{{ entryName(e) }}</b>
-          <span v-if="flagged(e)" class="tag pink small">{{ entryWarnings(e).map((w) => w.text).join("; ") }}</span>
+          <span v-for="w in entryWarnings(e)" :key="w.text" class="tag small" :class="w.serious ? 'pink' : 'grey'">{{ w.text }}</span>
           <span v-if="entryRows[e.id]?.deleted" class="tag grey small">removed</span>
         </div>
+        <ul v-if="guided && entryWarnings(e).some((w) => w.advice)" class="advice">
+          <li v-for="w in entryWarnings(e).filter((w) => w.advice)" :key="w.text">{{ w.advice }}</li>
+        </ul>
         <div v-if="entryRows[e.id]" class="rv-amounts">
           <label v-for="key in Object.keys(entryRows[e.id].amounts)" :key="key" class="amt" :class="{ changed: entryRows[e.id].amounts[key].trim() !== String(reportedAmount(e, split(key).channel, split(key).field) ?? '') }">
             <i class="sd" :class="split(key).field"></i><span>{{ LABEL[split(key).field] ?? split(key).field }}</span>

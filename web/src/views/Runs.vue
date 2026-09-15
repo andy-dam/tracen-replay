@@ -2,6 +2,9 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, elapsed, when } from "../format";
+import { turnWarnings } from "../warnings";
+import RankBadge from "../components/RankBadge.vue";
+import StatBar from "../components/StatBar.vue";
 import UploadBox from "../components/UploadBox.vue";
 
 // One list. A run is a recording, the analysis made from it and the report
@@ -13,6 +16,60 @@ const error = ref("");
 const busy = ref("");
 let timer: number | undefined;
 
+// What each finished report says about its run: the stats at the end, how
+// much of the career's stat changes the report explains, and how many turns
+// ask for a look. Read once per report and kept.
+interface RunFacts {
+  final: Record<string, number | null> | null;
+  explained: number;
+  total: number;
+  toCheck: number;
+}
+const STATS = ["speed", "stamina", "power", "guts", "wit", "skill_points"] as const;
+const facts = ref<Record<string, RunFacts>>({});
+const loadingFacts = new Set<string>();
+async function loadFacts(report: Report) {
+  if (facts.value[report.id] || loadingFacts.has(report.id)) return;
+  loadingFacts.add(report.id);
+  try {
+    const [summary, turns] = await Promise.all([api.summary(report.id), api.turns(report.id)]);
+    const counts = summary.summary.field_status_counts ?? {};
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const explained = (counts.balanced_observations ?? 0) + (counts.balanced_with_derived_changes ?? 0);
+    const toCheck = turns.filter((t) => turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out)).length;
+    let final: Record<string, number | null> | null = null;
+    const last = [...turns].reverse().find((t) => t.opening.stats);
+    if (last) {
+      final = { ...(last.opening.stats as Record<string, number | null>) };
+      try {
+        const detail = await api.turn(report.id, last.id);
+        for (const field of STATS) {
+          const after = detail.turn.accounting.stats?.[field]?.after;
+          if (after !== null && after !== undefined) final[field] = after;
+        }
+      } catch {
+        // the opening of the last observed turn stands
+      }
+    }
+    facts.value = { ...facts.value, [report.id]: { final, explained, total, toCheck } };
+  } catch {
+    // a report that cannot be summarized simply has no facts on the dashboard
+  } finally {
+    loadingFacts.delete(report.id);
+  }
+}
+const statTotal = (f: RunFacts) => (f.final ? STATS.filter((s) => s !== "skill_points").reduce((a, s) => a + (f.final![s] ?? 0), 0) : 0);
+const dashboard = computed(() => {
+  const done = reports.value.filter((r) => facts.value[r.id]);
+  const explained = done.reduce((a, r) => a + facts.value[r.id].explained, 0);
+  const total = done.reduce((a, r) => a + facts.value[r.id].total, 0);
+  const toCheck = done.reduce((a, r) => a + facts.value[r.id].toCheck, 0);
+  const turns = reports.value.reduce((a, r) => a + r.turns, 0);
+  const minutes = Math.round(reports.value.reduce((a, r) => a + r.duration_ms, 0) / 60000);
+  const best = done.map((r) => ({ report: r, facts: facts.value[r.id] })).filter((x) => x.facts.final).sort((a, b) => statTotal(b.facts) - statTotal(a.facts))[0] ?? null;
+  return { runs: reports.value.length, turns, minutes, explained, total, pct: total ? Math.round((100 * explained) / total) : 0, toCheck, best, active: jobs.value.filter(active).length };
+});
+
 async function load() {
   try {
     const [r, j, u] = await Promise.all([api.reports(), api.jobs(), api.recordings().catch(() => [])]);
@@ -20,6 +77,7 @@ async function load() {
     jobs.value = j;
     recordings.value = u;
     error.value = "";
+    for (const report of r) loadFacts(report);
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -130,6 +188,25 @@ function hideBroken(e: Event) {
   </div>
   <p v-if="error" class="error">{{ error }}</p>
 
+  <div v-if="reports.length" class="dash">
+    <div class="dash-tiles">
+      <div class="dash-tile"><b>{{ dashboard.runs }}</b><span>career{{ dashboard.runs === 1 ? "" : "s" }} analyzed · {{ dashboard.turns }} turns</span></div>
+      <div class="dash-tile"><b>{{ dashboard.minutes }}<small>min</small></b><span>of recording read{{ dashboard.active ? `, ${dashboard.active} analysis running` : "" }}</span></div>
+      <div class="dash-tile up"><b>{{ dashboard.pct }}<small>%</small></b><span>of stat changes fully explained</span><div class="bar"><i :style="{ width: dashboard.pct + '%' }"></i></div></div>
+      <div class="dash-tile" :class="{ warn: dashboard.toCheck }"><b>{{ dashboard.toCheck }}</b><span>turn{{ dashboard.toCheck === 1 ? "" : "s" }} waiting for your review</span></div>
+    </div>
+    <div v-if="dashboard.best" class="best">
+      <div class="best-head">
+        <span class="overline" style="margin: 0">Best run</span>
+        <a class="best-name" :href="`#/reports/${encodeURIComponent(dashboard.best.report.id)}`" :title="dashboard.best.report.source_name">{{ dashboard.best.report.source_name }}</a>
+      </div>
+      <StatBar :stats="dashboard.best.facts.final" compact />
+      <div class="best-foot">{{ statTotal(dashboard.best.facts) }} across the five stats at the end of the run · {{ dashboard.best.report.turns }} turns · {{ clock(dashboard.best.report.duration_ms) }}</div>
+    </div>
+    <div v-else class="best"><span class="overline" style="margin: 0">Best run</span><span class="muted small">Reading the reports…</span></div>
+  </div>
+  <div v-else class="dash-empty"><b>Your dashboard fills in with your first report:</b> the stats at the end of each run with their rank letters, how much of the career the report explains, and what still needs a look.</div>
+
   <UploadBox @uploaded="load" />
 
   <p v-if="!runs.length" class="muted" style="margin-top: 28px">Nothing here yet. Your first upload appears in this list.</p>
@@ -145,6 +222,11 @@ function hideBroken(e: Event) {
           <span v-if="run.report?.origin === 'imported'" class="tag grey">imported</span>
         </div>
         <div class="muted small">{{ meta(run).join(" · ") }}</div>
+        <div v-if="run.report && facts[run.report.id]?.final" class="run-ranks">
+          <span v-for="s in STATS" :key="s" class="rr"><i :class="s"></i><RankBadge v-if="s !== 'skill_points'" :value="facts[run.report.id].final![s]" small />{{ facts[run.report.id].final![s] ?? "?" }}</span>
+          <span class="rr total">Σ {{ statTotal(facts[run.report.id]) }}</span>
+          <span v-if="facts[run.report.id].toCheck" class="rr" style="color: var(--warn-ink)">{{ facts[run.report.id].toCheck }} to review</span>
+        </div>
       </div>
       <div class="run-status"><span class="pill" :class="[status(run).cls, { live: run.job && active(run.job) }]">{{ status(run).text }}</span></div>
       <div class="run-actions">
