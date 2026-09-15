@@ -100,7 +100,8 @@ field unknown.
 | `concert_panel_refinement` | the Concert Info support-chain frequency level slot | applied while loading cached readings |
 | `choice_card_refinement` / `refine_choices` | a weak dialogue-choice card at native size | applied while loading cached readings |
 | `refine_inventory` | the final skill panel's card list | applied while loading cached readings |
-| currency/skill-point crop refinements (`currency-refinement`, `currency-padding-refinement`, `skill-points-refinement`, `skill-variants`) | resource counters clipped by neighboring badges or missed by text detection | applied while loading cached readings |
+| `refine_currencies` / `refine_currency_padding` | every lesson-balance slot, read again by the recognizer from a wide fixed crop (the detector's box can start on the currency label or lose a digit to the cursor), then two padded crops for a slot that is still unread | its own stage on fresh runs (`currency_refinement`), between the race quantity stage and the readings reload; the sidecars are then applied while loading cached readings |
+| skill-point crop refinements (`skill-points-refinement`, `skill-variants`) | skill-point counters clipped by neighboring badges or missed by text detection | applied while loading cached readings |
 
 Hint-card identity preparation (`hint_card_cache` / `hint_card_identity`) runs
 separately, after the readings are reloaded: when a cursor obscures a hint

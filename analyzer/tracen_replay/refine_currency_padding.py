@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 
-def refine(root):
+def refine(root,model_dir='.local/models/rapidocr'):
+    """Reread each still-unresolved menu balance with two padded crops; return the frame count."""
     from .vision import NeuralReader,parse
     from .gameplay import CURRENCIES
     from .full_recording import save_json
@@ -23,7 +24,7 @@ def refine(root):
         missing=[f for f in CURRENCIES if row['facts']['performance_points'].get(f) is None]
         target=dest/path.name
         if not missing or target.exists():continue
-        if reader is None:reader=NeuralReader()
+        if reader is None:reader=NeuralReader(model_dir)
         image_path=root/raw['evidence'];requests=[]
         for field in missing:
             i=CURRENCIES.index(field)
@@ -37,3 +38,4 @@ def refine(root):
                               model_sha256=reader.models,views=views,independent_frame_count=1))
         count+=1
     print(json.dumps(dict(stage='currency_padding_refinement_complete',new_frames=count)),flush=True)
+    return count

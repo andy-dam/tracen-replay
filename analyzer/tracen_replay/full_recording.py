@@ -577,6 +577,24 @@ def _generate_race_quantity_refinement(root, *, model_dir):
         raise PipelineError(f'Race quantity refinement generation failed: {exc}') from exc
 
 
+def _generate_currency_refinement(root, *, model_dir):
+    """Generate the wide-crop and padded lesson-balance sidecars for a fresh recording.
+
+    The detector's box for a lesson balance can start on the currency label
+    (``Vi157``) or lose a digit to the cursor; the recognizer's own reading of
+    a wide fixed crop, and two padded crops for a slot that is still unread,
+    are what ``vision.currencies`` prefers over the tight box.  The sidecars
+    are revalidated by ``cached_readings`` on reload; replay and reparse
+    callers only consume sidecars that already exist.
+    """
+    from .refine_currencies import refine
+
+    try:
+        return refine(root, model_dir=model_dir)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise PipelineError(f'Currency refinement generation failed: {exc}') from exc
+
+
 def assemble(report,readings,choice_observations=(),race_reward_observations=(),hint_card_observations=None,
              *,committed_choices=(),event_choice_observations=None,source_root=None):
     from .inventory import summarize as inventory_summary
@@ -2501,6 +2519,12 @@ def _main_body():
         ),fallback=None)
         if race_quantity is not None:report['race_quantity_refinement'] = race_quantity
         _progress('stage_done',name='race_quantity_refinement')
+        currency=_guarded(report,'currency_refinement',lambda: _generate_currency_refinement(
+            args.output,
+            model_dir=args.model_dir,
+        ),fallback=None)
+        if currency is not None:report['currency_refinement']=currency
+        _progress('stage_done',name='currency_refinement')
         readings=cached_readings(report,args.output,workers=args.workers)
         _progress('stage_done',name='reload_readings',readings=len(readings),workers=args.workers)
         _guarded(report,'hint_card_preparation',lambda: _prepare_fresh_hint_cards(
