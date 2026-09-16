@@ -110,9 +110,15 @@ receipt clears one of the three `identity_basis` bars documented in
 [analyzer-pipeline.md](analyzer-pipeline.md#rules-by-screen): observed gains,
 a repeated result screen, or a repeated training name (or, for a banner-only
 training, `training_banner`). A single result frame with no read gains and a
-name read only once stays an uncommitted training result, which is why a
-window can legitimately report `missing_action` instead of an invented
-decision.
+name read only once stays an uncommitted training result. The ledger makes
+one exception: when a window that expects one decision holds no committed
+action and exactly one such training result, that result stands in as the
+turn's `committed_action` with `identity_basis: result_card_only` (its
+`training_option` is whatever the card showed, possibly nothing), because a
+result card cannot appear without the training having been chosen. The
+summary carries it as `action_basis` and the client says the choice itself
+was not seen. Two results in one window, or any other action, leave the
+window `missing_action` rather than guessing between them.
 
 ## Opening and closing states
 

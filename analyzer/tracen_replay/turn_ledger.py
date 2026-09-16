@@ -474,6 +474,25 @@ def build(report):
             action_kind=action['kind'], training_option=action.get('training_option'),
             event_ref=event_ids.get(event_id), reward_link_status='linked_event' if event_id else 'separate_receipt',
             click_timestamp_ms=action.get('click_timestamp_ms'))
+    # A training result card seen on one frame, or without its training name,
+    # proves no committed action on its own.  In a window that expects one
+    # decision and holds no other, that lone result is what the player did:
+    # the turn takes it as its action and says the commit was not seen.
+    for turn in turns:
+        if turn['window_kind'] not in ('calendar_turn', 'phase_race_turn'):
+            continue
+        own = [e for e in timeline if e['turn_id'] == turn['id']]
+        if any(e['kind'] == 'committed_action' and e.get('action_kind') != 'race' for e in own):
+            continue
+        trainings = [e for e in own if e['kind'] == 'training']
+        if len(trainings) != 1:
+            continue
+        result = trainings[0]
+        event = next((e for e in data['events'] if e.get('id') == result.get('event_id')), {})
+        add(result['source_ref'], 'committed_action', result['first_seen_ms'], result['first_seen_ms'],
+            result.get('evidence'), action_kind='training', training_option=event.get('training_option'),
+            event_ref=event_ids.get(result.get('event_id')), reward_link_status='linked_event',
+            click_timestamp_ms=None, identity_basis='result_card_only')
     for collection in TRANSACTIONS:
         for index, transaction in enumerate(data.get(collection, [])):
             start = transaction.get('source_timestamp_ms', transaction.get('first_seen_ms'))
@@ -495,8 +514,8 @@ def build(report):
                 acquisition_conflicts=deepcopy(acquisition_conflicts.get(event_id, [])),
                 accounting_role='reference_only_not_an_additional_award')
     for index, candidate in enumerate(data.get('unparsed_receipt_candidates', [])):
-        if candidate.get('status') == 'ocr_fragment':
-            continue  # a cut or garbled repeat of a receipt already in the log
+        if candidate.get('status') in ('ocr_fragment', 'out_of_scope'):
+            continue  # a repeat of a receipt already in the log, or a line the ledger does not account for
         add(_ref('unparsed_receipt_candidates', index), 'unparsed_receipt',
             candidate['first_seen_ms'], candidate['last_seen_ms'], candidate.get('evidence'),
             raw_text=candidate.get('raw_text'), accepted_award=False)

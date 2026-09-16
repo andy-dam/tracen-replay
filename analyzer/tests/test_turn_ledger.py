@@ -145,6 +145,29 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertEqual(lesson['accounting_role'], 'reference_only_not_an_additional_award')
         self.assertNotIn('performance_changes', lesson)
 
+    def test_a_lone_training_result_stands_in_for_an_unseen_commit(self):
+        source = report()
+        data = source['gameplay_tracking']
+        data['events'] = [dict(id='result', kind='training', training_option=None, first_seen_ms=500,
+                              last_seen_ms=600, evidence='500.png', deltas={}, effects=[])]
+        ledger = build(source)
+        actions = [e for e in ledger['timeline'] if e['kind'] == 'committed_action']
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0]['identity_basis'], 'result_card_only')
+        self.assertEqual(actions[0]['event_ref'], '/gameplay_tracking/events/0')
+        self.assertIsNone(actions[0]['training_option'])
+        self.assertEqual(ledger['turns'][0]['action_status'], 'one_action')
+        # A second result in the window makes the decision ambiguous again.
+        data['events'].append(dict(id='second', kind='training', training_option='speed', first_seen_ms=700,
+                                   last_seen_ms=800, evidence='700.png', deltas={}, effects=[]))
+        self.assertEqual([e for e in build(source)['timeline'] if e['kind'] == 'committed_action'], [])
+        # A committed action already in the window is never doubled.
+        data['events'].pop()
+        data['turn_action_receipts'] = [dict(kind='training', training_option='speed', source_timestamp_ms=500,
+                                             evidence='500.png', event_id='result')]
+        actions = [e for e in build(source)['timeline'] if e['kind'] == 'committed_action']
+        self.assertEqual([a.get('identity_basis') for a in actions], [None])
+
     def test_a_purchase_is_dated_at_its_debit_so_it_precedes_its_own_receipt(self):
         source = report()
         data = source['gameplay_tracking']

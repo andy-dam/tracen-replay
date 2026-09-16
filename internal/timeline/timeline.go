@@ -109,15 +109,18 @@ type Change struct {
 // observed turn window; Detail is the compact record of the underlying event
 // and is passed to the browser unchanged.
 type Entry struct {
-	ID               string                       `json:"id"`
-	Kind             string                       `json:"kind"`
-	TurnID           string                       `json:"turn_id"`
-	FirstSeenMS      *int64                       `json:"first_seen_ms"`
-	LastSeenMS       *int64                       `json:"last_seen_ms"`
-	AssignmentBasis  string                       `json:"assignment_basis,omitempty"`
-	ContextTitle     string                       `json:"context_title,omitempty"`
-	TrainingOption   string                       `json:"training_option,omitempty"`
-	ActionKind       string                       `json:"action_kind,omitempty"`
+	ID              string `json:"id"`
+	Kind            string `json:"kind"`
+	TurnID          string `json:"turn_id"`
+	FirstSeenMS     *int64 `json:"first_seen_ms"`
+	LastSeenMS      *int64 `json:"last_seen_ms"`
+	AssignmentBasis string `json:"assignment_basis,omitempty"`
+	ContextTitle    string `json:"context_title,omitempty"`
+	TrainingOption  string `json:"training_option,omitempty"`
+	ActionKind      string `json:"action_kind,omitempty"`
+	// IdentityBasis says how a committed action was identified when it was
+	// not read from its own commit, for example result_card_only.
+	IdentityBasis    string                       `json:"identity_basis,omitempty"`
 	RawText          string                       `json:"raw_text,omitempty"`
 	AccountingRole   string                       `json:"accounting_role,omitempty"`
 	TransactionID    string                       `json:"transaction_id,omitempty"`
@@ -261,6 +264,9 @@ type TurnSummary struct {
 	// action (training, race, rest, outing, infirmary) for the season strip.
 	ActionKind     string `json:"action_kind,omitempty"`
 	TrainingOption string `json:"training_option,omitempty"`
+	// ActionBasis is the action's identity basis when it was not read from
+	// its own commit (result_card_only: a lone result card stood in for it).
+	ActionBasis string `json:"action_basis,omitempty"`
 	// ActionFilledIn is true when the action shown is the viewer's own answer
 	// rather than the report's reading (see ApplyCorrections).
 	ActionFilledIn bool `json:"action_filled_in,omitempty"`
@@ -344,7 +350,7 @@ func (d *Document) TurnSummaries() []TurnSummary {
 			ActionStatus: turn.ActionStatus, ActionCount: turn.ActionCount, ExpectsOneAction: expectsOneAction(turn), ScheduledRace: turn.ScheduledRace, EntryCount: counts[turn.ID],
 			Differences:      differences(turn),
 			OpeningObserved:  turn.Opening.Stats != nil || turn.Opening.Performance != nil,
-			AccountingStatus: statuses, ActionKind: action.ActionKind, TrainingOption: action.TrainingOption,
+			AccountingStatus: statuses, ActionKind: action.ActionKind, TrainingOption: action.TrainingOption, ActionBasis: action.IdentityBasis,
 			Opening: turn.Opening,
 		})
 		if turn.Opening.Stats == nil && index > 0 {

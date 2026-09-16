@@ -197,8 +197,8 @@ def build(report):
             first_seen_ms=entry.get('first_seen_ms'), last_seen_ms=entry.get('last_seen_ms'),
             assignment_basis=entry.get('assignment_basis'),
         )
-        for key in ('context_title', 'training_option', 'action_kind', 'effect', 'raw_text', 'accepted_award',
-                    'accounting_role', 'transaction_id', 'reward_link_status', 'conflicts_present'):
+        for key in ('context_title', 'training_option', 'action_kind', 'identity_basis', 'effect', 'raw_text',
+                    'accepted_award', 'accounting_role', 'transaction_id', 'reward_link_status', 'conflicts_present'):
             if entry.get(key) not in (None, '', [], {}):
                 item[key] = _compact(entry[key]) if isinstance(entry[key], (dict, list)) else entry[key]
         if changes:
