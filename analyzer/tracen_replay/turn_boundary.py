@@ -68,9 +68,16 @@ def _calendar_text(row):
     return ' '.join(value.split()) if isinstance(value, str) and value.strip() else None
 
 
-def _same_date_boundary(rows, result_end):
-    """Find a repeated, contiguous next date after the result."""
+def _same_date_boundary(rows, result_end, deadline=None):
+    """Find a repeated, contiguous next date after the result.
+
+    The next date is expected within ``_MAX_NEXT_DATE_DELAY_MS`` of the
+    result; a caller that has proved the wait is longer (screens that spend
+    points rather than the turn) passes the later ``deadline``.
+    """
     lookback_start = result_end - _MAX_NEXT_DATE_DELAY_MS
+    if deadline is None:
+        deadline = result_end + _MAX_NEXT_DATE_DELAY_MS
     dated = []
     invalid = []
     for row in _rows_between(rows, lookback_start, result_end):
@@ -106,11 +113,11 @@ def _same_date_boundary(rows, result_end):
     next_key = current_key + 1
     next_rows = []
     future_started = False
-    for row in _rows_between(rows, result_end + 1, result_end + _MAX_NEXT_DATE_DELAY_MS):
+    for row in _rows_between(rows, result_end + 1, deadline):
         time = _time(row)
         if time is None or time <= result_end:
             continue
-        if time - result_end > _MAX_NEXT_DATE_DELAY_MS:
+        if time > deadline:
             break
         calendar = _calendar_text(row)
         if not calendar:
@@ -178,9 +185,11 @@ def _observation_record(row):
     return record
 
 
-def _phase_turn_boundary(rows, confirmation_time, result_end):
+def _phase_turn_boundary(rows, confirmation_time, result_end, deadline=None):
     """Use a repeated phase countdown when no dated calendar exists."""
     lookback_start = confirmation_time - _MAX_RESULT_DELAY_MS
+    if deadline is None:
+        deadline = result_end + _MAX_NEXT_DATE_DELAY_MS
     phase_rows = []
     for row in _rows_between(rows, lookback_start, result_end):
         time = _time(row)
@@ -213,10 +222,10 @@ def _phase_turn_boundary(rows, confirmation_time, result_end):
         return None
     after = []
     target_started = False
-    for row in _rows_between(rows, result_end + 1, result_end + _MAX_NEXT_DATE_DELAY_MS):
+    for row in _rows_between(rows, result_end + 1, deadline):
         time = _time(row)
-        if time is None or time <= result_end or time - result_end > _MAX_NEXT_DATE_DELAY_MS:
-            if time is not None and time - result_end > _MAX_NEXT_DATE_DELAY_MS:
+        if time is None or time <= result_end or time > deadline:
+            if time is not None and time > deadline:
                 break
             continue
         observed_phase = _calendar_text(row)

@@ -130,7 +130,48 @@ def goal_race_followup_sequence():
     return readings, [event(2500, 2750)]
 
 
+def lessons_then_next_date_sequence(*, interlude_screen="lesson_selection"):
+    """A Rest whose next date only shows after a long stretch of lessons."""
+    amount = recovery(30)
+    readings = [
+        row(500, "before-a.png", calendar="Senior Year Late Jun"),
+        row(750, "before-b.png", calendar="Senior Year Late Jun"),
+        row(1000, "confirm-a.png", screen="rest_confirmation", texts=PROMPT),
+        row(1250, "confirm-b.png", screen="rest_confirmation", texts=PROMPT),
+        row(2000, "result-a.png", screen="event_outcome",
+            calendar="Senior Year Late Jun", texts=("Energy recovered by 30.",),
+            effects=(amount,)),
+        row(2250, "result-b.png", screen="event_outcome",
+            calendar="Senior Year Late Jun", texts=("Energy recovered by 30.",),
+            effects=(amount,)),
+    ]
+    # Forty-five seconds of point spending, one screen every five seconds.
+    readings += [row(5000 + i * 5000, f"lesson-{i}.png", screen=interlude_screen)
+                 for i in range(9)]
+    readings += [
+        row(52000, "next-a.png", calendar="Senior Year Early Jul"),
+        row(52250, "next-b.png", calendar="Senior Year Early Jul"),
+    ]
+    return readings, [event(2000, 2250, amount=30)]
+
+
 class RestActionTests(unittest.TestCase):
+    def test_lessons_and_concert_after_the_result_do_not_lose_the_rest(self):
+        readings, events = lessons_then_next_date_sequence()
+        actions = reconstruct(readings, events)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0]["next_calendar"], "Senior Year Early Jul")
+        self.assertEqual(actions[0]["post_result_interlude_end_ms"], 45000)
+        readings, events = lessons_then_next_date_sequence(interlude_screen="concert_confirmation")
+        self.assertEqual(len(reconstruct(readings, events)), 1)
+        # A gap longer than the boundary wait, or a turn action in between,
+        # still leaves the Rest unproved.
+        readings, events = lessons_then_next_date_sequence()
+        readings = [r for r in readings if not (10000 <= r["source_timestamp_ms"] <= 40000)]
+        self.assertEqual(reconstruct(readings, events), [])
+        readings, events = lessons_then_next_date_sequence(interlude_screen="training_preview")
+        self.assertEqual(reconstruct(readings, events), [])
+
     def test_dated_rest_requires_prompt_receipt_and_next_date(self):
         readings, events = dated_sequence()
         original = copy.deepcopy(readings)

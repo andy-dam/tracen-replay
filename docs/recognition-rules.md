@@ -278,7 +278,14 @@ amounts are kept as separate observations rather than reconciled.
 
 Rest and outing confirmations are recognized from their fixed dialog text
 ("Take the day off to let your trainee recover energy?" / "Go on a fun
-outing?", both paired with "entire turn"). An Infirmary visit needs its
+outing?", both paired with "entire turn"). A Rest is proved by the
+confirmation, a repeated energy-recovery receipt within ten seconds of it,
+and the next calendar date (or the next turn-phase countdown) read within
+30 seconds of the result. Lessons, the concert and skill purchases spend
+points rather than the turn, so when they follow the result the 30-second
+wait starts from the last of those screens instead, and they are not
+treated as competing actions; a training, race or outing screen in the
+same stretch still voids the Rest. An Infirmary visit needs its
 own confirmation phrase ("Visit the infirmary?" plus "this will take up
 the entire turn."), a later named "At the Infirmary" result, and a
 subsequent calendar or turn-phase advance observed within 30 seconds of

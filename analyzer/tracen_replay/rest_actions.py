@@ -46,8 +46,19 @@ _ACTION_SCREENS = frozenset({
     "concert_result", "concert_result_candidate", "infirmary_confirmation",
     "career_hub", "main_hub", "hub", "career_completion_hub",
 })
+# Lessons, the concert and skill purchases are paid with points, not with
+# the turn.  A player who rests and then buys lessons or holds the concert is
+# still on the same turn, and its next date only appears after those
+# screens: they extend the wait for the boundary and are not competing
+# actions once the recovery result has been read.
+_INTERLUDE_SCREENS = frozenset({
+    "lesson_selection", "lesson_confirmation", "skill_selection",
+    "skill_confirmation", "skill_receipt", "concert_confirmation",
+    "concert_result", "concert_result_candidate", "concert_bonus_update",
+})
 _MAX_CONFIRMATION_DELAY_MS = 10_000
 _MAX_BOUNDARY_DELAY_MS = 30_000
+_MAX_INTERLUDE_MS = 10 * 60_000
 _PHASE_LABELS = frozenset({"Junior Year Pre-Debut", "Finale Underway"})
 
 
@@ -286,11 +297,49 @@ def _clean_result_interval(ordered, first, last):
     return True
 
 
-def _boundary(ordered, confirmation_time, result_end):
-    boundary = _same_date_boundary(ordered, result_end)
+def _interlude_end(ordered, result_end):
+    """When the wait for the next date starts: the result, or the last of
+    the point-spending screens that follow it without a long gap.
+
+    The walk stops at the first dated calendar that differs from the date
+    read before the result (that is the boundary itself) and at any other
+    action screen, which the caller rejects as a competing action.
+    """
+    current_key = None
+    for row in _rows_between(ordered, result_end - _MAX_BOUNDARY_DELAY_MS, result_end):
+        time = _time(row)
+        calendar = _calendar_text(row)
+        if time is None or time > result_end or not calendar:
+            continue
+        key = date_key(calendar)
+        if key is not None:
+            current_key = key
+    end = result_end
+    for row in _rows_between(ordered, result_end, result_end + _MAX_INTERLUDE_MS):
+        time = _time(row)
+        if time is None or time <= result_end:
+            continue
+        if time - end > _MAX_BOUNDARY_DELAY_MS:
+            break
+        calendar = _calendar_text(row)
+        key = date_key(calendar) if calendar else None
+        if key is not None and current_key is not None and key != current_key:
+            break
+        screen = row.get("screen")
+        if screen in _INTERLUDE_SCREENS:
+            end = time
+        elif screen in _ACTION_SCREENS:
+            break
+    return end
+
+
+def _boundary(ordered, confirmation_time, result_end, deadline=None):
+    if deadline is None:
+        deadline = result_end + _MAX_BOUNDARY_DELAY_MS
+    boundary = _same_date_boundary(ordered, result_end, deadline)
     if boundary is not None:
         return dict(boundary, kind="calendar_date")
-    boundary = _phase_turn_boundary(ordered, confirmation_time, result_end)
+    boundary = _phase_turn_boundary(ordered, confirmation_time, result_end, deadline)
     if boundary is not None:
         return boundary
     # Some recordings expose a phase label before a turn and then the next
@@ -304,11 +353,11 @@ def _boundary(ordered, confirmation_time, result_end):
         return None
     next_rows = []
     next_key = None
-    for row in _rows_between(ordered, result_end + 1, result_end + _MAX_BOUNDARY_DELAY_MS):
+    for row in _rows_between(ordered, result_end + 1, deadline):
         time = _time(row)
         if time is None or time <= result_end:
             continue
-        if time - result_end > _MAX_BOUNDARY_DELAY_MS:
+        if time > deadline:
             break
         calendar = _calendar_text(row)
         if not calendar or calendar in _PHASE_LABELS:
@@ -436,20 +485,25 @@ def reconstruct(readings, events):
             continue
         if _blocked_between(ordered, confirmation_time, first, own_title=event.get("context_title")):
             continue
-        boundary = _boundary(ordered, confirmation_time, last)
+        interlude_end = _interlude_end(ordered, last)
+        boundary = _boundary(ordered, confirmation_time, last,
+                             interlude_end + _MAX_BOUNDARY_DELAY_MS)
         if boundary is None:
             continue
         boundary_time = _time(boundary.get("row"))
-        if boundary_time is None or boundary_time <= last or boundary_time - last > _MAX_BOUNDARY_DELAY_MS:
+        if boundary_time is None or boundary_time <= last or boundary_time - interlude_end > _MAX_BOUNDARY_DELAY_MS:
             continue
         followup = _goal_race_followup(
             ordered, last, boundary_time, confirmation_time, first)
         allowed_screens = {"race_result"} if followup is not None else set()
         if _blocked_between(ordered, last, boundary_time,
                             allow_event_dialogue=True,
-                            allow_action_screens=allowed_screens):
+                            allow_action_screens=allowed_screens | _INTERLUDE_SCREENS):
             continue
-        result.append(_action(event, confirmations, rows, boundary, followup))
+        action = _action(event, confirmations, rows, boundary, followup)
+        if interlude_end > last:
+            action["post_result_interlude_end_ms"] = interlude_end
+        result.append(action)
         used_spans.append((first, last))
         if event_id is not None:
             used_events.add(event_id)
