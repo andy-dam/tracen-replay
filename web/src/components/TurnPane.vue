@@ -96,11 +96,11 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
       <div class="review-cta" :class="filled ? filled.state : warnings.serious || differences.length ? 'needs' : 'clear'">
         <div class="review-cta-text">
           <template v-if="filled">
-            <b><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Saved · Adds Up" : filled.state === "off" ? "Saved · Doesn't Add Up Yet" : "Saved" }}</span></b>
-            <span class="small">{{ filled.text }}</span>
+            <b class="saved-line"><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Saved · Adds Up" : filled.state === "off" ? "Saved · Doesn't Add Up Yet" : "Saved" }}</span> <span>{{ filled.text }}</span></b>
+            <span class="small muted">Your answers are kept with this report and shown in place of the reading.</span>
           </template>
           <template v-else-if="differences.length || warnings.serious || !action">
-            <b>{{ [differences.length ? `${differences.length} number${differences.length === 1 ? "" : "s"} that don't add up` : "", warnings.items.length ? `${warnings.items.length} line${warnings.items.length === 1 ? "" : "s"} to check` : "", !action ? "what was played is missing" : ""].filter(Boolean).join(" · ") }}</b>
+            <b>{{ [differences.length ? `${differences.length} number${differences.length === 1 ? " that doesn't" : "s that don't"} add up` : "", warnings.items.length ? `${warnings.items.length} line${warnings.items.length === 1 ? "" : "s"} to check` : "", !action ? "what was played is missing" : ""].filter(Boolean).join(" · ") }}</b>
             <span class="small muted">The check screen shows what each one means and asks you plain questions, with the recording beside you.</span>
           </template>
           <template v-else>

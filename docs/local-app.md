@@ -257,8 +257,10 @@ recorded; it never derives a value of its own. It reads like a replay:
   moment, so the log follows the recording. The video is served from the
   upload with range requests, so nothing is copied. The player has its own
   control bar: play and pause (Space works too), a scrub bar, the time,
-  one-second and one-frame steps, playback speed from 0.25× to 3× (kept per
-  browser), volume and full screen. A
+  playback speed from 0.25× to 3× (kept per browser), volume and full
+  screen, with the one-second and one-frame steps on a row of their own.
+  Clicking the time turns it into a field: type a time such as `2:38`,
+  `02:38.500` or `1:02:38` and Enter seeks there. A
   report whose recording is not on this machine (an import without
   `-recording`) shows the analyzer's extracted frame instead.
 - **This turn.** The action the ledger recorded for the turn (with a link to
@@ -287,8 +289,14 @@ recorded; it never derives a value of its own. It reads like a replay:
   value carried from the previous turn's entries, marked ≈ in the tooltip and
   under the recording; a turn with neither breaks the line rather than being
   interpolated. Clicking the chart opens
-  the nearest turn. Beside it, each stat's first and last value, rank, gain
-  and the number of turns that trained it.
+  the nearest turn. Under it, three more views over the same turns, each
+  clickable in the same way: **Growth Each Turn** (what each turn added to
+  the five stats, as stacked bars, from one opening to the next), **Skill
+  Points Across the Run** (the balance at the start of every turn, dropping
+  where skills were bought) and, for a Grand Concert run, **Performance
+  Points Across the Run** (the five performance values at every turn).
+  Beside them, each stat's first and last value, rank, gain and the number
+  of turns that trained it.
 - **How the run was played.** Counted from the ledger only: turn choices
   (per training option, races, rests, outings, overall and per year),
   training efficiency per stat (sessions, average and total gain, best
