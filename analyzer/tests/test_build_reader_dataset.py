@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from tools.build_reader_dataset import BADGE_BOXES, COUNTER_BOXES, build, label_reading
+from tools.build_reader_dataset import BADGE_BOXES, COUNTER_BOXES, build, demote_animating, label_gain, label_reading
 
 
 def reading(time, screen, evidence, **facts):
@@ -63,6 +63,47 @@ class ReaderDatasetTests(unittest.TestCase):
         self.assertEqual(label_reading(1000, 'dance', 30, visit, [], 'performance_change', 'span'), ('confirmed', 30))
         self.assertEqual(label_reading(1000, 'dance', 39, visit, [], 'performance_change', 'span'), ('hard', 30))
         self.assertEqual(label_reading(2000, 'dance', 30, visit, [], 'performance_change', 'span'), ('unlabeled', None))
+
+    def test_gain_overlays_are_labeled_from_the_training_event(self):
+        events = [dict(id='t1', kind='training', first_seen_ms=1000, last_seen_ms=1500, deltas=dict(speed=15, skill_points=7))]
+        self.assertEqual(label_gain(1200, 'speed', 15, events), ('confirmed', 15))
+        self.assertEqual(label_gain(1200, 'speed', 18, events), ('hard', 15))
+        self.assertEqual(label_gain(1200, 'speed', None, events), ('hard', 15))
+        self.assertEqual(label_gain(1200, 'guts', None, events), ('confirmed', 0))
+        self.assertEqual(label_gain(1200, 'guts', 9, events), ('hard', 0))
+        self.assertEqual(label_gain(9000, 'speed', 15, events), ('unlabeled', None))
+
+    def test_frames_beside_a_confirmed_read_are_animating_not_hard(self):
+        def r(kind, field, time, status):
+            return dict(run='x', kind=kind, field=field, source_timestamp_ms=time, status=status)
+        rows = [r('stat_badge', 'speed', 1000, 'hard'), r('stat_badge', 'speed', 1250, 'confirmed'), r('stat_badge', 'speed', 1500, 'hard'),
+                r('stat_badge', 'speed', 60000, 'hard'), r('stat_badge', 'speed', 60250, 'hard'),
+                r('stat_badge', 'guts', 1000, 'hard'), r('gain_overlay', 'speed', 1000, 'hard'), r('gain_overlay', 'speed', 1100, 'confirmed')]
+        demote_animating(rows)
+        self.assertEqual([x['status'] for x in rows], ['animating', 'confirmed', 'animating', 'hard', 'hard', 'hard', 'animating', 'confirmed'])
+
+    def test_inspection_frames_feed_the_gain_overlay_kind(self):
+        root = self.make_run('run-c')
+        report = json.loads((root / 'report.json').read_text(encoding='utf-8'))
+        report['gameplay_tracking']['events'].append(dict(id='t1', kind='training', first_seen_ms=1000, last_seen_ms=1300, deltas=dict(speed=15)))
+        report['gameplay_tracking']['readings'] += [
+            reading(1100, 'training_result', 'training-inspection/1000/frame-000001.png', training_gains=dict(speed=15)),
+            reading(1150, 'training_result', 'training-inspection/1000/frame-000002.png', training_gains=dict()),
+        ]
+        (root / 'report.json').write_text(json.dumps(report), encoding='utf-8')
+        pane(root / 'training-inspection/1000/frame-000001.png')
+        pane(root / 'training-inspection/1000/frame-000002.png')
+        out = self.tmp / 'dataset-c'
+        build(out, [root])
+        rows = [json.loads(line) for line in (out / 'crops.jsonl').read_text(encoding='utf-8').splitlines()]
+        gains = {(r['frame'], r['field']): r for r in rows if r['kind'] == 'gain_overlay'}
+        self.assertEqual(gains[('training-inspection/1000/frame-000001.png', 'speed')]['status'], 'confirmed')
+        self.assertEqual(gains[('training-inspection/1000/frame-000001.png', 'guts')], dict(gains[('training-inspection/1000/frame-000001.png', 'guts')], status='confirmed', label=0, read=None))
+        # The second frame read no gain beside a frame that did: the overlay was moving.
+        self.assertEqual(gains[('training-inspection/1000/frame-000002.png', 'speed')]['status'], 'animating')
+        self.assertTrue((out / gains[('training-inspection/1000/frame-000002.png', 'speed')]['crop']).is_file())
+        # Badges are still cut only from the ordinary pass's panes.
+        self.assertEqual({r['frame'] for r in rows if r['kind'] == 'stat_badge'}, {'gameplay/part-000-frame-000004.png'})
 
     def test_builds_crops_manifest_and_splits(self):
         first = self.make_run('run-a')

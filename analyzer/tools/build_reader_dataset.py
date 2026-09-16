@@ -13,8 +13,17 @@ value the run's own evidence settled on:
   with no receipt for that field in between);
 - ``hard``: the reader read nothing, or its value differs from that checkpoint
   (the checkpoint value is the label);
+- ``animating``: a ``hard`` frame in a visit another frame of which was
+  confirmed; the card was still playing its overlays or count-up, so the
+  crop is not a reader miss (it keeps the settled value as its label);
 - ``unlabeled``: no checkpoint vouches for the moment, so the crop has an
   image but no trusted value.
+
+A third kind, ``gain_overlay``, cuts the same badge boxes from the frames
+the training's "+N" overlays were read on (the ordinary pass and the
+high-rate rereads of the card) and labels them from the training event's
+accepted gains: the gain for a raised stat, 0 for a stat the card did not
+raise.
 
 Nothing is inferred beyond that arithmetic. Runs are the unit of splitting:
 ``--holdout`` names runs that never feed training, ``--group`` tags each run
@@ -61,7 +70,15 @@ KINDS = {
     # screen, facts key, boxes, checkpoint list, receipt kind that changes the field, labeling mode
     'stat_badge': ('training_result', 'result_values', {**BADGE_BOXES, 'skill_points': SKILL_BOX}, 'checkpoints', 'stat_change', 'next'),
     'performance_counter': ('lesson_selection', 'performance_points', COUNTER_BOXES, 'performance_checkpoints', 'performance_change', 'span'),
+    # The "+N" overlay that sits on a badge while the card animates: the
+    # training's gain, labeled from the training event the accounting kept.
+    'gain_overlay': ('training_result', 'training_gains', {**BADGE_BOXES, 'skill_points': SKILL_BOX}, None, None, 'gain'),
 }
+# Frames of one field closer together than this are one visit of the screen.
+VISIT_GAP_MS = 1500
+# A gain overlay belongs to the training event whose card it was read on,
+# allowing this much slack around the event's own first and last frame.
+EVENT_SLACK_MS = 3000
 
 
 def pane_box(box):
@@ -116,6 +133,53 @@ def label_reading(time, field, read, checkpoints, events, receipt_kind, mode='ne
     return 'hard', expected
 
 
+def label_gain(time, field, read, events):
+    """Settle a gain overlay's label from the training event it was read on.
+
+    The event's ``deltas`` are the gains the accounting accepted for that
+    card. A field the card did not raise has no overlay, so a read of nothing
+    there is ``confirmed`` with label 0 and a read of something is ``hard``.
+    A frame outside every training event's window is ``unlabeled``.
+    """
+    owners = [e for e in events if e.get('kind') == 'training' and isinstance(e.get('first_seen_ms'), int)
+              and e['first_seen_ms'] - EVENT_SLACK_MS <= time <= e.get('last_seen_ms', e['first_seen_ms']) + EVENT_SLACK_MS]
+    if len(owners) != 1:
+        return 'unlabeled', None
+    deltas = owners[0].get('deltas') or {}
+    expected = deltas.get(field) if isinstance(deltas.get(field), int) else 0
+    if read == expected or (read is None and expected == 0):
+        return 'confirmed', expected
+    return 'hard', expected
+
+
+def demote_animating(rows):
+    """Mark the frames of a visit that the card was still animating on.
+
+    A result card is sampled on several frames while its "+N" overlays and
+    count-ups play; the value settles only at the end. Within one visit of
+    one field, a ``hard`` frame beside a ``confirmed`` one shows the card in
+    motion, not a reader miss: it becomes ``animating`` and keeps the settled
+    value as its label so a reader can still be judged on it, but it is not
+    a hard case. A visit no frame of which was read stays ``hard`` in full.
+    """
+    grouped = {}
+    for row in rows:
+        grouped.setdefault((row['run'], row['kind'], row['field']), []).append(row)
+    for group in grouped.values():
+        group.sort(key=lambda r: r['source_timestamp_ms'])
+        visit = []
+        for row in group + [None]:
+            if row is not None and (not visit or row['source_timestamp_ms'] - visit[-1]['source_timestamp_ms'] <= VISIT_GAP_MS):
+                visit.append(row)
+                continue
+            if any(r['status'] == 'confirmed' for r in visit):
+                for r in visit:
+                    if r['status'] == 'hard':
+                        r['status'] = 'animating'
+            visit = [row] if row is not None else []
+    return rows
+
+
 def load_run(root):
     root = Path(root)
     report = json.loads((root / 'report.json').read_text(encoding='utf-8'))
@@ -142,13 +206,19 @@ def build(output, runs, holdout=(), groups=None):
         report, tracking, checkpoints = load_run(root)
         split = 'holdout' if name in holdout else 'train'
         run_counts = Counter()
+        run_rows = []
         seen = set()
         for reading in tracking.get('readings', []):
             evidence = reading.get('evidence')
-            if not isinstance(evidence, str) or not evidence.startswith('gameplay/'):
-                continue  # only the ordinary pass's panes are a fixed, full-pane crop
+            if not isinstance(evidence, str):
+                continue
             for kind, (screen, facts_key, boxes, checkpoint_key, receipt_kind, mode) in KINDS.items():
                 if reading.get('screen') != screen:
+                    continue
+                # The ordinary pass's panes are fixed, full-pane crops; so are
+                # the high-rate rereads of a result card, which are the frames
+                # the gain overlays were actually read on.
+                if not (evidence.startswith('gameplay/') or (mode == 'gain' and evidence.startswith('training-inspection/'))):
                     continue
                 values = (reading.get('facts') or {}).get(facts_key)
                 if not isinstance(values, dict):
@@ -164,22 +234,28 @@ def build(output, runs, holdout=(), groups=None):
                         continue
                     seen.add(key)
                     read = values.get(field) if isinstance(values.get(field), int) else None
-                    status, label = label_reading(reading['source_timestamp_ms'], field, read,
-                                                  checkpoints[checkpoint_key], tracking.get('events', []), receipt_kind, mode)
+                    if mode == 'gain':
+                        status, label = label_gain(reading['source_timestamp_ms'], field, read, tracking.get('events', []))
+                    else:
+                        status, label = label_reading(reading['source_timestamp_ms'], field, read,
+                                                      checkpoints[checkpoint_key], tracking.get('events', []), receipt_kind, mode)
                     if pane is None:
                         pane = Image.open(pane_path).convert('RGB')
                         if pane.size != (810, 1080):
                             raise ValueError(f'{pane_path}: expected an 810x1080 gameplay pane, got {pane.size}')
-                    stem = re.sub(r'[^A-Za-z0-9]+', '-', Path(evidence).stem)
+                    stem = re.sub(r'[^A-Za-z0-9]+', '-', evidence.rsplit('.', 1)[0].split('/', 1)[1])
                     crop_rel = Path(name) / kind / field / f'{stem}.png'
                     crop_path = output / crop_rel
                     crop_path.parent.mkdir(parents=True, exist_ok=True)
                     pane.crop(pane_box(box)).save(crop_path)
-                    rows.append(dict(run=name, split=split, group=groups.get(name), kind=kind, field=field,
-                                     crop=crop_rel.as_posix(), frame=evidence, source_timestamp_ms=reading['source_timestamp_ms'],
-                                     box=list(box), read=read, label=label, status=status))
-                    run_counts[status] += 1
-                    counts[(split, kind, status)] += 1
+                    run_rows.append(dict(run=name, split=split, group=groups.get(name), kind=kind, field=field,
+                                         crop=crop_rel.as_posix(), frame=evidence, source_timestamp_ms=reading['source_timestamp_ms'],
+                                         box=list(box), read=read, label=label, status=status))
+        demote_animating(run_rows)
+        for row in run_rows:
+            run_counts[row['status']] += 1
+            counts[(split, row['kind'], row['status'])] += 1
+        rows.extend(run_rows)
         manifest_runs.append(dict(run=name, root=str(root), split=split, group=groups.get(name),
                                   source_sha256=report.get('source', {}).get('sha256'), counts=dict(run_counts)))
     manifest = dict(

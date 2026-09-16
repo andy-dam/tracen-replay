@@ -102,7 +102,7 @@ def totals(table):
 
 
 def pct(value):
-    return '—' if value is None else f'{100 * value:.1f}%'
+    return '-' if value is None else f'{100 * value:.1f}%'
 
 
 def markdown(table, manifest=None):
