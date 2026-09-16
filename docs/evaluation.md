@@ -105,6 +105,22 @@ evidence path: a frame and a timestamp the report already carries. A dataset
 for a crop reader can be built by walking reports for these labels, not by
 having a person look at frames and type in values.
 
+`analyzer/tools/build_reader_dataset.py` does that walk. Given run roots that
+still hold their gameplay panes (a pruned run gets them back with
+`--reparse-only --rehydrate-frames`), it cuts the stat badges of every
+training result card and the performance counters of every lesson menu at
+the fixed boxes the reader uses, and labels each crop against the checkpoint
+that vouches for the moment: for a counter, the consensus of the menu visit
+the frame belongs to; for a badge, the next stat bar within two minutes with
+no receipt for that field in between. A crop is `confirmed` when the reader's
+value equals that checkpoint, `hard` when the reader missed or misread it
+(the checkpoint's value is the label), `unlabeled` when no checkpoint can
+vouch for the moment. Runs are the
+unit of splitting: `--holdout` names runs that never feed training and
+`--group` tags each with its recorder, both recorded in `manifest.json`
+beside the per-split counts; `crops.jsonl` carries one row per crop with its
+frame, timestamp, box, read value, label and status.
+
 ### First model: badge and counter reader
 
 A small CNN over the fixed stat-badge and resource-counter crops, predicting
