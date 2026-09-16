@@ -107,6 +107,37 @@ function onScrubEnd(event: Event) {
   emit("time", ms);
 }
 
+// The time readout is also a field: click it, type a time such as 2:38,
+// 02:38.500 or 1:02:38, and Enter seeks there. Escape leaves it alone.
+const editing = ref(false);
+const typed = ref("");
+const timeField = ref<HTMLInputElement | null>(null);
+function parseClock(text: string): number | null {
+  const parts = text.trim().split(":");
+  if (!parts.length || parts.length > 3 || parts.some((p) => !/^\d*(\.\d*)?$/.test(p) || p === "")) return null;
+  const numbers = parts.map(Number);
+  let seconds = 0;
+  for (const n of numbers) seconds = seconds * 60 + n;
+  if (!Number.isFinite(seconds)) return null;
+  return Math.round(Math.max(0, Math.min(props.durationMs, seconds * 1000)));
+}
+function startEdit() {
+  typed.value = clockMs(shown.value ?? 0);
+  editing.value = true;
+  requestAnimationFrame(() => {
+    timeField.value?.focus();
+    timeField.value?.select();
+  });
+}
+function commitEdit() {
+  const ms = parseClock(typed.value);
+  editing.value = false;
+  if (ms === null) return;
+  video.value?.pause();
+  seekTo(ms);
+  emit("time", ms);
+}
+
 function setVolume(event: Event) {
   volume.value = Number((event.target as HTMLInputElement).value);
   muted.value = volume.value === 0;
@@ -158,12 +189,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
       <input class="scrub" type="range" min="0" :max="durationMs" step="1" :value="shown ?? 0" :style="{ '--pos': position * 100 + '%' }" aria-label="position in the recording" @input="onScrub" @change="onScrubEnd" />
       <div class="player-row">
         <button class="pbtn" type="button" :title="playing ? 'pause' : 'play'" @click="toggle">{{ playing ? "❚❚" : "▶" }}</button>
-        <span class="ptime tabular">{{ clockMs(shown) }} <span class="muted">/ {{ clockMs(durationMs) }}</span></span>
-        <span class="video-nudge">
-          <button class="btn small" :disabled="shown === null" title="back one second" @click="nudge(-1000)">−1 s</button>
-          <button class="btn small" :disabled="shown === null" title="back one frame" @click="nudge(-FRAME_MS)">−1 f</button>
-          <button class="btn small" :disabled="shown === null" title="forward one frame" @click="nudge(FRAME_MS)">+1 f</button>
-          <button class="btn small" :disabled="shown === null" title="forward one second" @click="nudge(1000)">+1 s</button>
+        <span class="ptime tabular">
+          <input v-if="editing" ref="timeField" v-model="typed" class="ptime-field" type="text" inputmode="decimal" spellcheck="false" aria-label="go to a time" @keydown.enter.prevent="commitEdit" @keydown.esc.prevent="editing = false" @blur="commitEdit" />
+          <button v-else class="ptime-btn" type="button" title="Click to type a time to go to" @click="startEdit">{{ clockMs(shown) }}</button>
+          <span class="muted">/ {{ clockMs(durationMs) }}</span>
         </span>
         <span class="spacer"></span>
         <label class="speed" title="playback speed">
@@ -174,6 +203,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
         <button class="pbtn" type="button" :title="muted ? 'unmute' : 'mute'" @click="toggleMute">{{ muted || volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊" }}</button>
         <input class="vol" type="range" min="0" max="1" step="0.05" :value="muted ? 0 : volume" aria-label="volume" @input="setVolume" />
         <button class="pbtn" type="button" :title="fullscreen ? 'exit full screen' : 'full screen'" @click="toggleFullscreen">{{ fullscreen ? "⤡" : "⛶" }}</button>
+      </div>
+      <div class="player-row steps">
+        <span class="steps-label">Step</span>
+        <span class="video-nudge">
+          <button class="btn small" :disabled="shown === null" title="back one second" @click="nudge(-1000)">−1 s</button>
+          <button class="btn small" :disabled="shown === null" title="back one frame" @click="nudge(-FRAME_MS)">−1 f</button>
+          <button class="btn small" :disabled="shown === null" title="forward one frame" @click="nudge(FRAME_MS)">+1 f</button>
+          <button class="btn small" :disabled="shown === null" title="forward one second" @click="nudge(1000)">+1 s</button>
+        </span>
+        <span class="muted small steps-hint">Click the time to type where to go.</span>
       </div>
     </div>
     <div v-else class="video-meta">
