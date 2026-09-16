@@ -5,10 +5,11 @@ to those awards, not new credits. Purchases contribute only their debit here.
 An observed state difference never manufactures a missing receipt, with one
 explicit and flagged exception: a turn's remaining difference for a field goes
 to its only possible owner, the sole training whose gain for the field was
-not read, the one receipt that named the field but lost its number, or the
-one lesson without an observed cost (basis ``turn_difference``). Boundary
-source probes may make a turn opening available after reassembly, but this
-module never promotes a terminal observation or a later state into an endpoint.
+not read, the one receipt that named the field but lost its number, the one
+lesson without an observed cost, or the one skill batch whose charge was never
+read (basis ``turn_difference``). Boundary source probes may make a turn
+opening available after reassembly, but this module never promotes a terminal
+observation or a later state into an endpoint.
 """
 import re
 from collections import Counter, defaultdict
@@ -361,6 +362,12 @@ def build(report):
             else:
                 context.append(dict(source_ref=ref, event_ref=parent, effect=deepcopy(effect),
                                     evidence=_proof(evidence), accounting_role='outside_reconciled_numeric_channels'))
+        if (event.get('kind') == 'skill_purchase_batch'
+                and type((event.get('deltas') or {}).get('skill_points')) is not int):
+            # A committed batch whose charge was never read carries no debit.
+            # Name it here, the way an unpriced lesson is named, so its points
+            # are not left as an unattributed negative difference.
+            issues.append(dict(kind='unobserved_purchase_debit', source_ref=parent))
         for channel, key in (('stats', 'deltas'), ('performance', 'performance_deltas')):
             for field, amount in event.get(key, {}).items():
                 if (channel, field) in represented:
@@ -602,6 +609,10 @@ def build(report):
         race_in_turn = any(a.get('action_kind') == 'race' for a in actions)
         open_lessons = [(i, l) for i, l in enumerate(lessons) if isinstance(l, dict) and l.get('performance_cost') is None
                         and type(l.get('source_timestamp_ms')) is int and start < l['source_timestamp_ms'] <= end]
+        open_skill_batches = [(i, e) for i, e in enumerate(data['events'])
+                              if e.get('kind') == 'skill_purchase_batch'
+                              and type((e.get('deltas') or {}).get('skill_points')) is not int
+                              and e['last_seen_ms'] > start and e['first_seen_ms'] <= end]
         for row in transition['fields']:
             field, residual = row['field'], row.get('unresolved_change')
             if row.get('status') != 'unexplained_change' or type(residual) is not int or residual == 0:
@@ -609,10 +620,12 @@ def build(report):
             if row.get('ambiguous_contributions'):
                 continue
             possible = []
-            if race_in_turn and field == 'skill_points':
+            if race_in_turn and field == 'skill_points' and residual > 0:
                 # Race rewards are not itemised on screen; the turn's one race is
                 # the only possible owner of a positive skill-point difference
-                # when no training or cut receipt could also have paid it.
+                # when no training or cut receipt could also have paid it.  A
+                # race never charges skill points, so a negative difference on
+                # the same turn is left to the owners considered below.
                 races_here = [a for a in actions if a.get('action_kind') == 'race']
                 receipt = _resolve_pointer(report, races_here[0].get('source_ref')) if len(races_here) == 1 else None
                 race_index = next((i for i, r in enumerate(data.get('races') or [])
@@ -661,6 +674,11 @@ def build(report):
             if residual < 0 and channel == 'performance' and open_lessons:
                 for index, lesson in open_lessons:
                     possible.append(('lesson', f'/gameplay_tracking/lesson_purchases/{index}', lesson))
+            # The one skill batch committed in the window whose charge was not
+            # observed takes a negative skill-point difference.
+            if residual < 0 and channel == 'stats' and field == 'skill_points' and open_skill_batches:
+                for index, batch in open_skill_batches:
+                    possible.append(('skill_batch', f'/gameplay_tracking/events/{index}', batch))
             if len(possible) != 1 or possible[0][0] == 'unresolved':
                 continue
             kind, parent, owner = possible[0][:3]
@@ -700,6 +718,11 @@ def build(report):
                 proof = [owner.get('evidence'), *(e for c in found for e in (c.get('evidence') or []))]
                 add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, [e for e in proof if e],
                     'turn_difference')
+            elif kind == 'skill_batch':
+                owner.setdefault('turn_difference_cost', {})[field] = -residual
+                owner['turn_difference_basis'] = 'sole_unpriced_skill_batch_takes_turn_residual'
+                add(f'{parent}/turn_difference_cost/{field}', parent, owner, channel, field, residual,
+                    owner.get('evidence'), 'turn_difference')
             else:
                 owner.setdefault('turn_difference_cost', {})[field] = -residual
                 owner['turn_difference_basis'] = 'sole_unpriced_lesson_takes_turn_residual'
@@ -722,7 +745,7 @@ def build(report):
                      turn_comparisons=len(turn_transitions),turn_field_status_counts=dict(turn_counts)),
         limitations=['Arithmetic closure does not verify every individual effect or exclude offsetting recognition errors.',
                      'State-derived and projected changes are not independent receipt evidence.',
-                     'A turn_difference is the turn difference assigned to its only possible owner (the sole training, the one receipt that lost its number, or the one lesson without an observed cost); it is flagged, not observed, and a viewer may replace it.',
+                     'A turn_difference is the turn difference assigned to its only possible owner (the sole training, the one receipt that lost its number, the one lesson without an observed cost, or the one skill batch whose charge was never read); it is flagged, not observed, and a viewer may replace it.',
                      'Observation windows constrain attribution; they do not establish the exact award time.',
                      'Missing opening or final checkpoints leave recording coverage incomplete.',
                      'Turn and checkpoint comparisons are overlapping views; sum canonical contributions only once.',

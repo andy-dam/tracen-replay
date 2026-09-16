@@ -275,9 +275,16 @@ them, are:
   caption's up/down direction agrees (`sole_number_cut_receipt_takes_turn_residual`);
 - for a negative performance difference, the one lesson bought in the window
   whose cost was never observed (`sole_unpriced_lesson_takes_turn_residual`);
+- for a negative skill-point difference, the one skill batch committed in the
+  window whose charge was never read
+  (`sole_unpriced_skill_batch_takes_turn_residual`); such a batch is also
+  named by an `unobserved_purchase_debit` issue whether or not it takes the
+  difference;
 - for a positive skill-point difference in a turn that contains a race, the
   turn's one race, but only when no training with unread skill points could
-  also have paid them (`sole_race_takes_skill_point_residual`).
+  also have paid them (`sole_race_takes_skill_point_residual`). A race never
+  charges skill points, so a negative difference on a race turn is left to
+  the owners above.
 
 Two possible owners, an ambiguous contribution, or a caption whose remaining
 digits contradict the difference leave the difference open with its time

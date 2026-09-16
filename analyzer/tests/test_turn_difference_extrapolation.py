@@ -4,7 +4,7 @@ import unittest
 from tracen_replay.causal_accounting import CHANNELS, build
 
 
-def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1, race=False, outcome=False, lessons=(), performance_after=None):
+def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1, race=False, outcome=False, lessons=(), performance_after=None, batches=()):
     stats = dict.fromkeys(CHANNELS['stats'], 100)
     after = dict(stats, speed=100 + 9 * residual_sign, guts=100 + 13 * residual_sign, skill_points=100 + 8 * residual_sign)
     performance = dict.fromkeys(CHANNELS['performance'], 20)
@@ -27,6 +27,8 @@ def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1
         receipts.append(dict(kind='race', source_timestamp_ms=180, evidence='race.png', race_id='race-1'))
         timeline.append(dict(id='entry-3', kind='committed_action', action_kind='race', turn_id='turn-001',
                              source_ref='/gameplay_tracking/turn_action_receipts/' + str(len(receipts) - 1), first_seen_ms=180, last_seen_ms=180))
+    for batch in batches:
+        events.append(dict(batch))
     doc = {'source': {'sha256': 'example'}, 'gameplay_tracking': {
         'auxiliary_log_used': False,
         'readings': [dict(source_timestamp_ms=100, evidence='before.png'), dict(source_timestamp_ms=150, evidence='banner.png'),
@@ -53,6 +55,13 @@ def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1
                                               values=dict(performance_after), observed_at_ms=200), closing=None)))],
             'timeline': timeline}}
     return doc
+
+
+def batch(**overrides):
+    """A committed skill purchase whose charge was never read."""
+    return dict(dict(id='skills-1', kind='skill_purchase_batch', first_seen_ms=170, last_seen_ms=175,
+                     evidence='lesson.png', deltas={}, field_evidence={}, effects=[],
+                     spent_skill_points=None, cost_basis='unresolved'), **overrides)
 
 
 def turn_field(result, name, turn='turn-001', channel='stats'):
@@ -239,6 +248,40 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
             result = build(doc)
             self.assertEqual(turn_field(result, 'passion', channel='performance')['status'], 'unexplained_change')
             self.assertFalse(any('turn_difference_cost' in l for l in doc['gameplay_tracking']['lesson_purchases']))
+
+    def test_the_one_skill_batch_without_an_observed_charge_takes_a_negative_skill_point_difference(self):
+        doc = report(residual_sign=-1, batches=[batch()])
+        result = build(doc)
+        committed = doc['gameplay_tracking']['events'][-1]
+        self.assertEqual(committed['turn_difference_cost'], dict(skill_points=8))
+        self.assertEqual(committed['turn_difference_basis'], 'sole_unpriced_skill_batch_takes_turn_residual')
+        row = turn_field(result, 'skill_points')
+        self.assertEqual((row['status'], row['unresolved_change'], row['derived_or_summary_change']),
+                         ('balanced_with_derived_changes', 0, -8))
+        cost = next(c for c in result['contributions'] if c['basis'] == 'turn_difference' and c['field'] == 'skill_points')
+        self.assertEqual((cost['amount'], cost['channel']), (-8, 'stats'))
+        # The batch is named as unpriced whether or not it took the difference.
+        self.assertIn(dict(kind='unobserved_purchase_debit', source_ref=cost['event_ref']), result['issues'])
+
+    def test_two_unpriced_batches_or_a_charged_one_do_not_take_the_difference(self):
+        second = dict(batch(), id='skills-2', first_seen_ms=176, last_seen_ms=178)
+        # A batch whose charge was read owns that charge and nothing more; the
+        # rest of the difference stays open rather than being added to it.
+        charged = dict(batch(), spent_skill_points=3, deltas={'skill_points': -3},
+                       cost_basis='observed_states_without_other_sp_transactions')
+        for batches in ([batch(), second], [charged]):
+            doc = report(residual_sign=-1, batches=batches)
+            result = build(doc)
+            self.assertEqual(turn_field(result, 'skill_points')['status'], 'unexplained_change')
+            self.assertFalse(any('turn_difference_cost' in e for e in doc['gameplay_tracking']['events']))
+
+    def test_a_race_in_the_turn_does_not_swallow_a_negative_skill_point_difference(self):
+        # A race can own a positive skill-point difference, never a charge.
+        doc = report(residual_sign=-1, race=True, batches=[batch()])
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][-1]['turn_difference_cost'], dict(skill_points=8))
+        self.assertEqual(turn_field(result, 'skill_points')['status'], 'balanced_with_derived_changes')
+        self.assertNotIn('turn_difference_gains', doc['gameplay_tracking']['races'][0])
 
 
 if __name__ == '__main__':
