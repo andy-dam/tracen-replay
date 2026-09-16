@@ -228,7 +228,10 @@ recorded; it never derives a value of its own. It reads like a replay:
   seeks the video to the turn's start and any time in the log seeks there;
   scrubbing or playing the video selects the turn whose window holds that
   moment, so the log follows the recording. The video is served from the
-  upload with range requests, so nothing is copied. A
+  upload with range requests, so nothing is copied. The player has its own
+  control bar: play and pause (Space works too), a scrub bar, the time,
+  one-second and one-frame steps, playback speed from 0.25× to 3× (kept per
+  browser), volume and full screen. A
   report whose recording is not on this machine (an import without
   `-recording`) shows the analyzer's extracted frame instead.
 - **This turn.** The action the ledger recorded for the turn (with a link to

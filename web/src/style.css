@@ -512,8 +512,39 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 .warn-text { color: var(--warn-ink); }
 
 /* video */
-.video { background: var(--video-bg); border-radius: var(--radius); overflow: hidden; aspect-ratio: 16 / 9; display: grid; place-items: center; color: #dfe5ec; }
+.video { position: relative; background: var(--video-bg); border-radius: var(--radius) var(--radius) 0 0; overflow: hidden; aspect-ratio: 16 / 9; display: grid; place-items: center; color: #dfe5ec; cursor: pointer; }
 .video video, .video img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.play-big { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.9); color: #1b2230; font-size: 24px; padding-left: 5px; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); transition: transform 160ms var(--ease), background 160ms; }
+.play-big:hover { transform: scale(1.08); background: #fff; }
+
+/* the player's own control bar */
+.player { background: var(--bg-2); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); padding: 6px 12px 8px; }
+.scrub { --pos: 0%; display: block; width: 100%; height: 18px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.scrub::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(90deg, var(--green) var(--pos), var(--bg-4) var(--pos)); }
+.scrub::-moz-range-track { height: 6px; border-radius: 999px; background: var(--bg-4); }
+.scrub::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--green); }
+.scrub::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -5px; border-radius: 50%; background: #fff; border: 2.5px solid var(--green); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); transition: transform 120ms var(--ease); }
+.scrub::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2.5px solid var(--green); }
+.scrub:hover::-webkit-slider-thumb { transform: scale(1.15); }
+.player-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.player-row .spacer { flex: 1; }
+.pbtn { width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-3); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; display: grid; place-items: center; transition: background 140ms, transform 140ms var(--ease); }
+.pbtn:hover { background: var(--green-soft); color: var(--green-ink); transform: scale(1.06); }
+.ptime { font-family: var(--font-display); font-weight: 800; font-size: 15px; white-space: nowrap; }
+.player .video-nudge .btn { padding: 3px 8px; font-size: 12px; }
+.player .video-nudge { gap: 3px; }
+.speed select { font: inherit; font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--ink); background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+.speed select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.vol { width: 80px; height: 18px; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.vol::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: var(--bg-4); }
+.vol::-moz-range-track { height: 4px; border-radius: 999px; background: var(--bg-4); }
+.vol::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 50%; background: var(--ink-2); }
+.vol::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-2); border: 0; }
+.video-panel.fullscreen { background: var(--video-bg); display: flex; flex-direction: column; justify-content: center; padding: 0 12px; }
+.video-panel.fullscreen .video { aspect-ratio: auto; height: calc(100vh - 92px); border-radius: 0; }
+.video-panel.fullscreen .player { border-radius: 0; }
+.video-panel.fullscreen > p { display: none; }
+@media (max-width: 640px) { .ptime { font-size: 13px; } .vol { display: none; } }
 .video-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
 .video-nudge { display: flex; gap: 4px; flex-wrap: wrap; }
 .video-nudge .btn { padding: 4px 10px; }
