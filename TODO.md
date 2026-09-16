@@ -141,9 +141,14 @@ reading small fixed crops. The accounting labels them for free. Order:
       preserved acceptance runs (about 8,500 crops); the six recordings need
       `--rehydrate-frames` first to join it. See
       [docs/evaluation.md](docs/evaluation.md).
-- [ ] **Baseline.** The current OCR reader's accepted-read accuracy and
-      coverage on that dataset, per field. Done: one table in the local
-      records, reproducible by a tool.
+- [x] **Baseline.** `analyzer/tools/reader_baseline.py` reports, per split,
+      kind and field, the current reader's coverage, accuracy and exact
+      share by frame and by visit. The table for dataset-v1 is in the local
+      records beside the dataset. Badges: accepted values are right about
+      95% of the time but only 25 to 60% of card frames yield a value, and
+      about a quarter of held-out cards are never read on any frame; skill
+      points are the weakest badge. Counters are labeled by their own
+      consensus, so their number to watch is the unlabeled share.
 - [ ] **First model: badge and counter reader.** A small CNN that reads a
       digit string and a confidence from a fixed crop, trained on the
       dataset; compare a frozen pretrained backbone with a linear head

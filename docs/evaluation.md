@@ -121,6 +121,17 @@ unit of splitting: `--holdout` names runs that never feed training and
 beside the per-split counts; `crops.jsonl` carries one row per crop with its
 frame, timestamp, box, read value, label and status.
 
+`analyzer/tools/reader_baseline.py` turns that file into the table a learned
+reader is measured against: per split, kind and field, the labeled frames,
+the share where the current reader accepted a value (coverage), the share of
+accepted values equal to the label (accuracy), their product (exact), and
+the same by visit, where frames of one field closer than 1.5 s are one card
+or menu and one correct read of it is what the accounting needs. Counter
+labels come from the consensus of the reader's own visit, so their accuracy
+is 100% by construction; for counters the number that matters is the
+unlabeled share, the visits where no consensus formed. The table lives in
+the local records beside the dataset, never in the repository.
+
 ### First model: badge and counter reader
 
 A small CNN over the fixed stat-badge and resource-counter crops, predicting
