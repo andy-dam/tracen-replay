@@ -96,10 +96,15 @@ reviewer work each removes.
       counts.
 - [x] The runs page shows one row per recording, with earlier analyses of
       the same recording kept under it rather than as rows of their own.
-- [ ] Re-assemble a finished report without a new OCR pass when the working
-      data was kept (`-keep-working-data`), so a parser change refreshes old
-      reports in minutes. Done: a job option that runs the analyzer's
-      reparse mode against a kept run directory.
+- [x] ~~Re-assemble a finished report without a new OCR pass~~ Decided
+      against (2026-09-16). A rebuild reuses the saved readings, so a change
+      to what is read off the screen can only be checked by a fresh run; a
+      change to the accounting is checked in seconds by running that module
+      against the saved report; only the recovery and assembly stages in
+      between would gain, about 17 minutes of a 40-minute run, at the cost
+      of keeping ~5 GB of working data per recording and a job, endpoint and
+      store column to maintain. The analyzer's own `--reparse-only` mode
+      stays for evaluation work. Do not re-add this as a product feature.
 
 ## 3. Learned readers (the neural network)
 
