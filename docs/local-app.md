@@ -196,6 +196,15 @@ recording:
 
 ## The report page
 
+The turn's log shows one card per thing that happened, the way a player
+thinks of it: a training with its option, its result and its gains; a
+lesson with its cost, the award its receipt paid and the song it taught; a
+race with its placing and fans; a concert with its rewards. Each card opens
+to the report entries behind it, each with its own time and pencil. Receipt
+lines the reader caught mid-scroll, cut short or garbled repeats of a line
+already in the log, fold into one quiet "OCR Fragments" line. A card's own
+line carries only the flags that ask for a look.
+
 The page is built from the timeline document only and shows what the analyzer
 recorded; it never derives a value of its own. It reads like a replay:
 
