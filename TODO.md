@@ -24,18 +24,36 @@ Read from the latest report of each recording in the acceptance account
 first four items below account for 31 of those. Ordered by how much
 reviewer work each removes.
 
-- [ ] **Performance points earned by training are not read.** A training
-      result shows the performance stat it raised beside the five stat
-      badges; the report reads the five and leaves the sixth, so the turn
-      ends with one unexplained performance change of training size (16 of
-      the 33 turns). Done: a training turn whose result raised a
-      performance stat balances on that field without a correction.
-- [ ] **Purchases are not always debited.** Skill purchases and lesson
-      purchases sometimes leave the points they cost unexplained (a negative
-      gap the size of the price) because the purchased list was cut off or
-      the price was never on screen. Done: a purchase turn whose price was
-      shown balances; one whose price was never shown says so on the entry
-      rather than as an unexplained change.
+- [x] **Performance points earned by training are not read.** The real cause
+      was narrower than this item claimed. A training can raise two
+      performance currencies by the same amount, and the sidebar award crop
+      was requested only by the dense result inspection, never by the
+      ordinary reading pass. So one row was awarded and its equal partner
+      became an unexplained change of training size. The ordinary pass now
+      requests those rows. A full re-analysis of the Hishi Amazon recording
+      closed all three of its affected turns: six readings took an award
+      through the crop, on basis
+      `same_frame_dedicated_result_performance_region`, with no crop/panel
+      conflict anywhere in the run. Re-reading frames for the other six turns
+      recovers four more. The two left over are held by rules that are right
+      to abstain: one row whose merged panel line was misread as `5+200`
+      conflicts with its own `+20` crop, and one whose panel row was not read
+      at all, leaving the crop as sole evidence.
+- [x] **Purchases are not always debited.** Only the skill half was still
+      open: every lesson bought across the six reports already had an
+      observed cost, and the performance gaps left on lesson turns have other
+      causes. A skill batch whose price was shown already balanced; every one
+      whose charge was never read left a bare negative skill-point gap,
+      because no issue named it and no turn difference could reach it (a race
+      in the turn short-circuited the skill-point field before any owner was
+      considered). The batch now carries `unobserved_purchase_debit` whether
+      or not it is attributable, takes the negative difference when it is the
+      window's only unpriced batch
+      (`sole_unpriced_skill_batch_takes_turn_residual`), and a race no
+      longer swallows a negative difference it cannot have caused. This
+      closes all three such turns in the six reports. Rebuilding the Hishi
+      Amazon re-analysis with only this change reverted puts its two gaps
+      back, which is what attributes them to it.
 - [ ] **The digits at the end of an award receipt are not read.** "Skill
       Pts went up by", "Stamina went up by", "Power cap went up by": the
       line is recognized and its number is missing, so the award becomes an
