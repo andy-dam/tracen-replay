@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { api, ApiError, type Job, type Recording, type Report } from "../api";
+import { api, ApiError, crossOrigin, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
 import { turnWarnings } from "../warnings";
 import RankBadge from "../components/RankBadge.vue";
@@ -253,7 +253,7 @@ function hideBroken(e: Event) {
   <ul v-else class="runs">
     <li v-for="run in runs" :key="run.key" class="run">
       <a class="run-thumb" :href="run.report ? `#/reports/${encodeURIComponent(run.report.id)}` : run.job ? `#/jobs/${encodeURIComponent(run.job.id)}` : undefined">
-        <img v-if="run.thumb" :src="run.thumb" alt="" loading="lazy" @error="hideBroken" />
+        <img v-if="run.thumb" :src="run.thumb" :crossorigin="crossOrigin" alt="" loading="lazy" @error="hideBroken" />
       </a>
       <div class="run-body">
         <div class="run-name">

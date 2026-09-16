@@ -234,10 +234,17 @@ export interface TurnDetail {
   verification?: Verification | null;
 }
 
+// The API's origin. Empty means the client is served by the service itself;
+// otherwise every call, stream and media URL is prefixed and sent with
+// credentials, and the service must list this client's origin.
+export const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
+export const crossOrigin = API_BASE ? "use-credentials" : undefined;
+const url = (path: string) => API_BASE + path;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) ?? {}) };
   if (init?.body && !(init.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const response = await fetch(path, { ...init, headers, credentials: "same-origin" });
+  const response = await fetch(url(path), { ...init, headers, credentials: API_BASE ? "include" : "same-origin" });
   if (!response.ok) {
     let code = "http_" + response.status;
     let message = response.statusText;
@@ -283,20 +290,21 @@ export const api = {
   corrections: (id: string) => request<{ corrections: { correction: Correction; verification: Verification }[] }>(`/api/reports/${enc(id)}/corrections`).then((r) => r.corrections),
   unassigned: (id: string) => request<{ entries: Entry[] }>(`/api/reports/${enc(id)}/unassigned`).then((r) => r.entries),
   entries: (id: string) => request<{ entries: Entry[] }>(`/api/reports/${enc(id)}/entries`).then((r) => r.entries),
-  frameUrl: (id: string, ms: number) => `/api/reports/${enc(id)}/frame?ms=${ms}`,
-  videoUrl: (id: string) => `/api/reports/${enc(id)}/video`,
-  recordingVideoUrl: (id: string) => `/api/recordings/${enc(id)}/video`,
-  recordingFrameUrl: (id: string, ms: number) => `/api/recordings/${enc(id)}/frame?ms=${ms}`,
-  logUrl: (id: string) => `/api/jobs/${enc(id)}/log`,
-  downloadUrl: (id: string) => `/api/reports/${enc(id)}/download`,
-  events: (id: string) => new EventSource(`/api/jobs/${enc(id)}/events`),
+  frameUrl: (id: string, ms: number) => url(`/api/reports/${enc(id)}/frame?ms=${ms}`),
+  videoUrl: (id: string) => url(`/api/reports/${enc(id)}/video`),
+  recordingVideoUrl: (id: string) => url(`/api/recordings/${enc(id)}/video`),
+  recordingFrameUrl: (id: string, ms: number) => url(`/api/recordings/${enc(id)}/frame?ms=${ms}`),
+  logUrl: (id: string) => url(`/api/jobs/${enc(id)}/log`),
+  downloadUrl: (id: string) => url(`/api/reports/${enc(id)}/download`),
+  events: (id: string) => new EventSource(url(`/api/jobs/${enc(id)}/events`), { withCredentials: !!API_BASE }),
 };
 
 /** Upload a recording with progress; XMLHttpRequest is the only browser API that reports upload progress. */
 export function uploadRecording(file: File, onProgress: (sent: number, total: number) => void): { promise: Promise<Recording>; abort: () => void } {
   const xhr = new XMLHttpRequest();
   const promise = new Promise<Recording>((resolve, reject) => {
-    xhr.open("POST", "/api/recordings");
+    xhr.open("POST", url("/api/recordings"));
+    xhr.withCredentials = !!API_BASE;
     xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
     xhr.onerror = () => reject(new ApiError(0, "network", "the upload was interrupted"));
     xhr.onabort = () => reject(new ApiError(0, "aborted", "the upload was cancelled"));

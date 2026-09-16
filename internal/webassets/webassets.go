@@ -6,6 +6,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 )
@@ -13,23 +14,36 @@ import (
 //go:embed all:dist
 var dist embed.FS
 
-// Handler serves the client. Paths that do not name a file fall back to
-// index.html so hash-free deep links and reloads keep working; API paths are
-// never routed here.
+// Handler serves the embedded client. Paths that do not name a file fall
+// back to index.html so hash-free deep links and reloads keep working; API
+// paths are never routed here.
 func Handler() http.Handler {
 	sub, err := fs.Sub(dist, "dist")
 	if err != nil {
 		panic(err)
 	}
+	return serve(sub)
+}
+
+// DirHandler serves a built client from a directory on disk with the same
+// rules as the embedded one, so a rebuilt client is picked up on the next
+// page load without restarting the service.
+func DirHandler(dir string) http.Handler {
+	return serve(os.DirFS(dir))
+}
+
+func serve(sub fs.FS) http.Handler {
 	files := http.FS(sub)
 	server := http.FileServer(files)
-	_, builtErr := sub.Open("index.html")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if builtErr != nil {
+		// Checked per request: a directory can be built after the service started.
+		if f, err := sub.Open("index.html"); err != nil {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(notBuilt))
 			return
+		} else {
+			f.Close()
 		}
 		name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
 		if name == "" || name == "index.html" {

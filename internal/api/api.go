@@ -91,6 +91,16 @@ type Config struct {
 	// AllowedHosts lists the Host header values this service answers for;
 	// empty allows loopback names only.
 	AllowedHosts []string
+	// AllowedOrigins lists client origins served from elsewhere (scheme,
+	// host and port, such as https://app.example.com or
+	// http://localhost:5173) that may call the API with credentials. Empty
+	// means the client is served by this service and no cross-origin call
+	// is accepted.
+	AllowedOrigins []string
+	// CookieSameSite is the session cookie's SameSite attribute; zero means
+	// Strict. Lax suits a client on another port or subdomain of the same
+	// site; None (which needs HTTPS) a client on another site.
+	CookieSameSite http.SameSite
 	// Static serves the browser client at "/"; nil serves a placeholder.
 	Static http.Handler
 	Logger *slog.Logger
@@ -171,14 +181,30 @@ func (s *Server) routes() {
 	}
 }
 
-// ServeHTTP applies the host, origin and session checks, then routes.
+// ServeHTTP applies the host, origin and session checks, then routes. A
+// client served from one of the allowed origins gets CORS headers and its
+// preflight answered; any other cross-origin request that could change
+// state is refused.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.hostAllowed(r.Host) {
 		writeError(w, http.StatusMisdirectedRequest, "bad_host", "this service only answers for its configured host")
 		return
 	}
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
+	origin := r.Header.Get("Origin")
+	if origin != "" && s.crossOriginAllowed(origin) {
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", origin)
+		h.Set("Access-Control-Allow-Credentials", "true")
+		h.Add("Vary", "Origin")
+		if r.Method == http.MethodOptions {
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", "Content-Type")
+			h.Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	} else if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		if origin != "" && !s.originAllowed(origin) {
 			writeError(w, http.StatusForbidden, "bad_origin", "cross-origin requests are not accepted")
 			return
 		}
@@ -240,6 +266,26 @@ func (s *Server) originAllowed(origin string) bool {
 	return s.hostAllowed(trimmed)
 }
 
+// crossOriginAllowed reports whether a client served from another origin
+// may call this API with credentials.
+func (s *Server) crossOriginAllowed(origin string) bool {
+	for _, allowed := range s.cfg.AllowedOrigins {
+		if strings.EqualFold(strings.TrimRight(allowed, "/"), strings.TrimRight(origin, "/")) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameSite is the session cookie's SameSite attribute; None only makes
+// sense over HTTPS, where the cookie is also Secure.
+func (s *Server) sameSite() http.SameSite {
+	if s.cfg.CookieSameSite == 0 {
+		return http.SameSiteStrictMode
+	}
+	return s.cfg.CookieSameSite
+}
+
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 	var checks []Check
 	if s.cfg.Ready != nil {
@@ -257,13 +303,13 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 // ---- accounts ----
 
 func (s *Server) setSession(w http.ResponseWriter, r *http.Request, token string) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil,
-		SameSite: http.SameSiteStrictMode, MaxAge: int(s.cfg.Auth.TTL() / time.Second)})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil || s.sameSite() == http.SameSiteNoneMode,
+		SameSite: s.sameSite(), MaxAge: int(s.cfg.Auth.TTL() / time.Second)})
 }
 
-func clearSession(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: r.TLS != nil,
-		SameSite: http.SameSiteStrictMode, MaxAge: -1})
+func (s *Server) clearSession(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: r.TLS != nil || s.sameSite() == http.SameSiteNoneMode,
+		SameSite: s.sameSite(), MaxAge: -1})
 }
 
 func authError(w http.ResponseWriter, err error) {
@@ -346,7 +392,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		s.cfg.Auth.Logout(r.Context(), cookie.Value)
 	}
-	clearSession(w, r)
+	s.clearSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 

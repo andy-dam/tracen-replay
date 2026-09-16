@@ -60,6 +60,10 @@ directory, so no user path is hardcoded):
 | `-dense-workers` | `0` (= workers minus one) | processes for the dense re-read passes; each can peak near 5-6 GB |
 | `-queue` | `4` | maximum queued jobs; one job runs at a time |
 | `-ocr-device` | `auto` | `auto` (DirectML, then CUDA, then CPU), `cpu`, `dml`, `cuda` |
+| `-web` | unset | serve the browser client from this built directory instead of the embedded copy; a rebuild is picked up on the next page load without a restart |
+| `-api-only` | off | serve the API only; the client is hosted elsewhere |
+| `-allowed-origin` | unset | comma-separated client origins served from elsewhere that may call the API with credentials, e.g. `http://localhost:5173` |
+| `-cookie-samesite` | `strict` | the session cookie's SameSite: `strict` when the service serves the client, `lax` for a client on another port or subdomain of the same site, `none` for another site (needs HTTPS) |
 | `-keep-working-data` | off | keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); off keeps only the report, timeline, viewer page and log |
 
 Example with everything explicit, as a configuration you can keep in a script:
@@ -85,6 +89,29 @@ forced stop), the worker still ends within seconds: on Windows it lives in a
 job object that the operating system closes with the server, and on every
 platform the worker watches the server's process id (`--owner-pid`) and stops
 itself, with its OCR processes, once that process is gone.
+
+## Serving the client separately
+
+The client and the service are separate programs that only meet at `/api`.
+Embedding the client into the binary is one packaging choice, made for the
+single-file local install; the other two are:
+
+- **From a directory.** `-web ../internal/webassets/dist` (or any folder
+  holding a Vite build) serves the client from disk. `npm run build` then takes
+  effect on the next page load, with no restart and no interruption of a
+  running analysis.
+- **From another server.** Build the client with `VITE_API_BASE` set to the
+  API's origin (`web/.env.example`), host the `dist/` folder anywhere static
+  files are served, and start the service with `-api-only`,
+  `-allowed-origin <client origin>` and `-cookie-samesite lax` (same site,
+  for example another port or a subdomain) or `none` (another site; HTTPS
+  required). The client then sends every call, stream and media request with
+  credentials, and the service answers the browser's preflight and CORS
+  headers for that origin only.
+
+While working on the client, `npm run dev` in `web/` runs it live on port
+5173 with hot reload and proxies `/api` to a running service; `TRACEN_API`
+picks the service's address (default `http://127.0.0.1:8765`).
 
 ## Accounts and uploads
 

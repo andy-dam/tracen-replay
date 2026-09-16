@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -59,6 +60,10 @@ func run() error {
 	denseWorkers := flag.Int("dense-workers", 0, "worker processes for the dense re-read passes (0 = workers minus one); each can peak near 5-6 GB")
 	queue := flag.Int("queue", 4, "maximum number of queued jobs")
 	ocrDevice := flag.String("ocr-device", "auto", "OCR device for the analyzer: auto (DirectML, then CUDA, then CPU), cpu, dml or cuda")
+	webDir := flag.String("web", "", "serve the browser client from this built directory instead of the embedded copy (a rebuild is picked up without a restart)")
+	apiOnly := flag.Bool("api-only", false, "serve the API only; the browser client is hosted elsewhere and named with -allowed-origin")
+	allowedOrigins := flag.String("allowed-origin", "", "comma-separated client origins served from elsewhere that may call the API with credentials, e.g. http://localhost:5173")
+	cookieSameSite := flag.String("cookie-samesite", "strict", "session cookie SameSite: strict (client served here), lax (client on another port or subdomain of the same site), none (another site; needs HTTPS)")
 	keepWorkingData := flag.Bool("keep-working-data", false, "keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); by default only the report, timeline, viewer page and log are kept")
 	flag.Parse()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -117,10 +122,27 @@ func run() error {
 			{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"},
 		}
 	}
+	var static http.Handler = webassets.Handler()
+	switch {
+	case *apiOnly:
+		static = http.NotFoundHandler()
+	case *webDir != "":
+		static = webassets.DirHandler(*webDir)
+	}
+	var origins []string
+	for _, o := range strings.Split(*allowedOrigins, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			origins = append(origins, o)
+		}
+	}
+	sameSite := map[string]http.SameSite{"strict": http.SameSiteStrictMode, "lax": http.SameSiteLaxMode, "none": http.SameSiteNoneMode}[strings.ToLower(*cookieSameSite)]
+	if sameSite == 0 {
+		return fmt.Errorf("bad -cookie-samesite %q: strict, lax or none", *cookieSameSite)
+	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
-		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, Static: webassets.Handler()})
+		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static})
 	server := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.ListenAndServe() }()

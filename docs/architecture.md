@@ -12,11 +12,15 @@ plus `internal/*`). It serves the HTTP API and the browser client from one
 process, keeps a SQLite database of accounts, uploads, jobs and reports, and
 runs the analyzer as a child process for each submitted recording.
 
-**The client** is the Vue application under `web/`. It is built once with
-Vite and embedded into the binary (`internal/webassets`); the service serves
-it at `/`. The client only ever talks to the service's `/api` routes
-(`web/src/api.ts`) and knows recordings, jobs and reports by the server-issued
-ids the service hands it, never by a file path.
+**The client** is the Vue application under `web/`. It only ever talks to
+the service's `/api` routes (`web/src/api.ts`) and knows recordings, jobs and
+reports by the server-issued ids the service hands it, never by a file path.
+How it is served is a packaging choice: embedded into the binary
+(`internal/webassets`, the single-file local install), from a directory
+(`-web`), or from another server entirely (`-api-only` with
+`-allowed-origin`; the client is built with `VITE_API_BASE` naming the API
+and sends credentials with every call). See
+[local-app.md](local-app.md#serving-the-client-separately).
 
 **The analyzer** (`the worker`) is the Python package `tracen_replay` under
 `analyzer/`. The service runs it as

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { api } from "../api";
+import { api, crossOrigin } from "../api";
 import { clockMs } from "../format";
 
 // Shows the recording at a requested source timestamp and reports where the
@@ -148,10 +148,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
   <div ref="panel" class="video-panel" :class="{ fullscreen }">
     <div class="video" @click="available && !failed && toggle()">
       <template v-if="available && !failed">
-        <video ref="video" :src="src" preload="metadata" playsinline @loadedmetadata="onReady" @timeupdate="onTime" @seeked="onTime" @play="playing = true" @pause="playing = false" @error="onError"></video>
+        <video ref="video" :src="src" :crossorigin="crossOrigin" preload="metadata" playsinline @loadedmetadata="onReady" @timeupdate="onTime" @seeked="onTime" @play="playing = true" @pause="playing = false" @error="onError"></video>
         <button v-if="!playing" class="play-big" type="button" title="play" @click.stop="toggle">▶</button>
       </template>
-      <img v-else-if="shown !== null" :src="api.frameUrl(reportId, shown)" :alt="`frame at ${clockMs(shown)}`" />
+      <img v-else-if="shown !== null" :src="api.frameUrl(reportId, shown)" :crossorigin="crossOrigin" :alt="`frame at ${clockMs(shown)}`" />
       <p v-else class="small" style="padding: 24px; text-align: center">Pick a turn or an entry to see that moment.</p>
     </div>
     <div v-if="available && !failed" class="player">

@@ -140,6 +140,35 @@ func do(t *testing.T, srv http.Handler, method, path, body string) (int, map[str
 	return rec.Code, decoded
 }
 
+// A client served from an allowed origin gets its preflight answered and its
+// calls accepted with credentials; any other origin is still refused.
+func TestCrossOriginClient(t *testing.T) {
+	fj := &fakeJobs{jobs: map[string]jobs.Job{}, hub: jobs.NewHub()}
+	report := fixtureReport(t)
+	srv := New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{report.ID: report}}, AllowedOrigins: []string{"http://localhost:5173"}})
+	req := httptest.NewRequest("OPTIONS", "http://localhost:8765/api/jobs", nil)
+	req.Header.Set("Origin", "http://localhost:5173")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" || rec.Header().Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatalf("preflight: %d %v", rec.Code, rec.Header())
+	}
+	req = httptest.NewRequest("POST", "http://localhost:8765/api/jobs", strings.NewReader(`{"source_id":"nope"}`))
+	req.Header.Set("Origin", "http://localhost:5173")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code == http.StatusForbidden || rec.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
+		t.Fatalf("allowed origin must pass the origin check, got %d %v", rec.Code, rec.Header())
+	}
+	req = httptest.NewRequest("POST", "http://localhost:8765/api/jobs", strings.NewReader(`{"source_id":"nope"}`))
+	req.Header.Set("Origin", "http://evil.example")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || rec.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("other origins stay refused, got %d %v", rec.Code, rec.Header())
+	}
+}
+
 func TestHealthReadyAndHostChecks(t *testing.T) {
 	srv, _ := newServer(t)
 	if code, body := do(t, srv, "GET", "/healthz", ""); code != 200 || body["status"] != "ok" {

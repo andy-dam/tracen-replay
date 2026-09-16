@@ -8,6 +8,12 @@ hosted service.
 
 ## Already hostable
 
+- **The client is a static bundle.** It is built once and can be served by
+  the service, from a directory, or from any static host; the service runs
+  API-only with the client's origin allowed for credentials (`-api-only`,
+  `-allowed-origin`, `-cookie-samesite`). Sessions are a cookie, so the
+  client and the API must share a site (one domain, any subdomains or
+  ports) or run over HTTPS with `-cookie-samesite none`.
 - **The client never learns storage layout.** The Vue client (`web/`) knows
   recordings, jobs and reports only by the server-issued ids the API returns
   (`web/src/api.ts`). It never receives or sends a file path, so moving
