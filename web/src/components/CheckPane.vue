@@ -40,6 +40,12 @@ const groups = computed(() => {
     .filter((g) => g.notes.length || g.items.length);
 });
 
+// Entries before the first turn are the run's inheritance and starting
+// hints; the rest sit in gaps between observed windows.
+const firstStart = computed(() => props.turns.find((t) => t.start_ms !== null)?.start_ms ?? null);
+const beforeStart = computed(() => props.unassigned.filter((e) => firstStart.value !== null && e.first_seen_ms !== null && e.first_seen_ms < firstStart.value));
+const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value.includes(e)));
+
 const totals = computed(() => {
   let turns = 0;
   let entries = 0;
@@ -85,9 +91,16 @@ const totals = computed(() => {
         </li>
       </ul>
 
-      <h3 class="pane-h">Outside Every Observed Turn</h3>
-      <p class="muted small">Seen at times no turn window covers. They stay separate; they are never folded into a neighbouring turn.</p>
-      <EntryList :entries="unassigned" @seek="(ms) => emit('seek', ms)" />
+      <template v-if="beforeStart.length">
+        <h3 class="pane-h">Before the Career Starts</h3>
+        <p class="muted small">The inheritance and the starting hints the game shows before the first turn. They belong to the run, not to any turn, and need no check.</p>
+        <EntryList :entries="beforeStart" @seek="(ms) => emit('seek', ms)" />
+      </template>
+      <template v-if="outside.length">
+        <h3 class="pane-h">Outside Every Observed Turn</h3>
+        <p class="muted small">Seen at times no turn window covers. They stay separate; they are never folded into a neighbouring turn.</p>
+        <EntryList :entries="outside" @seek="(ms) => emit('seek', ms)" />
+      </template>
     </div>
   </div>
 </template>

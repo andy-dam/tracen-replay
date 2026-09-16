@@ -281,8 +281,10 @@ recorded; it never derives a value of its own. It reads like a replay:
   lists, derived amounts). Every line is a link: a turn line opens the turn,
   an entry line opens the turn and seeks the recording to that entry. Turns
   with a serious caveat carry an orange mark on the timeline. Skipped
-  analysis stages and the entries outside every observed window are listed
-  here too; those entries are never folded into a neighbouring turn.
+  analysis stages are listed here too, as are the entries before the career
+  starts (the inheritance and the starting hints, which belong to the run and
+  to no turn) and any entry outside every observed window; those entries are
+  never folded into a neighbouring turn.
 - **Stats across the run.** Below the replay, the opening value of each stat
   at every turn as a wide line chart. A turn whose opening was never on
   screen (a race-day hub shows no stat bar) is drawn as a hollow point at the
