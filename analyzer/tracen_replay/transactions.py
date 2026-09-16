@@ -569,9 +569,13 @@ def _recoverable_receipt_name_variant(canonical,variant,anchored=False):
     # request dialog itself names the item, the whole bounded distance rules.
     if not anchored and canonical.casefold().split()[0]!=variant.casefold().split()[0]:return False
     # An extra or missing word (a sequel number, an edition, a stray letter)
-    # is another item, not a misread of this one.
+    # is another item, not a misread of this one.  A space the recognizer put
+    # inside a word is not an extra word: it splits what is there instead of
+    # adding to it, so a differing word count is allowed only while the
+    # variant carries no more characters than the name it claims to be.
     if anchored and (len(canonical.split())!=len(variant.split())
-                     or any(ch.isdigit() for ch in canonical)!=any(ch.isdigit() for ch in variant)):return False
+                     and len(variant_key)>len(canonical_key)):return False
+    if anchored and any(ch.isdigit() for ch in canonical)!=any(ch.isdigit() for ch in variant):return False
     previous=list(range(len(variant_key)+1))
     for index,char in enumerate(canonical_key,1):
         current=[index]
@@ -750,10 +754,18 @@ def lesson_receipts(readings, outcomes):
             # No frame of the receipt read the name exactly. The request
             # dialog just before it did; when every receipt spelling is a
             # bounded OCR variant of that one confirmed name, the receipt
-            # is for it. Two different confirmed names leave the receipt alone.
-            confirmed={r['facts']['name_candidates'][0] for r in readings if r['screen']=='lesson_confirmation'
-                       and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
-                       and len(r['facts'].get('name_candidates') or [])==1}
+            # is for it. Only the last request run before the receipt is that
+            # dialog: a card the player opened and left earlier in the same
+            # five seconds is a different request, not a second name for this
+            # one. Two names inside that one run still leave the receipt alone.
+            named=[r for r in readings if r['screen']=='lesson_confirmation'
+                   and 0<event['first_seen_ms']-r['source_timestamp_ms']<=5000
+                   and len(r['facts'].get('name_candidates') or [])==1]
+            run=[]
+            for row in reversed(named):
+                if run and run[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
+                run.append(row)
+            confirmed={r['facts']['name_candidates'][0] for r in run}
             if len(confirmed)==1 and acquired and all(e.get('kind')=='named_acquisition' for e in acquired):
                 canonical=next(iter(confirmed))
                 if all(_recoverable_receipt_name_variant(canonical,e.get('name'),anchored=True) for e in acquired):

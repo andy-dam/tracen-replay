@@ -117,6 +117,46 @@ class ConfirmedNameTests(unittest.TestCase):
         rows, event = purchase_rows(['Audience Involvement Intermediate Class D'])
         self.assertEqual(lesson_receipts(rows, [event]), [])
 
+    def test_a_space_inside_a_word_is_a_misread_not_an_extra_word(self):
+        # "Advanced" read as "Ad nced": the recognizer split one word and lost
+        # two letters. Counting words alone called that a different item and
+        # threw the whole purchase away, cost included.
+        self.assertTrue(_recoverable_receipt_name_variant(
+            'Composure Training Advanced Class', 'Composure Training Ad nced Class', anchored=True))
+        # A split that gains characters is still another item.
+        self.assertFalse(_recoverable_receipt_name_variant(
+            'Composure Training Advanced Class', 'Composure Training Advanced Cla ss X', anchored=True))
+        rows, event = purchase_rows(['Audience Involvement In ermediate Class',
+                                     'Audience Involvement Inrmediate Class'])
+        got = lesson_receipts(rows, [event])
+        self.assertEqual([p['name'] for p in got], ['Audience Involvement Intermediate Class'])
+        self.assertEqual(got[0]['performance_cost']['passion'], 16)
+
+    def test_a_card_opened_and_left_earlier_does_not_block_the_receipt(self):
+        # The player opens one card, backs out, then buys another inside the
+        # same five seconds. Only the last request run is this receipt's; the
+        # abandoned one used to make the name ambiguous and drop the purchase.
+        before = dict.fromkeys(CURRENCIES, 100)
+        after = dict(before, passion=84)
+        rows = [row(t, 'lesson_selection', {'performance_points': before}) for t in (0, 250)]
+        rows += [row(t, 'lesson_confirmation', {'name_candidates': ['Facial-Slimming Massage']})
+                 for t in (500, 750)]
+        rows += [row(t, 'lesson_selection', {'performance_points': before}) for t in (1500, 1750)]
+        rows += [row(t, 'lesson_confirmation', {'name_candidates': ['Audience Involvement Intermediate Class'],
+                                                'projected_performance_points': after}) for t in (2000, 2250)]
+        rows += [row(t, 'lesson_selection', {'performance_points': after}) for t in (3500, 3750)]
+        event = dict(id='e', first_seen_ms=2500, last_seen_ms=3000, evidence='receipt.png', deltas={},
+                     effects=[dict(kind='named_acquisition', name='Audience Involvement Iermediate Class')])
+        got = lesson_receipts(rows, [event])
+        self.assertEqual([p['name'] for p in got], ['Audience Involvement Intermediate Class'])
+        self.assertEqual(got[0]['performance_cost']['passion'], 16)
+
+    def test_two_names_inside_the_one_request_run_still_leave_the_receipt_alone(self):
+        rows, event = purchase_rows(['Audience Involvement Iermediate Class'])
+        rows += [row(600, 'lesson_confirmation', {'name_candidates': ['Facial-Slimming Massage']})]
+        rows.sort(key=lambda r: r['source_timestamp_ms'])
+        self.assertEqual(lesson_receipts(rows, [event]), [])
+
     def test_a_single_glitching_dialog_frame_loses_to_the_repeated_projection(self):
         rows, event = purchase_rows(['Audience Involvement Intermediate Class'])
         rows += [row(700, 'lesson_confirmation', {'name_candidates': ['Audience Involvement Intermediate Class'],
