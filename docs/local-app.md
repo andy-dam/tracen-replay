@@ -88,8 +88,13 @@ itself, with its OCR processes, once that process is gone.
 
 ## Accounts and uploads
 
-The first visit shows a sign-in page; "Create an account" takes a display
-name, an email address and a password of at least eight characters. Accounts
+The front page leads to the sign-in screen (`#/signin`, or `#/signup` to
+create an account with a display name, an email address and a password of at
+least eight characters); any page that needs an account shows the sign-in
+screen while nobody is signed in. Signed in, the top bar has Home, Runs, To
+check (every turn across the account's reports that asks for a review, each
+linking to its review screen) and Guide (how to record, what the report
+shows, how to review, and what every flag means). Accounts
 are local to this machine: the password is stored as a PBKDF2-HMAC-SHA256 hash
 (600,000 iterations, per-user salt) in the same SQLite database, the session is
 an HttpOnly cookie (`tracen_session`, 30 days), and sign-in attempts are rate
@@ -163,8 +168,13 @@ recording:
   and can be cancelled. The stored file is hashed on arrival, and its size,
   name and hash are shown on the recording card. Uploads and the reports made
   from them are visible only to the account that made them.
-- **Analyze.** Queues one analysis of the recording; the job page shows the
-  stage, the OCR progress and the elapsed time, and it can be cancelled.
+- **Analyze.** Queues one analysis of the recording. The job page shows the
+  analysis as five phases (reading frames, understanding screens, looking
+  closer, assembling the career, writing the report), each a segment of one
+  bar sized by its usual share of the time: the reading phase moves with the
+  frame count, the others fill as the worker finishes their stages, and a
+  rough time left is shown once the analysis is far enough in. It can be
+  cancelled, and the page links back to Runs.
 - **Dashboard.** Above the list, once a report exists: careers analyzed and
   their turns, minutes of recording read, the share of stat changes the
   reports fully explain, the number of turns waiting for a review, and the

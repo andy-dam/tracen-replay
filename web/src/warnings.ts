@@ -82,6 +82,24 @@ export function entryWarnings(e: Entry): Warning[] {
   return out;
 }
 
+/** Every flag the report can raise on a line, with its advice, for the guide. */
+export const FLAG_GUIDE: { text: string; serious: boolean; advice: string }[] = [
+  { text: "conflicting readings", serious: true, advice: ADVICE.conflict },
+  { text: "receipt could not be parsed", serious: true, advice: ADVICE.unparsed },
+  { text: "ambiguous effect", serious: true, advice: ADVICE.ambiguous },
+  { text: "reward link", serious: true, advice: ADVICE.rewardLink },
+  { text: "lesson cost unresolved", serious: true, advice: ADVICE.lessonUnresolved },
+  { text: "song name conflicted", serious: true, advice: ADVICE.songName },
+  { text: "purchased skill list incomplete", serious: true, advice: ADVICE.skillList },
+  { text: "amount not read directly", serious: false, advice: ADVICE.derived },
+  { text: "not an accepted award", serious: false, advice: ADVICE.notAccepted },
+  { text: "reference only, not an additional award", serious: false, advice: ADVICE.referenceOnly },
+  { text: "assigned by time", serious: false, advice: ADVICE.assignedBy },
+  { text: "lesson cost worked out", serious: false, advice: ADVICE.lessonDerived },
+  { text: "balance after the purchase not observed", serious: false, advice: ADVICE.balanceAfter },
+  { text: "training failed", serious: false, advice: ADVICE.failed },
+];
+
 /** How to explain a stat gap, in the order a viewer would try. */
 export function gapAdvice(field: string, amount: number, workedOut: boolean, window: string): string {
   const what = `${field.replace("_", " ")} ${amount > 0 ? "went up" : "went down"} by ${Math.abs(amount)}`;

@@ -1,18 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import type { User } from "../api";
-import SignInCard from "../components/SignInCard.vue";
 
 // The front page. Short copy, frames from a real recording next to what the
-// report makes of them, one way in.
+// report makes of them, and the way in: the sign-in screen.
 defineProps<{ user: User | null }>();
-const emit = defineEmits<{ "signed-in": [user: User] }>();
-const showSignIn = ref(false);
-
-function start() {
-  showSignIn.value = true;
-  requestAnimationFrame(() => document.getElementById("start")?.scrollIntoView({ block: "center", behavior: "smooth" }));
-}
 </script>
 
 <template>
@@ -22,7 +13,7 @@ function start() {
       <p class="lede">Upload a recording of a career. Get every turn's stats with their rank letters, every training, race, purchase and event, and the video at the moment each one happened.</p>
       <div class="row" style="gap: 10px; margin-top: 24px">
         <a v-if="user" class="btn primary big" href="#/runs">Open runs</a>
-        <button v-else class="btn primary big" @click="start">Get started</button>
+        <a v-else class="btn primary big" href="#/signup">Get started</a>
         <a class="btn big" href="#tour">See what you get</a>
       </div>
       <p class="muted small" style="margin-top: 14px">Runs on this computer. Nothing leaves it.</p>
@@ -108,10 +99,9 @@ function start() {
         <h2>Get started</h2>
         <p class="muted">Create an account on this machine, upload a recording, and open the report when it lands.</p>
       </div>
-      <SignInCard v-if="showSignIn" @signed-in="(u) => emit('signed-in', u)" />
-      <div v-else class="start-card">
-        <button class="btn primary big" @click="start">Create an account</button>
-        <button class="btn big" style="margin-left: 8px" @click="start">Sign in</button>
+      <div class="start-card">
+        <a class="btn primary big" href="#/signup">Create an account</a>
+        <a class="btn big" style="margin-left: 8px" href="#/signin">Sign in</a>
       </div>
     </template>
   </section>

@@ -2,8 +2,9 @@
 import { ref } from "vue";
 import { api, ApiError, type User } from "../api";
 
+const props = defineProps<{ initialMode?: "signin" | "create" }>();
 const emit = defineEmits<{ "signed-in": [user: User] }>();
-const mode = ref<"signin" | "create">("signin");
+const mode = ref<"signin" | "create">(props.initialMode ?? "signin");
 const email = ref("");
 const password = ref("");
 const name = ref("");

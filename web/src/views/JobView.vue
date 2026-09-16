@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, type Job } from "../api";
 import { elapsed, statusClass, when } from "../format";
+import { progressView } from "../phases";
 
 const props = defineProps<{ jobId: string }>();
 const job = ref<Job | null>(null);
@@ -50,13 +51,19 @@ onUnmounted(() => {
 const terminal = computed(() => !!job.value && !["queued", "running"].includes(job.value.status));
 const running = computed(() => (now.value ? elapsed(job.value?.started_at, job.value?.finished_at) : ""));
 
-const stageText: Record<string, string> = {
-  probe: "Checking the recording",
-  frames: "Sampling frames",
-  ocr: "Reading the screen",
-  analysis: "Building the ledger",
-  timeline: "Writing the report",
-};
+// The five phases of an analysis and how far each has come; the reading
+// phase moves with the frame count, the others with the stages finished.
+const view = computed(() => progressView(job.value, percent.value));
+// A rough time left, from how long the finished share took; only once the
+// analysis is far enough in for the share to mean something.
+const remaining = computed(() => {
+  const j = job.value;
+  if (!j?.started_at || j.status !== "running" || view.value.overall < 8) return "";
+  const elapsedMs = now.value - new Date(j.started_at).getTime();
+  const left = (elapsedMs * (100 - view.value.overall)) / view.value.overall;
+  const minutes = Math.max(1, Math.round(left / 60000));
+  return `roughly ${minutes} min left`;
+});
 
 async function cancel() {
   try {
@@ -72,7 +79,8 @@ async function cancel() {
   <template v-if="job">
     <div class="page-head">
       <div>
-        <div class="overline">Analysis</div>
+        <a class="back" href="#/runs">‹ Runs</a>
+        <div class="overline" style="margin-top: 8px">Analysis</div>
         <h1 style="font-size: 30px">{{ job.source_name }}</h1>
         <p class="muted">Queued {{ when(job.created_at) }}<span v-if="job.started_at"> · running {{ running }}</span></p>
       </div>
@@ -81,14 +89,26 @@ async function cancel() {
 
     <div class="card" style="max-width: 720px">
       <template v-if="!terminal">
-        <p class="display" style="font-size: 22px">{{ (job.stage && stageText[job.stage]) ?? (job.stage ? job.stage : "Waiting for a free worker") }}</p>
-        <div class="bar" style="margin: 10px 0"><i :style="{ width: (percent ?? (job.status === 'running' ? 4 : 0)) + '%' }"></i></div>
-        <p class="muted small">
-          <span v-if="job.ocr_total">{{ job.ocr_processed }} of {{ job.ocr_total }} frames read.</span>
-          <span v-else>Only the reading pass reports a percentage; the other stages show their name and the time elapsed.</span>
-          A full career takes about 45 minutes on this machine. You can leave this page; the analysis keeps running.
+        <div class="row between" style="align-items: baseline">
+          <p class="display" style="font-size: 22px; margin: 0">{{ view.current?.label ?? (job.status === "running" ? "Starting" : "Waiting for a free worker") }}</p>
+          <span class="display num" style="font-size: 22px; color: var(--ink-2)">{{ view.overall }}%</span>
+        </div>
+        <div class="phases" style="margin: 12px 0 8px" role="progressbar" :aria-valuenow="view.overall" aria-valuemin="0" aria-valuemax="100">
+          <div v-for="p in view.phases" :key="p.id" class="phase" :class="p.state" :style="{ flex: p.weight }" :title="`${p.label}: ${p.state === 'done' ? 'done' : p.state === 'active' ? Math.round(p.fill * 100) + '%' : 'not yet'}`">
+            <i :style="{ width: Math.round(p.fill * 100) + '%' }"></i>
+          </div>
+        </div>
+        <ol class="phase-legend">
+          <li v-for="p in view.phases" :key="p.id" :class="p.state"><i></i>{{ p.label }}</li>
+        </ol>
+        <p class="muted small" style="margin-top: 10px">
+          <template v-if="view.current">Now {{ view.current.doing }}.</template>
+          <span v-if="job.stage === 'ocr' && job.ocr_total"> {{ job.ocr_processed }} of {{ job.ocr_total }} frames read.</span>
+          <span v-else-if="view.lastDone"> Last finished: {{ view.lastDone }}.</span>
+          <span v-if="remaining"> {{ remaining[0].toUpperCase() + remaining.slice(1) }}, going by the time so far.</span>
+          You can leave this page; the analysis keeps running.
         </p>
-        <p style="margin-top: 16px"><button class="btn" @click="cancel">Cancel analysis</button></p>
+        <p style="margin-top: 16px" class="row"><button class="btn" @click="cancel">Cancel analysis</button><a class="btn quiet" href="#/runs">Back to runs</a></p>
       </template>
       <template v-else>
         <p v-if="job.error" class="error">{{ job.error.message }} <span class="muted small">({{ job.error.code }})</span></p>
