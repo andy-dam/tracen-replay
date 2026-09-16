@@ -66,19 +66,20 @@ reviewer work each removes.
       a small stat gap on a turn whose training was committed. Done: the
       dataset builder below reports these as hard cases, and the badge
       reader closes them.
-- [ ] **A completed lesson purchase is not recorded, so nothing charges it.**
-      Two confirmation runs in B/Gran Concert end in a purchase that produces
-      no `lesson_purchase` record: 1607733-1609333, where the dialog itself
-      reads "Composure Training Advanced Class" with points left over
-      `Co 116` against a balance of 140, and 1250400-1253600. The performance
-      points leave the balance and no entry accounts for them, which is the
-      whole of composure -24 on turn-059 and passion -16 on turn-047. Both
-      grant a technique and a stat rather than a named acquisition or a song,
-      which the purchase builder requires; that is the suspected reason and is
-      not yet traced. Done: a confirmation run that completes is either
-      recorded as a purchase with its cost or listed as one whose cost could
-      not be read. See `.local/final-reliability-v1/e2e-v48-remaining-gaps.md`
-      gap 10.
+- [x] **A completed lesson purchase is not recorded, so nothing charges it.**
+      The receipt's name was damaged in every spelling, so the repair that
+      adopts the confirmed request name refused it and the purchase was
+      dropped with its cost. Two faults: a space the recognizer put inside a
+      word made the receipt one word longer than the canonical and tripped a
+      guard meant for an extra word, and the repair demanded a single
+      confirmed name anywhere in the five seconds before the receipt, so a
+      card the player opened and left made it ambiguous. A differing word
+      count is now allowed while the variant carries no more characters, and
+      only the last request run before a receipt counts. Confirmed against the
+      recording first: each recovered purchase's dialog prints its own cost.
+      End to end on B/Gran Concert, unexplained fields 17 to 8, nine closed,
+      none newly unexplained. See
+      `.local/final-reliability-v1/e2e-v48-remaining-gaps.md` gap 10.
 - [ ] **Receipts that need no review are listed for review.** Friendship
       lines and "joined your club" lines are out of scope; "Learned the
       song" duplicates the song entry; one receipt captured as many OCR
