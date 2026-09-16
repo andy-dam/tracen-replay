@@ -58,6 +58,21 @@ def song_acquisitions(events, lessons):
 
 
 _FRAGMENT_WINDOW_MS=5000
+# Receipt families the timeline does not account for: friendship, a
+# supporter joining, a supporter appearing in training.  A line from one of
+# these that the grammar could not parse (usually cut or garbled) is kept
+# for the record but is not a missed stat, point or hint.
+_OUT_OF_SCOPE_FAMILIES=(
+    re.compile(r'^friendship with\b',re.I),
+    re.compile(r'\bjoined your\b',re.I),
+    re.compile(r'\bwill now appear\b',re.I),
+)
+
+
+def out_of_scope_family(text):
+    """True when an unparsed line belongs to a receipt family outside the ledger's scope."""
+    key=_receipt_key(text)
+    return len(key)>=8 and any(p.search(key) for p in _OUT_OF_SCOPE_FAMILIES)
 
 
 def _receipt_key(text):
@@ -134,4 +149,7 @@ def unparsed_receipt_candidates(readings):
         if full is not None:
             entry['status']='ocr_fragment';entry['fragment_of']=full
             entry['scope']='OCR fragment of a receipt read nearby; not a missed effect.'
+        elif out_of_scope_family(entry['raw_text']):
+            entry['status']='out_of_scope'
+            entry['scope']='Friendship, joining or appearance line the ledger does not account for; kept, not a missed effect.'
     return result

@@ -225,7 +225,7 @@ nothing recognizable in between; wrapped or wide-crop text that merely
 repeats the same receipt does not start a new event. Hint awards
 (`skill_hint_change`) get their own timeline entries with their first linked
 receipt time; ambiguous effect candidates (uncertain hint names, competing
-readings) are kept visible with `accepted_award: false` rather than counted. A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix or a bounded misread (same subject, same digits, a couple of edits per dozen characters) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item.
+readings) are kept visible with `accepted_award: false` rather than counted. A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix or a bounded misread (same subject, same digits, a couple of edits per dozen characters) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
 
 ## Turn ledger
 

@@ -16,8 +16,9 @@ class UnparsedSupporterReceiptTests(unittest.TestCase):
         candidates = unparsed_receipt_candidates(rows)
         self.assertEqual(len(candidates), 3)
         # The two Mejiro Dober lines are one receipt read twice; the cut one is
-        # a fragment of the longer, which stays a review candidate.
-        self.assertEqual([c['status'] for c in candidates], ['needs_review', 'ocr_fragment', 'needs_review'])
+        # a fragment of the longer.  Joining lines are outside the ledger's
+        # scope, so neither of the others asks for a review.
+        self.assertEqual([c['status'] for c in candidates], ['out_of_scope', 'ocr_fragment', 'out_of_scope'])
         self.assertEqual(candidates[1]['fragment_of'], 'Mejiro Dober joined your ause!')
         self.assertTrue(all('name' not in c and 'amount' not in c for c in candidates))
         self.assertEqual(candidates[0]['raw_text'], rows[0]['ocr']['neural'][0]['text'])
