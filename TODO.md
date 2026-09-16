@@ -66,6 +66,18 @@ reviewer work each removes.
       a small stat gap on a turn whose training was committed. Done: the
       dataset builder below reports these as hard cases, and the badge
       reader closes them.
+- [ ] **A lesson charges a currency its price shows as zero.** The cost of a
+      purchase comes from the request projection, so a currency the projection
+      does not show is recorded as zero rather than unknown, and the balance
+      observed afterwards confirms the cost instead of completing it. A
+      two-currency card is then charged for one of them and the turn is left
+      with a negative gap in the other. Found on B/Gran Concert turn-059,
+      where the other four currencies balance exactly against the eight cards
+      and composure falls 24 at a card recorded as costing only vocal 15.
+      Done: a currency that moved across a purchase's own debit window is
+      charged to it or the cost says it is unknown, and no price slot becomes
+      zero by default. See `.local/final-reliability-v1/e2e-v48-remaining-gaps.md`
+      gap 10.
 - [ ] **Receipts that need no review are listed for review.** Friendship
       lines and "joined your club" lines are out of scope; "Learned the
       song" duplicates the song entry; one receipt captured as many OCR
