@@ -80,16 +80,21 @@ reviewer work each removes.
       End to end on B/Gran Concert, unexplained fields 17 to 8, nine closed,
       none newly unexplained. See
       `.local/final-reliability-v1/e2e-v48-remaining-gaps.md` gap 10.
-- [ ] **Receipts that need no review are listed for review.** Friendship
-      lines and "joined your club" lines are out of scope; "Learned the
-      song" duplicates the song entry; one receipt captured as many OCR
-      fragments becomes many entries. Done: out-of-scope receipts are kept
-      but not flagged, duplicates fold into the entry they repeat, and
-      fragments of one receipt become one entry.
-- [ ] **A training result without a committed action.** When the training
-      commit was not seen but the result screen was, the turn says "no
-      action seen" although the training happened. Done: the ledger takes
-      the result as the turn's action and says the commit was not seen.
+- [x] **Receipts that need no review are listed for review.** A cut or
+      garbled repeat of a receipt read within five seconds is marked
+      `ocr_fragment`; a rejected friendship, joining or appearance line is
+      marked `out_of_scope`; neither becomes an entry or a review item. The
+      log folds a lesson's purchase, receipt and song into one card, so the
+      song no longer shows twice.
+- [x] **A training result without a committed action.** A window that
+      expects one decision and holds exactly one training result and no
+      committed action now takes that result as its action
+      (`identity_basis: result_card_only`) and says the choice was not seen.
+      Three such turns in one of the six reports.
+- [x] **A rest followed by lessons or the concert was dropped.** The next
+      date came a minute after the recovery result, past the 30-second wait.
+      Point-spending screens now extend the wait; two rests recovered in the
+      Hishi Amazon recording.
 - [ ] **Race-day and finale openings are estimates.** A race-day turn's
       opening is carried from the previous turn's entries. Read the Full
       Stats panel when the player opens it on that screen, so the turn gets
@@ -99,9 +104,9 @@ reviewer work each removes.
 - [ ] **Ambiguous effects.** Circle base variants, recipient identity and
       inheritance spark identity are the three reasons left. Done: each has
       a rule or is presented with the two candidates to choose from.
-- [ ] **Entries before the first turn.** The inheritance and initial hints
-      before the career starts are listed as "outside every observed turn".
-      Done: the check screen calls them what they are.
+- [x] **Entries before the first turn.** The check screen lists them under
+      "Before the Career Starts" and says they belong to the run, not to a
+      turn.
 - [ ] A report keeps the ledger of the analyzer that made it. Show the
       analyzer version on the report page and offer "Analyze again" when the
       installed analyzer is newer. Done: an old report says so and the button
@@ -125,13 +130,17 @@ reviewer work each removes.
 The rules already decide which screen is on frame; what still fails is
 reading small fixed crops. The accounting labels them for free. Order:
 
-- [ ] **Dataset builder.** A tool under `analyzer/tools` that walks finished
-      reports and writes, per recording, the stat-badge and performance-
-      counter crops with the value the accounting confirmed (balanced fields),
-      the crops it marked conflicted or unexplained (hard cases), and the
-      frame and timestamp each came from. Split by recording and by recorder;
-      held-out recordings never feed training. Done: a dataset directory with
-      a manifest, built from the six end-to-end reports, and counts per split.
+- [x] **Dataset builder.** `analyzer/tools/build_reader_dataset.py` walks
+      run roots that still hold their panes and writes the stat-badge and
+      performance-counter crops with the value the run's own checkpoint
+      settled on (`confirmed`, `hard` with the checkpoint's value, or
+      `unlabeled`),
+      the frame, timestamp and box of each, split by run with held-out runs
+      and recorder groups recorded in the manifest. The six end-to-end job
+      runs were pruned by the service, so the first build comes from the two
+      preserved acceptance runs (about 8,500 crops); the six recordings need
+      `--rehydrate-frames` first to join it. See
+      [docs/evaluation.md](docs/evaluation.md).
 - [ ] **Baseline.** The current OCR reader's accepted-read accuracy and
       coverage on that dataset, per field. Done: one table in the local
       records, reproducible by a tool.
