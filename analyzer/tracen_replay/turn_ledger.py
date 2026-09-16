@@ -36,6 +36,25 @@ def _ref(collection, index):
     return f'/gameplay_tracking/{collection}/{index}'
 
 
+# Some entries share an instant because one screen is the only evidence for
+# both: a training result and the decision read off it, a purchase and the
+# receipt that announced it. Ordering those by the id they happened to be
+# built with is arbitrary, so equal timestamps fall back to the part each
+# plays: the decision, then what it produced, then the records that refer to
+# it, then what followed. This orders entries the recording cannot separate;
+# it never claims one was observed before the other, and it never reorders
+# entries whose timestamps differ.
+_ENTRY_ROLE = {'committed_action': 0,
+               'training': 1, 'races': 1, 'concerts': 1,
+               'lesson_purchases': 2, 'skill_purchases': 2, 'skill_purchase_batch': 2,
+               'song_acquisitions': 2,
+               'outcome': 3}
+
+
+def _timeline_order(entry):
+    return (entry['first_seen_ms'], _ENTRY_ROLE.get(entry['kind'], 4), entry['id'])
+
+
 def _changes(value, fields, label, *, complete=False):
     if not isinstance(value, dict) or any(k not in fields or type(v) is not int for k, v in value.items()):
         raise ValueError(f'{label}: expected integer resource changes')
@@ -459,6 +478,15 @@ def build(report):
         for index, transaction in enumerate(data.get(collection, [])):
             start = transaction.get('source_timestamp_ms', transaction.get('first_seen_ms'))
             end = transaction.get('last_seen_ms', start)
+            # A purchase is dated at its debit, from the request to the balance
+            # that matched it, not at the receipt that follows it. The accounting
+            # already charges it over that window (causal_accounting._debit_timed);
+            # dating the entry the same way keeps the two consistent and puts a
+            # purchase before the receipt it produced rather than after it.
+            window = transaction.get('debit_window_ms')
+            if (isinstance(window, list) and len(window) == 2
+                    and all(type(value) is int for value in window) and window[0] <= window[1]):
+                start, end = window
             event_id = transaction.get('receipt_event_id', transaction.get('event_id'))
             add(_ref(collection, index), collection, start, end, transaction.get('evidence'),
                 transaction_id=transaction.get('id'), event_id=event_id,
@@ -622,7 +650,7 @@ def build(report):
         turn['expects_one_action'] = turn['window_kind'] in ('calendar_turn', 'phase_race_turn')
         turn['complete_event_history'] = False
     result = dict(schema_version=SCHEMA, source_sha256=report['source']['sha256'], source_duration_ms=duration,
-                turns=turns, timeline=sorted(timeline, key=lambda e: (e['first_seen_ms'], e['id'])),
+                turns=turns, timeline=sorted(timeline, key=_timeline_order),
                 comparisons=comparisons, calendar_issues=calendar_issues,
                 unassigned_entry_refs=[e['id'] for e in timeline if e['turn_id'] is None],
                 summary=dict(observed_turn_windows=len(turns), action_statuses=dict(Counter(t['action_status'] for t in turns)),

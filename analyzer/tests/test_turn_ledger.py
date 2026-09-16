@@ -145,6 +145,74 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertEqual(lesson['accounting_role'], 'reference_only_not_an_additional_award')
         self.assertNotIn('performance_changes', lesson)
 
+    def test_a_purchase_is_dated_at_its_debit_so_it_precedes_its_own_receipt(self):
+        source = report()
+        data = source['gameplay_tracking']
+        # The receipt is what the report reads the purchase from, so a purchase
+        # dated there ties with it and can be listed after the receipt that
+        # announced it. Its debit window is when it actually happened, and the
+        # accounting already charges it over that window.
+        data['events'] = [dict(id='receipt', kind='outcome', first_seen_ms=1000, last_seen_ms=1200,
+                               evidence='1000.png', deltas={}, effects=[], field_evidence={})]
+        data['lesson_purchases'] = [dict(id='lesson', source_timestamp_ms=1000, receipt_event_id='receipt',
+                                         debit_window_ms=[600, 1100], performance_cost={'dance': 10},
+                                         evidence=['1000.png'])]
+        ledger = build(source)
+        lesson = next(e for e in ledger['timeline'] if e['kind'] == 'lesson_purchases')
+        receipt = next(e for e in ledger['timeline'] if e['kind'] == 'outcome')
+        self.assertEqual((lesson['first_seen_ms'], lesson['last_seen_ms']), (600, 1100))
+        order = [e['kind'] for e in ledger['timeline'] if e['kind'] in ('lesson_purchases', 'outcome')]
+        self.assertEqual(order, ['lesson_purchases', 'outcome'])
+        self.assertEqual(lesson['turn_id'], receipt['turn_id'])
+
+    def test_entries_sharing_an_instant_are_ordered_by_the_part_each_one_plays(self):
+        # One screen is often the only evidence for several entries, so they
+        # share a timestamp and the order they were built in decides nothing.
+        # Whatever kinds land together, the decision comes before what it
+        # produced, which comes before the records referring to it, which come
+        # before what followed.
+        source = report()
+        data = source['gameplay_tracking']
+        data['events'] = [dict(id='result', kind='training', first_seen_ms=1000, last_seen_ms=1000,
+                               evidence='1000.png', deltas={}, effects=[], field_evidence={}),
+                          dict(id='after', kind='outcome', first_seen_ms=1000, last_seen_ms=1000,
+                               evidence='1000.png', deltas={}, effects=[], field_evidence={})]
+        data['turn_action_receipts'] = [dict(kind='training', training_option='power',
+                                             source_timestamp_ms=1000, evidence='1000.png', event_id='result')]
+        data['lesson_purchases'] = [dict(id='lesson', source_timestamp_ms=1000, receipt_event_id='after',
+                                         performance_cost={'dance': 1}, evidence=['1000.png'])]
+        data['song_acquisitions'] = [dict(id='song', source_timestamp_ms=1000, evidence=['1000.png'])]
+        at_the_instant = [e['kind'] for e in build(source)['timeline'] if e['first_seen_ms'] == 1000]
+        self.assertEqual(at_the_instant[0], 'committed_action')
+        self.assertEqual(at_the_instant[1], 'training')
+        self.assertEqual(at_the_instant[-1], 'outcome')
+        self.assertEqual(sorted(at_the_instant[2:-1]), ['lesson_purchases', 'song_acquisitions'])
+
+    def test_an_observed_time_always_outranks_the_part_an_entry_plays(self):
+        # The roles only break ties. An entry seen later stays later, however
+        # early its part would otherwise place it.
+        source = report()
+        data = source['gameplay_tracking']
+        data['events'] = [dict(id='early', kind='outcome', first_seen_ms=900, last_seen_ms=900,
+                               evidence='900.png', deltas={}, effects=[], field_evidence={})]
+        data['turn_action_receipts'] = [dict(kind='training', training_option='power',
+                                             source_timestamp_ms=1000, evidence='1000.png')]
+        order = [(e['first_seen_ms'], e['kind']) for e in build(source)['timeline']
+                 if e['kind'] in ('outcome', 'committed_action')]
+        self.assertEqual(order, [(900, 'outcome'), (1000, 'committed_action')])
+
+    def test_a_purchase_without_a_usable_debit_window_keeps_its_receipt_time(self):
+        source = report()
+        data = source['gameplay_tracking']
+        data['events'] = [dict(id='receipt', kind='outcome', first_seen_ms=1000, last_seen_ms=1200,
+                               evidence='1000.png', deltas={}, effects=[], field_evidence={})]
+        for window in (None, [1100, 600], [600], ['600', '1100']):
+            data['lesson_purchases'] = [dict(id='lesson', source_timestamp_ms=1000, receipt_event_id='receipt',
+                                             debit_window_ms=window, performance_cost={'dance': 10},
+                                             evidence=['1000.png'])]
+            lesson = next(e for e in build(source)['timeline'] if e['kind'] == 'lesson_purchases')
+            self.assertEqual((lesson['first_seen_ms'], lesson['last_seen_ms']), (1000, 1000), window)
+
     def test_cross_boundary_event_keeps_ambiguity_and_hint_can_have_exact_time(self):
         source = report()
         source['gameplay_tracking']['events'] = [dict(id='event', kind='outcome',
