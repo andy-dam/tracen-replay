@@ -115,7 +115,13 @@ the frame belongs to; for a badge, the next stat bar within two minutes with
 no receipt for that field in between. A crop is `confirmed` when the reader's
 value equals that checkpoint, `hard` when the reader missed or misread it
 (the checkpoint's value is the label), `unlabeled` when no checkpoint can
-vouch for the moment. Runs are the
+vouch for the moment. A result card is sampled on several frames while its
+"+N" overlays and count-ups play, so a `hard` frame in a visit another frame
+of which was confirmed is marked `animating` instead: the card was in
+motion, not misread. The same badge boxes cut from the frames those overlays
+were read on (the ordinary pass and the card's high-rate rereads) form a
+third kind, `gain_overlay`, labeled from the training event's accepted
+gains, with 0 for a stat the card did not raise. Runs are the
 unit of splitting: `--holdout` names runs that never feed training and
 `--group` tags each with its recorder, both recorded in `manifest.json`
 beside the per-split counts; `crops.jsonl` carries one row per crop with its
@@ -143,6 +149,21 @@ same crops and labels:
 | Baseline | The current OCR reader (RapidOCR) |
 | Frozen backbone | A pretrained small vision backbone with a trained linear head |
 | Fine-tuned backbone | The same backbone and head, unfrozen and adapted |
+
+`analyzer/tools/train_reader.py` runs that comparison (it needs the `train`
+extra: torch, torchvision, onnx). The reader is a trunk over a 64×192
+grayscale crop with a linear head that emits one class per column, decoded
+by CTC into a digit string; the confidence is the mean top probability of
+the emitted columns. It trains on the `confirmed` crops of the training
+split, badges and gain overlays together (a zero gain is an empty target;
+zero-gain crops are cut down to the number of real gains and smaller kinds
+are repeated so none is drowned out), and scores each condition on the
+held-out `confirmed` and `hard` crops per kind by exact match, with the
+coverage and accuracy of its reads at a confidence of at least 0.9, which is
+the pair the baseline table reports for the current reader. The best
+condition by held-out exact match is exported to ONNX with a dynamic batch,
+checked against onnxruntime on the same crops, and timed per crop on the CPU
+in both runtimes. Results and the model go to the local records.
 
 ### Second model: confusion-aware text repair
 
