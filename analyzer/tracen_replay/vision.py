@@ -670,6 +670,12 @@ class NeuralReader:
             requests += [(f'gain.{f}',b) for f,b in zip(FIELDS,gain_boxes)]
             requests += [(f'result.{f}',((322,518,714)[i%3],834 if i<3 else 952,(322,518,714)[i%3]+126,876 if i<3 else 994)) for i,f in enumerate(FIELDS)]
             requests += [('result.skill_points',(708,952,810,990))]
+            # The performance sidebar stays visible while the result cards
+            # animate, and the shared detector can merge a row's current value
+            # and its award into one low-confidence line (``58+26``).  Request
+            # the same signed rows read_training uses so the dedicated crop can
+            # recover that award on an ordinary reading too.
+            requests += [(f'performance_gain.{f}',(245,296+56*i,319,333+56*i)) for i,f in enumerate(CURRENCIES)]
         if 'spend performance points to learn' in text.lower():
             requests += [(f'projected_performance.{f}',(392+83*i,846,425+83*i,876)) for i,f in enumerate(CURRENCIES)]
             boxes=[(308,376,365,404),(403,376,455,404),(497,376,549,404),(591,376,644,404),(683,376,735,404),(756,376,817,404)]

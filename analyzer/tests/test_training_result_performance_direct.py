@@ -75,6 +75,51 @@ class TrainingResultPerformanceDirectTests(unittest.TestCase):
                 facts = parse(_raw(**kwargs))['facts']
                 self.assertNotIn('visual', facts.get('awarded_performance_gains', {}))
 
+    def test_an_ordinary_reading_requests_the_same_sidebar_rows_as_read_training(self):
+        # The signed sidebar crop is the only way back to an award whose merged
+        # current+award line is low confidence.  A result frame read by the
+        # ordinary pass must request those rows too, or that award is lost for
+        # every result the dense inspection does not reach.
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        import numpy as np
+        from PIL import Image, ImageOps
+
+        from tests.test_training_result_layout import _result_lines
+        from tracen_replay.gameplay import CURRENCIES
+        from tracen_replay.vision import NeuralReader
+
+        detector_lines = _result_lines()
+        boxes = [np.asarray([[line['box'][0] - 148, line['box'][1]], [line['box'][2] - 148, line['box'][1]],
+                             [line['box'][2] - 148, line['box'][3]], [line['box'][0] - 148, line['box'][3]]],
+                            dtype=float) for line in detector_lines]
+
+        class Engine:
+            def __call__(self, _image):
+                return SimpleNamespace(boxes=boxes, txts=[l['text'] for l in detector_lines],
+                                       scores=[l['confidence'] / 100 for l in detector_lines])
+
+            def text_rec(self, request):
+                return SimpleNamespace(txts=['?'] * len(request.img), scores=[0.99] * len(request.img))
+
+        reader = object.__new__(NeuralReader)
+        reader.np, reader.Image, reader.ImageOps = np, Image, ImageOps
+        reader.TextRecInput = lambda *, img: SimpleNamespace(img=img)
+        reader.engine, reader.models, reader.fingerprint = Engine(), {}, 'performance-rows-test'
+        pane = Image.new('RGB', (810, 1080), (30, 40, 50))
+
+        with patch('tracen_replay.preview_recovery.recover_in_memory',
+                   side_effect=lambda raw, _pane, reader: raw):
+            raw = reader.read(pane)
+        training_raw = reader.read_training(pane)
+
+        self.assertTrue(raw['result_grid'])
+        for field in CURRENCIES:
+            name = 'performance_gain.' + field
+            self.assertIn(name, raw['regions'])
+            self.assertEqual(raw['regions'][name]['box'], training_raw['regions'][name]['box'])
+
 
 if __name__ == '__main__':
     unittest.main()

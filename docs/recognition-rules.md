@@ -41,6 +41,16 @@ stays unknown rather than guessed. A wider full-counter crop is preferred
 over a tighter legacy crop, so a truncated leading digit in the narrow one
 cannot win.
 
+The same sidebar stays on screen while a training result animates, and a
+training can raise more than one of these currencies at once. Each row's
+award has its own signed crop, requested on every result-grid frame rather
+than only in the dense result inspection. It is used for one purpose: when
+the shared detector merges a row's current value and its award into a single
+low-confidence line (`58+26`), the signed crop supplies that award at
+confidence 97 or higher, inside the row's own band, and only when its amount
+agrees with the merged line. A disagreement stays a recorded conflict, and a
+row the panel did not read at all is not awarded from the crop alone.
+
 ## Log panel
 
 The log panel is out of scope by construction: it lies outside the
