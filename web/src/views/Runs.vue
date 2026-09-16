@@ -198,11 +198,11 @@ function status(run: Run): { text: string; cls: string } | null {
     const pct = run.job.ocr_total && run.job.stage === "ocr" ? ` ${Math.round((100 * (run.job.ocr_processed ?? 0)) / run.job.ocr_total)}%` : "";
     return { text: run.job.status === "queued" ? "Queued" : `Analyzing${pct}`, cls: "warn" };
   }
-  if (run.report) return run.madeBy?.status === "completed_with_stage_failures" ? { text: "Some stages were skipped", cls: "warn" } : null;
-  if (run.job?.status === "failed") return { text: "Analysis failed", cls: "bad" };
-  if (run.job?.status === "interrupted") return { text: "Analysis interrupted", cls: "bad" };
-  if (run.job?.status === "cancelled") return { text: "Analysis cancelled", cls: "" };
-  return { text: "Not analyzed yet", cls: "" };
+  if (run.report) return run.madeBy?.status === "completed_with_stage_failures" ? { text: "Some Stages Were Skipped", cls: "warn" } : null;
+  if (run.job?.status === "failed") return { text: "Analysis Failed", cls: "bad" };
+  if (run.job?.status === "interrupted") return { text: "Analysis Interrupted", cls: "bad" };
+  if (run.job?.status === "cancelled") return { text: "Analysis Cancelled", cls: "" };
+  return { text: "Not Analyzed Yet", cls: "" };
 }
 
 function meta(run: Run): string[] {
@@ -233,17 +233,17 @@ function hideBroken(e: Event) {
       <div class="dash-tile"><b>{{ dashboard.runs }}</b><span>career{{ dashboard.runs === 1 ? "" : "s" }} analyzed · {{ dashboard.turns }} turns</span></div>
       <div class="dash-tile"><b>{{ dashboard.minutes }}<small>min</small></b><span>of recording read{{ dashboard.active ? `, ${dashboard.active} ${dashboard.active === 1 ? "analysis" : "analyses"} queued or running` : "" }}</span></div>
       <div class="dash-tile up"><b>{{ dashboard.pct }}<small>%</small></b><span>of stat changes fully explained</span><div class="bar"><i :style="{ width: dashboard.pct + '%' }"></i></div></div>
-      <div class="dash-tile" :class="{ warn: dashboard.toCheck }"><b>{{ dashboard.toCheck }}</b><span>turn{{ dashboard.toCheck === 1 ? "" : "s" }} waiting for your review</span></div>
+      <div class="dash-tile" :class="{ warn: dashboard.toCheck }"><b>{{ dashboard.toCheck }}</b><a href="#/check" class="dash-link">turn{{ dashboard.toCheck === 1 ? "" : "s" }} waiting for your review ›</a></div>
     </div>
     <div v-if="dashboard.best" class="best">
       <div class="best-head">
-        <span class="overline" style="margin: 0">Best run</span>
+        <span class="overline" style="margin: 0">Best Run</span>
         <a class="best-name" :href="`#/reports/${encodeURIComponent(dashboard.best.report.id)}`" :title="dashboard.best.report.source_name">{{ dashboard.best.report.source_name }}</a>
       </div>
       <StatBar :stats="dashboard.best.facts.final" compact />
       <div class="best-foot">{{ statTotal(dashboard.best.facts) }} across the five stats at the end of the run · {{ dashboard.best.report.turns }} turns · {{ clock(dashboard.best.report.duration_ms) }}</div>
     </div>
-    <div v-else class="best"><span class="overline" style="margin: 0">Best run</span><span class="muted small">Reading the reports…</span></div>
+    <div v-else class="best"><span class="overline" style="margin: 0">Best Run</span><span class="muted small">Reading the reports…</span></div>
   </div>
   <div v-else class="dash-empty"><b>Your dashboard fills in with your first report:</b> the stats at the end of each run with their rank letters, how much of the career the report explains, and what still needs a look.</div>
 
@@ -292,7 +292,7 @@ function hideBroken(e: Event) {
           <template v-else>
             <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze</button>
             <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
-            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze again</button>
+            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze Again</button>
             <button v-if="run.recording || run.report" class="btn small danger" @click="remove(run)">Delete</button>
           </template>
         </div>

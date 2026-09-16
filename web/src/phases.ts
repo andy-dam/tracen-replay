@@ -16,11 +16,11 @@ export interface Phase {
 }
 
 export const PHASES: Phase[] = [
-  { id: "read", label: "Reading frames", doing: "sampling the recording and reading every frame", stages: ["capture", "ocr"], weight: 48 },
-  { id: "understand", label: "Understanding screens", doing: "turning the readings into screens, values and receipts", stages: ["base_readings", "automatic_refinement", "race_quantity_refinement", "currency_refinement", "reload_readings", "hint_card_preparation", "inspections_merged", "numeric_receipt_recovery"], weight: 12 },
-  { id: "closer", label: "Looking closer", doing: "re-reading result animations and receipts at 60 frames a second where a number was unclear", stages: ["training_gain_recovery", "receipt_inspection", "inspection_loads", "occluded_receipt_recovery"], weight: 20 },
-  { id: "assemble", label: "Assembling the career", doing: "building turns, events, purchases and the accounting", stages: ["assemble", "boundary_state_recovery", "assemble_after_boundary", "validate_output"], weight: 10 },
-  { id: "finish", label: "Writing the report", doing: "saving the report, the timeline and the viewer page", stages: ["save_report", "timeline_document", "viewer", "complete"], weight: 10 },
+  { id: "read", label: "Capture & OCR", doing: "sampling the recording and running OCR on every frame", stages: ["capture", "ocr"], weight: 48 },
+  { id: "understand", label: "Base Readings & Refinement", doing: "classifying every frame and refining weak readings", stages: ["base_readings", "automatic_refinement", "race_quantity_refinement", "currency_refinement", "reload_readings", "hint_card_preparation", "inspections_merged", "numeric_receipt_recovery"], weight: 12 },
+  { id: "closer", label: "Recovery Rereads", doing: "re-reading result animations and receipts at 60 fps where a number was unclear", stages: ["training_gain_recovery", "receipt_inspection", "inspection_loads", "occluded_receipt_recovery"], weight: 20 },
+  { id: "assemble", label: "Assembly & Accounting", doing: "assembling turns, events and purchases, then balancing the accounting", stages: ["assemble", "boundary_state_recovery", "assemble_after_boundary", "validate_output"], weight: 10 },
+  { id: "finish", label: "Report & Timeline", doing: "validating and saving the report, the timeline and the viewer page", stages: ["save_report", "timeline_document", "viewer", "complete"], weight: 10 },
 ];
 
 const ORDER: string[] = PHASES.flatMap((p) => p.stages);
@@ -46,7 +46,7 @@ export interface ProgressView {
 }
 
 export function stageWords(stage: string): string {
-  return stage.replaceAll("_", " ");
+  return stage === "ocr" ? "OCR" : stage.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
 }
 
 /** Where an analysis stands, from the job's last finished stage and the frame count. */
@@ -66,9 +66,11 @@ export function progressView(job: Job | null, ocrPercent: number | null): Progre
     const finished = Math.max(0, Math.min(p.stages.length, doneIndex + 1 - first));
     let fill = finished / p.stages.length;
     let state: PhaseView["state"] = finished === p.stages.length ? "done" : finished > 0 || (current === null && doneIndex + 1 === first && job?.status === "running") ? "active" : "todo";
-    if (p.id === "read" && reading) {
-      state = "active";
-      fill = Math.max(fill, ocrPercent !== null ? (0.5 + ocrPercent / 100 * (p.stages.length - 0.5)) / p.stages.length : 0.25);
+    if (p.id === "read" && state !== "done") {
+      // Capture takes seconds and OCR the rest of the phase: the frame count
+      // is the measure, and a finished capture alone is only the first sliver.
+      fill = reading && ocrPercent !== null ? ocrPercent / 100 : finished > 0 ? 0.02 : 0;
+      if (reading) state = "active";
     }
     if (state === "active" && current === null) current = { id: p.id, label: p.label, doing: p.doing, weight: p.weight, state, fill };
     overall += p.weight * fill;

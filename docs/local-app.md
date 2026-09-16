@@ -91,10 +91,12 @@ itself, with its OCR processes, once that process is gone.
 The front page leads to the sign-in screen (`#/signin`, or `#/signup` to
 create an account with a display name, an email address and a password of at
 least eight characters); any page that needs an account shows the sign-in
-screen while nobody is signed in. Signed in, the top bar has Home, Runs, To
-check (every turn across the account's reports that asks for a review, each
-linking to its review screen) and Guide (how to record, what the report
-shows, how to review, and what every flag means). Accounts
+screen while nobody is signed in. The top bar has Home, Runs, Guide (how to
+record, what the report shows, how to review, and what every flag means) and
+About (what the application does, its parts, its scope and where the data
+lives). The runs dashboard's "turns waiting for your review" tile opens
+`#/check`, every turn across the account's reports that asks for a review,
+each linking to its review screen. Accounts
 are local to this machine: the password is stored as a PBKDF2-HMAC-SHA256 hash
 (600,000 iterations, per-user salt) in the same SQLite database, the session is
 an HttpOnly cookie (`tracen_session`, 30 days), and sign-in attempts are rate
@@ -169,11 +171,12 @@ recording:
   name and hash are shown on the recording card. Uploads and the reports made
   from them are visible only to the account that made them.
 - **Analyze.** Queues one analysis of the recording. The job page shows the
-  analysis as five phases (reading frames, understanding screens, looking
-  closer, assembling the career, writing the report), each a segment of one
-  bar sized by its usual share of the time: the reading phase moves with the
-  frame count, the others fill as the worker finishes their stages, and a
-  rough time left is shown once the analysis is far enough in. It can be
+  analysis as five phases named after the worker's stages (Capture & OCR,
+  Base Readings & Refinement, Recovery Rereads, Assembly & Accounting, Report
+  & Timeline), each a segment of one bar sized by its usual share of the
+  time: the first phase moves with the frame count, the others fill as the
+  worker finishes their stages, the caption names the last stage finished,
+  and a rough time left is shown once the analysis is far enough in. It can be
   cancelled, and the page links back to Runs.
 - **Dashboard.** Above the list, once a report exists: careers analyzed and
   their turns, minutes of recording read, the share of stat changes the

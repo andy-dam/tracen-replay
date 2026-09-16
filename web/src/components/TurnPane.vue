@@ -96,7 +96,7 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
       <div class="review-cta" :class="filled ? filled.state : warnings.serious || differences.length ? 'needs' : 'clear'">
         <div class="review-cta-text">
           <template v-if="filled">
-            <b><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Saved · adds up" : filled.state === "off" ? "Saved · doesn't add up yet" : "Saved" }}</span></b>
+            <b><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Saved · Adds Up" : filled.state === "off" ? "Saved · Doesn't Add Up Yet" : "Saved" }}</span></b>
             <span class="small">{{ filled.text }}</span>
           </template>
           <template v-else-if="differences.length || warnings.serious || !action">
@@ -104,11 +104,11 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
             <span class="small muted">The check screen shows what each one means and asks you plain questions, with the recording beside you.</span>
           </template>
           <template v-else>
-            <b>Nothing to check in this turn</b>
+            <b>Nothing to Check in This Turn</b>
             <span class="small muted">You can still fix a number, say what was played, or add something the report missed.</span>
           </template>
         </div>
-        <a class="btn" :class="filled ? '' : 'primary'" :href="reviewHref">{{ filled ? "Edit my check" : "Check this turn" }}</a>
+        <a class="btn" :class="filled ? '' : 'primary'" :href="reviewHref">{{ filled ? "Edit My Check" : "Check This Turn" }}</a>
       </div>
       <div v-if="differences.length" class="warnbox diffbox">
         <b>Differences Between Turns <span class="muted small" style="font-weight: 700">{{ differences.length }}</span></b>
@@ -120,8 +120,8 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
         </div>
       </div>
       <div v-if="warnings.total" class="warnbox" :class="{ serious: warnings.serious }">
-        <b>{{ warnings.serious ? "Check this turn" : "Notes on this turn" }} <span class="muted small" style="font-weight: 700">{{ warnings.total }}</span>
-          <button v-if="hiddenCount > 0 || showAll" class="more" @click="showAll = !showAll">{{ showAll ? "Show fewer" : `Show all ${warnings.total}` }}</button>
+        <b>{{ warnings.serious ? "Check This Turn" : "Notes on This Turn" }} <span class="muted small" style="font-weight: 700">{{ warnings.total }}</span>
+          <button v-if="hiddenCount > 0 || showAll" class="more" @click="showAll = !showAll">{{ showAll ? "Show Fewer" : `Show all ${warnings.total}` }}</button>
         </b>
         <div v-for="(w, i) in warnings.turnNotes" :key="'t' + i" class="small">{{ w.text }}</div>
         <div v-for="it in shownItems" :key="it.entry.id" class="small">

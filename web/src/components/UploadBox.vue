@@ -55,12 +55,12 @@ function cancel() {
     <template v-if="name">
       <p><strong>{{ name }}</strong> <span class="muted">{{ bytes(sent) }} of {{ bytes(total) }}</span></p>
       <div class="bar"><i :style="{ width: total ? (100 * sent) / total + '%' : '0%' }"></i></div>
-      <p style="margin-top: 12px"><button class="btn small" @click="cancel">Cancel upload</button></p>
+      <p style="margin-top: 12px"><button class="btn small" @click="cancel">Cancel Upload</button></p>
     </template>
     <template v-else>
-      <p><strong>Drop a career recording here</strong></p>
+      <p><strong>Drop a Career Recording Here</strong></p>
       <p class="muted small">mp4, mov, webm or mkv, as captured from the game at 1080p. A full career is about 1 GB; the upload stays on this machine.</p>
-      <button class="btn" @click="input?.click()">Choose a file</button>
+      <button class="btn" @click="input?.click()">Choose a File</button>
       <input ref="input" type="file" accept=".mp4,.m4v,.mov,.webm,.mkv,video/*" @change="pick" />
     </template>
     <p v-if="error" class="error small" style="margin-top: 10px">{{ error }}</p>

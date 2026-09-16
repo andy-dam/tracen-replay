@@ -79,9 +79,9 @@ function perfAfter(field: string): number | null {
   <template v-if="summary && turn">
     <header class="review-head">
       <div>
-        <a class="back" :href="reportHref">‹ Back to the report</a>
+        <a class="back" :href="reportHref">‹ Back to the Report</a>
         <div class="row" style="gap: 8px; margin-top: 8px">
-          <span class="overline" style="margin: 0">Check a turn</span>
+          <span class="overline" style="margin: 0">Check a Turn</span>
           <span v-if="turn.scheduled_race" class="tag pink">{{ turn.scheduled_race }}</span>
         </div>
         <h1>{{ fullLabel(turn.label, turn.phase) }}</h1>
@@ -91,8 +91,8 @@ function perfAfter(field: string): number | null {
         </p>
       </div>
       <nav class="review-nav">
-        <button class="btn small" :disabled="!prev" @click="prev && replaceHash(reviewHref(prev.id))">‹ Previous turn</button>
-        <button class="btn small" :disabled="!next" @click="next && replaceHash(reviewHref(next.id))">Next turn ›</button>
+        <button class="btn small" :disabled="!prev" @click="prev && replaceHash(reviewHref(prev.id))">‹ Previous Turn</button>
+        <button class="btn small" :disabled="!next" @click="next && replaceHash(reviewHref(next.id))">Next Turn ›</button>
       </nav>
     </header>
 
@@ -108,7 +108,7 @@ function perfAfter(field: string): number | null {
           </span>
         </div>
         <div class="howto">
-          <b>How this works</b>
+          <b>How This Works</b>
           <ol>
             <li>The report read your recording. Where a number doesn't add up between two turns, it asks you to look.</li>
             <li>Press a ▶ chip to jump the video there and watch what happened. Then answer the question under it.</li>
@@ -124,7 +124,7 @@ function perfAfter(field: string): number | null {
           <span v-if="asks.noAction" class="ask warn">what was played is missing</span>
           <span v-if="asks.flaggedEntries" class="ask warn">{{ asks.flaggedEntries }} line{{ asks.flaggedEntries === 1 ? "" : "s" }} to check</span>
           <span v-if="asks.notes" class="ask">{{ asks.notes }} note{{ asks.notes === 1 ? "" : "s" }}</span>
-          <span v-if="!asks.gaps && !asks.noAction && !asks.flaggedEntries" class="ask ok">Nothing to check in this turn</span>
+          <span v-if="!asks.gaps && !asks.noAction && !asks.flaggedEntries" class="ask ok">Nothing to Check in This Turn</span>
         </div>
         <ul v-if="asks.turnNotes.length" class="review-turn-notes">
           <li v-for="(w, i) in asks.turnNotes" :key="i" :class="{ serious: w.serious }">{{ w.text }}</li>

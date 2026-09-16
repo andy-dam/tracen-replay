@@ -652,6 +652,8 @@ table.sources td.down { color: var(--blue); font-weight: 700; }
 .dash-tile span { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
 .dash-tile.up b { color: var(--orange); }
 .dash-tile.warn b { color: var(--warn-ink); }
+.dash-link { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 3px; text-decoration: none; font-weight: 700; }
+.dash-link:hover { color: var(--green-ink); }
 .dash-tile .bar { margin-top: 8px; height: 8px; }
 .dash-tile .bar > i { animation: none; }
 .best { padding: 14px 16px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-width: 0; animation: rise 420ms var(--ease) 240ms both; }

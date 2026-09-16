@@ -16,7 +16,7 @@ import { FLAG_GUIDE } from "../warnings";
   <div class="guide">
     <section class="guide-section">
       <div class="overline">Recording</div>
-      <h2>Record the career so it can be read</h2>
+      <h2>Record the Career So It Can Be Read</h2>
       <ul class="guide-list">
         <li><b>1080p, English.</b> The reader knows the game's 1920×1080 layout; other sizes and languages are not read.</li>
         <li><b>Log panel open.</b> Keep the game's log panel visible on the right; the receipts in it are how gains, purchases and events are confirmed.</li>
@@ -27,8 +27,8 @@ import { FLAG_GUIDE } from "../warnings";
     </section>
 
     <section class="guide-section">
-      <div class="overline">The report</div>
-      <h2>What you get back</h2>
+      <div class="overline">The Report</div>
+      <h2>What You Get Back</h2>
       <ul class="guide-list">
         <li><b>The strip.</b> Every half-month of the three years and the finale, coloured by what was chosen. Click a cell, or scrub the recording and the turn follows.</li>
         <li><b>The turn.</b> What was chosen, the stats at the start with their rank letters, the performance points, and the log of everything that happened, each line with its second in the recording.</li>
@@ -39,7 +39,7 @@ import { FLAG_GUIDE } from "../warnings";
 
     <section class="guide-section">
       <div class="overline">Reviewing</div>
-      <h2>When the report asks you to look</h2>
+      <h2>When the Report Asks You to Look</h2>
       <p class="muted">The stats at the start of a turn plus everything the report saw should equal the stats at the start of the next turn. Where they do not, the turn is marked and the review screen walks you through it.</p>
       <ol class="guide-steps">
         <li><b>Seek.</b> Each gap says what changed and between which seconds. Press its ▶ chip and watch.</li>
@@ -52,7 +52,7 @@ import { FLAG_GUIDE } from "../warnings";
 
     <section class="guide-section">
       <div class="overline">Flags</div>
-      <h2>What each flag means</h2>
+      <h2>What Each Flag Means</h2>
       <dl class="guide-flags">
         <template v-for="f in FLAG_GUIDE" :key="f.text">
           <dt><span class="tag small" :class="f.serious ? 'pink' : 'grey'">{{ f.text }}</span></dt>
@@ -63,7 +63,7 @@ import { FLAG_GUIDE } from "../warnings";
 
     <section class="guide-section">
       <div class="overline">Privacy</div>
-      <h2>Everything stays here</h2>
+      <h2>Everything Stays Here</h2>
       <p class="muted">Recordings, reports and accounts live in this machine's data folder. Nothing is sent anywhere. Deleting a run removes its recording and its reports.</p>
     </section>
   </div>

@@ -9,6 +9,7 @@ import JobView from "./views/JobView.vue";
 import SignInView from "./views/SignInView.vue";
 import CheckQueue from "./views/CheckQueue.vue";
 import Guide from "./views/Guide.vue";
+import About from "./views/About.vue";
 import Logo from "./components/Logo.vue";
 
 // Hash routing keeps the client dependency-free: #/, #/reports/<id>/<turn>, #/reports/<id>/<turn>/review, #/jobs/<id>.
@@ -25,6 +26,7 @@ const route = computed(() => {
   if (parts[0] === "runs") return { name: "runs", id: "", turn: "" };
   if (parts[0] === "check") return { name: "check", id: "", turn: "" };
   if (parts[0] === "guide") return { name: "guide", id: "", turn: "" };
+  if (parts[0] === "about") return { name: "about", id: "", turn: "" };
   if (parts[0] === "signin") return { name: "signin", id: "", turn: "" };
   if (parts[0] === "signup") return { name: "signup", id: "", turn: "" };
   return { name: "home", id: "", turn: "" };
@@ -99,16 +101,16 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
       <nav>
         <a href="#/" :class="{ active: route.name === 'home' }">Home</a>
         <a v-if="user" href="#/runs" :class="{ active: route.name === 'runs' }">Runs</a>
-        <a v-if="user" href="#/check" :class="{ active: route.name === 'check' }">To check</a>
         <a href="#/guide" :class="{ active: route.name === 'guide' }">Guide</a>
+        <a href="#/about" :class="{ active: route.name === 'about' }">About</a>
       </nav>
       <span class="spacer"></span>
-      <a v-if="checked && !user && route.name !== 'signin'" class="btn small primary" href="#/signin">Sign in</a>
+      <a v-if="checked && !user && route.name !== 'signin'" class="btn small primary" href="#/signin">Sign In</a>
       <button class="icon-btn" :title="dark ? 'Switch to the light theme' : 'Switch to the dark theme'" @click="toggleTheme">{{ dark ? "☀" : "☾" }}</button>
       <div v-if="user" class="userchip">
         <span class="avatar">{{ initial }}</span>
         <span><span class="who">Signed in as </span><strong>{{ user.display_name }}</strong></span>
-        <button class="btn quiet small" @click="signOut">Sign out</button>
+        <button class="btn quiet small" @click="signOut">Sign Out</button>
       </div>
     </div>
   </header>
@@ -117,6 +119,7 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
     <main v-if="checked" class="sheet" :key="route.name + route.id">
       <Home v-if="route.name === 'home'" :user="user" />
       <Guide v-else-if="route.name === 'guide'" />
+      <About v-else-if="route.name === 'about'" />
       <SignInView v-else-if="!user || route.name === 'signin' || route.name === 'signup'" :mode="route.name === 'signup' ? 'create' : 'signin'" @signed-in="signedIn" />
       <Runs v-else-if="route.name === 'runs'" />
       <CheckQueue v-else-if="route.name === 'check'" />

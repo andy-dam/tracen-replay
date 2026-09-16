@@ -272,7 +272,7 @@ function assignTo(g: Gap, entryId: string) {
   scrollTo("review-" + entryId);
 }
 function confirmWorkedOut(g: Gap) {
-  // "Looks right": the worked-out amount stands; mark its owner reviewed.
+  // "Looks Right": the worked-out amount stands; mark its owner reviewed.
   const was = confirmed[g.key];
   clearGap(g);
   const owner = props.entries.find((e) => (g.owner === "training" ? e.kind === "training" : e.kind !== "committed_action") && e.changes?.[g.channel]?.[g.field]);
@@ -386,8 +386,8 @@ const live = computed(() => {
     : open.length
       ? `${open.length} number${open.length === 1 ? "" : "s"} still off`
       : balanced && observed > 0
-        ? "Adds up"
-        : "Nothing to check yet";
+        ? "Adds Up"
+        : "Nothing to Check Yet";
   const cls = off.length ? "off" : open.length ? "warn" : balanced && observed > 0 ? "ok" : "na";
   return { fields, text, cls, byKey: Object.fromEntries(fields.map((f) => [f.key, f])) as Record<Key, LiveField> };
 });
@@ -485,7 +485,7 @@ async function remove() {
   <div class="rv">
     <header class="rv-head">
       <div class="rv-title">
-        <span class="overline" style="margin: 0">{{ guided ? "Your check" : "Check" }}</span>
+        <span class="overline" style="margin: 0">{{ guided ? "Your Check" : "Check" }}</span>
         <span class="pill" :class="live.cls">{{ live.text }}</span>
       </div>
       <button v-if="!guided" class="icon-btn small" title="Close the review" @click="emit('close')">✕</button>
@@ -516,12 +516,12 @@ async function remove() {
         <div class="seg">
           <button v-if="g.workedOut" :class="{ on: confirmed[g.key] }" @click="confirmWorkedOut(g)">Yes, that's right</button>
           <button :class="{ on: mode[g.key] === 'entry' }" :disabled="!assignable.length" @click="chooseMode(g, 'entry')">One of the lines in the log</button>
-          <button :class="{ on: mode[g.key] === 'added' }" @click="chooseMode(g, 'added')">Something not in the log</button>
+          <button :class="{ on: mode[g.key] === 'added' }" @click="chooseMode(g, 'added')">Something Not in the Log</button>
           <button :class="{ on: mode[g.key] === 'amount' }" @click="chooseMode(g, 'amount')">I just know the number</button>
         </div>
         <div v-if="mode[g.key] === 'entry'" class="gap-detail">
           <select :value="assigned[g.key] ?? ''" @change="assignTo(g, ($event.target as HTMLSelectElement).value)">
-            <option value="">Which line?</option>
+            <option value="">Which Line?</option>
             <option v-for="e in assignable" :key="e.id" :value="e.id">{{ clock(e.first_seen_ms) }} · {{ entryName(e) }}</option>
           </select>
           <span v-if="assigned[g.key]" class="muted small">{{ signed(gapAmount(g)) }} {{ LABEL[g.field] }} added to that line below</span>
@@ -539,7 +539,7 @@ async function remove() {
       <p v-if="reportAction" class="gap-q" style="margin-top: 0">The report saw <b>{{ reportAction.text }}</b>. If that's right, leave it; if not, pick what you really did.</p>
       <p v-else class="gap-q" style="margin-top: 0">The report didn't see what you played. Pick it.</p>
       <div class="seg">
-        <button :class="{ on: actionKind === '' }" @click="actionKind = ''">{{ reportAction ? "As the report says" : "Leave it blank" }}</button>
+        <button :class="{ on: actionKind === '' }" @click="actionKind = ''">{{ reportAction ? "As the Report Says" : "Leave It Blank" }}</button>
         <button v-for="k in ['training', 'rest', 'outing', 'race']" :key="k" :class="{ on: actionKind === k }" @click="actionKind = k">{{ KIND_LABEL[k] }}</button>
       </div>
       <div v-if="actionKind" class="gap-detail">
@@ -557,9 +557,9 @@ async function remove() {
     <section class="rv-section">
       <h4 class="rv-h">
         Lines to check <span class="rv-count">{{ shownEntries.length }}<template v-if="shownEntries.length !== editableEntries.length"> of {{ editableEntries.length }}</template></span>
-        <button v-if="editableEntries.length > shownEntries.length || showAllEntries" class="linkish small" style="margin-left: auto" @click="showAllEntries = !showAllEntries">{{ showAllEntries ? "Only the flagged ones" : "Show every line" }}</button>
+        <button v-if="editableEntries.length > shownEntries.length || showAllEntries" class="linkish small" style="margin-left: auto" @click="showAllEntries = !showAllEntries">{{ showAllEntries ? "Only the Flagged Ones" : "Show Every Line" }}</button>
       </h4>
-      <p v-if="!shownEntries.length" class="muted small">No line in this turn needs a look. "Show every line" lists each one with a number, in case you want to fix one.</p>
+      <p v-if="!shownEntries.length" class="muted small">No line in this turn needs a look. "Show Every Line" lists each one with a number, in case you want to fix one.</p>
       <div v-for="e in shownEntries" :id="'review-' + e.id" :key="e.id" class="rv-entry" :class="{ deleted: entryRows[e.id]?.deleted, focus: e.id === focusEntry, edited: edited(e) }">
         <div class="rv-entry-head">
           <button class="tchip" :disabled="e.first_seen_ms === null" @click="e.first_seen_ms !== null && emit('seek', e.first_seen_ms)">{{ clock(e.first_seen_ms) }}</button>
@@ -587,7 +587,7 @@ async function remove() {
         <div v-if="entryRows[e.id]" class="rv-entry-foot">
           <button class="toggle" :class="{ on: entryRows[e.id].reviewed }" @click="entryRows[e.id].reviewed = !entryRows[e.id].reviewed">✓ Looks right</button>
           <button class="toggle danger" :class="{ on: entryRows[e.id].deleted }" @click="entryRows[e.id].deleted = !entryRows[e.id].deleted">Didn't happen</button>
-          <button v-if="!openNotes[e.id] && !entryRows[e.id].note" class="linkish small" @click="openNotes[e.id] = true">Add a note</button>
+          <button v-if="!openNotes[e.id] && !entryRows[e.id].note" class="linkish small" @click="openNotes[e.id] = true">Add a Note</button>
           <input v-else v-model="entryRows[e.id].note" type="text" class="grow" placeholder="note" maxlength="500" />
         </div>
       </div>
@@ -630,13 +630,13 @@ async function remove() {
       <input v-model="note" type="text" class="grow" placeholder="anything else about this turn (optional)" maxlength="500" />
       <div class="rv-foot-actions">
         <span v-if="error" class="warn-text small">{{ error }}</span>
-        <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Undo all my answers</button>
+        <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Undo All My Answers</button>
         <button class="btn primary" :disabled="busy" @click="save">Save</button>
       </div>
     </footer>
 
     <div v-if="result" class="verify" :class="result.verified ? 'ok' : result.balanced ? 'na' : 'off'">
-      <b>Saved.<template v-if="savedAction"> You played {{ savedAction }}.</template> {{ result.summary === "Nothing to check" ? "There were no next-turn numbers to check this against." : result.summary }}</b>
+      <b>Saved.<template v-if="savedAction"> You played {{ savedAction }}.</template> {{ result.summary === "Nothing to Check" ? "There were no next-turn numbers to check this against." : result.summary }}</b>
       <ul class="verify-list">
         <li v-for="f in result.fields" :key="f.channel + f.field" :class="f.status">
           <i class="sd" :class="f.field"></i><b>{{ LABEL[f.field] ?? f.field }}</b>

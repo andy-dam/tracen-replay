@@ -216,7 +216,7 @@ const checkCount = computed(() => {
     <header class="run-head">
       <div class="run-title">
         <a class="back" href="#/runs">‹ Runs</a>
-        <div class="overline">Career run</div>
+        <div class="overline">Career Run</div>
         <h1 :title="summary.report.source_name || summary.source.name">{{ summary.report.source_name || summary.source.name }}</h1>
         <p class="muted">
           {{ when(summary.report.created_at) }} · {{ clock(summary.source.duration_ms) }} · {{ summary.turns }} turns
@@ -252,7 +252,7 @@ const checkCount = computed(() => {
       </div>
       <div class="replay-pane" :style="paneHeight ? { height: paneHeight + 'px' } : undefined">
         <div class="tabs">
-          <button :class="{ active: tab === 'turn' }" @click="tab = 'turn'">This turn</button>
+          <button :class="{ active: tab === 'turn' }" @click="tab = 'turn'">This Turn</button>
           <button :class="{ active: tab === 'check' }" @click="tab = 'check'">Check<span v-if="checkCount" class="tab-count">{{ checkCount }}</span></button>
         </div>
         <div class="pane-body">
@@ -269,7 +269,7 @@ const checkCount = computed(() => {
     </section>
 
     <section class="growth-wide">
-      <div class="overline" style="margin-bottom: 14px">How the run was played</div>
+      <div class="overline" style="margin-bottom: 14px">How the Run Was Played</div>
       <RunStats :turns="turns" :entries="allEntries" :final="finalStats" @select="select" />
     </section>
   </template>

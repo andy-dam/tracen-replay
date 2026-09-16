@@ -105,9 +105,9 @@ const tipTurn = computed(() => tip.value?.cell.turns[0] ?? null);
       <span><i class="race"></i>Race</span>
       <span><i class="rest"></i>Rest</span>
       <span><i class="outing"></i>Outing</span>
-      <span><i class="missing"></i>Not seen by the report</span>
-      <span><i class="empty"></i>Not observed</span>
-      <span><i class="flagged"></i>Something to check</span>
+      <span><i class="missing"></i>Not Seen by the Report</span>
+      <span><i class="empty"></i>Not Observed</span>
+      <span><i class="flagged"></i>Something to Check</span>
       <span v-if="cells.unplaced.length" class="muted">· {{ cells.unplaced.length }} window{{ cells.unplaced.length === 1 ? "" : "s" }} without a calendar position:
         <button v-for="t in cells.unplaced" :key="t.id" class="btn quiet small" @click="emit('select', t.id)">{{ t.label }}</button>
       </span>

@@ -12,9 +12,9 @@ defineProps<{ user: User | null }>();
       <h1>Your career run, turn by turn.</h1>
       <p class="lede">Upload a recording of a career. Get every turn's stats with their rank letters, every training, race, purchase and event, and the video at the moment each one happened.</p>
       <div class="row" style="gap: 10px; margin-top: 24px">
-        <a v-if="user" class="btn primary big" href="#/runs">Open runs</a>
-        <a v-else class="btn primary big" href="#/signup">Get started</a>
-        <a class="btn big" href="#tour">See what you get</a>
+        <a v-if="user" class="btn primary big" href="#/runs">Open Runs</a>
+        <a v-else class="btn primary big" href="#/signup">Get Started</a>
+        <a class="btn big" href="#tour">See What You Get</a>
       </div>
       <p class="muted small" style="margin-top: 14px">Runs on this computer. Nothing leaves it.</p>
     </div>
@@ -28,7 +28,7 @@ defineProps<{ user: User | null }>();
     <div class="tour-row">
       <div class="tour-copy">
         <div class="overline">Replay</div>
-        <h2>The whole career on one strip</h2>
+        <h2>The Whole Career on One Strip</h2>
         <p>Every half-month of the three years and the finale, coloured by what was chosen. Click a cell or scrub the recording and the turn's log follows. The stats under the video carry the game's rank letters.</p>
       </div>
       <div class="tour-shot">
@@ -38,8 +38,8 @@ defineProps<{ user: User | null }>();
     </div>
     <div class="tour-row flip">
       <div class="tour-copy">
-        <div class="overline">From the recording</div>
-        <h2>Read straight off the screen</h2>
+        <div class="overline">From the Recording</div>
+        <h2>Read Straight off the Screen</h2>
         <p>The calendar, the stat bar and the log panel are read at 4 frames a second, and again at 60 where a number changes. Here a support event pays +3 Speed and +3 Guts. The popup and the log line agree, and the report keeps one entry with the second it appeared and the frame behind it.</p>
       </div>
       <div class="tour-shot">
@@ -49,7 +49,7 @@ defineProps<{ user: User | null }>();
     <div class="tour-row">
       <div class="tour-copy">
         <div class="overline">Analytics</div>
-        <h2>How the run was played</h2>
+        <h2>How the Run Was Played</h2>
         <p>Turn choices per year, growth by year, the turn each stat reached B, A, S, SS and UG, training efficiency, races by grade, skill points and skills, hints, rests and events. Every item opens its turn.</p>
       </div>
       <div class="tour-shot">
@@ -59,8 +59,8 @@ defineProps<{ user: User | null }>();
     </div>
     <div class="tour-row flip">
       <div class="tour-copy">
-        <div class="overline">From the recording</div>
-        <h2>Races, placings, fans</h2>
+        <div class="overline">From the Recording</div>
+        <h2>Races, Placings, Fans</h2>
         <p>Result screens are read for the race, the grade, the placing and the fans gained. A career's races become one list with a badge for each grade.</p>
       </div>
       <div class="tour-shot">
@@ -69,8 +69,8 @@ defineProps<{ user: User | null }>();
     </div>
     <div class="tour-row">
       <div class="tour-copy">
-        <div class="overline">From the recording</div>
-        <h2>Lessons, songs and skills</h2>
+        <div class="overline">From the Recording</div>
+        <h2>Lessons, Songs and Skills</h2>
         <p>Grand Concert lessons cost performance points and skills cost skill points. Each purchase is matched to its confirmation and to the balance before and after it, so the report lists what was bought, what it cost and what it gave, and never a purchase that was only browsed.</p>
       </div>
       <div class="tour-shot">
@@ -80,7 +80,7 @@ defineProps<{ user: User | null }>();
   </section>
 
   <section class="steps-wrap">
-    <h2>Three steps</h2>
+    <h2>Three Steps</h2>
     <ol class="steps">
       <li><b>Record</b> the career at 1080p with the log panel open.</li>
       <li><b>Upload</b> the file. A full career is about 1 GB and takes about 45 minutes to analyze.</li>
@@ -90,18 +90,18 @@ defineProps<{ user: User | null }>();
 
   <section id="start" class="start">
     <div v-if="user" class="start-card signed">
-      <h2>You are signed in</h2>
+      <h2>You Are Signed In</h2>
       <p class="muted">Your uploads and reports are under Runs.</p>
-      <a class="btn primary big" href="#/runs">Open runs</a>
+      <a class="btn primary big" href="#/runs">Open Runs</a>
     </div>
     <template v-else>
       <div class="start-copy">
-        <h2>Get started</h2>
+        <h2>Get Started</h2>
         <p class="muted">Create an account on this machine, upload a recording, and open the report when it lands.</p>
       </div>
       <div class="start-card">
-        <a class="btn primary big" href="#/signup">Create an account</a>
-        <a class="btn big" style="margin-left: 8px" href="#/signin">Sign in</a>
+        <a class="btn primary big" href="#/signup">Create an Account</a>
+        <a class="btn big" style="margin-left: 8px" href="#/signin">Sign In</a>
       </div>
     </template>
   </section>

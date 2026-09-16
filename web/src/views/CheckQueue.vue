@@ -57,10 +57,10 @@ const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIC
 <template>
   <div class="page-head">
     <div>
-      <h1>To check</h1>
+      <h1>Turns to Check</h1>
       <p>Every turn across your runs where a number does not add up or a line was flagged. Each one opens the review screen with the recording beside it.</p>
     </div>
-    <span v-if="!loading" class="ask" :class="total ? 'warn' : 'ok'">{{ total ? `${total} turn${total === 1 ? "" : "s"} to check` : "Everything adds up" }}</span>
+    <span v-if="!loading" class="ask" :class="total ? 'warn' : 'ok'">{{ total ? `${total} Turn${total === 1 ? "" : "s"} to Check` : "Everything Adds Up" }}</span>
   </div>
   <p v-if="error" class="error">{{ error }}</p>
   <p v-if="loading" class="muted">Reading your reports…</p>
@@ -69,7 +69,7 @@ const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIC
     <div class="queue-head">
       <a class="queue-name" :href="`#/reports/${encodeURIComponent(g.report.id)}`">{{ g.report.source_name }}</a>
       <span class="muted small">{{ g.items.length }} of {{ g.turns }} turns</span>
-      <span v-if="!g.items.length" class="pill ok">adds up</span>
+      <span v-if="!g.items.length" class="pill ok">Adds Up</span>
     </div>
     <ul v-if="g.items.length" class="queue-list">
       <li v-for="it in g.items" :key="it.turn.id">

@@ -90,7 +90,7 @@ async function cancel() {
     <div class="card" style="max-width: 720px">
       <template v-if="!terminal">
         <div class="row between" style="align-items: baseline">
-          <p class="display" style="font-size: 22px; margin: 0">{{ view.current?.label ?? (job.status === "running" ? "Starting" : "Waiting for a free worker") }}</p>
+          <p class="display" style="font-size: 22px; margin: 0">{{ view.current?.label ?? (job.status === "running" ? "Starting" : "Waiting for a Free Worker") }}</p>
           <span class="display num" style="font-size: 22px; color: var(--ink-2)">{{ view.overall }}%</span>
         </div>
         <div class="phases" style="margin: 12px 0 8px" role="progressbar" :aria-valuenow="view.overall" aria-valuemin="0" aria-valuemax="100">
@@ -102,13 +102,13 @@ async function cancel() {
           <li v-for="p in view.phases" :key="p.id" :class="p.state"><i></i>{{ p.label }}</li>
         </ol>
         <p class="muted small" style="margin-top: 10px">
-          <template v-if="view.current">Now {{ view.current.doing }}.</template>
-          <span v-if="job.stage === 'ocr' && job.ocr_total"> {{ job.ocr_processed }} of {{ job.ocr_total }} frames read.</span>
-          <span v-else-if="view.lastDone"> Last finished: {{ view.lastDone }}.</span>
-          <span v-if="remaining"> {{ remaining[0].toUpperCase() + remaining.slice(1) }}, going by the time so far.</span>
+          <template v-if="view.current">Now {{ view.current.doing }}. </template>
+          <template v-if="job.stage === 'ocr' && job.ocr_total">{{ job.ocr_processed }} of {{ job.ocr_total }} frames read. </template>
+          <template v-else-if="view.lastDone">Last stage finished: {{ view.lastDone }}. </template>
+          <template v-if="remaining">{{ remaining[0].toUpperCase() + remaining.slice(1) }}, going by the time so far. </template>
           You can leave this page; the analysis keeps running.
         </p>
-        <p style="margin-top: 16px" class="row"><button class="btn" @click="cancel">Cancel analysis</button><a class="btn quiet" href="#/runs">Back to runs</a></p>
+        <p style="margin-top: 16px" class="row"><button class="btn" @click="cancel">Cancel Analysis</button><a class="btn quiet" href="#/runs">Back to Runs</a></p>
       </template>
       <template v-else>
         <p v-if="job.error" class="error">{{ job.error.message }} <span class="muted small">({{ job.error.code }})</span></p>
@@ -118,9 +118,9 @@ async function cancel() {
         <p v-if="job.status === 'completed_with_stage_failures'" class="muted small">The stages above were skipped; the report is complete for the stages that ran.</p>
         <p v-if="job.status === 'interrupted'" class="muted small">The service restarted while this analysis was running. Queue it again to retry.</p>
         <div class="row" style="margin-top: 8px">
-          <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the report</a>
-          <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker log</a>
-          <a class="btn quiet" href="#/runs">Back to runs</a>
+          <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the Report</a>
+          <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker Log</a>
+          <a class="btn quiet" href="#/runs">Back to Runs</a>
         </div>
       </template>
     </div>

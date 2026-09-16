@@ -230,7 +230,7 @@ const scenario = computed(() => {
   return { lessons: lessons.length, performanceSpent, songs, concerts, any: lessons.length + songs.length + concerts.length > 0 };
 });
 
-const CHOICE_LABELS: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", race: "Race", rest: "Rest", outing: "Outing", infirmary: "Infirmary", other: "Other", none: "No action seen" };
+const CHOICE_LABELS: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", race: "Race", rest: "Rest", outing: "Outing", infirmary: "Infirmary", other: "Other", none: "No Action Seen" };
 const CHOICE_ORDER = ["speed", "stamina", "power", "guts", "wit", "race", "rest", "outing", "infirmary", "other", "none"];
 const plus = (n: number | null) => (n === null ? "?" : (n > 0 ? "+" : "") + n);
 const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 2 ? "2nd" : p === 3 ? "3rd" : `${p}th`);
@@ -239,7 +239,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
 <template>
   <div class="analytics">
     <div class="an-card wide">
-      <h3>Turn choices</h3>
+      <h3>Turn Choices</h3>
       <div class="an-body">
         <div class="growth-grid" style="gap: 18px">
           <div>
@@ -268,7 +268,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
     </div>
 
     <div class="an-card">
-      <h3>Training efficiency</h3>
+      <h3>Training Efficiency</h3>
       <div class="an-body">
         <div class="tiles three">
           <div class="tile"><b class="tabular">{{ trainings.count }}</b><span>sessions read</span></div>
@@ -294,7 +294,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
     </div>
 
     <div class="an-card wide">
-      <h3>Growth by year</h3>
+      <h3>Growth by Year</h3>
       <div class="an-body">
         <table class="ledger growth">
           <thead><tr><th>Stat</th><th class="num">Start</th><th v-for="h in growthHeads" :key="h" class="num">End of {{ h }}</th></tr></thead>
@@ -314,7 +314,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
     </div>
 
     <div class="an-card wide">
-      <h3>Rank milestones</h3>
+      <h3>Rank Milestones</h3>
       <div class="an-body">
         <div class="ms-grid">
           <div class="ms-head"></div>
@@ -357,7 +357,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
     </div>
 
     <div class="an-card">
-      <h3>Skill points and skills</h3>
+      <h3>Skill Points and Skills</h3>
       <div class="an-body">
         <div class="tiles">
           <div class="tile"><b class="tabular up">+{{ skills.earned.toLocaleString() }}</b><span>earned</span></div>
@@ -373,7 +373,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
     </div>
 
     <div class="an-card">
-      <h3>Skill hints</h3>
+      <h3>Skill Hints</h3>
       <div class="an-body">
         <div class="tiles">
           <div class="tile"><b class="tabular">{{ skills.hints.length }}</b><span>skills hinted</span></div>
@@ -387,7 +387,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
     </div>
 
     <div class="an-card">
-      <h3>Rest and energy</h3>
+      <h3>Rest and Energy</h3>
       <div class="an-body">
         <div class="tiles">
           <div class="tile"><b class="tabular">{{ energy.rests }}</b><span>rests</span></div>
