@@ -15,7 +15,10 @@ class UnparsedSupporterReceiptTests(unittest.TestCase):
                 self.row('Mejiro Dober joined your ause!', 419500)]
         candidates = unparsed_receipt_candidates(rows)
         self.assertEqual(len(candidates), 3)
-        self.assertTrue(all(c['status'] == 'needs_review' for c in candidates))
+        # The two Mejiro Dober lines are one receipt read twice; the cut one is
+        # a fragment of the longer, which stays a review candidate.
+        self.assertEqual([c['status'] for c in candidates], ['needs_review', 'ocr_fragment', 'needs_review'])
+        self.assertEqual(candidates[1]['fragment_of'], 'Mejiro Dober joined your ause!')
         self.assertTrue(all('name' not in c and 'amount' not in c for c in candidates))
         self.assertEqual(candidates[0]['raw_text'], rows[0]['ocr']['neural'][0]['text'])
         self.assertEqual(candidates[0]['evidence'], ['415500.png'])

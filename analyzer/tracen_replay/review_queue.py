@@ -138,7 +138,8 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
     for row in data.get('readings',[]):
         lines=row.get('facts',{}).get('occluded_receipt_lines',[])
         if lines:add('obscured_receipt',row,[dict(text=x['text'],recipient_name_occluded=x.get('recipient_name_occluded',False)) for x in lines])
-    for row in data.get('unparsed_receipt_candidates',[]):add('unparsed_receipt',row,row.get('raw_text'))
+    for row in data.get('unparsed_receipt_candidates',[]):
+        if row.get('status')!='ocr_fragment':add('unparsed_receipt',row,row.get('raw_text'))
     for row in data.get('lesson_purchases',[]):
         if row.get('performance_cost') is None:add('missing_lesson_cost',row)
     for row in data.get('skill_purchases',[]):

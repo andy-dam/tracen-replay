@@ -495,6 +495,8 @@ def build(report):
                 acquisition_conflicts=deepcopy(acquisition_conflicts.get(event_id, [])),
                 accounting_role='reference_only_not_an_additional_award')
     for index, candidate in enumerate(data.get('unparsed_receipt_candidates', [])):
+        if candidate.get('status') == 'ocr_fragment':
+            continue  # a cut or garbled repeat of a receipt already in the log
         add(_ref('unparsed_receipt_candidates', index), 'unparsed_receipt',
             candidate['first_seen_ms'], candidate['last_seen_ms'], candidate.get('evidence'),
             raw_text=candidate.get('raw_text'), accepted_award=False)
