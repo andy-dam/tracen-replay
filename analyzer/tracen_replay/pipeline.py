@@ -66,7 +66,25 @@ def probe(source):
     return info, video, duration, origin
 
 
-def decode_frames(source, directory, start, duration, fps, origin):
+def decode_frames(source, directory, start, duration, fps, origin, attempts=2):
+    """Decode one bounded interval into ``directory`` and return its frame rows.
+
+    The decoder's showinfo log is the only source of presentation timestamps;
+    once in a long run its line sequence has come out inconsistent with the
+    images written, on a part that decodes cleanly again. Such a part is
+    decoded once more from scratch before the run is given up.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return _decode_frames_once(source, directory, start, duration, fps, origin)
+        except PipelineError as exc:
+            if attempt == attempts or not str(exc).startswith("Decoder timestamp sequence is inconsistent"):
+                raise
+            for path in directory.glob("*.jpg"):
+                path.unlink()
+
+
+def _decode_frames_once(source, directory, start, duration, fps, origin):
     # Keep source PTS through showinfo, then reset output time for -t to bound work.
     # select preserves original frames; the fps filter would invent a new time grid.
     # showinfo timestamps originate from rational PTS. Decimal conversion can
@@ -91,7 +109,8 @@ def decode_frames(source, directory, start, duration, fps, origin):
     for index, path in enumerate(files):
         sample_index, pts, _ = samples[index]
         if int(sample_index) != index:
-            raise PipelineError("Decoder timestamp sequence is inconsistent.")
+            raise PipelineError(f"Decoder timestamp sequence is inconsistent (showinfo n={sample_index} for image {index}, "
+                                f"{len(samples)} samples for {len(files)} images at {start:.3f}s).")
         # Use integer PTS/time_base rather than rounded showinfo pts_time text.
         timestamp = int(pts) * numerator / denominator - origin
         # Decoder/filter lookahead may log or emit a frame beyond the requested interval.

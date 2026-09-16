@@ -123,6 +123,33 @@ class PipelineIntegrationTests(unittest.TestCase):
                 with self.assertRaises(PipelineError):
                     analyze(self.source, self.destination(), start, duration, fps)
 
+    def test_an_inconsistent_showinfo_sequence_is_decoded_once_more(self):
+        # The decoder's log came out with a duplicated showinfo line on the
+        # first attempt; the same part decodes cleanly on the second.
+        from tracen_replay import pipeline
+        directory = self.root / "retry-frames"
+        directory.mkdir()
+        calls = []
+        def fake_run(command):
+            calls.append(command)
+            for path in directory.glob("*.jpg"):
+                path.unlink()
+            for i in range(3):
+                (directory / f"{i + 1:06d}.jpg").write_bytes(b"jpg")
+            lines = ["[Parsed_showinfo_1 @ 0] config in time_base: 1/15360, frame_rate: 60/1"]
+            order = [0, 0, 1, 2] if len(calls) == 1 else [0, 1, 2]
+            for n in order:
+                lines.append(f"[Parsed_showinfo_1 @ 0] n: {n} pts: {3840 * n} pts_time:{0.25 * n:.6f} pos: 1")
+            return subprocess.CompletedProcess(command, 0, "", "\n".join(lines))
+        with patch("tracen_replay.pipeline.run", side_effect=fake_run):
+            frames = pipeline.decode_frames(self.source, directory, 0, 1, 4, 0)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual([f["source_pts"] for f in frames], [0, 3840, 7680])
+        with patch("tracen_replay.pipeline.run", side_effect=fake_run):
+            calls.clear()
+            with self.assertRaisesRegex(PipelineError, "inconsistent .*showinfo n=0 for image 1"):
+                pipeline.decode_frames(self.source, directory, 0, 1, 4, 0, attempts=1)
+
     def test_decoder_failure_cleans_its_temporary_directory(self):
         output = self.destination()
         before = set(self.root.glob(".tracen-*"))

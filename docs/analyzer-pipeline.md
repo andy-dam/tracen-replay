@@ -34,7 +34,7 @@ strictly from one frame to the next. Separately, every decoded image is
 content-hashed (SHA-256) once it is cropped to the gameplay pane; that hash,
 together with the OCR engine's fingerprint, is what later stages use to
 decide whether a cached OCR observation is still valid for a frame.
-`capture.json` is the immutable manifest of this stage: source identity,
+The decoder's `showinfo` log is the only source of those timestamps, and its line sequence must match the images written one for one; a part whose log comes out inconsistent is decoded once more from scratch before the run fails, and the failure names the offending frame index. `capture.json` is the immutable manifest of this stage: source identity,
 duration, per-frame PTS/timestamp/evidence path, and the sampling
 configuration. A second run against the same `--output` directory reuses it
 after checking the source hash and requested FPS still match.
