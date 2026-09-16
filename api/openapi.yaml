@@ -170,7 +170,7 @@ components:
         checks: {type: array, items: {type: object, properties: {name: {type: string}, ok: {type: boolean}, note: {type: string}}}}
     Job:
       type: object
-      description: One analysis attempt. Status values: queued, running, succeeded, completed_with_stage_failures, failed, cancelled, interrupted.
+      description: "One analysis attempt. Status values: queued, running, succeeded, completed_with_stage_failures, failed, cancelled, interrupted."
       properties:
         id: {type: string}
         source_id: {type: string}
