@@ -27,6 +27,7 @@ package) as the working directory.
 | `--dense-workers` | workers minus one, at least one | worker processes for the dense re-read OCR passes, 1 to 8; each can peak near 5-6 GB, so this is the memory knob of a run |
 | `--model-dir` | `.local/models/rapidocr` | local OCR model directory |
 | `--reparse-only` | off | use cached observations instead of starting OCR |
+| `--rehydrate-frames` | off | with `--reparse-only`, decode the run's frame images and gameplay panes again before reparsing |
 | `--replay-input-manifest` | none | a source-bound replay input manifest for cached parsing from a disposable cache clone; requires `--reparse-only` |
 | `--replay-input-root` | `--output` | the disposable cache root the manifest reads from; must equal `--output` |
 | `--prune-frames` | off | after the report is validated, delete the frame images under `--output` |
@@ -61,6 +62,22 @@ manifest's declared source hashes, raw observations, inspection/recovery
 rows and raw sidecar refinements; it never loads accepted report values.
 `--replay-input-root` must equal `--output`, so emitted evidence stays in the
 worker root.
+
+`--rehydrate-frames` (also only with `--reparse-only`) decodes the run's frame
+images and cuts its gameplay panes again, for a run whose images are gone.
+Decoding the same recording at the same sampling reproduces the same bytes, so
+the images are derived rather than stored: each part is decoded into a scratch
+directory and accepted only when it comes back as exactly the frames that part
+already recorded, and each pane is checked against the sha256 of the pixels its
+own observation was read from. No manifest is ever rewritten, and a part or a
+pane that does not reproduce raises instead of being written.
+
+This restores only what a decode can produce. A stage's own crops are proved
+by the bytes of their file, so a run pruned with `--prune-frames` has lost
+those for good and will still fail its refinement stages; measured on a full
+career, rehydration puts back about 10 GB and takes around ten minutes. The
+reproducible-capture property is the useful part: a finished report's frames
+can be cut again from the recording by timestamp.
 
 ### `--prune-frames` and `--prune-working-data`
 

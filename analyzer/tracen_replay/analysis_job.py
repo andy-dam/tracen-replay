@@ -67,6 +67,9 @@ def _parser() -> argparse.ArgumentParser:
                         help="Local OCR model directory")
     parser.add_argument("--reparse-only", action="store_true",
                         help="Use cached observations without running OCR")
+    parser.add_argument("--rehydrate-frames", action="store_true",
+                        help="Before reparsing, decode the frame images of a run whose images were "
+                             "pruned; each part must come back as exactly the frames it recorded")
     parser.add_argument("--replay-input-manifest", type=Path,
                         help="Source-bound replay input manifest for common cached parsing")
     parser.add_argument("--replay-input-root", type=Path,
@@ -102,6 +105,11 @@ def _paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     owner = getattr(args, "owner_pid", None)
     if owner is not None and owner <= 0:
         raise JobInputError("invalid_owner_pid", "Owner pid must be a positive integer.")
+    if getattr(args, "rehydrate_frames", False) and not args.reparse_only:
+        raise JobInputError(
+            "invalid_arguments",
+            "--rehydrate-frames requires --reparse-only; an ordinary analysis captures its own frames.",
+        )
     manifest = getattr(args, "replay_input_manifest", None)
     replay_root = getattr(args, "replay_input_root", None)
     if manifest is None and replay_root is not None:
@@ -729,6 +737,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.owner_pid:
             watch_owner(args.owner_pid)
+        if getattr(args, "rehydrate_frames", False):
+            from .full_recording import rehydrate_frames
+
+            rehydrate_frames(source, output, args.fps)
         _run_producer(source, output, model_dir, args)
     except SystemExit as exc:
         _emit(_failure("producer_failed", f"Producer exited with status {exc.code!r}."))

@@ -468,6 +468,107 @@ def capture(source,root,fps):
     return report
 
 
+_MANIFEST_FIELDS=('id','source_timestamp_ms','clip_timestamp_ms','source_pts','time_base','evidence')
+
+
+def rehydrate_frames(source,root,fps):
+    """Decode the frame images of a captured run again after they were pruned.
+
+    A run pruned with ``--prune-frames`` keeps ``capture.json`` and each part's
+    ``frames.json`` but none of the images, so it can no longer be reparsed:
+    every cached OCR observation is checked against the sha256 of its own frame
+    file.  Decoding the same source at the same sampling is reproducible, so
+    the images can be produced again rather than stored.
+
+    This never rewrites a manifest and never invents a frame.  Each part is
+    decoded into a scratch directory and accepted only when it comes back as
+    exactly the rows that part already recorded; anything else is a decoder or
+    source difference and raises.  Byte equality is not asserted here, because
+    the reparse itself rejects any frame whose hash no longer matches the
+    observation that was taken from it.
+    """
+    source=Path(source).resolve();root=Path(root)
+    info,video,duration,origin=probe(source)
+    with source.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+    identity_path=root/'identity.json'
+    if not identity_path.exists():
+        raise PipelineError('Cannot rehydrate a run without identity.json.')
+    identity=json.loads(identity_path.read_text(encoding='utf-8'))
+    if identity!=dict(source_sha256=digest,fps=fps):
+        raise PipelineError('Existing output belongs to a different source or sampling configuration.')
+    parts=0;decoded=0
+    for manifest in sorted(root.glob('part-*/frames.json')):
+        part=manifest.parent;prefix=part.name
+        rows=json.loads(manifest.read_text(encoding='utf-8'))
+        destination=part/'frames'
+        if all((destination/Path(row['evidence']).name).is_file() for row in rows):
+            continue
+        index=int(prefix.rsplit('-',1)[1])
+        start=index*120;length=min(120,duration-start)
+        if length<=0:
+            raise PipelineError(f'Part {prefix} lies outside the source duration.')
+        scratch=part/'frames.rehydrate'
+        if scratch.exists():
+            for stale in scratch.iterdir():stale.unlink()
+        else:
+            scratch.mkdir(parents=True)
+        produced=decode_frames(source,scratch,start,length,fps,origin)
+        for row in produced:
+            row['id']=f'{prefix}-'+row['id'];row['evidence']=f'{prefix}/'+row['evidence']
+            row['clip_timestamp_ms']=row['source_timestamp_ms']
+        if [{field:row[field] for field in _MANIFEST_FIELDS} for row in produced]!=[
+                {field:row[field] for field in _MANIFEST_FIELDS} for row in rows]:
+            raise PipelineError(f'Rehydrated part {prefix} does not reproduce its recorded frames.')
+        destination.mkdir(parents=True,exist_ok=True)
+        for row in produced:
+            name=Path(row['evidence']).name
+            (scratch/name).replace(destination/name)
+        scratch.rmdir()
+        parts+=1;decoded+=len(produced)
+        print(json.dumps(dict(stage='rehydrate',part=index,frames=decoded)),flush=True)
+    return dict(parts=parts,frames=decoded,crops=_rehydrate_gameplay_crops(root))
+
+
+def _rehydrate_gameplay_crops(root):
+    """Cut each frame's gameplay pane again for the observations that cite it.
+
+    An OCR observation names the pane it was read from, and later stages read
+    that pane's pixels again, so a reparse needs the crops as much as the
+    frames.  The pane is a fixed window on a frame that has just been proved to
+    decode the same way, and the observation recorded the sha256 of its pixels,
+    so each crop is checked against that hash before it is written; a pane that
+    does not match is a difference this function must not paper over.
+    """
+    from PIL import Image
+
+    capture=root/'capture.json'
+    if not capture.exists():
+        raise PipelineError('Cannot rehydrate panes without capture.json.')
+    written=0
+    for frame in json.loads(capture.read_text(encoding='utf-8')).get('frames',[]):
+        observation=root/'neural'/(frame['id']+'.json')
+        if not observation.exists():
+            continue
+        raw=json.loads(observation.read_text(encoding='utf-8'))
+        relative=raw.get('evidence')
+        if not relative or (root/relative).is_file():
+            continue
+        source=root/frame['evidence']
+        if not source.is_file():
+            raise PipelineError(f'Cannot cut a pane from a missing frame: {frame["id"]}')
+        with Image.open(source) as image:
+            pane=image.convert('RGB').crop((148,0,958,1080))
+        recorded=raw.get('gameplay_sha256')
+        if recorded and hashlib.sha256(pane.tobytes()).hexdigest()!=recorded:
+            raise PipelineError(f'Rehydrated pane does not match its observation: {frame["id"]}')
+        (root/relative).parent.mkdir(parents=True,exist_ok=True)
+        pane.save(root/relative)
+        written+=1
+        if written%1000==0:
+            print(json.dumps(dict(stage='rehydrate',panes=written)),flush=True)
+    return written
+
+
 _PROCESS_READER=None
 
 
