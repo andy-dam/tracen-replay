@@ -130,31 +130,38 @@ reviewer work each removes.
 The rules already decide which screen is on frame; what still fails is
 reading small fixed crops. The accounting labels them for free. Order:
 
-- [x] **Dataset builder.** `analyzer/tools/build_reader_dataset.py` walks
-      run roots that still hold their panes and writes the stat-badge and
-      performance-counter crops with the value the run's own checkpoint
-      settled on (`confirmed`, `hard` with the checkpoint's value, or
-      `unlabeled`),
-      the frame, timestamp and box of each, split by run with held-out runs
-      and recorder groups recorded in the manifest. The six end-to-end job
-      runs were pruned by the service, so the first build comes from the two
-      preserved acceptance runs (about 8,500 crops); the six recordings need
-      `--rehydrate-frames` first to join it. See
+- [x] **Dataset builder.** `analyzer/tools/build_reader_dataset.py` cuts
+      every result box of every training result frame, and the lesson menu's
+      counters, and labels each by what it shows (`badge`, `gain`, `blank`
+      or `unknown`) from the stat bars around the card and the receipts
+      between them, not from the reader's own output. Split by run, with
+      held-out runs and recorder groups in the manifest. The six end-to-end
+      job runs were pruned by the service, so the first build comes from the
+      three preserved full-recording runs (22,279 boxes, one run held out);
+      the six recordings need `--rehydrate-frames` first to join it. See
       [docs/evaluation.md](docs/evaluation.md).
-- [x] **Baseline.** `analyzer/tools/reader_baseline.py` reports, per split,
-      kind and field, the current reader's coverage, accuracy and exact
-      share by frame and by visit. The table for dataset-v1 is in the local
-      records beside the dataset. Badges: accepted values are right about
-      95% of the time but only 25 to 60% of card frames yield a value, and
-      about a quarter of held-out cards are never read on any frame; skill
-      points are the weakest badge. Counters are labeled by their own
-      consensus, so their number to watch is the unlabeled share.
-- [ ] **First model: badge and counter reader.** A small CNN that reads a
-      digit string and a confidence from a fixed crop, trained on the
-      dataset; compare a frozen pretrained backbone with a linear head
-      against a fine-tuned one; export to ONNX so it runs beside the OCR
-      models on the same providers. Done: the model beats the baseline on the
-      held-out split and its latency per crop is measured on CPU.
+- [x] **Baseline.** `analyzer/tools/reader_baseline.py` judges a reader per
+      card (value read, gain recovered) and counts false reads per frame. On
+      the held-out run's 4-per-second frames the analyzer's own reader reads
+      the value on 72% of 336 cards and recovers 71% of 174 gains, with 12
+      false reads. On the training runs, where it also rereads each card at
+      60 frames per second, it reaches 95% and 100%. Most frames it misses
+      show the box blank or covered by the card's animation. The table is in
+      the local records beside the dataset.
+- [x] **First model: result box reader.** Our own network, trained from
+      nothing on the GPU with `analyzer/tools/train_reader.py`, transcribes
+      a result box (`value/cap`, `+N` or nothing) with a confidence per
+      character, and is exported to ONNX. On the held-out run at confidence
+      0.9 it reads the value on 260 of 336 cards (current reader 243) and
+      recovers 143 of 174 gains (current 123), with 5 false values and 3
+      false gains (current 8 and 4). Its remaining false reads are boxes
+      half covered by the card's animation, and retraining moves the card
+      counts by about half a dozen. An ImageNet ResNet-18 trunk, frozen or
+      fine-tuned, reads as many values and about 7 more gains with twice the
+      parameters; it is a comparison row only. 1.16 ms per box in
+      onnxruntime on the CPU, 0.44 ms on DirectML. Only one held-out
+      recording, from the same recorder as the training runs, so other
+      recorders are untested until the end-to-end recordings are rehydrated.
 - [ ] **Integration as a reader.** The model becomes one more reader in the
       analyzer: it yields an observation with a frame, a value and a
       confidence, behind a flag; the accounting stays the arbiter and a model
