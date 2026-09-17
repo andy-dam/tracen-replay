@@ -92,15 +92,15 @@ reviewer work each removes.
       (`identity_basis: result_card_only`) and says the choice was not seen.
       Three such turns in one of the six reports. Its training owns the
       turn's remaining difference like any committed training.
-- [ ] **A receipt read again counts twice.** One frame between two reads of
+- [x] **A receipt read again counts twice.** One frame between two reads of
       the same stat receipt parsed nothing, its line cut short or read just
       under the parse confidence, so the receipt became two awards. Four on
       B/Gran Concert: Skill Pts +120, Speed +5, Skill Pts +4 and Guts +5. Two
       left a gap the size of the award; the Speed one hid a wrong worked-out
-      gain, 7 where the card shows +12, on a turn that looked balanced. The
-      analyzer now counts such a receipt once; on the saved readings of all
-      nine reports only those four change. Done: the next website analysis
-      of B/Gran Concert balances those turns.
+      gain, 7 where the card shows +12, on a turn that looked balanced. Such a
+      receipt now counts once; on the saved readings of all nine reports only
+      those four change, and a fresh website analysis of B/Gran Concert drops
+      exactly them and balances both turns, with the card's +12 read directly.
 - [x] **A rest followed by lessons or the concert was dropped.** The next
       date came a minute after the recovery result, past the 30-second wait.
       Point-spending screens now extend the wait; two rests recovered in the
@@ -178,25 +178,27 @@ reading small fixed crops. The accounting labels them for free. Order:
       digit, and 1 of 50 held-out answers off. 1.28 ms per box in onnxruntime
       on the CPU, 0.54 ms on DirectML. The model to ship is trained on every
       run with `--final`.
-- [ ] **Integration as a reader.** The model becomes one more reader in the
+- [x] **Integration as a reader.** The model becomes one more reader in the
       analyzer: it yields an observation with a frame, a value and a
       confidence, behind a flag; the accounting stays the arbiter and a model
       value never fills a field on its own. Done: a fresh run of a held-out
       recording with the flag on shows fewer unexplained and conflicted
-      fields than without, and no new false values. In place:
-      `--learned-reader` (the service's `-learned-reader`) reads every
-      training result frame, and a read gain equal to a turn's difference,
-      or the value the stat lands on with it, makes that amount observed.
-      On the saved B/Gran Concert website report, with the counted-twice fix
-      applied to its events, the reads of the model that never saw recorder
-      B leave 2 unexplained fields where there are 3 without them, both
-      performance points, which the model does not read; 21 amounts are
-      observed, all right by eye. Recorder C's report: 1 against 2, with 7
-      observed. One false read was seen: the recorder's mouse pointer over a
-      `+8` read as `+9` at 0.998, which the value 138 on the same card
-      contradicts, so nothing was confirmed from it. Next: analyze B and C
-      again from the website to confirm end to end, then switch the service
-      to the model trained on every recording.
+      fields than without, and no new false values. `--learned-reader` (the
+      service's `-learned-reader`) reads every training result frame, and a
+      read gain equal to a turn's difference, or the value the stat lands on
+      with it, makes that amount observed. A fresh website analysis of
+      B/Gran Concert with the model that never saw recorder B: 2 unexplained
+      turn fields with the reads and 3 without, both left being performance
+      points, which the model does not read; 19 amounts observed by the
+      model, all right by eye. Recorder C's saved report with the model's
+      reads attached: 1 against 2, with 7 observed. One false read was seen:
+      the recorder's mouse pointer over a `+8` read as `+9` at 0.998, which
+      the value 138 on the same card contradicts, so nothing was confirmed
+      from it.
+- [ ] **Ship the model trained on every recording.** Analyze recorder C's
+      career again from the website with the held-out model, then restart
+      the service with the model trained on every run. Done: a new report
+      records that model's fingerprint.
 - [ ] **Flag a worked-out amount the card contradicts.** The accounting
       worked out a gain of 7 on a turn the counted-twice receipt made look
       balanced, while the model read `+12` on five frames of that card and
