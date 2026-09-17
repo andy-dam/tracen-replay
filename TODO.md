@@ -150,12 +150,19 @@ its own measurement of the latest reports showed.
       on the turn before and -4 on that turn. These are the only two
       unexplained fields left in recorder C's fresh website report. Done: that
       opening reads 4 and both turns balance.
-- [ ] **Race-day and finale openings are estimates.** A race-day turn's
-      opening is carried from the previous turn's entries. Read the Full
-      Stats panel when the player opens it on that screen, so the turn gets
-      a real observation. Where the recorder never opens it, the estimate is
-      the right answer. Done: a recording where Full Stats was opened on a
-      race day shows an observed opening, not an estimate.
+- [ ] **A race-day opening is sometimes never observed.** Nothing is carried
+      from the previous turn any more: a ledger turn's opening is observed or
+      it says it was not. Measured on the latest report of each of five
+      careers, stats openings are observed on all but zero to four turns, and
+      in two careers the one missing is the same race day, "Junior Year Late
+      Dec", where nothing was read before the action. Performance openings are
+      missing on the four pre-debut turns, where the panel does not exist yet,
+      and partial on two to sixteen others. The fix this item wants, reading
+      the Full Stats panel the player can open, cannot be checked against
+      anything in hand: no recording has that panel open inside a career, and
+      the analyzer has no reader for it. The only frames showing aptitudes are
+      the trainee select and career completion screens. Done: a recording that
+      opens Full Stats on a race day gives that turn an observed opening.
 - [ ] **Ambiguous effects.** Circle base variants, recipient identity and
       inheritance spark identity are the three reasons left. Done: each has
       a rule or is presented with the two candidates to choose from.
