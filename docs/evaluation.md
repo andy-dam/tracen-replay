@@ -1,7 +1,8 @@
 # Evaluation
 
-How the analyzer's output is checked today, and the plan for the learned
-readers that will replace its remaining hand-tuned OCR-repair heuristics.
+How the analyzer's output is checked today, and the learned readers meant to
+replace its remaining hand-tuned OCR-repair heuristics: the first runs in the
+analyzer behind a flag, the others are plans.
 
 ## Part A: how the analyzer is validated
 
@@ -205,6 +206,21 @@ it is never exported. The export is ONNX with a dynamic batch (input `crop`,
 RGB in [0, 1]), checked against onnxruntime and timed per box on the CPU.
 Results, the model and its log go to the local records.
 
+### Integration: the reader in the analyzer
+
+The exported model runs inside the analyzer behind `--learned-reader` (and
+the service's `-learned-reader`). Its reads are observations on the training
+result readings, never values of their own: the causal accounting uses one
+only where it equals a difference the stat bars left unexplained, turning an
+amount the accounting would otherwise work out from that difference into an
+observed one (see [analyzer-pipeline.md](analyzer-pipeline.md)). Integration
+is judged twice. The held-out model's reads are attached to the reports of
+recorders it never trained on and their accounting is rebuilt with and
+without them, counting unexplained, worked-out and observed fields; every
+amount the reads confirm is then checked by eye against its frame. And a
+fresh analysis of a held-out recording with the flag shows the whole path,
+recognizer to report, holding together.
+
 ### Second model: confusion-aware text repair
 
 A model trained on receipt lines paired with their resolved names, learning
@@ -236,5 +252,5 @@ accepted; a model's output never fills a report field on its own.
 - CPU inference latency per crop, since the worker runs without a GPU
   guarantee (see [ocr-performance.md](ocr-performance.md)).
 
-No results are reported here until a model exists; this section is a plan,
-not a record of a run.
+Results are not recorded here; they are kept with each model in the local
+records.

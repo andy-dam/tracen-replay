@@ -90,7 +90,14 @@ reviewer work each removes.
       expects one decision and holds exactly one training result and no
       committed action now takes that result as its action
       (`identity_basis: result_card_only`) and says the choice was not seen.
-      Three such turns in one of the six reports.
+      Three such turns in one of the six reports. Its training owns the
+      turn's remaining difference like any committed training.
+- [ ] **A receipt read again counts twice.** "Skill Pts went up by 4" read
+      alone and again once the box added a second line, and "Guts went up by
+      5" read again through the fade to the next screen, each became a second
+      award, leaving a gap the size of the award. Two turns of B/Gran Concert.
+      Done: a receipt repeated within one dialogue counts once, and both
+      turns balance.
 - [x] **A rest followed by lessons or the concert was dropped.** The next
       date came a minute after the recovery result, past the 30-second wait.
       Point-spending screens now extend the wait; two rests recovered in the
@@ -173,7 +180,18 @@ reading small fixed crops. The accounting labels them for free. Order:
       confidence, behind a flag; the accounting stays the arbiter and a model
       value never fills a field on its own. Done: a fresh run of a held-out
       recording with the flag on shows fewer unexplained and conflicted
-      fields than without, and no new false values.
+      fields than without, and no new false values. In place:
+      `--learned-reader` (the service's `-learned-reader`) reads every
+      training result frame, and a read gain equal to a turn's difference
+      makes that amount observed. A website analysis of B/Gran Concert with
+      the model that never saw recorder B, its accounting rebuilt with the
+      current code, has 12 amounts the model observed, all right by eye, and
+      no other field changed. Its 5 unexplained fields stayed: 2 are
+      performance points, which the model does not read; 2 are receipts
+      counted twice (section 2); 1 is a power gain of 40 the model read as
+      the value after the training (906 over 866) and, on a zoomed frame, as
+      `+4`, which matched nothing. Next: accept a read value equal to the
+      value before the training plus the difference.
 - [ ] **Second model: text repair.** Learn the recognizer's character
       confusions from receipt lines paired with their resolved names, and
       replace the hand-set edit distances with one repair that uses the
