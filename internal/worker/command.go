@@ -32,7 +32,7 @@ type Command struct {
 	Workers int
 	// DenseWorkers is the worker count of the dense re-read OCR passes; zero
 	// keeps the worker's default (Workers minus one, at least one). Each
-	// dense worker can peak near 5-6 GB, so this is the memory knob.
+	// dense worker stays near 2 GB, so free cores bound it more than memory.
 	DenseWorkers int
 	// FPS overrides the sampling rate; zero keeps the worker's default.
 	FPS float64

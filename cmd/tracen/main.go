@@ -57,7 +57,7 @@ func run() error {
 	modelDir := flag.String("model-dir", filepath.Join(".local", "models", "rapidocr"), "OCR model directory")
 	ffmpeg := flag.String("ffmpeg", "ffmpeg", "ffmpeg executable for frame extraction")
 	workers := flag.Int("workers", 4, "OCR worker processes per job")
-	denseWorkers := flag.Int("dense-workers", 0, "worker processes for the dense re-read passes (0 = workers minus one); each can peak near 5-6 GB")
+	denseWorkers := flag.Int("dense-workers", 0, "worker processes for the dense re-read passes (0 = workers minus one); each stays near 2 GB")
 	queue := flag.Int("queue", 4, "maximum number of queued jobs")
 	ocrDevice := flag.String("ocr-device", "auto", "OCR device for the analyzer: auto (DirectML, then CUDA, then CPU), cpu, dml or cuda")
 	learnedReader := flag.String("learned-reader", "", "exported learned result-card reader (ONNX) for the analyzer; its reads count only where they equal an unexplained difference (off when empty)")

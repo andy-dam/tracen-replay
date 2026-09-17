@@ -16,9 +16,12 @@ report labels this a "reread".
 (1-8, default 4) for the base OCR pass and `--dense-workers` (1-8, default
 `--workers` minus one, at least one) for the dense reread passes. The Go
 service exposes the same controls as `-workers` and `-dense-workers` on
-`cmd/tracen`; its flag help notes that each dense worker can peak near
-5-6 GB of memory, so `-dense-workers` is effectively the memory knob of a
-run, separate from `-workers`.
+`cmd/tracen`. Every OCR worker collects garbage every 25 frames: under Python
+3.14 a worker otherwise piles up cyclic garbage holding decoded images and
+climbs from about 1.4 GB past 6 GB before the collector frees it. With the
+collection, on a full career no worker went past about 2.2 GB with 5 base and
+4 dense workers, so the worker counts are bounded by free cores rather than
+memory.
 
 ## Device selection
 
@@ -65,17 +68,36 @@ Measured on this machine (DirectML on an RTX 5060 Ti) over 120 panes of a
 | Parsing the observation | about 28 ms |
 | Hashing, decoding and cropping the frame | about 10 ms |
 
-Three OCR processes running together each slow down by about a third while
-the GPU stays mostly idle; larger recognition batches (24 lines instead of 6)
-did not help. The saved pane PNGs are hashed byte for byte by later stages,
-so their compression is part of the evidence, not a free setting.
+Larger recognition batches (24 lines instead of 6) did not help. The saved
+pane PNGs are hashed byte for byte by later stages, so their compression is
+part of the evidence, not a free setting; instead a pane's PNG is encoded on a
+background thread while the pane is read (`proof_writer`), since PNG encoding
+releases the GIL. Later stages check the same proof files many times over: a
+rebuild of one career decoded 41,506 images. Pixel fingerprints are therefore
+kept per file path, size and modification time (`frame_cache.rgb_digest`), and
+the choice observations built before and after boundary recovery are
+remembered per unchanged proof file.
 
-End to end, three service analyses of the same 35-minute recording with 3
-workers and 2 dense workers took 48.6 and 47.5 minutes before the compact
-images and 35.5 minutes after, with an identical report; the base OCR pass
-went from about 17 to 11 minutes and the training result rereads from 11 to
-7.5. These are observed runs from the service's job records, not a controlled
-benchmark, and not a throughput guarantee for another machine or recording.
+The base OCR pass scales with worker processes while the GPU stays mostly
+idle, each worker running the whole per-frame loop:
+
+| Base OCR workers | Frames per second |
+|---|---|
+| 3 | 13.2 |
+| 4 | 16.2 |
+| 5 | 18.7 |
+
+End to end on the same 35-minute recording, every report identical:
+
+| Analysis | Minutes |
+|---|---|
+| Before the compact images, 3 workers and 2 dense workers | 48.6 and 47.5 |
+| Compact images | 35.5 |
+| Proofs written while reading, repeated checks remembered | 32.0 |
+| The same with 5 workers and 4 dense workers | 24.0 |
+
+These are observed runs, not a controlled benchmark, and not a throughput
+guarantee for another machine or recording.
 
 See [analysis-job.md](analysis-job.md) for the full set of worker
 controls and [evaluation.md](evaluation.md) for how OCR reading errors are

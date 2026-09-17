@@ -57,7 +57,7 @@ directory, so no user path is hardcoded):
 | `-model-dir` | `.local/models/rapidocr` | OCR models |
 | `-ffmpeg` | `ffmpeg` | ffmpeg executable |
 | `-workers` | `4` | OCR worker processes per job |
-| `-dense-workers` | `0` (= workers minus one) | processes for the dense re-read passes; each can peak near 5-6 GB |
+| `-dense-workers` | `0` (= workers minus one) | processes for the dense re-read passes; each stays near 2 GB |
 | `-queue` | `4` | maximum queued jobs; one job runs at a time |
 | `-ocr-device` | `auto` | `auto` (DirectML, then CUDA, then CPU), `cpu`, `dml`, `cuda` |
 | `-learned-reader` | unset | an exported learned result-card reader (ONNX) passed to every analysis; an amount it read is marked ✦ in the log, and the ready check reports whether the file exists |

@@ -24,7 +24,7 @@ package) as the working directory.
 | --- | --- | --- |
 | `--fps` | `4.0` | base sampling rate, 1 to 8 FPS |
 | `--workers` | `4` | OCR worker count, 1 to 8; also sizes the pooled reinterpretation of cached rows |
-| `--dense-workers` | workers minus one, at least one | worker processes for the dense re-read OCR passes, 1 to 8; each can peak near 5-6 GB, so this is the memory knob of a run |
+| `--dense-workers` | workers minus one, at least one | worker processes for the dense re-read OCR passes, 1 to 8; each stayed near 2 GB on a full career (see [ocr-performance.md](ocr-performance.md)) |
 | `--model-dir` | `.local/models/rapidocr` | local OCR model directory |
 | `--reparse-only` | off | use cached observations instead of starting OCR |
 | `--rehydrate-frames` | off | with `--reparse-only`, decode the run's frame images and gameplay panes again before reparsing |

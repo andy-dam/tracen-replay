@@ -225,15 +225,17 @@ reading small fixed crops. The accounting labels them for free. Order:
 - [ ] **Later:** boundary and animation-state detection, using the current
       rules' decisions as labels.
 
-- [ ] **Faster analyses.** A full career took 48 minutes on this machine and
-      now takes 35 (docs/ocr-performance.md): the OCR engine copied a flipped
-      image view once per text box. What one frame still costs in the first
-      pass: the reader's OCR about 117 ms, saving the pane as PNG 46 ms (other
-      stages hash those files, so recompressing needs care), parsing 28 ms;
-      the GPU stays mostly idle and three OCR processes slow each other by a
-      third. Candidates: read only the regions a recognized screen uses,
-      assemble the report once instead of twice. Done: each change leaves a
-      recording's report identical and is timed end to end.
+- [ ] **Faster analyses.** A full career took 48 minutes on this machine;
+      with the same 3 workers and 2 dense workers it now takes 32, and with 5
+      and 4 it takes 24, every report identical (docs/ocr-performance.md).
+      In place: the OCR engine gets compact images, a pane's PNG is written
+      while the pane is read, repeated pixel checks of one file are
+      remembered, and OCR workers collect garbage every 25 frames, which
+      holds each near 2 GB where they reached 6 to 9 GB. Left: the service
+      still runs 3 and 2 workers, chosen so the machine stays usable during an
+      analysis; the training result rereads read the whole screen on about
+      2,300 frames where the card's fixed boxes might do. Done: a full career
+      analyzes in about 18 minutes, half of 35, with an identical report.
 
 ## 4. Code and repository hygiene
 
