@@ -254,15 +254,14 @@ reading small fixed crops. The accounting labels them for free. Order:
 Running the service anywhere but this machine starts here, before any
 hosting choice.
 
-- [ ] **One image for the local application.** A Dockerfile that builds the
-      client and the Go binary, installs Python with the analyzer and its
-      `vision` extra, ffmpeg and the OCR models, and runs `tracen` on a
-      configurable port with the data directory on a volume. OCR runs on the
-      CPU provider inside the image (DirectML is Windows-only); a CUDA
-      variant of the image is a build argument. Done: `docker compose up`
-      on a clean machine serves the front page, accepts an upload, and a
-      full career analyzes to a report on the CPU provider; the time it
-      takes is recorded in the OCR performance note.
+- [ ] **One image for the local application.** The image is built
+      ([docs/container.md](docs/container.md)): the client, the Go binary,
+      the analyzer with its `vision` extra, ffmpeg and the OCR models, on a
+      configurable port with the data directory on a volume, with the CUDA
+      wheel behind a build argument. `docker compose up` serves the front
+      page, accepts an upload, and analyzed a 45-second clip to a report on
+      the CPU provider. Left: a full career analyzed in the image, with the
+      time it takes recorded in the OCR performance note.
 - [ ] **A worker image.** The analyzer alone, taking the same command line
       the service uses (`docs/analysis-job.md`), so the service can start it
       as a container instead of a child process. Done: the service has a

@@ -99,6 +99,17 @@ End to end on the same 35-minute recording, every report identical:
 These are observed runs, not a controlled benchmark, and not a throughput
 guarantee for another machine or recording.
 
+## In the application image
+
+The [application image](container.md) installs the CPU provider, so the same
+per-frame work costs more. Measured on this machine inside the container, with
+two base workers and one dense worker, a 45-second clip read its 181 base
+frames in 57.7 seconds: 3.1 frames per second, or 1.6 per worker against the
+4.4 per worker of the DirectML runs above. The whole clip, from capture to a
+saved report, took 132 seconds, and the worker's main process stayed under
+1 GB. No full career has been analyzed in the image yet, so the end-to-end
+table has no container row.
+
 See [analysis-job.md](analysis-job.md) for the full set of worker
 controls and [evaluation.md](evaluation.md) for how OCR reading errors are
 tracked and, eventually, reduced with learned readers.
