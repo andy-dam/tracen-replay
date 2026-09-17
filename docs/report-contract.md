@@ -201,7 +201,10 @@ strings and carry the value through either way.
 `committed_skill_debit`, `state_derived`, `state_constrained`,
 `projected_debit`, `summary_only`, or `turn_difference`),
 `read_amount` (int, optional: the digits actually read when a clipped badge
-was completed by a `turn_difference`; `amount` is then the completed value).
+was completed by a `turn_difference`; `amount` is then the completed value),
+`contradicted_by` (array of int, optional: the gains a reader saw on the
+training's own card while `amount` was worked out from the turn difference;
+the amount stands and the disagreement is a reviewer's to settle).
 
 ### Summary
 
