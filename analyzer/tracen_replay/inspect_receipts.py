@@ -10,6 +10,7 @@ from .vision import NeuralReader,parse
 from .pipeline import decode_frames,PipelineError
 from .full_recording import save_json
 from .proof_writer import save_while
+from .worker_memory import frame_done
 
 
 _SOURCE_FRAME_KEYS = ('source_frame_sha256', 'source_frame_id')
@@ -302,6 +303,7 @@ def prepare_window(source,root,start,end,fps=16,*,reader=None):
     frames=_window_frames(source,capture,directory,frames_dir,manifest,start,end,fps,False)
     for frame in frames:
         _frame_cache(frame,directory,root,digest,reader,False)
+        frame_done()
     return len(frames)
 
 

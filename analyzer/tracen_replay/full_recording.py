@@ -11,6 +11,7 @@ import time
 import traceback
 from .pipeline import probe,decode_frames,PipelineError
 from .proof_writer import save_while
+from .worker_memory import frame_done
 from .vision import NeuralReader,OCR_DEVICE,parse
 from .reconcile import preview_segments
 from .gameplay import screen_summary
@@ -609,7 +610,8 @@ def _analyze_frame(reader,frame,root,source_sha256):
 
 
 def _analyze_frame_in_process(frame,root,source_sha256):
-    return _analyze_frame(_PROCESS_READER,frame,Path(root),source_sha256)
+    try:return _analyze_frame(_PROCESS_READER,frame,Path(root),source_sha256)
+    finally:frame_done()
 
 
 def ocr_pool_for_device(device=None):
@@ -630,7 +632,9 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr',pool
     source_sha256=report.get('source',{}).get('sha256')
     local=threading.local()
     def initialize():local.reader=NeuralReader(model_dir)
-    def process(frame):return _analyze_frame(local.reader,frame,root,source_sha256)
+    def process(frame):
+        try:return _analyze_frame(local.reader,frame,root,source_sha256)
+        finally:frame_done()
     started=time.monotonic();completed=0;cached=0;parsed_rows={}
     if pool=='process':
         executor=ProcessPoolExecutor(max_workers=workers,initializer=_initialize_process_reader,initargs=(str(model_dir),))
