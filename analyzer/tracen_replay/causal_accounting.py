@@ -291,6 +291,35 @@ def _learned_gain_frames(event, readings, field, amount, value_after=None):
     return list(dict.fromkeys(frames))
 
 
+def _learned_gain_contradictions(event, readings, field, amount):
+    """The reads on a training's own card that contradict a worked-out amount.
+
+    The stat bars decide an amount, so a gain the model read never overrules
+    them and this changes no amount. But a difference worked out for a
+    training whose card the model read as a different gain is a number the
+    card disagrees with, and only a reviewer can say which is right. A read
+    cut to its leading digits, as a zoomed badge leaves it, is not a
+    disagreement.
+    """
+    start, end = event.get('first_seen_ms'), event.get('last_seen_ms')
+    if type(start) is not int or type(end) is not int or type(amount) is not int:
+        return []
+    found = {}
+    for row in readings:
+        time = row.get('source_timestamp_ms')
+        if row.get('screen') != 'training_result' or type(time) is not int or not start <= time <= end:
+            continue
+        if not isinstance(row.get('evidence'), str):
+            continue
+        reads = (row.get('facts') or {}).get('learned_result_reads')
+        read = ((reads.get('fields') or {}).get(field) or {}) if isinstance(reads, dict) else {}
+        gain = read.get('gain')
+        if type(gain) is not int or str(amount).startswith(str(gain)):
+            continue
+        found.setdefault(gain, []).append(row['evidence'])
+    return [dict(gain=gain, evidence=frames) for gain, frames in sorted(found.items())]
+
+
 def _value_after_training(row, contributions, event, gain):
     """A stat's value once a training's gain lands, from the turn's opening value.
 
@@ -788,6 +817,16 @@ def build(report):
                     if mode:
                         owner.setdefault('turn_difference_completions', {})[field] = dict(
                             mode=mode, read=read, completed=(read or 0) + residual)
+                    # The amount stands, because the stat bars decide it, but a
+                    # card that shows another gain is worth a reviewer's eye.
+                    contradicted = (_learned_gain_contradictions(owner, data['readings'], field, gain)
+                                    if channel == 'stats' else [])
+                    if contradicted:
+                        owner.setdefault('contradicted_turn_difference', {})[field] = dict(
+                            worked_out=gain, reads=contradicted)
+                        issues.append(dict(kind='worked_out_amount_contradicted_by_card',
+                                           source_ref=f'{parent}/{store}/{field}', channel=channel, field=field,
+                                           worked_out=gain, reads=contradicted))
                     add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, owner.get('evidence'),
                         'turn_difference')
                 if mode == 'clipped_badge_prefix':

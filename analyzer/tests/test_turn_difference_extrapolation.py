@@ -254,6 +254,36 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
         self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
 
+    def test_a_worked_out_amount_the_card_contradicts_is_flagged(self):
+        doc = report()
+        self.card(doc, (152, dict(speed='+8')), (158, dict(speed='+8')))
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        # The stat bars still decide the amount; the disagreement is recorded.
+        self.assertEqual(event['turn_difference_gains']['speed'], 9)
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
+        self.assertEqual(event['contradicted_turn_difference'], dict(
+            speed=dict(worked_out=9, reads=[dict(gain=8, evidence=['card-152.png', 'card-158.png'])])))
+        issue = next(i for i in result['issues'] if i['kind'] == 'worked_out_amount_contradicted_by_card')
+        self.assertEqual((issue['field'], issue['worked_out'], issue['channel']), ('speed', 9, 'stats'))
+
+    def test_a_gain_cut_to_its_leading_digits_contradicts_nothing(self):
+        doc = report()
+        self.speed_after(doc, 119)
+        self.card(doc, (152, dict(speed='+1')))
+        build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['turn_difference_gains']['speed'], 19)
+        self.assertNotIn('contradicted_turn_difference', event)
+
+    def test_a_confirmed_amount_is_not_flagged(self):
+        doc = report()
+        self.card(doc, (152, dict(speed='+9')))
+        build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(speed=9))
+        self.assertNotIn('contradicted_turn_difference', event)
+
     def test_a_zoomed_gain_cut_to_its_leading_digits_does_not_block_the_value(self):
         doc = report()
         self.speed_after(doc, 140)

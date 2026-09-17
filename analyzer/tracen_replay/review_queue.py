@@ -135,6 +135,10 @@ def build(report, reviewed_intervals=(), context_ms=1500, sweep_ms=120000):
         if row.get('status')!='one_action':add('calendar_action_coverage',row,row.get('status'))
     for row in data.get('events',[]):
         if row.get('conflicting_readings'):add('conflicting_readings',row,row['conflicting_readings'])
+        # An amount the stat bars worked out while the training's own card
+        # showed another gain: the amount stands, the disagreement is reviewed.
+        if row.get('contradicted_turn_difference'):
+            add('contradicted_worked_out_amount',row,row['contradicted_turn_difference'])
     for row in data.get('readings',[]):
         lines=row.get('facts',{}).get('occluded_receipt_lines',[])
         if lines:add('obscured_receipt',row,[dict(text=x['text'],recipient_name_occluded=x.get('recipient_name_occluded',False)) for x in lines])
