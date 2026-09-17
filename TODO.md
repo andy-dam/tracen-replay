@@ -92,12 +92,15 @@ reviewer work each removes.
       (`identity_basis: result_card_only`) and says the choice was not seen.
       Three such turns in one of the six reports. Its training owns the
       turn's remaining difference like any committed training.
-- [ ] **A receipt read again counts twice.** "Skill Pts went up by 4" read
-      alone and again once the box added a second line, and "Guts went up by
-      5" read again through the fade to the next screen, each became a second
-      award, leaving a gap the size of the award. Two turns of B/Gran Concert.
-      Done: a receipt repeated within one dialogue counts once, and both
-      turns balance.
+- [ ] **A receipt read again counts twice.** One frame between two reads of
+      the same stat receipt parsed nothing, its line cut short or read just
+      under the parse confidence, so the receipt became two awards. Four on
+      B/Gran Concert: Skill Pts +120, Speed +5, Skill Pts +4 and Guts +5. Two
+      left a gap the size of the award; the Speed one hid a wrong worked-out
+      gain, 7 where the card shows +12, on a turn that looked balanced. The
+      analyzer now counts such a receipt once; on the saved readings of all
+      nine reports only those four change. Done: the next website analysis
+      of B/Gran Concert balances those turns.
 - [x] **A rest followed by lessons or the concert was dropped.** The next
       date came a minute after the recovery result, past the 30-second wait.
       Point-spending screens now extend the wait; two rests recovered in the
@@ -182,16 +185,27 @@ reading small fixed crops. The accounting labels them for free. Order:
       recording with the flag on shows fewer unexplained and conflicted
       fields than without, and no new false values. In place:
       `--learned-reader` (the service's `-learned-reader`) reads every
-      training result frame, and a read gain equal to a turn's difference
-      makes that amount observed. A website analysis of B/Gran Concert with
-      the model that never saw recorder B, its accounting rebuilt with the
-      current code, has 12 amounts the model observed, all right by eye, and
-      no other field changed. Its 5 unexplained fields stayed: 2 are
-      performance points, which the model does not read; 2 are receipts
-      counted twice (section 2); 1 is a power gain of 40 the model read as
-      the value after the training (906 over 866) and, on a zoomed frame, as
-      `+4`, which matched nothing. Next: accept a read value equal to the
-      value before the training plus the difference.
+      training result frame, and a read gain equal to a turn's difference,
+      or the value the stat lands on with it, makes that amount observed.
+      On the saved B/Gran Concert website report, with the counted-twice fix
+      applied to its events, the reads of the model that never saw recorder
+      B leave 2 unexplained fields where there are 3 without them, both
+      performance points, which the model does not read; 21 amounts are
+      observed, all right by eye. Recorder C's report: 1 against 2, with 7
+      observed. One false read was seen: the recorder's mouse pointer over a
+      `+8` read as `+9` at 0.998, which the value 138 on the same card
+      contradicts, so nothing was confirmed from it. Next: analyze B and C
+      again from the website to confirm end to end, then switch the service
+      to the model trained on every recording.
+- [ ] **Flag a worked-out amount the card contradicts.** The accounting
+      worked out a gain of 7 on a turn the counted-twice receipt made look
+      balanced, while the model read `+12` on five frames of that card and
+      the value 876 over 864. Done: a worked-out amount that a confident read
+      on its own card contradicts is listed for review.
+- [ ] **Pointer-covered digits in the reader's training data.** Recordings
+      show the mouse pointer over the result card, and one covered `8` read
+      as `9` with high confidence. Done: boxes with the pointer over a digit
+      are in the dataset, and the held-out false reads do not rise.
 - [ ] **Second model: text repair.** Learn the recognizer's character
       confusions from receipt lines paired with their resolved names, and
       replace the hand-set edit distances with one repair that uses the

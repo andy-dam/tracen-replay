@@ -170,7 +170,13 @@ frame with no receipt and no pending caption only closes the current outcome
 when it carries real narrative content, a different context title, or an
 unrelated screen; an OCR gap that repeats the same named hint amount, or a
 plausible but ungrammatical friendship line, keeps the outcome open without
-being accepted as its own effect. A zero balance drawn dim reads as a lone
+being accepted as its own effect. A stat receipt that such a gap split into
+two outcomes counts once (`receipt_stat_continuity`) when consecutive
+samples show the same line in the same place throughout and the frames
+between show why they parsed nothing: the line cut short, or read whole
+under the confidence a receipt parse needs. The later outcome keeps its other
+effects and records the dropped repeat under `deduplicated_receipt_effects`.
+A zero balance drawn dim reads as a lone
 low-confidence single-digit `0` in a currency slot and is accepted as zero
 (`dim_zero_currency_fields`); any other low-confidence card price stays
 unknown. A receipt whose every OCR spelling is a bounded variant of the one
@@ -304,9 +310,15 @@ records the model under `learned_reader`. The reads never make a difference;
 they only match one. A stat's difference that the sole training would take
 under the rule above becomes an observed amount (basis
 `observed_learned_training_gain`, stored on the training under
-`learned_reader_gains` with the frames under `learned_reader_frames`) when
-the model read exactly that gain on the training's own result frames, or the
-completed value for a clipped badge. Two cases the recognizer alone leaves
+`learned_reader_gains` with the frames under `learned_reader_frames`) when,
+on the training's own result frames, the model read exactly that gain (for a
+clipped badge, the read digits completed by the difference) or the value the
+stat lands on with it: the turn's opening value, plus every amount counted
+before the card, plus the gain. A value counts only when it is the last value
+read on the card, because the badge counts up to it, and never when the
+model read a different gain on the same card; a zoomed gain cut to its
+leading digits is not different. A match by value is also stored under
+`learned_reader_values`. Two cases the recognizer alone leaves
 open are also closed that way: a panel the recognizer read without the stat,
 and a skill-point difference in a turn that also has a race, which the
 training takes instead of the race when the model saw that many skill points

@@ -211,7 +211,8 @@ Results, the model and its log go to the local records.
 The exported model runs inside the analyzer behind `--learned-reader` (and
 the service's `-learned-reader`). Its reads are observations on the training
 result readings, never values of their own: the causal accounting uses one
-only where it equals a difference the stat bars left unexplained, turning an
+only where it matches a difference the stat bars left unexplained, as the
+gain itself or as the value the stat lands on with it, turning an
 amount the accounting would otherwise work out from that difference into an
 observed one (see [analyzer-pipeline.md](analyzer-pipeline.md)). Integration
 is judged twice. The held-out model's reads are attached to the reports of
