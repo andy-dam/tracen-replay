@@ -309,8 +309,10 @@ review queue. The amount does not change: the stat bars decide it, and a read
 cut to its leading digits disagrees with nothing.
 
 **The learned reader.** A run given `--learned-reader` runs the exported
-result-card model (`learned_reader`) on every training result frame and
-stores its reads on the reading as `facts.learned_result_reads`: the model's
+result-card model (`learned_reader`) on every training result frame,
+including one whose banner stayed too faint to confirm the screen and left it
+a `training_result_candidate`, since the card sits in the same place either
+way. It stores its reads on the reading as `facts.learned_result_reads`: the model's
 fingerprint, the confidence threshold, and per stat box the transcription,
 its least certain character, and the value or gain it reads. The report
 records the model under `learned_reader`. The reads never make a difference;
