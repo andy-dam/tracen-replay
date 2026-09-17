@@ -54,13 +54,18 @@ reviewer work each removes.
       closes all three such turns in the six reports. Rebuilding the Hishi
       Amazon re-analysis with only this change reverted puts its two gaps
       back, which is what attributes them to it.
-- [ ] **The digits at the end of an award receipt are not read.** "Skill
-      Pts went up by", "Stamina went up by", "Power cap went up by": the
-      line is recognized and its number is missing, so the award becomes an
-      unparsed receipt and the field an unexplained change. This is the
-      first target of the learned readers below. Done: award receipts with
-      a visible number are counted; the unparsed count per career drops
-      below ten.
+- [ ] **A receipt whose wording the recognizer damaged is not counted.** The
+      count this item asked about is met: the latest report of each recording
+      lists one or two receipt lines for review, not ten, and every numberless
+      line traced back to an award counted from a later frame ("Speed went up
+      by" at 481 s of one career, cut off by a loading screen, counted at
+      493 s as `+12`). What is left is damage in the wording rather than in
+      the number. A hint receipt at 586 s of another career is read on seven
+      frames and cleanly on none: the number and the skill come through every
+      time while `level(s) for` does not, and six of the seven frames fall
+      under the parse confidence, so its four hint levels are missing from the
+      accounting. Done: that hint is counted, and no receipt is counted from a
+      line whose own number or name was not read.
 - [ ] **Stat badges partly unread on some training turns.** One or two of
       the five badges on a training result are missed or misread, leaving
       a small stat gap on a turn whose training was committed. Done: the
