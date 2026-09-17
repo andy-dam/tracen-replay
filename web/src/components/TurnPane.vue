@@ -7,7 +7,7 @@ import EntryList from "./EntryList.vue";
 
 // The turn's decision, its caveats and its log. The stats of the turn sit
 // under the recording, beside this pane.
-const props = defineProps<{ turn: Turn; entries: Entry[]; summaryTurn: TurnSummary | null; reportId: string; correction: Correction | null; verification: Verification | null; videoMs?: number | null }>();
+const props = defineProps<{ turn: Turn; entries: Entry[]; trainingNames?: Record<string, string[]>; summaryTurn: TurnSummary | null; reportId: string; correction: Correction | null; verification: Verification | null; videoMs?: number | null }>();
 const emit = defineEmits<{ seek: [ms: number]; changed: [] }>();
 // Reviewing happens on its own screen; the pane only points there.
 const reviewHref = computed(() => `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(props.turn.id)}/review`);
@@ -131,7 +131,7 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
       </div>
 
       <h3 class="pane-h">Log <span class="muted" style="font-weight: 700">{{ entries.length }}</span></h3>
-      <EntryList :entries="entries" :edits="correction?.entries ?? null" @seek="(ms) => emit('seek', ms)" @edit="editEntry" />
+      <EntryList :entries="entries" :training-names="trainingNames" :edits="correction?.entries ?? null" @seek="(ms) => emit('seek', ms)" @edit="editEntry" />
     </div>
   </div>
 </template>

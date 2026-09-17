@@ -38,6 +38,21 @@ let followingVideo = false;
 
 const current = computed(() => props.turnId || turns.value[0]?.id || "");
 const summaryTurn = computed(() => turns.value.find((t) => t.id === current.value) ?? null);
+// The names this report read on training result cards, per training, so a card whose
+// own name was not read can still be matched to the message box titled with it.
+const trainingNames = computed(() => {
+  const out: Record<string, string[]> = {};
+  for (const e of allEntries.value) {
+    if (e.kind !== "training" && !(e.kind === "committed_action" && e.action_kind === "training")) continue;
+    const d = e.detail ?? {};
+    const option = e.training_option ?? (typeof d.training_option === "string" ? d.training_option : "");
+    const name = typeof d.training_name === "string" ? d.training_name : "";
+    if (!option || !name) continue;
+    const names = (out[option] ??= []);
+    if (!names.includes(name)) names.push(name);
+  }
+  return out;
+});
 
 async function loadTurn(id: string) {
   if (!id) return;
@@ -257,7 +272,7 @@ const checkCount = computed(() => {
         </div>
         <div class="pane-body">
           <Transition name="fade" mode="out-in">
-            <TurnPane v-if="tab === 'turn' && turn" :key="'turn-' + turn.id" :turn="turn" :entries="entries" :summary-turn="turns.find((t) => t.id === turn!.id) ?? null" :report-id="props.reportId" :correction="correction" :verification="verification" :video-ms="seekMs" @changed="loadTurn(current)" @seek="(ms) => (seekMs = ms)" />
+            <TurnPane v-if="tab === 'turn' && turn" :key="'turn-' + turn.id" :turn="turn" :entries="entries" :training-names="trainingNames" :summary-turn="turns.find((t) => t.id === turn!.id) ?? null" :report-id="props.reportId" :correction="correction" :verification="verification" :video-ms="seekMs" @changed="loadTurn(current)" @seek="(ms) => (seekMs = ms)" />
             <CheckPane v-else-if="tab === 'check'" key="check" :report-id="props.reportId" :turns="turns" :entries="allEntries" :unassigned="unassigned" :stage-failures="summary.summary.stage_failures" @select="select" @seek="(ms) => (seekMs = ms)" />
           </Transition>
         </div>

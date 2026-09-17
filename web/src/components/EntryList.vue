@@ -11,7 +11,8 @@ import { entryWarnings } from "../warnings";
 // mid-scroll (cut short or garbled repeats of a line already in the log)
 // fold into one quiet line. Every card still opens to its report entries,
 // each with its own time and pencil, so nothing the report states is hidden.
-const props = defineProps<{ entries: Entry[]; edits?: Record<string, EntryEdit> | null }>();
+// trainingNames: the names the report read on training result cards, per training.
+const props = defineProps<{ entries: Entry[]; edits?: Record<string, EntryEdit> | null; trainingNames?: Record<string, string[]> }>();
 const emit = defineEmits<{ seek: [ms: number]; edit: [id: string] }>();
 const open = ref<string | null>(null);
 const filter = ref("all");
@@ -46,6 +47,25 @@ const OPTION_NAME: Record<string, string> = { speed: "Speed", stamina: "Stamina"
 
 function kindName(kind: string): string {
   return KIND_NAMES[kind] ?? kind.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
+}
+// One entry's kind. Spelled out: not every group name is a plural ("Ambiguous").
+const KIND_SINGULAR: Record<string, string> = {
+  committed_action: "Action",
+  training: "Training",
+  outcome: "Outcome",
+  lesson_purchases: "Lesson",
+  song_acquisitions: "Song",
+  races: "Race",
+  concerts: "Concert",
+  skill_purchases: "Skill",
+  skill_purchase_batch: "Skill",
+  skill_hint_change: "Hint",
+  dialogue_choices: "Choice",
+  ambiguous_effect: "Ambiguous",
+  unparsed_receipt: "Unparsed",
+};
+function singularKind(kind: string): string {
+  return KIND_SINGULAR[kind] ?? kindName(kind);
 }
 
 function str(v: unknown): string {
@@ -295,17 +315,25 @@ const cards = computed<Card[]>(() => {
       fragments.push(e);
       return;
     }
-    // A training: the action, its result card and its own receipt.
+    // A training: the action, its result card and its own receipt. The result card can
+    // come several seconds after the action, and the titled message box several seconds
+    // after the card; a turn holds one training, so these windows cannot reach another.
     if (e.kind === "training" || (e.kind === "committed_action" && e.action_kind === "training")) {
       const partnerKind = e.kind === "training" ? "committed_action" : "training";
-      const partner = list.find((o) => !used.has(o.id) && o !== e && o.kind === partnerKind && (o.kind !== "committed_action" || o.action_kind === "training") && near(e, o, 2000) && (isSame(e, o) || !nameOf(e) || !nameOf(o)));
+      const partner = list.find((o) => !used.has(o.id) && o !== e && o.kind === partnerKind && (o.kind !== "committed_action" || o.action_kind === "training") && near(e, o, 6000) && (isSame(e, o) || !nameOf(e) || !nameOf(o)));
       const result = e.kind === "training" ? e : partner?.kind === "training" ? partner : null;
       const action = e.kind === "committed_action" ? e : partner?.kind === "committed_action" ? partner : null;
       const members = [action, result].filter((x): x is Entry => !!x);
-      const name = nameOf(result ?? action!);
-      const receipt = list.find((o) => !used.has(o.id) && o.kind === "outcome" && !changes(o).length && near(o, members[0], 3000) && (o.context_title ?? "") === name && name);
+      const read = nameOf(result ?? action!);
+      const option = (result ?? action!).training_option ?? (str(detail(result ?? action!).training_option) || str(detail(action ?? result!).training_option));
+      // Its message box is titled with the training's name. A card whose name was not
+      // read takes a box titled with a name the report read on another card of the same
+      // training, or of any training when which one was not read either.
+      const known = props.trainingNames ?? {};
+      const titles = read ? [read] : option ? known[option] ?? [] : Object.values(known).flat();
+      const receipt = list.find((o) => !used.has(o.id) && o.kind === "outcome" && !changes(o).length && near(o, result ?? action!, 6000) && titles.includes(o.context_title ?? ""));
       if (receipt) members.push(receipt);
-      const option = (result ?? action!).training_option ?? str(detail(result ?? action!).training_option);
+      const name = read || receipt?.context_title || "";
       const outcome = str(detail(result ?? action!).training_outcome) || str(detail(action ?? result!).training_outcome);
       const label = `${OPTION_NAME[option] ?? (option ? option[0].toUpperCase() + option.slice(1) : "")} Training`.trim();
       const note = outcome === "failure" ? "Failed: the shown gains were not applied" : outcome === "success" ? "" : outcome ? words(outcome) : "";
@@ -352,7 +380,7 @@ const cards = computed<Card[]>(() => {
       out.push(card("race", "Concert", name, members, receipt ?? e, receipt ? [] : [], note));
       return;
     }
-    out.push(card("single", kindName(e.kind).replace(/s$/, ""), title(e), [e], e, [], description(e)));
+    out.push(card("single", singularKind(e.kind), title(e), [e], e, [], description(e)));
   };
   // Things that happened claim their partner entries first, whatever the order the
   // report lists them in; whatever is left stands on its own.
@@ -423,7 +451,7 @@ function editedMark(e: Entry): string {
               <li v-for="e in c.members" :key="e.id" class="member">
                 <div class="member-head">
                   <button v-if="e.first_seen_ms !== null" type="button" class="tchip" @click="emit('seek', e.first_seen_ms)">{{ clock(e.first_seen_ms) }}</button>
-                  <span class="kind">{{ kindName(e.kind).replace(/s$/, "") }}</span>
+                  <span class="kind">{{ singularKind(e.kind) }}</span>
                   <b>{{ title(e) }}</b>
                   <button v-if="c.kind !== 'fragments'" type="button" class="edit-btn" :class="{ edited: edits?.[e.id] }" :title="edits?.[e.id]?.deleted ? 'removed by you' : edits?.[e.id] ? 'edited by you' : 'edit this event'" @click="emit('edit', e.id)">{{ editedMark(e) }}</button>
                 </div>
