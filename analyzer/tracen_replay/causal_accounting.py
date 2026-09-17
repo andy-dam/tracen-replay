@@ -619,9 +619,10 @@ def build(report):
         trainings = [a for a in decisions if a.get('action_kind') == 'training']
         training_event = training_parent = None
         if len(decisions) == 1 and trainings:
-            receipt = _resolve_pointer(report, trainings[0].get('source_ref'))
-            training_parent = event_refs.get(receipt.get('event_id')) if isinstance(receipt, dict) else None
-            if training_parent is not None:
+            # The ledger links a committed training to its event, including one
+            # committed from its result card alone, which has no action receipt.
+            training_parent = trainings[0].get('event_ref')
+            if training_parent in event_refs.values():
                 training_event = data['events'][int(training_parent.rsplit('/', 1)[1])]
         elif not decisions:
             # A training whose identity was never read is not a committed

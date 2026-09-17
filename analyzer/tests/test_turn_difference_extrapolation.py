@@ -4,7 +4,7 @@ import unittest
 from tracen_replay.causal_accounting import CHANNELS, build
 
 
-def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1, race=False, outcome=False, lessons=(), performance_after=None, batches=()):
+def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1, race=False, outcome=False, lessons=(), performance_after=None, batches=(), card_only=False):
     stats = dict.fromkeys(CHANNELS['stats'], 100)
     after = dict(stats, speed=100 + 9 * residual_sign, guts=100 + 13 * residual_sign, skill_points=100 + 8 * residual_sign)
     performance = dict.fromkeys(CHANNELS['performance'], 20)
@@ -13,13 +13,19 @@ def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1
                    evidence='banner.png', deltas=dict(deltas or {}), field_evidence={f: ['banner.png'] for f in (deltas or {})}, effects=[])]
     receipts = [dict(kind='training', training_option='guts', source_timestamp_ms=150, event_id='training-1', evidence='banner.png')]
     timeline = [dict(id='entry-1', kind='committed_action', action_kind='training', turn_id='turn-001',
-                     source_ref='/gameplay_tracking/turn_action_receipts/0', first_seen_ms=150, last_seen_ms=150)]
+                     source_ref='/gameplay_tracking/turn_action_receipts/0', event_ref='/gameplay_tracking/events/0',
+                     first_seen_ms=150, last_seen_ms=150)]
+    if card_only:
+        # Committed from its result card alone: no action receipt.
+        receipts = []
+        timeline[0].update(source_ref='/gameplay_tracking/events/0', identity_basis='result_card_only')
     if second_training:
         events.append(dict(id='training-2', kind='training', training_option='wit', first_seen_ms=170, last_seen_ms=170,
                            evidence='banner2.png', deltas={}, field_evidence={}, effects=[]))
         receipts.append(dict(kind='training', training_option='wit', source_timestamp_ms=170, event_id='training-2', evidence='banner2.png'))
         timeline.append(dict(id='entry-2', kind='committed_action', action_kind='training', turn_id='turn-001',
-                             source_ref='/gameplay_tracking/turn_action_receipts/1', first_seen_ms=170, last_seen_ms=170))
+                             source_ref='/gameplay_tracking/turn_action_receipts/1', event_ref='/gameplay_tracking/events/1',
+                             first_seen_ms=170, last_seen_ms=170))
     if outcome:
         events.append(dict(id='outcome-1', kind='outcome', first_seen_ms=160, last_seen_ms=165, evidence='outcome.png',
                            effects=[], field_evidence={}, conflicting_readings=[]))
@@ -83,6 +89,12 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual({c['basis'] for c in result['contributions']}, {'turn_difference'})
         self.assertEqual(turn_field(result, 'stamina')['status'], 'balanced_observations')
         self.assertEqual(result['summary']['field_status_counts'].get('unexplained_change', 0), 0)
+
+    def test_a_training_committed_from_its_result_card_alone_takes_the_turn_difference(self):
+        doc = report(card_only=True)
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['turn_difference_gains'], dict(speed=9, guts=13, skill_points=8))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
 
     def test_a_field_the_training_read_is_not_extrapolated(self):
         doc = report(deltas=dict(guts=10))
