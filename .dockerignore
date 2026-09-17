@@ -1,0 +1,13 @@
+# The build context carries only what the image builds from. Recordings,
+# models, runs and session records under .local are never published, and the
+# client bundle, the binary and the virtual environment are produced inside
+# the image rather than copied from this machine.
+.local/
+.git/
+.venv/
+**/node_modules/
+internal/webassets/dist/
+analyzer/lab/
+**/__pycache__/
+*.exe
+*.db

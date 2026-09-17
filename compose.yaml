@@ -1,0 +1,23 @@
+# The application in one container. The named volume keeps the database,
+# uploads and job output across restarts, so `docker compose down` does not
+# lose the reports.
+services:
+  tracen:
+    build:
+      context: .
+      args:
+        OCR_RUNTIME: cpu
+    image: tracen-replay:local
+    ports:
+      - "8765:8765"
+    environment:
+      PORT: "8765"
+    # OCR on the CPU provider is several times slower per frame than on a
+    # GPU, and every worker is a process: keep the counts under the cores
+    # the container may use.
+    command: ["-workers", "2", "-dense-workers", "1"]
+    volumes:
+      - tracen-data:/data
+
+volumes:
+  tracen-data:
