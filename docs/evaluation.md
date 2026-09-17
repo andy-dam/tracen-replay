@@ -103,21 +103,29 @@ receipts read in between, those bars give each stat's value before the
 training, its value after, and the gain, none of which depends on what the
 reader made of the card itself.
 
-`analyzer/tools/build_reader_dataset.py` walks run roots that still hold
-their frames: the ordinary pass's gameplay panes and the card's high-rate
-rereads. A pruned run gets its panes back with `--reparse-only
---rehydrate-frames`. The tool cuts every result box of every training result
-frame at the fixed box the reader uses and labels it by what it shows:
+`analyzer/tools/build_reader_dataset.py` walks finished runs. A run's frames
+are read from the images its readings point at, or, given `--video`, decoded
+from its source recording at each reading's timestamp, which also covers a
+run whose working data was pruned; the decoded frames land on the same
+timestamps as the analyzer's own. The tool cuts every result box of every
+training result frame and labels it by what it shows. The box is the
+analyzer's own widened by 30 pixels on the left, 8 above and below and 6 on
+the right: the analyzer's box starts exactly at a three-digit value's first
+digit, so a four-digit value, the card's bounce or a zooming overlay pushes
+digits outside it.
 
 | Content | Rule | Target |
 |---|---|---|
-| `badge` | the reader's value equals the value before or after the training (a card shows either, depending on the moment) and, for a stat, the same cap is read on at least three frames within three minutes | `value/cap`, or `value` for skill points |
+| `badge` | the reader's value equals the value before or after the training (a card shows either, depending on the moment) | `value/` (the value and the slash; the stat's cap after the slash is often half covered and the accounting never needs it), or `value` for skill points |
 | `gain` | the reader's "+N" overlay equals the bracketed gain | `+N` |
 | `blank` | the box holds no ink: under 0.2% of its pixels are dark and not blue | empty |
 | `unknown` | anything else: the large animated digits, a covered badge, a value the reader missed | none |
 
 Every box keeps its before, after and gain values and what the reader read,
-so a reader can be judged on the unknown boxes too. The lesson menu's
+so a reader can be judged on the unknown boxes too. The labels are checked by
+reading random samples of fifty crops per label source against their labels
+by eye, and the answer key the same way against held-out crops; the counts
+are kept with the dataset in the local records. The lesson menu's
 performance counters are a second kind, whose target is the consensus of the
 menu visit the frame belongs to. Runs are the unit of splitting: `--holdout`
 names runs that never feed training and `--group` tags each with its
@@ -137,6 +145,10 @@ card animates:
 - **False values and false gains**: frames whose value is neither before,
   after nor a count-up between them, or whose gain is not the card's. Any
   read of a blank box is false.
+- **By two frames**: the same counts, but a card's value or gain counts only
+  when at least two frames read it alike, the way the analyzer settles a
+  card from its rereads, and a value or gain two frames agree on that the
+  card cannot show is a wrong card.
 
 Run on the analyzer's own reads, it is the baseline table. Counter targets
 come from the consensus of the reader's own visit, so the current reader's
@@ -147,27 +159,42 @@ lives in the local records beside the dataset, never in the repository.
 
 Our own convolutional network, trained from nothing on those boxes. It takes
 one box as RGB at 64×192. Two convolutions at each of the first two scales
-resolve the cap's thin digits before the height is pooled. After four
-poolings the box is 48 columns of 4 rows, and each column's rows are stacked
-rather than averaged, so a small digit low in the box stays distinct from a
-tall one. Two 1-D convolutions give each column its neighbours' context, and
-each column is classified over the digits, `/`, `+` and a blank. CTC
-decoding turns the columns into a transcription with a confidence per
-character: its peak over the columns it spans. A read counts only in the
-shapes the analyzer's own reader accepts (`value/cap` with the value not
-above the cap, a plain value for skill points, `+N`), and only when the
-least certain character the accounting uses (a stat's value digits, not its
-cap) is at or above a confidence threshold.
+resolve thin digits before the height is pooled. After four poolings the box
+is 48 columns of 4 rows, and each column's rows are stacked rather than
+averaged, so a small digit low in the box stays distinct from a tall one.
+Two 1-D convolutions give each column its neighbours' context, and each
+column is classified over the digits, `/`, `+` and a blank. CTC decoding
+turns the columns into a transcription with a confidence per character: its
+peak over the columns it spans. A read counts only in the shapes the game
+renders (`value/` for a stat, anything after the slash ignored; a plain
+value for skill points; `+N`; no leading zeros), and only when its least
+certain character is at or above a confidence threshold.
 
 `analyzer/tools/train_reader.py` trains it; it needs the `train` extra
 (torch, torchvision, onnx) and runs on the GPU whenever PyTorch has CUDA,
 which on Windows means installing torch from the PyTorch index for the
 card's CUDA version rather than the default CPU wheel. On an RTX 5060 Ti
-twenty-five epochs take under a minute and a half. Training uses the labeled boxes of the training
-runs, at most eight crops per card box and target so a card's dozens of
-rereads do not dominate, with badges drawn at twice the share of gains and
-of blanks. The model is judged on every box of the held-out run, beside the
-current reader and pooled with it. An ImageNet ResNet-18 trunk, frozen or
+a round of twenty-five epochs takes a few minutes. Training uses the labeled
+boxes of the training runs, at most eight crops per card box and target so a
+card's dozens of rereads do not dominate, with badges drawn at twice the
+share of gains and of blanks.
+
+Training runs in rounds, because the labels above only reach boxes the
+analyzer's own reader already read. After a round, the model scores every
+unlabeled training box against the few texts its card allows: the value
+before, the value after, the gain, or nothing. When one of them is at least
+90% likely and a hundred times likelier than any other, the box is labeled
+with it, and the next round retrains from nothing with those hard frames
+added. The model never labels a box with a value the card could not show.
+Most of these frames are clear badges the analyzer's rereads never recorded
+a value for; looser picks also take frames whose number is only partly
+visible, which teaches the model to fill in hidden digits and raises its
+false reads.
+
+Each round is judged on every box of the held-out runs, per run and over
+all of them, beside the current reader and pooled with it, both on all
+frames and on the ordinary pass's frames alone, which is what a reader
+gets without the analyzer's high-rate rereads. An ImageNet ResNet-18 trunk, frozen or
 fine-tuned under the same head and data, can be trained as a comparison row;
 it is never exported. The export is ONNX with a dynamic batch (input `crop`,
 RGB in [0, 1]), checked against onnxruntime and timed per box on the CPU.

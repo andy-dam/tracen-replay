@@ -3,15 +3,24 @@
 The reader takes one result box (a stat's value and cap, a "+N" gain
 overlay, or nothing) and transcribes it: a string over the digits, "/" and
 "+", decoded by CTC over the crop's width, with a confidence per character
-(the peak over the columns it spans). It trains on the labeled boxes of the
-training runs and is judged on every box of the held-out run the way the
-accounting uses a reader (see ``reader_baseline``): per card, whether its
-value or its gain was read, and per frame, how many reads were false. A read
-counts only in the shape the analyzer's own reader accepts (``value/cap``
-for a stat, a plain value for skill points, ``+gain``) and when the least
-certain character the accounting uses (a stat's value digits, not its cap)
-is at or above a confidence threshold. The analyzer's own reader is judged
-on the same boxes, alone and pooled with the learned one.
+(the peak over the columns it spans). A stat box is transcribed as its value
+and the slash (``value/``); the cap after the slash is left out, because it
+is often half covered and the accounting never needs it. A read counts in
+the shapes the game renders (``value/`` for a stat, a plain value for skill
+points, ``+gain``, no leading zeros) when its least certain character is at
+or above a confidence threshold.
+
+Training runs in rounds. The first trains on the labeled boxes of the
+training runs. Each later round retrains from nothing with the hard frames
+added: training boxes nobody read, each labeled with the text its card
+allows (the value before or after the training, the gain) that the previous
+round's model finds far likelier than any other. Each round is judged on
+every box of the held-out runs the way the accounting uses a reader (see
+``reader_baseline``): per card, whether its value or its gain was read, and
+per frame, how many reads were false; per held-out run and over all of
+them; and on all frames and on the ordinary pass's frames alone. The
+analyzer's own reader is judged on the same boxes, alone and pooled with the
+learned one.
 
 Three conditions share the head, the data and the schedule:
 
@@ -25,7 +34,7 @@ the reader is our own. The ``scratch`` model is written to ONNX (input
 and timed per box on the CPU in both runtimes.
 
     python -m tools.train_reader DATASET --output DIR [--conditions scratch frozen finetune]
-        [--epochs N] [--epoch-size N] [--threads N]
+        [--rounds N] [--epochs N] [--epoch-size N] [--threads N] [--device auto|cuda|cpu]
 
 Requires the ``train`` extra (torch, torchvision, onnx). Training runs on the
 GPU whenever PyTorch has CUDA; the default wheel on some platforms is the CPU
@@ -47,7 +56,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from tools.reader_baseline import current_reads, judge, load, summarize, union_cards
+from tools.reader_baseline import CARD_FIELDS, agreed, current_reads, judge, load, summarize, union_cards
 
 CHARS = '0123456789/+'
 BLANK = 0
@@ -58,13 +67,22 @@ THRESHOLDS = (0.5, 0.9, 0.97)
 # high-rate rereads repeat the same picture dozens of times.
 MAX_PER_TARGET = 8
 SHARE_WEIGHTS = dict(badge=2)
-# The shapes a result box can take, as the game renders them: no number has
-# a leading zero, and a stat's cap is never below 1000. A transcription of a
-# box half covered by the card's sparkles or a digit still fading in ("01/1348",
-# "10/160") fails these and is not a read.
-STAT_VALUE = re.compile(r'[1-9]\d{0,3}/[1-9]\d{3}')
+# The shapes a result box can take, as the game renders them: a stat's value
+# followed by the slash before its cap (anything after the slash is ignored),
+# a plain skill point value, or a gain; no number has a leading zero, so a
+# value half covered by a sparkle ("01/") is not a read.
+STAT_VALUE = re.compile(r'[1-9]\d{0,3}/\d{0,4}')
 PLAIN_VALUE = re.compile(r'0|[1-9]\d{0,3}')
 GAIN = re.compile(r'\+[1-9]\d{0,2}')
+# A hard training box is labeled by the text its card allows that the model
+# finds at least this probable and this many times likelier than any other.
+# Looser picks take frames whose number is only partly visible, which teaches
+# the model to fill in hidden digits.
+VERIFIED_FLOOR = 0.9
+VERIFIED_RATIO = 100.0
+# Held-out boxes are judged on every frame, and on the ordinary pass's frames
+# alone: what a reader gets without the analyzer's high-rate rereads.
+SCOPES = {'all frames': lambda row: True, 'pass frames': lambda row: row['frame'].startswith('gameplay/')}
 
 
 def encode(text):
@@ -96,8 +114,8 @@ def learned_read(field, text, confidences, threshold):
     """A transcription as ``(value, gain)``, counted only in an accepted shape and at the threshold.
 
     The threshold applies to the characters the accounting uses: a stat's
-    value (the digits before the slash; the cap is only a shape check), a
-    plain skill point value, or a gain.
+    value and the slash that marks it as a stat box, a plain skill point
+    value, or a gain.
     """
     if not text:
         return None, None
@@ -106,10 +124,72 @@ def learned_read(field, text, confidences, threshold):
     if field == 'skill_points' and PLAIN_VALUE.fullmatch(text):
         return (int(text), None) if min(confidences) >= threshold else (None, None)
     if field != 'skill_points' and STAT_VALUE.fullmatch(text):
-        value, cap = (int(part) for part in text.split('/'))
-        used = confidences[:text.index('/')]
-        return (value, None) if value <= cap and min(used) >= threshold else (None, None)
+        slash = text.index('/')
+        return (int(text[:slash]), None) if min(confidences[:slash + 1]) >= threshold else (None, None)
     return None, None
+
+
+def candidates(row):
+    """The texts a box's card allows: the value before, the value after, the gain, and nothing."""
+    if row.get('before') is None:
+        return []
+    if row['field'] == 'skill_points':
+        texts = [str(row['before']), str(row['after'])]
+    else:
+        texts = [f"{row['before']}/", f"{row['after']}/"]
+    texts = list(dict.fromkeys(texts))
+    if row.get('gain'):
+        texts.append(f"+{row['gain']}")
+    return texts + ['']
+
+
+def pick_verified(texts, log_likelihoods):
+    """The candidate a box is labeled with, or None: probable enough, far likelier than the rest, not empty."""
+    order = sorted(range(len(texts)), key=lambda i: -log_likelihoods[i])
+    best = order[0]
+    if texts[best] == '' or math.exp(log_likelihoods[best]) < VERIFIED_FLOOR:
+        return None
+    if len(order) > 1 and log_likelihoods[best] - log_likelihoods[order[1]] < math.log(VERIFIED_RATIO):
+        return None
+    return texts[best]
+
+
+def verified_labels(model, rows, cache, dataset):
+    """Label the training boxes nobody read, by the text their card allows that the model clearly prefers.
+
+    The stat bars around the card leave a box only a handful of possible
+    texts; scoring each with the model's CTC likelihood picks one far more
+    reliably than reading the box freely, and the pick is never a value the
+    card could not show. These are the frames covered by sparkles, faded
+    digits and zooming overlays that the first labels never reach.
+    """
+    import torch
+    import torch.nn.functional as F
+    device = next(model.parameters()).device
+    model.eval()
+    pool = [r for r in rows if r['split'] == 'train' and r['kind'] == 'result_box' and r['content'] == 'unknown' and candidates(r)]
+    out = []
+    with torch.no_grad():
+        for start in range(0, len(pool), 256):
+            chunk = pool[start:start + 256]
+            for row in chunk:
+                if row['crop'] not in cache:
+                    cache[row['crop']] = load_crop(dataset / row['crop'])
+            logp = model(as_input([cache[r['crop']] for r in chunk]).to(device))
+            pairs = [(b, text) for b, row in enumerate(chunk) for text in candidates(row)]
+            targets = [encode(text) for _, text in pairs]
+            nll = F.ctc_loss(logp[:, [b for b, _ in pairs], :],
+                             torch.tensor([t for target in targets for t in target], dtype=torch.long, device=device),
+                             torch.full((len(pairs),), logp.shape[0], dtype=torch.long, device=device),
+                             torch.tensor([len(target) for target in targets], dtype=torch.long, device=device),
+                             blank=BLANK, reduction='none', zero_infinity=False).cpu().tolist()
+            for b, row in enumerate(chunk):
+                texts = [text for pair_b, text in pairs if pair_b == b]
+                scores = [-nll[i] for i, (pair_b, _) in enumerate(pairs) if pair_b == b]
+                text = pick_verified(texts, scores)
+                if text is not None:
+                    out.append(dict(row, target=text, content='gain' if text.startswith('+') else 'badge', verified=True))
+    return out
 
 
 def training_groups(rows, kinds):
@@ -118,7 +198,9 @@ def training_groups(rows, kinds):
     for row in rows:
         if row['split'] != 'train' or row['kind'] not in kinds or row.get('target') is None:
             continue
-        buckets[(row['run'], row.get('visit') or row['frame'], row['kind'], row['field'], row['target'])].append(row)
+        # Verified hard frames keep their own buckets, so the cap never trades
+        # them for easy frames of the same card.
+        buckets[(row['run'], row.get('visit') or row['frame'], row['kind'], row['field'], row['target'], bool(row.get('verified')))].append(row)
     groups = defaultdict(list)
     for bucket in buckets.values():
         bucket.sort(key=lambda r: r['source_timestamp_ms'])
@@ -263,8 +345,8 @@ def transcribe(model, arrays):
 
 
 def labeled_breakdown(rows, texts):
-    """Exact transcriptions per content over labeled rows; for badges, the value and the cap separately."""
-    cells = defaultdict(lambda: dict(n=0, exact=0, value=0, cap=0))
+    """Exact transcriptions per content over labeled rows; for badges, whether the value is right."""
+    cells = defaultdict(lambda: dict(n=0, exact=0, value=0))
     for row, (text, _) in zip(rows, texts):
         if row.get('target') is None:
             continue
@@ -272,10 +354,7 @@ def labeled_breakdown(rows, texts):
         cell['n'] += 1
         cell['exact'] += text == row['target']
         if row['content'] == 'badge':
-            target_value, _, target_cap = row['target'].partition('/')
-            value, _, cap = text.partition('/')
-            cell['value'] += value == target_value
-            cell['cap'] += cap == target_cap
+            cell['value'] += text.partition('/')[0] == row['target'].partition('/')[0]
     return {content: dict(cell) for content, cell in sorted(cells.items())}
 
 
@@ -283,15 +362,37 @@ def card_scores(rows, reads):
     """Held-out result-box totals for one reader's reads: cards and false reads."""
     frames, cards = judge(rows, reads)
     table = [r for r in summarize(frames, cards) if r['split'] == 'holdout' and r['kind'] == 'result_box' and r['field'] == 'all']
-    total = table[0] if table else dict(cards=0, cards_read=0, gain_cards=0, gains_recovered=0, false_values=0, false_gains=0)
-    return dict(cards=total['cards'], cards_read=total['cards_read'], gain_cards=total['gain_cards'],
-                gains_recovered=total['gains_recovered'], false_values=total['false_values'], false_gains=total['false_gains']), cards
+    keys = CARD_FIELDS + ('false_values', 'false_gains')
+    total = table[0] if table else dict.fromkeys(keys, 0)
+    return {key: total[key] for key in keys}, cards
 
 
 def union_scores(current_cards, learned_cards):
     pooled = union_cards(current_cards, learned_cards)
-    return dict(cards_read=sum(c['value_read'] for c in pooled.values()),
-                gains_recovered=sum(c['gain_recovered'] for c in pooled.values() if c['gain']))
+    outcomes = [(card, agreed(card)) for card in pooled.values()]
+    return dict(cards_read=sum(c['value_read'] for c, _ in outcomes),
+                gains_recovered=sum(c['gain_recovered'] for c, _ in outcomes if c['gain']),
+                cards_agreed=sum(a[0] for _, a in outcomes), cards_agreed_false=sum(a[1] for _, a in outcomes),
+                gains_agreed=sum(a[2] for c, a in outcomes if c['gain']), gains_agreed_false=sum(a[3] for _, a in outcomes))
+
+
+def evaluate(holdout, reads, current_cards=None):
+    """Scores and card outcomes per scope and per held-out run, and over all runs.
+
+    With the current reader's card outcomes, each score also carries what
+    the two readers read pooled.
+    """
+    scores, cards = {}, {}
+    runs = sorted({row['run'] for row in holdout}) + ['all']
+    for scope, keep in SCOPES.items():
+        for run in runs:
+            index = [i for i, row in enumerate(holdout) if keep(row) and run in ('all', row['run'])]
+            score, card = card_scores([holdout[i] for i in index], [reads[i] for i in index])
+            if current_cards is not None:
+                score['pooled'] = union_scores(current_cards[scope][run], card)
+            scores.setdefault(scope, {})[run] = score
+            cards.setdefault(scope, {})[run] = card
+    return scores, cards
 
 
 def latency_ms(run, arrays, repeats=200):
@@ -327,32 +428,55 @@ def export_onnx(model, path, arrays):
 
 
 def results_markdown(results):
+    def share(part, whole):
+        return f"{part}/{whole} ({part / whole:.0%})" if whole else '-'
     current = results['current_reader']
-    lines = ['### Learned reader against the current reader (held-out run)', '',
-             f"{current['cards']} cards, {current['gain_cards']} of them with a gain. "
-             f"Training crops: {results['training_crops']} distinct, {results['epochs']} epochs of {results['epoch_size']} "
-             f"on {results.get('device', 'cpu')}.", '',
-             '| reader | threshold | value read | gain recovered | false values | false gains | pooled value read | pooled gain recovered |',
-             '|---|---:|---:|---:|---:|---:|---:|---:|',
-             f"| current | - | {current['cards_read']} | {current['gains_recovered']} | {current['false_values']} | {current['false_gains']} | - | - |"]
+    lines = ['### Our reader against the current reader, per held-out recording', '',
+             f"Confidence threshold 0.9. {results['epochs']} epochs of {results['epoch_size']} crops per round on "
+             f"{results.get('device', 'cpu')}; each later round adds the hard training frames the previous round's model "
+             "labeled from the stat bars. Pass frames are the ordinary 4-per-second pass alone, without the high-rate rereads.", '',
+             'Value read: any frame of the card yields the value before or after the training. Two frames: at least two frames '
+             'read the same value, the way the analyzer settles a card; "wrong" counts cards where two frames agree on a value the '
+             'card cannot show.', '',
+             '| frames | recording | reader | value read | value by two frames | two frames wrong | gain recovered | gain by two frames | two frames wrong | false value frames | false gain frames |',
+             '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+
+    def row(scope, run, name, t, pooled=None):
+        p = pooled or t
+        return (f"| {scope} | {run} | {name} | {share(p['cards_read'], t['cards'])} | {share(p['cards_agreed'], t['cards'])} | "
+                f"{p['cards_agreed_false']} | {share(p['gains_recovered'], t['gain_cards'])} | {share(p['gains_agreed'], t['gain_cards'])} | "
+                f"{p['gains_agreed_false']} | {'-' if pooled else t['false_values']} | {'-' if pooled else t['false_gains']} |")
+    for scope, runs in current.items():
+        for run, s in runs.items():
+            lines.append(row(scope, run, 'current', s))
+            for condition, entry in results['conditions'].items():
+                if 'skipped' in entry:
+                    continue
+                for index, done in enumerate(entry['rounds']):
+                    lines.append(row(scope, run, f'{condition} round {index + 1}', done['thresholds']['0.9'][scope][run]))
+                last = entry['rounds'][-1]['thresholds']['0.9'][scope][run]
+                lines.append(row(scope, run, f'current and {condition} pooled', last, last['pooled']))
+    lines += ['', '| reader | round | threshold | value read | gain recovered | false values | false gains |',
+              '|---|---:|---:|---:|---:|---:|---:|']
     for condition, entry in results['conditions'].items():
         if 'skipped' in entry:
-            lines.append(f"| {condition} | skipped: {entry['skipped']} | | | | | | |")
+            lines.append(f"| {condition} | skipped: {entry['skipped']} | | | | | |")
             continue
-        for threshold, s in entry['holdout'].items():
-            lines.append(f"| {condition} | {threshold} | {s['cards_read']} | {s['gains_recovered']} | {s['false_values']} | "
-                         f"{s['false_gains']} | {s['pooled']['cards_read']} | {s['pooled']['gains_recovered']} |")
-    lines += ['', '| reader | parameters | boxes | content | transcribed exactly | badge value | badge cap |',
-              '|---|---:|---|---|---:|---:|---:|']
+        for index, done in enumerate(entry['rounds']):
+            for threshold, by_scope in done['thresholds'].items():
+                t = by_scope['all frames']['all']
+                lines.append(f"| {condition} | {index + 1} | {threshold} | {share(t['cards_read'], t['cards'])} | "
+                             f"{share(t['gains_recovered'], t['gain_cards'])} | {t['false_values']} | {t['false_gains']} |")
+    lines += ['', '| reader | parameters | round | training crops | verified hard frames | held-out boxes | transcribed exactly | badge value right |',
+              '|---|---:|---:|---:|---:|---|---:|---:|']
     for condition, entry in results['conditions'].items():
         if 'skipped' in entry:
             continue
-        for split in ('holdout', 'train'):
-            for content, cell in entry[split + '_labeled'].items():
+        for index, done in enumerate(entry['rounds']):
+            for content, cell in done['holdout_labeled'].items():
                 value = format(cell['value'] / cell['n'], '.1%') if content == 'badge' else '-'
-                cap = format(cell['cap'] / cell['n'], '.1%') if content == 'badge' else '-'
-                lines.append(f"| {condition} | {entry['parameters']} | {split} | {content} ({cell['n']}) | "
-                             f"{cell['exact'] / cell['n']:.1%} | {value} | {cap} |")
+                lines.append(f"| {condition} | {entry['parameters']} | {index + 1} | {done['training_crops']} | {done['verified_hard_frames']} | "
+                             f"{content} ({cell['n']}) | {cell['exact'] / cell['n']:.1%} | {value} |")
     if 'exported' in results:
         e = results['exported']
         directml = e.get('onnx_directml_ms_per_crop')
@@ -367,8 +491,9 @@ def main(argv=None):
     parser.add_argument('dataset', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--conditions', nargs='+', default=['scratch', 'frozen', 'finetune'])
-    parser.add_argument('--epochs', type=int, default=20)
-    parser.add_argument('--epoch-size', type=int, default=6000)
+    parser.add_argument('--epochs', type=int, default=25)
+    parser.add_argument('--epoch-size', type=int, default=12000)
+    parser.add_argument('--rounds', type=int, default=2, help='later rounds add the hard frames the previous model labeled')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--threads', type=int, default=4, help='CPU threads for torch; leave cores for other work')
     parser.add_argument('--device', default='auto', help="'cuda', 'cpu', or 'auto': the GPU whenever PyTorch has CUDA")
@@ -391,41 +516,53 @@ def main(argv=None):
 
     rows, _ = load(args.dataset)
     boxes = [r for r in rows if r['kind'] == 'result_box']
-    groups = training_groups(boxes, {'result_box'})
     holdout = [r for r in boxes if r['split'] == 'holdout']
-    distinct = sum(len(g) for g in groups.values())
     device_name = torch.cuda.get_device_name(device) if device.type == 'cuda' else 'cpu'
-    log(f"training on {device_name}; training crops {distinct} ({', '.join(f'{k} {len(v)}' for k, v in sorted(groups.items()))}); held-out boxes {len(holdout)}")
     cache = {}
-    for row in [r for g in groups.values() for r in g] + holdout:
-        if row['crop'] not in cache:
-            cache[row['crop']] = load_crop(args.dataset / row['crop'])
+
+    def ensure(subset):
+        for row in subset:
+            if row['crop'] not in cache:
+                cache[row['crop']] = load_crop(args.dataset / row['crop'])
+    ensure(holdout)
     holdout_arrays = [cache[r['crop']] for r in holdout]
-    current, current_cards = card_scores(holdout, current_reads(holdout))
-    results = dict(dataset=str(args.dataset), device=device_name, epochs=args.epochs, epoch_size=args.epoch_size, training_crops=distinct,
-                   current_reader=current, conditions={})
-    log(f'current reader: {json.dumps(current)}')
+    current, current_cards = evaluate(holdout, current_reads(holdout))
+    results = dict(dataset=str(args.dataset), device=device_name, epochs=args.epochs, epoch_size=args.epoch_size,
+                   rounds=args.rounds, current_reader=current, conditions={})
+    log(f"training on {device_name}; held-out boxes {len(holdout)}; current reader: {json.dumps(current['all frames']['all'])}")
     trained = {}
     for condition in args.conditions:
+        entry = dict(rounds=[])
+        verified = []
         try:
-            model = train_condition(condition, groups, cache, args.epochs, args.epoch_size, args.seed, log, device)
+            for round_index in range(args.rounds):
+                groups = training_groups(boxes + verified, {'result_box'})
+                ensure([r for group in groups.values() for r in group])
+                distinct = sum(len(group) for group in groups.values())
+                log(f"{condition} round {round_index + 1}: training crops {distinct} "
+                    f"({', '.join(f'{k} {len(v)}' for k, v in sorted(groups.items()))}), {len(verified)} verified hard frames")
+                model = train_condition(condition, groups, cache, args.epochs, args.epoch_size, args.seed, log, device)
+                texts = transcribe(model, holdout_arrays)
+                done = dict(training_crops=distinct, verified_hard_frames=len(verified), thresholds={})
+                for threshold in THRESHOLDS:
+                    reads = [learned_read(row['field'], text, confidences, threshold) for row, (text, confidences) in zip(holdout, texts)]
+                    done['thresholds'][str(threshold)], _ = evaluate(holdout, reads, current_cards)
+                done['holdout_labeled'] = labeled_breakdown(holdout, texts)
+                entry['rounds'].append(done)
+                log(f"{condition} round {round_index + 1}: {json.dumps(done['thresholds']['0.9']['all frames']['all'])}")
+                if round_index + 1 < args.rounds:
+                    verified = verified_labels(model, boxes, cache, args.dataset)
+                    # Kept beside the results so the labels a round trained on can be audited by eye.
+                    with (args.output / f'{condition}-verified-round-{round_index + 2}.jsonl').open('w', encoding='utf-8') as stream:
+                        for row in verified:
+                            stream.write(json.dumps(dict(crop=row['crop'], run=row['run'], field=row['field'], target=row['target'])) + '\n')
         except Exception as exc:  # pretrained weights that cannot be downloaded, for example
             log(f'{condition}: skipped ({exc})')
             results['conditions'][condition] = dict(skipped=str(exc))
             continue
-        texts = transcribe(model, holdout_arrays)
-        entry = dict(parameters=sum(p.numel() for p in model.parameters()), holdout={})
-        for threshold in THRESHOLDS:
-            reads = [learned_read(row['field'], text, confidences, threshold) for row, (text, confidences) in zip(holdout, texts)]
-            scores, cards = card_scores(holdout, reads)
-            scores['pooled'] = union_scores(current_cards, cards)
-            entry['holdout'][str(threshold)] = scores
-        entry['holdout_labeled'] = labeled_breakdown(holdout, texts)
-        sample = random.Random(args.seed).sample([r for g in groups.values() for r in g], min(2000, distinct))
-        entry['train_labeled'] = labeled_breakdown(sample, transcribe(model, [cache[r['crop']] for r in sample]))
+        entry['parameters'] = sum(p.numel() for p in model.parameters())
         results['conditions'][condition] = entry
         trained[condition] = model
-        log(f'{condition}: {json.dumps(entry)}')
     chosen = 'scratch' if 'scratch' in trained else None
     if chosen:
         path = args.output / 'reader.onnx'

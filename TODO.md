@@ -150,18 +150,22 @@ reading small fixed crops. The accounting labels them for free. Order:
       the local records beside the dataset.
 - [x] **First model: result box reader.** Our own network, trained from
       nothing on the GPU with `analyzer/tools/train_reader.py`, transcribes
-      a result box (`value/cap`, `+N` or nothing) with a confidence per
-      character, and is exported to ONNX. On the held-out run at confidence
-      0.9 it reads the value on 260 of 336 cards (current reader 243) and
-      recovers 143 of 174 gains (current 123), with 5 false values and 3
-      false gains (current 8 and 4). Its remaining false reads are boxes
-      half covered by the card's animation, and retraining moves the card
-      counts by about half a dozen. An ImageNet ResNet-18 trunk, frozen or
-      fine-tuned, reads as many values and about 7 more gains with twice the
-      parameters; it is a comparison row only. 1.16 ms per box in
-      onnxruntime on the CPU, 0.44 ms on DirectML. Only one held-out
-      recording, from the same recorder as the training runs, so other
-      recorders are untested until the end-to-end recordings are rehydrated.
+      a result box (`value/`, `+N` or nothing) with a confidence per
+      character, and is exported to ONNX. The dataset now covers all seven
+      careers, decoded from the recordings, with wider boxes. Two recorders
+      and one of the user's recordings never feed training. Round 2 at
+      confidence 0.9 over those three recordings reads the value on 749 of
+      888 cards (current reader 643) and recovers 422 of 461 gains (370): 87%
+      and 96% for one unseen recorder, 89% and 87% for the other, 79% and 90%
+      for the user's recording. On the ordinary 4-per-second pass alone it
+      makes as many false reads as the current reader (19 and 18) while
+      reading 62 more values and 62 more gains. Its extra false reads are on
+      the analyzer's high-rate rereads, where the card animates: 15 cards
+      have two frames agreeing on a wrong value (current reader 3). A by-eye
+      audit of 50 random crops per label source found 0 wrong badge labels,
+      0 wrong gain numbers, 2 of 50 blanks with faded text, 1 of 50 hard
+      frames missing a digit, and 1 of 50 held-out answers off. 1.13 ms per
+      box in onnxruntime on the CPU, 0.46 ms on DirectML.
 - [ ] **Integration as a reader.** The model becomes one more reader in the
       analyzer: it yields an observation with a frame, a value and a
       confidence, behind a flag; the accounting stays the arbiter and a model
