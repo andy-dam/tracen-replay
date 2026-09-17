@@ -345,6 +345,29 @@ def training_preview(raw):
     return False
 
 
+class CompactInputEngine:
+    """The RapidOCR engine, always handed an image as one compact array.
+
+    Callers pass BGR views flipped from RGB arrays. The engine cuts every text
+    box it detects out of the image with OpenCV, and OpenCV copies a flipped
+    view in full for each cut: dozens of whole-pane copies per frame, which took
+    longer than detection and recognition together. The same pixels in one
+    compact array read identically.
+    """
+
+    def __init__(self, engine):
+        self._engine = engine
+
+    def __call__(self, img, *args, **kwargs):
+        import numpy as np
+        if isinstance(img, np.ndarray):
+            img = np.ascontiguousarray(img)
+        return self._engine(img, *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._engine, name)
+
+
 class NeuralReader:
     def __init__(self,model_dir='.local/models/rapidocr'):
         from rapidocr import RapidOCR,OCRVersion,ModelType,LangRec
@@ -352,8 +375,8 @@ class NeuralReader:
         from PIL import Image,ImageOps
         from rapidocr.ch_ppocr_rec import TextRecInput
         self.np,self.Image,self.ImageOps,self.TextRecInput=np,Image,ImageOps,TextRecInput
-        self.engine=RapidOCR(params=dict(PARAMS,**{'Global.model_root_dir':str(model_dir),
-            'Rec.lang_type':LangRec.EN,'Rec.ocr_version':OCRVersion.PPOCRV5,'Rec.model_type':ModelType.MOBILE}))
+        self.engine=CompactInputEngine(RapidOCR(params=dict(PARAMS,**{'Global.model_root_dir':str(model_dir),
+            'Rec.lang_type':LangRec.EN,'Rec.ocr_version':OCRVersion.PPOCRV5,'Rec.model_type':ModelType.MOBILE})))
         self.models={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(model_dir).glob('*.onnx') if p.name in ('PP-OCRv6_det_small.onnx','en_PP-OCRv5_rec_mobile.onnx')}
         from .code_identity import function_digest
         component_code = b''.join(
