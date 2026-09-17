@@ -30,6 +30,26 @@ func TestOwnerPIDIsPassedToTheWorker(t *testing.T) {
 	}
 }
 
+func TestLearnedReaderIsPassedOnlyWhenSet(t *testing.T) {
+	base := Command{Python: "python", WorkDir: ".", Source: "in.mp4", Output: "out", Workers: 2}
+	argv, err := base.Argv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(argv, "--learned-reader") {
+		t.Fatalf("the learned reader must be opt-in, got %v", argv)
+	}
+	with := base
+	with.LearnedReader = "models/reader.onnx"
+	argv, err = with.Argv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i := slices.Index(argv, "--learned-reader"); i < 0 || i+1 >= len(argv) || argv[i+1] == "" {
+		t.Fatalf("--learned-reader missing from %v", argv)
+	}
+}
+
 func TestPruneWorkingDataIsPassedOnlyWhenSet(t *testing.T) {
 	base := Command{Python: "python", WorkDir: ".", Source: "in.mp4", Output: "out", Workers: 2}
 	argv, err := base.Argv()

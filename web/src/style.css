@@ -603,6 +603,7 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 .chg.down b { color: var(--blue); }
 .chg.scenario { background: var(--lilac-soft); color: var(--lilac-ink); }
 .chg .basis-mark { font-style: normal; font-size: 11px; color: var(--warn-ink); }
+.chg .basis-mark.learned { color: var(--lilac-ink); }
 
 /* growth and analytics */
 .growth-wide { margin-top: 24px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px 20px; }

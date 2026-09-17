@@ -33,6 +33,9 @@ type Config struct {
 	// OCRDevice is passed to the analyzer (auto, cpu, dml, cuda); empty keeps
 	// its default.
 	OCRDevice string
+	// LearnedReader is the exported learned result-card reader passed to the
+	// analyzer; empty leaves it off.
+	LearnedReader string
 	// QueueLimit bounds the number of queued jobs.
 	QueueLimit int
 	// KeepWorkingData keeps the analyzer's OCR caches, crops and recovery
@@ -270,7 +273,8 @@ func (m *Manager) runOne(ctx context.Context, id string) {
 	m.log.Info("job started", "job", id, "source", job.SourceName)
 
 	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: job.SourcePath, Output: job.OutputDir,
-		ModelDir: m.cfg.ModelDir, Workers: m.cfg.Workers, DenseWorkers: m.cfg.DenseWorkers, OCRDevice: m.cfg.OCRDevice, PruneFrames: true,
+		ModelDir: m.cfg.ModelDir, Workers: m.cfg.Workers, DenseWorkers: m.cfg.DenseWorkers, OCRDevice: m.cfg.OCRDevice,
+		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
 		PruneWorkingData: !m.cfg.KeepWorkingData, OwnerPID: os.Getpid()}
 	logs, err := os.Create(job.LogPath)
 	if err != nil {

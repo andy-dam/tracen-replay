@@ -48,6 +48,11 @@ type Command struct {
 	// recovery inputs, about 1 GB per analysis) once the report is validated;
 	// the report, the timeline, the viewer page and the log stay.
 	PruneWorkingData bool
+	// LearnedReader is the exported learned result-card reader (ONNX). The
+	// analyzer stores its reads on training result readings and the
+	// accounting uses one only where it equals an unexplained difference.
+	// Empty leaves it off.
+	LearnedReader string
 	// OwnerPID names the process that owns the job (the service itself).
 	// The worker watches it and ends, with its own worker processes, as
 	// soon as that process is gone: nobody would read the result and the
@@ -89,6 +94,9 @@ func (c Command) Argv() ([]string, error) {
 	}
 	if c.FPS > 0 {
 		argv = append(argv, "--fps", strconv.FormatFloat(c.FPS, 'f', -1, 64))
+	}
+	if c.LearnedReader != "" {
+		argv = append(argv, "--learned-reader", filepath.Clean(c.LearnedReader))
 	}
 	if c.PruneFrames {
 		argv = append(argv, "--prune-frames")

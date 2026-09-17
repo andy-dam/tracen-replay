@@ -60,6 +60,7 @@ func run() error {
 	denseWorkers := flag.Int("dense-workers", 0, "worker processes for the dense re-read passes (0 = workers minus one); each can peak near 5-6 GB")
 	queue := flag.Int("queue", 4, "maximum number of queued jobs")
 	ocrDevice := flag.String("ocr-device", "auto", "OCR device for the analyzer: auto (DirectML, then CUDA, then CPU), cpu, dml or cuda")
+	learnedReader := flag.String("learned-reader", "", "exported learned result-card reader (ONNX) for the analyzer; its reads count only where they equal an unexplained difference (off when empty)")
 	webDir := flag.String("web", "", "serve the browser client from this built directory instead of the embedded copy (a rebuild is picked up without a restart)")
 	apiOnly := flag.Bool("api-only", false, "serve the API only; the browser client is hosted elsewhere and named with -allowed-origin")
 	allowedOrigins := flag.String("allowed-origin", "", "comma-separated client origins served from elsewhere that may call the API with credentials, e.g. http://localhost:5173")
@@ -82,7 +83,8 @@ func run() error {
 		return err
 	}
 	manager, err := jobs.NewManager(jobs.Config{DataDir: *dataDir, Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
-		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
+		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader,
+		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
 		Recordings: db, Logger: logger}, db, runner.Exec{Logger: logger})
 	if err != nil {
 		return err
@@ -111,7 +113,7 @@ func run() error {
 		return fmt.Errorf("bad -addr: %w", err)
 	}
 	ready := func() []api.Check {
-		return []api.Check{
+		checks := []api.Check{
 			check("python", *python, func() error { _, err := os.Stat(*python); return err }),
 			check("ffmpeg", *ffmpeg, func() error { _, err := exec.LookPath(*ffmpeg); return err }),
 			check("model-dir", *modelDir, func() error { _, err := os.Stat(filepath.Join(*modelDir, "PP-OCRv6_det_small.onnx")); return err }),
@@ -121,6 +123,10 @@ func run() error {
 			}),
 			{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"},
 		}
+		if *learnedReader != "" {
+			checks = append(checks, check("learned-reader", *learnedReader, func() error { _, err := os.Stat(*learnedReader); return err }))
+		}
+		return checks
 	}
 	var static http.Handler = webassets.Handler()
 	switch {

@@ -409,7 +409,7 @@ function editedMark(e: Entry): string {
           </div>
           <div v-if="groupedOf(c.changes).stats.length || groupedOf(c.changes).other.length" class="changes">
             <span v-for="(ch, i) in groupedOf(c.changes).stats" :key="'s' + ch.field + i" class="chg" :class="direction(ch.amount)" :title="(ch.basis ?? 'basis unknown').replaceAll('_', ' ')">
-              <i class="sd" :class="ch.field"></i>{{ fieldName(ch.field) }} <b>{{ signed(ch.amount) }}</b><i v-if="ch.basis === 'turn_difference'" class="basis-mark" :title="ch.read_amount != null ? `the panel showed ${ch.read_amount}; completed from the difference between turns` : 'worked out from the difference between turns'">≈</i><i v-else-if="basisClass(ch.basis)" class="basis-mark">◌</i>
+              <i class="sd" :class="ch.field"></i>{{ fieldName(ch.field) }} <b>{{ signed(ch.amount) }}</b><i v-if="ch.basis === 'turn_difference'" class="basis-mark" :title="ch.read_amount != null ? `the panel showed ${ch.read_amount}; completed from the difference between turns` : 'worked out from the difference between turns'">≈</i><i v-else-if="ch.basis === 'observed_learned_training_gain'" class="basis-mark learned" title="read on the card by the learned reader, and it matches the difference between turns">✦</i><i v-else-if="basisClass(ch.basis)" class="basis-mark">◌</i>
             </span>
             <span v-if="groupedOf(c.changes).stats.length && groupedOf(c.changes).other.length" class="sep"></span>
             <span v-for="(ch, i) in groupedOf(c.changes).other" :key="'o' + ch.field + i" class="chg scenario" :class="direction(ch.amount)" :title="(ch.basis ?? 'basis unknown').replaceAll('_', ' ')">
