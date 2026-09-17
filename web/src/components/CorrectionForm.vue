@@ -319,6 +319,8 @@ interface LiveField {
   residual: number | null;
   status: "balanced" | "off" | "open" | "unverifiable" | "turn_difference";
   off: number;
+  /** what a reader saw on the training's own card while this amount was worked out */
+  contradictedBy?: number[];
 }
 const live = computed(() => {
   const supplied: Record<Key, number> = {};
@@ -345,6 +347,13 @@ const live = computed(() => {
     }
     if (!row.deleted) for (const [key, text] of Object.entries(row.amounts)) if (!fieldsOf(e).includes(key)) add(adjust, key, num(text) ?? 0);
   }
+  // What a reader saw on a training's own card where the report worked the
+  // amount out from the turn difference instead.
+  const contradicted: Record<Key, number[]> = {};
+  for (const e of props.entries)
+    for (const [channel, byField] of Object.entries(e.changes ?? {}))
+      for (const [field, change] of Object.entries(byField ?? {}))
+        if (change?.contradicted_by?.length) contradicted[keyOf(channel, field)] = change.contradicted_by;
   const fields: LiveField[] = [];
   let balanced = true;
   let observed = 0;
@@ -376,7 +385,7 @@ const live = computed(() => {
         status = "off";
         balanced = false;
       }
-      fields.push({ key, field, before: fa?.before ?? null, after: fa?.after ?? null, recorded, supplied: give, residual, status, off: residual === null ? 0 : residual - give });
+      fields.push({ key, field, before: fa?.before ?? null, after: fa?.after ?? null, recorded, supplied: give, residual, status, off: residual === null ? 0 : residual - give, contradictedBy: contradicted[key] });
     }
   }
   const off = fields.filter((f) => f.status === "off");
@@ -396,7 +405,10 @@ function gapState(g: Gap): { text: string; cls: string } {
   if (!f) return { text: "", cls: "" };
   if (f.status === "balanced") return { text: "adds up", cls: "ok" };
   if (f.status === "off") return { text: `${signed(f.off)} still off`, cls: "warn" };
-  if (f.status === "turn_difference") return { text: "the report's guess", cls: "na" };
+  if (f.status === "turn_difference")
+    return f.contradictedBy?.length
+      ? { text: `the report's guess; the card shows ${f.contradictedBy.map(signed).join(" or ")}`, cls: "warn" }
+      : { text: "the report's guess", cls: "na" };
   if (f.status === "unverifiable") return { text: "cannot be checked", cls: "na" };
   return { text: "needs a look", cls: "warn" };
 }

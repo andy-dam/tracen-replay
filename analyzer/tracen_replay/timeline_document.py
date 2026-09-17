@@ -200,6 +200,10 @@ def build(report):
                                                               read_amount=existing['amount'])
                 else:
                     changes.setdefault(c['channel'], {})[c['field']] = dict(amount=c.get('amount'), basis=c['basis'])
+                # What the card showed instead, so a review can see both numbers.
+                reads = [r.get('gain') for r in c.get('contradicted_reads') or [] if type(r.get('gain')) is int]
+                if reads:
+                    changes[c['channel']][c['field']]['contradicted_by'] = sorted(set(reads))
         item = dict(
             id=entry.get('id'), kind=entry.get('kind'), turn_id=entry.get('turn_id'),
             first_seen_ms=entry.get('first_seen_ms'), last_seen_ms=entry.get('last_seen_ms'),

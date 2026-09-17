@@ -58,6 +58,20 @@ class TimelineDocumentTests(unittest.TestCase):
             'speed': {'amount': 9, 'basis': 'observed_learned_training_gain'},
             'wit': {'amount': 4, 'basis': 'turn_difference'}}})
 
+    def test_a_worked_out_amount_carries_what_the_card_showed_instead(self):
+        report = _report()
+        event = '/gameplay_tracking/events/0'
+        report['turn_ledger']['timeline'] = [
+            dict(id='entry-result', kind='training', source_ref=event, first_seen_ms=100, last_seen_ms=100,
+                 assignment_basis='observed_within_calendar_window')]
+        report['causal_accounting'] = dict(report.get('causal_accounting') or {}, contributions=[
+            dict(id=f'{event}/turn_difference_gains/skill_points', event_ref=event, channel='stats',
+                 field='skill_points', amount=13, basis='turn_difference',
+                 contradicted_reads=[dict(gain=18, evidence=['a.png', 'b.png'])])])
+        entries = {e['id']: e for e in build(report)['entries']}
+        self.assertEqual(entries['entry-result']['changes'], {'stats': {
+            'skill_points': {'amount': 13, 'basis': 'turn_difference', 'contradicted_by': [18]}}})
+
     def test_write_returns_the_size(self):
         report = _report()
         with tempfile.TemporaryDirectory() as tmp:

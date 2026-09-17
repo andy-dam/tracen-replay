@@ -832,6 +832,10 @@ def build(report):
                                            worked_out=gain, reads=contradicted))
                     add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, owner.get('evidence'),
                         'turn_difference')
+                    if contradicted:
+                        # On the contribution too, so a reviewer sees the card's
+                        # own number beside the one worked out for it.
+                        contributions[-1]['contradicted_reads'] = contradicted
                 if mode == 'clipped_badge_prefix':
                     # The read digits stay as observed; the completion is a
                     # second, flagged contribution on the same field, not a claim

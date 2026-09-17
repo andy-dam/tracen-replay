@@ -103,6 +103,10 @@ type Change struct {
 	// ReadAmount is the digits the panel showed when a clipped badge was
 	// completed from the turn difference; Amount is then the completed gain.
 	ReadAmount *int `json:"read_amount,omitempty"`
+	// ContradictedBy holds the gains a reader saw on the training's own card
+	// when Amount was worked out from the turn difference instead. The
+	// amount stands; the disagreement is for a reviewer to settle.
+	ContradictedBy []int `json:"contradicted_by,omitempty"`
 }
 
 // Entry is one ledger entry. TurnID is empty for entries outside every

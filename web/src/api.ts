@@ -108,6 +108,8 @@ export interface Change {
   basis?: string;
   /** the digits the panel showed when a clipped badge was completed from the turn difference */
   read_amount?: number | null;
+  /** gains a reader saw on the training's own card while this amount was worked out from the turn difference */
+  contradicted_by?: number[];
 }
 
 export interface Entry {
