@@ -70,6 +70,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--rehydrate-frames", action="store_true",
                         help="Before reparsing, decode the frame images of a run whose images were "
                              "pruned; each part must come back as exactly the frames it recorded")
+    parser.add_argument("--learned-reader", type=Path, default=None,
+                        help="Exported learned result-card reader (ONNX). Its reads are stored on training result "
+                             "readings and the accounting uses one only where it equals an unexplained difference")
     parser.add_argument("--replay-input-manifest", type=Path,
                         help="Source-bound replay input manifest for common cached parsing")
     parser.add_argument("--replay-input-root", type=Path,
@@ -110,6 +113,12 @@ def _paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
             "invalid_arguments",
             "--rehydrate-frames requires --reparse-only; an ordinary analysis captures its own frames.",
         )
+    learned_reader = getattr(args, "learned_reader", None)
+    if learned_reader is not None:
+        learned_reader = learned_reader.expanduser().resolve()
+        if not learned_reader.is_file():
+            raise JobInputError("learned_reader_not_found", "The learned reader model must be an existing file.")
+        args.learned_reader = learned_reader
     manifest = getattr(args, "replay_input_manifest", None)
     replay_root = getattr(args, "replay_input_root", None)
     if manifest is None and replay_root is not None:
@@ -317,6 +326,9 @@ def _producer_argv(source: Path, output: Path, model_dir: Path, args: argparse.N
         values.extend(["--dense-workers", str(dense)])
     if args.reparse_only:
         values.append("--reparse-only")
+    learned_reader = getattr(args, "learned_reader", None)
+    if learned_reader is not None:
+        values.extend(["--learned-reader", str(learned_reader)])
     manifest = getattr(args, "replay_input_manifest", None)
     if manifest is not None:
         values.extend(["--replay-input-manifest", str(manifest)])

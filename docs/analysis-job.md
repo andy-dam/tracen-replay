@@ -28,6 +28,7 @@ package) as the working directory.
 | `--model-dir` | `.local/models/rapidocr` | local OCR model directory |
 | `--reparse-only` | off | use cached observations instead of starting OCR |
 | `--rehydrate-frames` | off | with `--reparse-only`, decode the run's frame images and gameplay panes again before reparsing |
+| `--learned-reader` | off | an exported learned result-card reader (ONNX); its reads are stored on each training result reading and the accounting uses one only where it equals an unexplained difference (see [analyzer-pipeline.md](analyzer-pipeline.md)) |
 | `--replay-input-manifest` | none | a source-bound replay input manifest for cached parsing from a disposable cache clone; requires `--reparse-only` |
 | `--replay-input-root` | `--output` | the disposable cache root the manifest reads from; must equal `--output` |
 | `--prune-frames` | off | after the report is validated, delete the frame images under `--output` |

@@ -213,6 +213,32 @@ class AnalysisJobTests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
             self.assertEqual(payload["status"], "succeeded")
 
+    def test_learned_reader_forwards_to_the_producer_and_must_exist(self):
+        with workspace_temp() as root:
+            source = root / "run.mp4"
+            source.write_bytes(b"source")
+            output = root / "output"
+            model = root / "reader.onnx"
+            model.write_bytes(b"onnx")
+            stdout = io.StringIO()
+
+            def producer():
+                self.assertIn("--learned-reader", sys.argv)
+                self.assertIn(str(model.resolve()), sys.argv)
+                _write_report(output, source)
+
+            with patch("tracen_replay.analysis_job.full_recording.main", side_effect=producer), \
+                    patch("sys.stdout", stdout):
+                result = main([str(source), "--output", str(output), "--learned-reader", str(model)])
+            self.assertEqual(result, 0)
+
+            stdout = io.StringIO()
+            with patch("tracen_replay.analysis_job.full_recording.main") as never, patch("sys.stdout", stdout):
+                result = main([str(source), "--output", str(root / "other"), "--learned-reader", str(root / "missing.onnx")])
+            self.assertEqual(result, 2)
+            self.assertEqual(json.loads(stdout.getvalue())["error"]["code"], "learned_reader_not_found")
+            never.assert_not_called()
+
     def test_manifest_root_mismatch_is_rejected_before_producer(self):
         with workspace_temp() as root:
             source = root / "run.mp4"

@@ -697,7 +697,7 @@ def _generate_currency_refinement(root, *, model_dir):
 
 
 def assemble(report,readings,choice_observations=(),race_reward_observations=(),hint_card_observations=None,
-             *,committed_choices=(),event_choice_observations=None,source_root=None):
+             *,committed_choices=(),event_choice_observations=None,source_root=None,learned_reader=None):
     from .inventory import summarize as inventory_summary
     from .vision import enrich_performance_panels
     from .preview_observations import build_preview_observations
@@ -705,6 +705,13 @@ def assemble(report,readings,choice_observations=(),race_reward_observations=(),
     from .source_state_observations import build_observations as build_state_observations
     from .skill_menu_observations import build_observations as build_skill_menu_observations
     readings=enrich_performance_panels(readings)
+    if learned_reader is not None and source_root is not None:
+        # The learned reader's reads are observations on the training result
+        # readings; the causal accounting uses one only where it equals a
+        # difference the stat bars left unexplained.
+        from .learned_reader import THRESHOLD, annotate
+        annotate(readings,source_root,learned_reader)
+        report['learned_reader']=dict(model_sha256=learned_reader.model_sha256,threshold=THRESHOLD)
     if hint_card_observations is None:
         hint_card_observations=report.get('gameplay_tracking',{}).get('hint_card_observations',[])
     if race_reward_observations:
@@ -2537,8 +2544,18 @@ def _main_body():
                         help='Use a validated source-bound replay-input manifest instead of fixed cache names.')
     parser.add_argument('--replay-input-root',type=Path,
                         help='Disposable cache root for --replay-input-manifest (defaults to --output).')
+    parser.add_argument('--learned-reader',type=Path,default=None,
+                        help='Exported learned result-card reader (ONNX). Its reads are stored on training result readings '
+                             'and used by the accounting only where they equal an unexplained difference.')
     args=parser.parse_args()
     if not 1<=args.workers<=8:parser.error('Use 1 to 8 workers.')
+    learned_reader=None
+    if args.learned_reader is not None:
+        from .learned_reader import LearnedReader
+        if not args.learned_reader.is_file():raise PipelineError(f'Learned reader model not found: {args.learned_reader}')
+        learned_reader=LearnedReader(args.learned_reader)
+    # Passed on only when given, so a run without the flag assembles exactly as before.
+    reader_kwargs=dict(learned_reader=learned_reader) if learned_reader is not None else {}
     if args.replay_input_manifest:
         if not args.reparse_only:
             raise PipelineError('--replay-input-manifest requires --reparse-only; it never starts OCR.')
@@ -2583,7 +2600,7 @@ def _main_body():
         save_json(output_root/'automatic-refinement.json',automatic_refinement)
         choice_source=build_event_choice_observations(readings,input_root,choice_observations)
         report=assemble(report,readings,choice_observations,reward_observations,hint_observations,
-                        source_root=input_root,
+                        source_root=input_root,**reader_kwargs,
                         committed_choices=choice_source['committed_choices'],
                         event_choice_observations=choice_source)
         _CURRENT['report']=report
@@ -2702,7 +2719,7 @@ def _main_body():
         return source,(source['committed_choices'] if isinstance(source,dict) else ())
     choice_source,committed=_choices()
     report=assemble(report,readings,choice_observations,reward_observations,hint_observations,
-                    source_root=args.output,
+                    source_root=args.output,**reader_kwargs,
                     committed_choices=committed,
                     event_choice_observations=choice_source)
     _CURRENT['report']=report
@@ -2715,7 +2732,7 @@ def _main_body():
     if boundary_recovery and boundary_recovery.get('promoted_source_timestamps'):
         choice_source,committed=_choices()
         report=assemble(report,readings,choice_observations,reward_observations,hint_observations,
-                        source_root=args.output,
+                        source_root=args.output,**reader_kwargs,
                         committed_choices=committed,
                         event_choice_observations=choice_source)
         _CURRENT['report']=report
