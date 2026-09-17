@@ -101,13 +101,12 @@ def file_fingerprint(path: str | Path) -> str:
 
 
 def gameplay_fingerprint(path: str | Path) -> str:
-    from PIL import Image
+    from .frame_cache import rgb_digest
 
-    with Image.open(path) as image:
-        image = image.convert("RGB")
-        if image.size != (810, 1080):
-            raise ValueError("Preview recovery evidence is not an 810x1080 gameplay pane.")
-        return hashlib.sha256(image.tobytes()).hexdigest()
+    digest, size = rgb_digest(path)
+    if size != (810, 1080):
+        raise ValueError("Preview recovery evidence is not an 810x1080 gameplay pane.")
+    return digest
 
 
 def _confidence(value: Any) -> float:

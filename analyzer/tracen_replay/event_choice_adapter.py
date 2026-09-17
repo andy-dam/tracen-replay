@@ -374,6 +374,49 @@ def _verified_pane(
     return pane, None
 
 
+# A verified observation per proof file and every input that produced it. An
+# analysis builds its choice observations before and after boundary recovery,
+# over mostly the same frames; the pane check and the pixel observation are
+# the same for a file whose path, size and modification time did not change.
+_VERIFIED_OBSERVATIONS: dict[tuple[Any, ...], tuple[bool, str | None, dict[str, Any] | None]] = {}
+
+
+def _observe_verified(
+    root: Path,
+    reading: Mapping[str, Any],
+    raw: Mapping[str, Any],
+    lines: list[dict[str, Any]],
+    time: int,
+    evidence: str,
+) -> tuple[bool, str | None, dict[str, Any] | None]:
+    """``_verified_pane`` then ``same_frame_choice_observation``, remembered per proof file."""
+
+    key = None
+    relative = _root_relative(_text(reading.get("evidence")), root)
+    proof = _proof_path(root, relative) if relative is not None else None
+    if proof is not None:
+        try:
+            stat = proof.stat()
+        except OSError:
+            stat = None
+        if stat is not None:
+            key = (str(root), str(proof), stat.st_size, stat.st_mtime_ns, time,
+                   raw.get("source_timestamp_ms"), _text(reading.get("evidence")), _text(raw.get("evidence")),
+                   _text(raw.get("gameplay_sha256")), evidence,
+                   json.dumps(lines, sort_keys=True, default=str))
+            known = _VERIFIED_OBSERVATIONS.get(key)
+            if known is not None:
+                return known[0], known[1], deepcopy(known[2])
+    pane, reason = _verified_pane(root, reading, raw)
+    row = None
+    if pane is not None:
+        row = same_frame_choice_observation(pane, lines, source_timestamp_ms=time, evidence=evidence)
+    result = (pane is not None, reason, row)
+    if key is not None:
+        _VERIFIED_OBSERVATIONS[key] = (result[0], result[1], deepcopy(row))
+    return result
+
+
 def same_frame_choice_observation(
     pane: Image.Image,
     lines: Iterable[Mapping[str, Any]],
@@ -674,14 +717,11 @@ def build_choice_observations(
         if not _candidate_lines(lines):
             counts["candidate_gate_skipped"] += 1
             continue
-        pane, reason = _verified_pane(root, reading, raw)
-        if pane is None:
+        verified, reason, row = _observe_verified(root, reading, raw, lines, time,
+                                                  evidence or _text(raw.get("evidence")) or "")
+        if not verified:
             counts[reason or "source_verification_failed"] += 1
             continue
-        row = same_frame_choice_observation(
-            pane, lines, source_timestamp_ms=time,
-            evidence=evidence or _text(raw.get("evidence")) or "",
-        )
         if row is None:
             counts["pixel_candidate_skipped"] += 1
             continue

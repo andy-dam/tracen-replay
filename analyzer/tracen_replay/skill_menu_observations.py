@@ -199,13 +199,11 @@ def _file_sha256(path: str | Path) -> str:
 
 def _gameplay_sha256(path: str | Path) -> tuple[str, str]:
     try:
-        from PIL import Image
+        from .frame_cache import rgb_digest
 
-        with Image.open(path) as opened:
-            image = opened.convert("RGB")
-            if image.size != GAMEPLAY_SIZE:
-                raise SkillMenuSourceError("Skill menu gameplay evidence is not an 810x1080 pane.")
-            pixels = hashlib.sha256(image.tobytes()).hexdigest()
+        pixels, size = rgb_digest(path)
+        if size != GAMEPLAY_SIZE:
+            raise SkillMenuSourceError("Skill menu gameplay evidence is not an 810x1080 pane.")
     except SkillMenuSourceError:
         raise
     except (OSError, ValueError) as exc:

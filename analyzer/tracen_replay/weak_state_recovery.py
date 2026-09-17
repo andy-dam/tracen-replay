@@ -135,11 +135,12 @@ def _validate_path_namespace(sidecar: Mapping[str, Any], *, evidence_path: Path,
 def gameplay_fingerprint(path: str | Path) -> str:
     """Hash decoded gameplay pixels, independently of image encoding."""
 
-    from .frame_cache import open_rgb, rgb_sha256
+    from .frame_cache import rgb_digest
 
-    if open_rgb(path).size != (810, 1080):
+    digest, size = rgb_digest(path)
+    if size != (810, 1080):
         raise ValueError("Weak-state gameplay evidence must be 810x1080 pixels.")
-    return rgb_sha256(path)
+    return digest
 
 
 def _number(value: Any, *, name: str) -> float:

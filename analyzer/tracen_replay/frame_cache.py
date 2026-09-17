@@ -25,6 +25,9 @@ MAX_ENTRIES = 24
 
 _lock = threading.Lock()
 _entries: "OrderedDict[tuple[str, int, int], tuple[Image.Image, str | None]]" = OrderedDict()
+# Pixel digests and sizes outlive the decoded images: a run fingerprints tens
+# of thousands of files, several times each, and a digest is a few bytes.
+_digests: "dict[tuple[str, int, int], tuple[str, tuple[int, int]]]" = {}
 
 
 def _key(path):
@@ -60,17 +63,31 @@ def open_rgb(path) -> Image.Image:
     return image.copy()
 
 
-def rgb_sha256(path) -> str:
-    """SHA-256 of the decoded RGB bytes of the image at ``path``."""
+def rgb_digest(path) -> tuple[str, tuple[int, int]]:
+    """SHA-256 of the decoded RGB bytes of the image at ``path``, and its size."""
+    key = _key(path)
+    with _lock:
+        known = _digests.get(key)
+    if known is not None:
+        return known
     key, (image, digest) = _decoded(path)
     if digest is None:
         digest = hashlib.sha256(image.tobytes()).hexdigest()
         with _lock:
             if key in _entries:
                 _entries[key] = (image, digest)
-    return digest
+    known = (digest, image.size)
+    with _lock:
+        _digests[key] = known
+    return known
+
+
+def rgb_sha256(path) -> str:
+    """SHA-256 of the decoded RGB bytes of the image at ``path``."""
+    return rgb_digest(path)[0]
 
 
 def clear() -> None:
     with _lock:
         _entries.clear()
+        _digests.clear()

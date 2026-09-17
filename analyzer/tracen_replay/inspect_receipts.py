@@ -9,6 +9,7 @@ from PIL import Image
 from .vision import NeuralReader,parse
 from .pipeline import decode_frames,PipelineError
 from .full_recording import save_json
+from .proof_writer import save_while
 
 
 _SOURCE_FRAME_KEYS = ('source_frame_sha256', 'source_frame_id')
@@ -236,6 +237,13 @@ def _window_frames(source,capture,directory,frames_dir,manifest,start,end,fps,co
     return frames
 
 
+def _may_wrap(raw):
+    """Whether wrapped receipt enrichment could add anything: it needs exactly one prefix line."""
+    from .receipt_wrapping import prefix
+    lines=raw.get('lines')
+    return isinstance(lines,list) and sum(prefix(line) is not None for line in lines)==1
+
+
 def _frame_cache(frame,directory,root,digest,reader,completed):
     """Return the validated raw OCR record for one window frame, creating it when absent."""
     image_path=directory/frame['evidence'];cache=directory/(frame['id']+'.v2.json');proof=directory/(frame['id']+'.png')
@@ -251,25 +259,28 @@ def _frame_cache(frame,directory,root,digest,reader,completed):
         if reader is not None and (raw['engine_fingerprint']!=reader.fingerprint or raw['model_sha256']!=reader.models):
             raise PipelineError('Receipt OCR model changed; use a separate output directory to preserve cached evidence.')
         if not proof.exists():raise PipelineError('Receipt OCR cache is missing its gameplay proof.')
-        with Image.open(proof) as image:
-            if hashlib.sha256(image.convert('RGB').tobytes()).hexdigest()!=raw['gameplay_sha256']:
-                raise PipelineError('Receipt gameplay proof changed.')
+        from .frame_cache import open_rgb,rgb_sha256
+        if rgb_sha256(proof)!=raw['gameplay_sha256']:
+            raise PipelineError('Receipt gameplay proof changed.')
         # Existing receipt windows may predate the wrapped-friendship
         # source crop.  A fresh producer pass can add that supplemental
         # proof from the already validated gameplay PNG without changing
         # the detector's raw lines.  Replay/reparse leaves the cache
-        # untouched and consumes only the persisted proof.
-        if reader is not None and not raw.get('wrapped_receipt_observations'):
+        # untouched and consumes only the persisted proof.  The pane is
+        # decoded only for a frame the enrichment could use: one showing
+        # exactly one wrapped friendship prefix line.
+        if reader is not None and not raw.get('wrapped_receipt_observations') and _may_wrap(raw):
             from .receipt_wrapping import enrich as enrich_wrapped_receipts
-            with Image.open(proof) as image:
-                enriched=enrich_wrapped_receipts(raw, image.convert('RGB'), reader)
+            enriched=enrich_wrapped_receipts(raw, open_rgb(proof), reader)
             if enriched.get('wrapped_receipt_observations'):
                 raw=enriched
                 save_json(cache, raw)
         return raw
     if reader is None:reader=NeuralReader()
     with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop((148,0,958,1080))
-    raw=reader.read(pane);pane.save(proof)
+    saved=save_while(pane,proof)
+    try:raw=reader.read(pane)
+    finally:saved()
     raw.update(source_timestamp_ms=frame['source_timestamp_ms'],source_frame_sha256=frame_hash,
                source_sha256=digest,source_frame_id=frame['id'],
                evidence=proof.relative_to(root).as_posix())

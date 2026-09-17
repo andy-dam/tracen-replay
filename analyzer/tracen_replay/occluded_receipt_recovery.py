@@ -1234,9 +1234,8 @@ def _validate_inspection_cache(
             if hashlib.sha256(source_frame.read_bytes()).hexdigest() != raw["source_frame_sha256"]:
                 raise OccludedReceiptRecoveryError("Receipt source frame changed.")
             try:
-                from PIL import Image
-                with Image.open(proof_path) as image:
-                    gameplay_hash = hashlib.sha256(image.convert("RGB").tobytes()).hexdigest()
+                from .frame_cache import rgb_sha256
+                gameplay_hash = rgb_sha256(proof_path)
             except (OSError, ValueError) as exc:
                 raise OccludedReceiptRecoveryError("Receipt gameplay proof is unreadable.") from exc
             if gameplay_hash != raw["gameplay_sha256"]:

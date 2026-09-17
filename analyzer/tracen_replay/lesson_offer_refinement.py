@@ -75,11 +75,12 @@ def gameplay_fingerprint(image_or_path: Any) -> str:
     """Hash decoded RGB pane pixels, independently of the image file hash."""
 
     if isinstance(image_or_path, (str, Path)):
-        with Image.open(image_or_path) as image:
-            image = image.convert("RGB")
-            if image.size != PANE_SIZE:
-                raise LessonOfferError("Lesson offer evidence must be an 810x1080 gameplay pane.")
-            return hashlib.sha256(image.tobytes()).hexdigest()
+        from .frame_cache import rgb_digest
+
+        digest, size = rgb_digest(image_or_path)
+        if size != PANE_SIZE:
+            raise LessonOfferError("Lesson offer evidence must be an 810x1080 gameplay pane.")
+        return digest
     image = image_or_path.convert("RGB")
     if image.size != PANE_SIZE:
         raise LessonOfferError("Lesson offer evidence must be an 810x1080 gameplay pane.")
