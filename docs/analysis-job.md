@@ -201,3 +201,10 @@ names this directory; it must stay together with the report, since the
 report's evidence paths resolve relative to it. The worker's own stderr is
 not part of the run directory; the service copies it to
 `<data>/jobs/<job id>/worker.log` separately.
+
+The caches in that directory carry the reader's fingerprint, and the later
+stages refuse a cache another reader wrote ("Receipt OCR model changed"). The
+worker imports its code when a stage or a worker process starts, so editing
+the analyzer while a job is in flight can change that fingerprint under the
+run and fail a recovery stage. Run the analyzer from a copy of the
+`tracen_replay` package when a run has to survive edits to the tree.
