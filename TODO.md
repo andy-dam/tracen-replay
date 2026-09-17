@@ -105,6 +105,12 @@ reviewer work each removes.
       date came a minute after the recovery result, past the 30-second wait.
       Point-spending screens now extend the wait; two rests recovered in the
       Hishi Amazon recording.
+- [ ] **A "N more" badge is read as a performance value.** On the training
+      screen a small "8 more" badge sits above the Vocal row; one turn's
+      opening read Vocal 8 where the row shows 4, which leaves +4 unexplained
+      on the turn before and -4 on that turn. These are the only two
+      unexplained fields left in recorder C's fresh website report. Done: that
+      opening reads 4 and both turns balance.
 - [ ] **Race-day and finale openings are estimates.** A race-day turn's
       opening is carried from the previous turn's entries. Read the Full
       Stats panel when the player opens it on that screen, so the turn gets
@@ -190,15 +196,16 @@ reading small fixed crops. The accounting labels them for free. Order:
       B/Gran Concert with the model that never saw recorder B: 2 unexplained
       turn fields with the reads and 3 without, both left being performance
       points, which the model does not read; 19 amounts observed by the
-      model, all right by eye. Recorder C's saved report with the model's
-      reads attached: 1 against 2, with 7 observed. One false read was seen:
+      model, all right by eye. A fresh website analysis of recorder C's
+      career: 2 against 3, with 7 observed, all right by eye; its two left
+      are one misread performance opening (section 2). One false read was seen:
       the recorder's mouse pointer over a `+8` read as `+9` at 0.998, which
       the value 138 on the same card contradicts, so nothing was confirmed
       from it.
-- [ ] **Ship the model trained on every recording.** Analyze recorder C's
-      career again from the website with the held-out model, then restart
-      the service with the model trained on every run. Done: a new report
-      records that model's fingerprint.
+- [ ] **Ship the model trained on every recording.** Both held-out careers
+      checked out on the website, and the local service now runs the model
+      trained on every run. Done: a new report records that model's
+      fingerprint.
 - [ ] **Flag a worked-out amount the card contradicts.** The accounting
       worked out a gain of 7 on a turn the counted-twice receipt made look
       balanced, while the model read `+12` on five frames of that card and
