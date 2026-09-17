@@ -151,21 +151,23 @@ reading small fixed crops. The accounting labels them for free. Order:
 - [x] **First model: result box reader.** Our own network, trained from
       nothing on the GPU with `analyzer/tools/train_reader.py`, transcribes
       a result box (`value/`, `+N` or nothing) with a confidence per
-      character, and is exported to ONNX. The dataset now covers all seven
-      careers, decoded from the recordings, with wider boxes. Two recorders
+      character, and is exported to ONNX. The dataset covers thirteen
+      careers decoded from their recordings, with wider boxes. Two recorders
       and one of the user's recordings never feed training. Round 2 at
-      confidence 0.9 over those three recordings reads the value on 749 of
-      888 cards (current reader 643) and recovers 422 of 461 gains (370): 87%
-      and 96% for one unseen recorder, 89% and 87% for the other, 79% and 90%
-      for the user's recording. On the ordinary 4-per-second pass alone it
-      makes as many false reads as the current reader (19 and 18) while
-      reading 62 more values and 62 more gains. Its extra false reads are on
-      the analyzer's high-rate rereads, where the card animates: 15 cards
-      have two frames agreeing on a wrong value (current reader 3). A by-eye
-      audit of 50 random crops per label source found 0 wrong badge labels,
-      0 wrong gain numbers, 2 of 50 blanks with faded text, 1 of 50 hard
-      frames missing a digit, and 1 of 50 held-out answers off. 1.13 ms per
-      box in onnxruntime on the CPU, 0.46 ms on DirectML.
+      confidence 0.9 over those three recordings reads the value on 750 of
+      888 cards (current reader 643) and recovers 426 of 461 gains (370): 87%
+      and 96% for one unseen recorder, 89% and 87% for the other, 79% and 92%
+      for the user's recording. When two frames at least 200 ms apart must
+      agree, it settles 337 values against 211, and both are wrong on 3 or 4
+      cards. It transcribes 99.8% of labeled badges and 98.6% of gains
+      exactly. The remaining misses are mostly frames that never show the
+      number: of the 138 unread values, over a hundred are blank or covered
+      by the gain overlay on every sampled frame. A by-eye audit of 50 random
+      crops per label source found 0 wrong badge labels, 0 wrong gain
+      numbers, 2 of 50 blanks with faded text, 1 of 50 hard frames missing a
+      digit, and 1 of 50 held-out answers off. 1.28 ms per box in onnxruntime
+      on the CPU, 0.54 ms on DirectML. The model to ship is trained on every
+      run with `--final`.
 - [ ] **Integration as a reader.** The model becomes one more reader in the
       analyzer: it yields an observation with a frame, a value and a
       confidence, behind a flag; the accounting stays the arbiter and a model

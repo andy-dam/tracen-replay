@@ -427,9 +427,28 @@ def export_onnx(model, path, arrays):
     return out
 
 
+def final_markdown(results):
+    """What a final run records: what it trained on, and its export; nothing was held out to judge."""
+    lines = ['### Final reader, trained on every run', '',
+             f"{results['epochs']} epochs of {results['epoch_size']} crops per round on {results.get('device', 'cpu')}. "
+             'Nothing was held out, so its accuracy is the held-out result of the same settings.', '',
+             '| reader | round | training crops | verified hard frames |', '|---|---:|---:|---:|']
+    for condition, entry in results['conditions'].items():
+        for index, done in enumerate(entry.get('rounds', [])):
+            lines.append(f"| {condition} | {index + 1} | {done['training_crops']} | {done['verified_hard_frames']} |")
+    return lines
+
+
 def results_markdown(results):
     def share(part, whole):
         return f"{part}/{whole} ({part / whole:.0%})" if whole else '-'
+    if results.get('final'):
+        lines = final_markdown(results)
+        e = results.get('exported')
+        if e:
+            lines += ['', f"Exported {e['condition']}: onnxruntime agrees with torch on {e['agreement']:.1%} of columns; "
+                          f"{e['onnx_ms_per_crop']:.2f} ms per box in onnxruntime on the CPU."]
+        return '\n'.join(lines) + '\n'
     current = results['current_reader']
     lines = ['### Our reader against the current reader, per held-out recording', '',
              f"Confidence threshold 0.9. {results['epochs']} epochs of {results['epoch_size']} crops per round on "
@@ -497,6 +516,9 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--threads', type=int, default=4, help='CPU threads for torch; leave cores for other work')
     parser.add_argument('--device', default='auto', help="'cuda', 'cpu', or 'auto': the GPU whenever PyTorch has CUDA")
+    parser.add_argument('--final', action='store_true',
+                        help='train on every run, held-out ones included, for the model that ships; nothing is judged, '
+                             'so its accuracy is the held-out result of the same settings without this flag')
     args = parser.parse_args(argv)
     import torch
     torch.set_num_threads(args.threads)
@@ -516,6 +538,8 @@ def main(argv=None):
 
     rows, _ = load(args.dataset)
     boxes = [r for r in rows if r['kind'] == 'result_box']
+    if args.final:
+        boxes = [dict(r, split='train') for r in boxes]
     holdout = [r for r in boxes if r['split'] == 'holdout']
     device_name = torch.cuda.get_device_name(device) if device.type == 'cuda' else 'cpu'
     cache = {}
@@ -528,7 +552,7 @@ def main(argv=None):
     holdout_arrays = [cache[r['crop']] for r in holdout]
     current, current_cards = evaluate(holdout, current_reads(holdout))
     results = dict(dataset=str(args.dataset), device=device_name, epochs=args.epochs, epoch_size=args.epoch_size,
-                   rounds=args.rounds, current_reader=current, conditions={})
+                   rounds=args.rounds, final=args.final, current_reader=current, conditions={})
     log(f"training on {device_name}; held-out boxes {len(holdout)}; current reader: {json.dumps(current['all frames']['all'])}")
     trained = {}
     for condition in args.conditions:
@@ -542,14 +566,15 @@ def main(argv=None):
                 log(f"{condition} round {round_index + 1}: training crops {distinct} "
                     f"({', '.join(f'{k} {len(v)}' for k, v in sorted(groups.items()))}), {len(verified)} verified hard frames")
                 model = train_condition(condition, groups, cache, args.epochs, args.epoch_size, args.seed, log, device)
-                texts = transcribe(model, holdout_arrays)
                 done = dict(training_crops=distinct, verified_hard_frames=len(verified), thresholds={})
-                for threshold in THRESHOLDS:
-                    reads = [learned_read(row['field'], text, confidences, threshold) for row, (text, confidences) in zip(holdout, texts)]
-                    done['thresholds'][str(threshold)], _ = evaluate(holdout, reads, current_cards)
-                done['holdout_labeled'] = labeled_breakdown(holdout, texts)
+                if holdout:
+                    texts = transcribe(model, holdout_arrays)
+                    for threshold in THRESHOLDS:
+                        reads = [learned_read(row['field'], text, confidences, threshold) for row, (text, confidences) in zip(holdout, texts)]
+                        done['thresholds'][str(threshold)], _ = evaluate(holdout, reads, current_cards)
+                    done['holdout_labeled'] = labeled_breakdown(holdout, texts)
+                    log(f"{condition} round {round_index + 1}: {json.dumps(done['thresholds']['0.9']['all frames']['all'])}")
                 entry['rounds'].append(done)
-                log(f"{condition} round {round_index + 1}: {json.dumps(done['thresholds']['0.9']['all frames']['all'])}")
                 if round_index + 1 < args.rounds:
                     verified = verified_labels(model, boxes, cache, args.dataset)
                     # Kept beside the results so the labels a round trained on can be audited by eye.
@@ -567,8 +592,10 @@ def main(argv=None):
     if chosen:
         path = args.output / 'reader.onnx'
         torch.save(trained[chosen].state_dict(), args.output / 'reader.pt')
+        # The export is checked and timed on held-out crops, or on training crops when every run trained.
+        sample = holdout_arrays or [cache[r['crop']] for r in boxes[:256] if r['crop'] in cache]
         results['exported'] = dict(condition=chosen, path=path.name, input=dict(name='crop', height=HEIGHT, width=WIDTH, channels=3, scale='rgb 0..1'),
-                                   classes=['blank'] + list(CHARS), **export_onnx(trained[chosen], path, holdout_arrays))
+                                   classes=['blank'] + list(CHARS), **export_onnx(trained[chosen], path, sample))
         log(f"exported {chosen}: {json.dumps(results['exported'])}")
     (args.output / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
     (args.output / 'results.md').write_text(results_markdown(results), encoding='utf-8')

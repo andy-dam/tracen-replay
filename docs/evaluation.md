@@ -146,9 +146,11 @@ card animates:
   after nor a count-up between them, or whose gain is not the card's. Any
   read of a blank box is false.
 - **By two frames**: the same counts, but a card's value or gain counts only
-  when at least two frames read it alike, the way the analyzer settles a
-  card from its rereads, and a value or gain two frames agree on that the
-  card cannot show is a wrong card.
+  when two frames at least 200 ms apart read it alike, the way the analyzer
+  settles a card from its rereads, and a value or gain two such frames agree
+  on that the card cannot show is a wrong card. The gap matters: the
+  analyzer rereads a card at 60 frames a second, and neighbouring frames
+  catch the same moment of its animation, half-covered digits and all.
 
 Run on the analyzer's own reads, it is the baseline table. Counter targets
 come from the consensus of the reader's own visit, so the current reader's
@@ -194,7 +196,10 @@ false reads.
 Each round is judged on every box of the held-out runs, per run and over
 all of them, beside the current reader and pooled with it, both on all
 frames and on the ordinary pass's frames alone, which is what a reader
-gets without the analyzer's high-rate rereads. An ImageNet ResNet-18 trunk, frozen or
+gets without the analyzer's high-rate rereads. Once a setting has been
+judged, `--final` trains the same way on every run, held-out ones included,
+for the model that ships; nothing is left to judge it on, so its accuracy is
+the held-out result of the same setting. An ImageNet ResNet-18 trunk, frozen or
 fine-tuned under the same head and data, can be trained as a comparison row;
 it is never exported. The export is ONNX with a dynamic batch (input `crop`,
 RGB in [0, 1]), checked against onnxruntime and timed per box on the CPU.
