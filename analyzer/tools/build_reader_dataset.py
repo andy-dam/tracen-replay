@@ -52,17 +52,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-# Pane-space boxes, as the recognizer crops them (gameplay.py subtracts the
-# pane's left edge, 148, from the screen x). Result card boxes sit in two
-# rows of three, skill points last; lesson-menu counters sit in one row
-# across the top.
-PANE_LEFT = 148
-STAT_FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit')
+# The result boxes, their widening and the pane geometry are the learned
+# reader's own, so a dataset is always cut the way the analyzer reads.
+# Lesson-menu counters sit in one row across the top of the pane.
+from tracen_replay.learned_reader import (  # noqa: E402
+    BADGE_BOXES, PANE_LEFT, READER_MARGIN, RESULT_BOXES, SKILL_BOX, STAT_FIELDS, pane_box)
+
 CURRENCIES = ('dance', 'passion', 'vocal', 'visual', 'composure')
-BADGE_BOXES = {field: ((322, 518, 714)[i % 3], 834 if i < 3 else 952) for i, field in enumerate(STAT_FIELDS)}
-BADGE_BOXES = {field: (x, y, x + 126, y + 42) for field, (x, y) in BADGE_BOXES.items()}
-SKILL_BOX = (708, 952, 810, 990)
-RESULT_BOXES = {**BADGE_BOXES, 'skill_points': SKILL_BOX}
 COUNTER_BOXES = {CURRENCIES[0]: (345, 91, 389, 119)}
 COUNTER_BOXES.update({CURRENCIES[i]: (344 + 104 * i, 88, 394 + 104 * i, 123) for i in range(1, 5)})
 
@@ -77,18 +73,6 @@ MAX_GAIN = 150
 # not blue, which covers the badges' brown digits and the overlays' red
 # outline but not the pastel or blue backgrounds behind the card.
 BLANK_INK_SHARE = 0.002
-
-
-# The analyzer's result boxes start exactly where a three-digit value begins,
-# so a four-digit value, the card's bounce or a zooming "+N" overlay pushes
-# digits outside them. The learned reader cuts wider boxes: this much more on
-# the left, top, right and bottom, in pane pixels.
-READER_MARGIN = (30, 8, 6, 8)
-
-
-def pane_box(box, margin=(0, 0, 0, 0)):
-    left, top, right, bottom = margin
-    return (box[0] - PANE_LEFT - left, box[1] - top, box[2] - PANE_LEFT + right, box[3] + bottom)
 
 
 def ink_share(image):

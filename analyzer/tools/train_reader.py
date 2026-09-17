@@ -48,7 +48,6 @@ import argparse
 import json
 import math
 import random
-import re
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -57,23 +56,16 @@ import numpy as np
 from PIL import Image
 
 from tools.reader_baseline import CARD_FIELDS, agreed, current_reads, judge, load, summarize, union_cards
+# The alphabet, input size, decoding and the shapes a read may take are the
+# analyzer's own, so a model is trained and judged exactly as it is used.
+from tracen_replay.learned_reader import BLANK, CHARS, HEIGHT, WIDTH, ctc_decode, read_shape as learned_read  # noqa: F401
 
-CHARS = '0123456789/+'
-BLANK = 0
-HEIGHT, WIDTH = 64, 192
 BATCH = 64
 THRESHOLDS = (0.5, 0.9, 0.97)
 # Crops of one card's box showing one target kept for training: a card's
 # high-rate rereads repeat the same picture dozens of times.
 MAX_PER_TARGET = 8
 SHARE_WEIGHTS = dict(badge=2)
-# The shapes a result box can take, as the game renders them: a stat's value
-# followed by the slash before its cap (anything after the slash is ignored),
-# a plain skill point value, or a gain; no number has a leading zero, so a
-# value half covered by a sparkle ("01/") is not a read.
-STAT_VALUE = re.compile(r'[1-9]\d{0,3}/\d{0,4}')
-PLAIN_VALUE = re.compile(r'0|[1-9]\d{0,3}')
-GAIN = re.compile(r'\+[1-9]\d{0,2}')
 # A hard training box is labeled by the text its card allows that the model
 # finds at least this probable and this many times likelier than any other.
 # Looser picks take frames whose number is only partly visible, which teaches
@@ -88,45 +80,6 @@ SCOPES = {'all frames': lambda row: True, 'pass frames': lambda row: row['frame'
 def encode(text):
     """A target text as CTC class indices (0 is the blank)."""
     return [CHARS.index(ch) + 1 for ch in text]
-
-
-def ctc_decode(columns, probabilities=None):
-    """Greedy CTC decode of per-column class indices; repeats collapse, blanks drop.
-
-    With the per-column probabilities of the chosen classes, also returns
-    each emitted character's confidence: the peak over the columns it spans.
-    """
-    out = []
-    confidences = []
-    previous = BLANK
-    for position, index in enumerate(columns):
-        p = probabilities[position] if probabilities is not None else 1.0
-        if index != BLANK and index != previous:
-            out.append(CHARS[index - 1])
-            confidences.append(p)
-        elif index != BLANK:
-            confidences[-1] = max(confidences[-1], p)
-        previous = index
-    return (''.join(out), confidences) if probabilities is not None else ''.join(out)
-
-
-def learned_read(field, text, confidences, threshold):
-    """A transcription as ``(value, gain)``, counted only in an accepted shape and at the threshold.
-
-    The threshold applies to the characters the accounting uses: a stat's
-    value and the slash that marks it as a stat box, a plain skill point
-    value, or a gain.
-    """
-    if not text:
-        return None, None
-    if GAIN.fullmatch(text):
-        return (None, int(text[1:])) if min(confidences) >= threshold else (None, None)
-    if field == 'skill_points' and PLAIN_VALUE.fullmatch(text):
-        return (int(text), None) if min(confidences) >= threshold else (None, None)
-    if field != 'skill_points' and STAT_VALUE.fullmatch(text):
-        slash = text.index('/')
-        return (int(text[:slash]), None) if min(confidences[:slash + 1]) >= threshold else (None, None)
-    return None, None
 
 
 def candidates(row):
