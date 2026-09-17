@@ -911,6 +911,7 @@ def _performance_panel_localized_requests(lines):
     merged_fields=set()
     # A badge's number would otherwise stand in for the row it floats over,
     # and the row whose own value the detector missed would never be reread.
+    badge_parts=_performance_more_badge_parts(lines)
     badges=_performance_more_badge_numbers(lines,lines)
     for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
         band=(160,label_y-27,275,label_y+5)
@@ -947,7 +948,7 @@ def _performance_panel_localized_requests(lines):
         if field in merged_fields:
             continue
         box=[left,label_y-31,right,label_y+14]
-        covered=_performance_more_badge_bottom(lines,box)
+        covered=_performance_more_badge_bottom(badge_parts,box)
         if covered is not None and box[1]<covered<box[3]:
             box=[left,covered,right,box[3]]
         requests.append((f'performance_panel_localized_current.{field}',box,{
@@ -1298,7 +1299,15 @@ def _performance_more_badge_numbers(lines, candidates):
     return badges
 
 
-def _performance_more_badge_bottom(lines, box):
+def _performance_more_badge_parts(lines):
+    """Every line a "N more" badge is read as, whole or split into its parts."""
+    parts = [line for line in lines
+             if isinstance(line, dict) and isinstance(line.get('box'), (list, tuple)) and len(line['box']) == 4
+             and re.fullmatch(r'(\d{1,3}\s*)?more', str(line.get('text', '')).strip(), re.I)]
+    return parts + _performance_more_badge_numbers(lines, lines)
+
+
+def _performance_more_badge_bottom(parts, box):
     """The lowest edge of a "N more" badge drawn over this crop, or None.
 
     The badge overlaps the top of the value it talks about, so a crop of the
@@ -1308,10 +1317,6 @@ def _performance_more_badge_bottom(lines, box):
     decides whether it becomes a value.
     """
     bottom = None
-    parts = [line for line in lines
-             if isinstance(line, dict) and isinstance(line.get('box'), (list, tuple)) and len(line['box']) == 4
-             and re.fullmatch(r'(\d{1,3}\s*)?more', str(line.get('text', '')).strip(), re.I)]
-    parts += _performance_more_badge_numbers(lines, lines)
     for line in parts:
         left, top, right, low = line['box']
         if right <= box[0] or left >= box[2] or low <= box[1] or top >= box[3]:
