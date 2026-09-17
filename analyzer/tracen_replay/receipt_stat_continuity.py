@@ -9,6 +9,9 @@ from .receipt_continuity import (
 
 _LABELS={'speed':'Speed','stamina':'Stamina','power':'Power','guts':'Guts',
          'wit':'Wit','skill_points':'Skill Pts'}
+# The confidence a dialogue line needs before a frame parses it as a receipt.
+_PARSE_CONFIDENCE=95
+_STEP_MS=300
 
 
 def _slot(row,effect):
@@ -104,21 +107,34 @@ def _bridge(left,right,effect,rows,by_evidence):
     if not 0<b[0]-a[0]<=1000:return None
     if any(sum(r['source_timestamp_ms']==t for r in rows)!=1 for t in (a[0],b[0])):return None
     middle=[r for r in rows if a[0]<r['source_timestamp_ms']<b[0]]
-    if len(middle)<2:return None
+    if not middle:return None
     chain=[a[2]]+middle+[b[2]]
-    if any(not 0<y['source_timestamp_ms']-x['source_timestamp_ms']<=250 for x,y in zip(chain,chain[1:])):return None
+    # Consecutive samples only: a 4-per-second step lands on the recording's
+    # own frame grid, up to one frame late (267 ms at 30 fps), and a skipped
+    # sample is twice that.
+    if any(not 0<y['source_timestamp_ms']-x['source_timestamp_ms']<=_STEP_MS for x,y in zip(chain,chain[1:])):return None
     slots=[_slot(row,effect) for row in chain]
     if any(slot is None for slot in slots):return None
     if not _titles_are_compatible(left,right,chain) or any(_is_boundary(r) for r in chain):return None
     if not slots[0]['complete'] or not slots[-1]['complete']:return None
-    if not any(slot['confidence']>=95 for slot in slots[1:-1]):return None
-    if not any(not slot['complete'] for slot in slots[1:-1]):return None
+    # The frames between the two reads must show why they parsed nothing: a
+    # line read clearly with part of its grammar lost, or the whole line read
+    # under the confidence a receipt parse needs. A whole line read at that
+    # confidence would have parsed, so frames that show only that are no proof.
+    inner=slots[1:-1]
+    dropout=any(slot['confidence']>=_PARSE_CONFIDENCE for slot in inner) and any(not slot['complete'] for slot in inner)
+    under=(any(slot['complete'] and slot['confidence']<_PARSE_CONFIDENCE for slot in inner)
+           and not any(slot['complete'] and slot['confidence']>=_PARSE_CONFIDENCE for slot in inner))
+    if not (dropout or under):return None
     # A stationary row and compatible explicit values are required through
     # every observed frame. Scrolling/another effect value vetoes continuity.
     anchor=slots[0]['box']
-    if any(not _same_receipt_slot(anchor,slot['box']) or
-           abs((anchor[1]+anchor[3]-slot['box'][1]-slot['box'][3])/2)>4
-           for slot in slots[1:]):return None
+    def stationary(slot):
+        box=slot['box']
+        # A line cut before its amount ends early; its start and row must hold.
+        if not slot['amount_observed'] and box[2]<anchor[2]:box=[box[0],box[1],anchor[2],box[3]]
+        return _same_receipt_slot(anchor,box) and abs((anchor[1]+anchor[3]-box[1]-box[3])/2)<=4
+    if not all(stationary(slot) for slot in slots[1:]):return None
     for row in middle:
         for observed in row.get('effects',[])+row.get('facts',{}).get('effect_candidates',[]):
             if _effect_key(observed)==key and _effect_signature(observed)!=_effect_signature(effect):return None

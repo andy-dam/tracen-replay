@@ -124,6 +124,50 @@ class StatReceiptContinuityTests(unittest.TestCase):
             collapse_cross_event_stat_duplicates(events,rows)
             with self.subTest(change=change):self.assertEqual(len(events[1]['effects']),1)
 
+    def sampled(self, middle, times=(1000, 1267, 1533), label='Skill Pts', amount=4):
+        """Two reads of one receipt 4 frames a second apart on a 30 fps recording, one frame between."""
+        effect = dict(kind='stat_change', field='skill_points', amount=amount, raw_text=f'{label} went up by {amount}.')
+        full = [315, 805, 531, 837]
+        middle_box = middle[2] if len(middle) > 2 else full
+        texts = [(effect['raw_text'], 96, True, full), (*middle[:2], False, middle_box), (effect['raw_text'], 97, True, full)]
+        rows = [dict(source_timestamp_ms=t, evidence=f'{t}.png', screen='event_outcome', facts={}, context_title=None,
+                     effects=[copy.deepcopy(effect)] if explicit else [],
+                     ocr=dict(neural=[dict(text=text, confidence=confidence, box=list(box))]))
+                for t, (text, confidence, explicit, box) in zip(times, texts)]
+        key = 'stat_change|skill_points|'
+        events = [dict(id=f'event-{i}', first_seen_ms=t, last_seen_ms=t, context_title=None,
+                       effects=[copy.deepcopy(effect)], field_evidence={key: [f'{t}.png']}, conflicting_readings=[])
+                  for i, t in enumerate((times[0], times[-1]))]
+        return events, rows
+
+    def test_one_frame_cut_short_between_two_reads_counts_once(self):
+        # The box ends where the missing amount would start.
+        events, rows = self.sampled(('Skill Pts went up by', 97.6, [315, 805, 509, 836]))
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(events[1]['effects'], [])
+
+    def test_a_cut_line_must_still_start_in_the_same_place(self):
+        events, rows = self.sampled(('Skill Pts went up by', 97.6, [335, 805, 509, 836]))
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
+    def test_one_whole_line_just_under_parse_confidence_counts_once(self):
+        events, rows = self.sampled(('Skill Pts went up by 4.', 94.7))
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(events[1]['effects'], [])
+        track = events[1]['deduplicated_receipt_effects'][0]['track_evidence']
+        self.assertEqual([x['source_timestamp_ms'] for x in track], [1000, 1267, 1533])
+
+    def test_a_whole_line_at_parse_confidence_between_two_reads_is_no_proof(self):
+        events, rows = self.sampled(('Skill Pts went up by 4.', 99))
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
+    def test_a_skipped_sample_breaks_the_chain(self):
+        events, rows = self.sampled(('Skill Pts went up by 4.', 94.7), times=(1000, 1267, 1600))
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
     def test_unchanged_complete_receipts_and_long_gaps_are_not_enough(self):
         events,rows=self.fixture()
         for row in rows:row['ocr']['neural'][0]['text']='Skill Pts went up by 4.'
