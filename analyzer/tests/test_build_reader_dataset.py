@@ -7,8 +7,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from tools.build_reader_dataset import (BADGE_BOXES, COUNTER_BOXES, PANE_LEFT, SKILL_BOX, build, card_values,
-                                        classify, ink_share)
+from tools.build_reader_dataset import (BADGE_BOXES, COUNTER_BOXES, PANE_LEFT, READER_MARGIN, SKILL_BOX, VideoPanes,
+                                        build, card_values, classify, ink_share)
 
 
 def reading(time, screen, evidence, **facts):
@@ -37,16 +37,16 @@ class CardValueTests(unittest.TestCase):
         self.assertEqual(card_values(before_bar, dict(after_bar, values=dict(power=250)), [], 'power', 2000), (None, None, None))
 
     def test_what_a_box_shows(self):
-        self.assertEqual(classify('speed', 115, 1600, None, 100, 115, 15, True, 0.2), ('badge', '115/1600'))
-        self.assertEqual(classify('speed', 100, 1600, None, 100, 115, 15, True, 0.2), ('badge', '100/1600'))
-        self.assertEqual(classify('speed', 115, 1600, None, 100, 115, 15, False, 0.2), ('unknown', None))
-        self.assertEqual(classify('skill_points', 127, None, None, 120, 127, 7, False, 0.2), ('badge', '127'))
-        self.assertEqual(classify('skill_points', None, None, 7, 120, 127, 7, False, 0.2), ('gain', '+7'))
-        self.assertEqual(classify('speed', None, None, 9, 100, 115, 15, False, 0.2), ('unknown', None))
-        self.assertEqual(classify('speed', 108, 1600, None, 100, 115, 15, True, 0.2), ('unknown', None))
-        self.assertEqual(classify('speed', None, None, None, None, None, None, False, 0.0), ('blank', ''))
-        self.assertEqual(classify('speed', None, None, None, None, None, None, False, 0.2), ('unknown', None))
-        self.assertEqual(classify('speed', 115, 1600, None, None, None, None, True, 0.2), ('unknown', None))
+        # A stat box's target is its value and the slash; the cap after it is left out.
+        self.assertEqual(classify('speed', 115, None, 100, 115, 15, 0.2), ('badge', '115/'))
+        self.assertEqual(classify('speed', 100, None, 100, 115, 15, 0.2), ('badge', '100/'))
+        self.assertEqual(classify('skill_points', 127, None, 120, 127, 7, 0.2), ('badge', '127'))
+        self.assertEqual(classify('skill_points', None, 7, 120, 127, 7, 0.2), ('gain', '+7'))
+        self.assertEqual(classify('speed', None, 9, 100, 115, 15, 0.2), ('unknown', None))
+        self.assertEqual(classify('speed', 108, None, 100, 115, 15, 0.2), ('unknown', None))
+        self.assertEqual(classify('speed', None, None, None, None, None, 0.0), ('blank', ''))
+        self.assertEqual(classify('speed', None, None, None, None, None, 0.2), ('unknown', None))
+        self.assertEqual(classify('speed', 115, None, None, None, None, 0.2), ('unknown', None))
 
     def test_ink_is_dark_and_not_blue(self):
         self.assertEqual(ink_share(Image.new('RGB', (10, 10), (255, 255, 255))), 0.0)
@@ -96,10 +96,9 @@ class BuildTests(unittest.TestCase):
         rows = [json.loads(line) for line in (out / 'crops.jsonl').read_text(encoding='utf-8').splitlines()]
         by = {(r['run'], r['frame'], r['field']): r for r in rows}
         pass_frame, reread = 'gameplay/part-000-frame-000008.png', 'training-inspection/2000/frame-000001.png'
-        self.assertEqual((by[('run-a', pass_frame, 'speed')]['content'], by[('run-a', pass_frame, 'speed')]['target']), ('badge', '115/1600'))
-        self.assertEqual((by[('run-a', reread, 'speed')]['content'], by[('run-a', reread, 'speed')]['target']), ('badge', '100/1600'))
-        # A cap read on one frame only is not corroborated.
-        self.assertEqual(by[('run-a', pass_frame, 'stamina')]['content'], 'unknown')
+        self.assertEqual((by[('run-a', pass_frame, 'speed')]['content'], by[('run-a', pass_frame, 'speed')]['target']), ('badge', '115/'))
+        self.assertEqual((by[('run-a', reread, 'speed')]['content'], by[('run-a', reread, 'speed')]['target']), ('badge', '100/'))
+        self.assertEqual((by[('run-a', pass_frame, 'stamina')]['target'], by[('run-a', pass_frame, 'stamina')]['read_cap']), ('200/', 1300))
         self.assertEqual((by[('run-a', reread, 'skill_points')]['content'], by[('run-a', reread, 'skill_points')]['target']), ('gain', '+7'))
         self.assertEqual((by[('run-a', pass_frame, 'power')]['content'], by[('run-a', pass_frame, 'power')]['target']), ('blank', ''))
         power = by[('run-a', pass_frame, 'power')]
@@ -110,14 +109,56 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(by[('run-a', 'gameplay/part-000-frame-000020.png', 'passion')]['content'], 'unknown')
         self.assertEqual({r['split'] for r in rows if r['run'] == 'run-b'}, {'holdout'})
         self.assertEqual([r['group'] for r in manifest['runs']], ['g1', 'g2'])
-        crop = Image.open(out / by[('run-a', pass_frame, 'speed')]['crop'])
-        box = BADGE_BOXES['speed']
-        self.assertEqual(crop.size, (box[2] - box[0], box[3] - box[1]))
-        counter_crop = Image.open(out / counter['crop'])
-        box = COUNTER_BOXES['dance']
-        self.assertEqual(counter_crop.size, (box[2] - box[0], box[3] - box[1]))
+        with Image.open(out / by[('run-a', pass_frame, 'speed')]['crop']) as crop:
+            # The learned reader's box is the analyzer's, widened on every side.
+            box = BADGE_BOXES['speed']
+            left, top, right, bottom = READER_MARGIN
+            self.assertEqual(crop.size, (box[2] - box[0] + left + right, box[3] - box[1] + top + bottom))
+            self.assertEqual(by[('run-a', pass_frame, 'speed')]['box'], [box[0] - left, box[1] - top, box[2] + right, box[3] + bottom])
+        with Image.open(out / counter['crop']) as counter_crop:
+            box = COUNTER_BOXES['dance']
+            self.assertEqual(counter_crop.size, (box[2] - box[0], box[3] - box[1]))
         self.assertEqual(sum(row['crops'] for row in manifest['counts']), len(rows))
         self.assertEqual(len({r['crop'] for r in rows}), len(rows))
+
+    def test_panes_decoded_from_the_recording(self):
+        import cv2
+        import numpy as np
+        path = self.tmp / 'recording.mp4'
+        writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*'mp4v'), 10, (320, 180))
+        for index in range(30):
+            writer.write(np.full((180, 320, 3), index * 8, dtype=np.uint8))
+        writer.release()
+        panes = VideoPanes(path)
+        first = panes.pane(1000)
+        self.assertEqual(first.size, (810, 1080))
+        self.assertAlmostEqual(float(np.asarray(first).mean()), 80, delta=6)
+        self.assertAlmostEqual(float(np.asarray(panes.pane(2500)).mean()), 200, delta=6)
+        # Going back seeks; a time past the end has no frame.
+        self.assertAlmostEqual(float(np.asarray(panes.pane(500)).mean()), 40, delta=6)
+        self.assertIsNone(panes.pane(9000))
+        with self.assertRaises(ValueError):
+            VideoPanes(path, size_bytes=path.stat().st_size + 1)
+
+    def test_a_run_can_take_its_frames_from_its_recording(self):
+        import cv2
+        import numpy as np
+        root = self.make_run('run-v')
+        for image in root.rglob('*.png'):
+            image.unlink()
+        path = self.tmp / 'recording.mp4'
+        writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*'mp4v'), 20, (320, 180))
+        for _ in range(140):
+            writer.write(np.full((180, 320, 3), 255, dtype=np.uint8))
+        writer.release()
+        out = self.tmp / 'dataset-v'
+        manifest = build(out, [('named', root)], videos={'named': path}, kinds=('result_box',))
+        rows = [json.loads(line) for line in (out / 'crops.jsonl').read_text(encoding='utf-8').splitlines()]
+        self.assertEqual({r['run'] for r in rows}, {'named'})
+        self.assertEqual({r['kind'] for r in rows}, {'result_box'})
+        # Every result reading gets its six boxes, including the rereads' frames.
+        self.assertEqual(len(rows), 3 * 6)
+        self.assertEqual(manifest['runs'][0]['video'], str(path))
 
 
 if __name__ == '__main__':
