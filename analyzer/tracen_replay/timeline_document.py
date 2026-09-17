@@ -188,7 +188,11 @@ def build(report):
                                 basis=basis.get((ref, channel, field)))
                     for field, amount in amounts.items()}
         for c in extrapolations:
-            if c.get('event_ref') == ref and c.get('channel') and c.get('field'):
+            # A training committed from its result card alone has a committed
+            # action pointing at the same event; the amounts live on the event's
+            # own entry, never on both.
+            if (c.get('event_ref') == ref and entry.get('kind') != 'committed_action'
+                    and c.get('channel') and c.get('field')):
                 existing = (changes.get(c['channel']) or {}).get(c['field'])
                 if c.get('completes') and existing and type(existing.get('amount')) is int and type(c.get('amount')) is int:
                     # A clipped badge: the read digits plus the difference.

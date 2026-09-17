@@ -37,6 +37,27 @@ class TimelineDocumentTests(unittest.TestCase):
             self.assertEqual((entry['kind'], entry['first_seen_ms'], entry['last_seen_ms']),
                              (source['kind'], source['first_seen_ms'], source['last_seen_ms']))
 
+    def test_a_card_only_commit_does_not_repeat_its_trainings_assigned_amounts(self):
+        # A training committed from its result card alone: its committed action
+        # and its result entry point at the same event.
+        report = _report()
+        event = '/gameplay_tracking/events/0'
+        common = dict(first_seen_ms=100, last_seen_ms=100, assignment_basis='observed_within_calendar_window')
+        report['turn_ledger']['timeline'] = [
+            dict(common, id='entry-action', kind='committed_action', source_ref=event, action_kind='training',
+                 identity_basis='result_card_only'),
+            dict(common, id='entry-result', kind='training', source_ref=event)]
+        report['causal_accounting'] = dict(report.get('causal_accounting') or {}, contributions=[
+            dict(id=f'{event}/learned_reader_gains/speed', event_ref=event, channel='stats', field='speed', amount=9,
+                 basis='observed_learned_training_gain'),
+            dict(id=f'{event}/turn_difference_gains/wit', event_ref=event, channel='stats', field='wit', amount=4,
+                 basis='turn_difference')])
+        entries = {e['id']: e for e in build(report)['entries']}
+        self.assertNotIn('changes', entries['entry-action'])
+        self.assertEqual(entries['entry-result']['changes'], {'stats': {
+            'speed': {'amount': 9, 'basis': 'observed_learned_training_gain'},
+            'wit': {'amount': 4, 'basis': 'turn_difference'}}})
+
     def test_write_returns_the_size(self):
         report = _report()
         with tempfile.TemporaryDirectory() as tmp:
