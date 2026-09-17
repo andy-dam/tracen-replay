@@ -69,7 +69,8 @@ def judge(rows, reads):
         cell['frames'] += 1
         if row.get('before') is not None:
             card = cards.setdefault((row['split'], row['field'], row['visit']),
-                                    dict(gain=row['gain'], value_read=False, gain_recovered=False))
+                                    dict(gain=row['gain'], before=row['before'], after=row['after'], value_read=False,
+                                         gain_recovered=False, values={}, gains={}))
         if blank:
             # A box with no ink shows nothing: any read of it is false.
             cell['value_reads'] += value is not None
@@ -78,6 +79,11 @@ def judge(rows, reads):
             cell['false_gains'] += gain is not None
             continue
         low, high = sorted((row['before'], row['after']))
+        frame = row.get('frame', id(row))
+        if value is not None:
+            card['values'].setdefault(value, set()).add(frame)
+        if gain is not None:
+            card['gains'].setdefault(gain, set()).add(frame)
         if value is not None:
             cell['value_reads'] += 1
             if value in (row['before'], row['after']):
@@ -96,30 +102,63 @@ def judge(rows, reads):
 
 
 def union_cards(*card_sets):
-    """Card outcomes when several readers' reads are pooled."""
+    """Card outcomes when several readers' reads are pooled; a frame read alike by both counts once."""
     out = {}
     for cards in card_sets:
         for key, card in cards.items():
-            merged = out.setdefault(key, dict(gain=card['gain'], value_read=False, gain_recovered=False))
+            merged = out.setdefault(key, dict(gain=card['gain'], before=card.get('before'), after=card.get('after'),
+                                              value_read=False, gain_recovered=False, values={}, gains={}))
             merged['value_read'] |= card['value_read']
             merged['gain_recovered'] |= card['gain_recovered']
+            for name in ('values', 'gains'):
+                for read, frames in card.get(name, {}).items():
+                    merged[name].setdefault(read, set()).update(frames)
     return out
 
 
+CARD_FIELDS = ('cards', 'cards_read', 'cards_agreed', 'cards_agreed_false', 'gain_cards', 'gains_recovered', 'gains_agreed', 'gains_agreed_false')
+
+
+def agreed(card):
+    """What at least two frames of a card read alike: ``(values right, values false, gain right, gains false)``."""
+    values = {v for v, frames in card.get('values', {}).items() if len(frames) >= 2}
+    gains = {g for g, frames in card.get('gains', {}).items() if len(frames) >= 2}
+    before, after = card.get('before'), card.get('after')
+    if before is None:
+        return False, False, False, False
+    low, high = sorted((before, after))
+    right = bool(values & {before, after})
+    false = any(v not in (before, after) and not low < v < high for v in values)
+    gain_right = bool(card['gain']) and (card['gain'] in gains or after in values)
+    gains_false = any(g != card['gain'] for g in gains)
+    return right, false, gain_right, gains_false
+
+
 def summarize(frames, cards):
-    """One row per (split, kind, field) and a total per (split, kind), in a fixed order."""
-    card_cells = defaultdict(lambda: dict(cards=0, cards_read=0, gain_cards=0, gains_recovered=0))
+    """One row per (split, kind, field) and a total per (split, kind), in a fixed order.
+
+    Besides a card counting as read when any frame yields its value, the
+    agreed columns count it only when two frames read the same value, the
+    way the analyzer settles a card from its rereads; a value two frames
+    agree on that the card cannot show is an agreed false read.
+    """
+    card_cells = defaultdict(lambda: dict.fromkeys(CARD_FIELDS, 0))
     for (split, field, _), card in cards.items():
         cell = card_cells[(split, field)]
+        right, false, gain_right, gains_false = agreed(card)
         cell['cards'] += 1
         cell['cards_read'] += card['value_read']
+        cell['cards_agreed'] += right
+        cell['cards_agreed_false'] += false
+        cell['gains_agreed_false'] += gains_false
         if card['gain']:
             cell['gain_cards'] += 1
             cell['gains_recovered'] += card['gain_recovered']
+            cell['gains_agreed'] += gain_right
     rows = []
     for (split, kind, field), cell in frames.items():
         rows.append(dict(split=split, kind=kind, field=field, **cell,
-                         **(card_cells[(split, field)] if kind == 'result_box' else dict(cards=0, cards_read=0, gain_cards=0, gains_recovered=0))))
+                         **(card_cells[(split, field)] if kind == 'result_box' else dict.fromkeys(CARD_FIELDS, 0))))
     totals = defaultdict(lambda: defaultdict(int))
     for row in rows:
         total = totals[(row['split'], row['kind'])]
@@ -139,13 +178,16 @@ def markdown(table, manifest=None, title='Current reader'):
     lines = [f'### {title}', '']
     if manifest:
         lines += [f"Dataset built {manifest.get('built_at')} from {len(manifest.get('runs', []))} runs, {manifest.get('crops')} crops.", '']
-    lines += ['| split | field | cards | value read | gain cards | gain recovered | frames | false values | false gains |',
-              '|---|---|---:|---:|---:|---:|---:|---:|---:|']
+    lines += ['| split | field | cards | value read | gain cards | gain recovered | frames | false values | false gains | '
+              'value by two frames | two frames wrong | gain by two frames | two frames wrong |',
+              '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
     for row in table:
         if row['kind'] != 'result_box':
             continue
         lines.append(f"| {row['split']} | {row['field']} | {row['cards']} | {pct(row['cards_read'], row['cards'])} | {row['gain_cards']} | "
-                     f"{pct(row['gains_recovered'], row['gain_cards'])} | {row['frames']} | {row['false_values']} | {row['false_gains']} |")
+                     f"{pct(row['gains_recovered'], row['gain_cards'])} | {row['frames']} | {row['false_values']} | {row['false_gains']} | "
+                     f"{pct(row['cards_agreed'], row['cards'])} | {row['cards_agreed_false']} | {pct(row['gains_agreed'], row['gain_cards'])} | "
+                     f"{row['gains_agreed_false']} |")
     counters = [row for row in table if row['kind'] == 'performance_counter']
     if counters:
         lines += ['', '| split | counter | frames | read | exact | false |', '|---|---|---:|---:|---:|---:|']

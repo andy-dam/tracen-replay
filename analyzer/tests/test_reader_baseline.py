@@ -1,7 +1,7 @@
 """A reader is judged per card, and false reads are counted per frame."""
 import unittest
 
-from tools.reader_baseline import current_reads, judge, markdown, parse, summarize, union_cards
+from tools.reader_baseline import agreed, current_reads, judge, markdown, parse, summarize, union_cards
 
 
 def box(visit, field, before, after, value=None, gain_read=None, content='unknown', split='holdout'):
@@ -35,9 +35,13 @@ class ReaderBaselineTests(unittest.TestCase):
             dict(split='holdout', kind='performance_counter', field='dance', expected=30, read_value=31),
         ]
         frames, cards = judge(rows, current_reads(rows))
-        self.assertEqual(cards[('holdout', 'speed', 'c1')], dict(gain=15, value_read=True, gain_recovered=False))
-        self.assertEqual(cards[('holdout', 'wit', 'c1')], dict(gain=10, value_read=False, gain_recovered=True))
-        self.assertEqual(cards[('holdout', 'power', 'c1')], dict(gain=0, value_read=True, gain_recovered=True))
+
+        def outcome(key):
+            card = cards[key]
+            return dict(gain=card['gain'], value_read=card['value_read'], gain_recovered=card['gain_recovered'])
+        self.assertEqual(outcome(('holdout', 'speed', 'c1')), dict(gain=15, value_read=True, gain_recovered=False))
+        self.assertEqual(outcome(('holdout', 'wit', 'c1')), dict(gain=10, value_read=False, gain_recovered=True))
+        self.assertEqual(outcome(('holdout', 'power', 'c1')), dict(gain=0, value_read=True, gain_recovered=True))
         self.assertEqual(frames[('holdout', 'result_box', 'speed')]['false_values'], 1)
         self.assertEqual(frames[('holdout', 'result_box', 'wit')]['false_gains'], 1)
         self.assertEqual(frames[('holdout', 'result_box', 'guts')]['false_values'], 1)
@@ -48,12 +52,35 @@ class ReaderBaselineTests(unittest.TestCase):
         self.assertEqual((total['false_values'], total['false_gains']), (2, 1))
         self.assertIn('| holdout | all | 4 | 50.0% | 2 | 50.0% |', markdown(table))
 
+    def test_two_frames_must_agree(self):
+        def framed(frame, visit, field, before, after, value=None, gain_read=None):
+            return dict(box(visit, field, before, after, value=value, gain_read=gain_read), frame=frame)
+        rows = [
+            # Read once: read, but not by two frames.
+            framed('f1', 'c1', 'speed', 100, 115, value=115),
+            # Two frames agree on the value after: agreed, and the gain follows from it.
+            framed('f1', 'c1', 'wit', 60, 70, value=70), framed('f2', 'c1', 'wit', 60, 70, value=70),
+            # Two frames agree on a value the card cannot show: an agreed false read.
+            framed('f1', 'c1', 'guts', 50, 60, value=5), framed('f2', 'c1', 'guts', 50, 60, value=5),
+            framed('f3', 'c1', 'guts', 50, 60, gain_read=10), framed('f4', 'c1', 'guts', 50, 60, gain_read=10),
+        ]
+        total = next(r for r in summarize(*judge(rows, current_reads(rows))) if r['field'] == 'all')
+        self.assertEqual((total['cards'], total['cards_read'], total['cards_agreed'], total['cards_agreed_false']), (3, 2, 1, 1))
+        # Every card's gain is recovered by some frame; two frames agree on it for wit (the value after) and guts (the gain).
+        self.assertEqual((total['gain_cards'], total['gains_recovered'], total['gains_agreed'], total['gains_agreed_false']), (3, 3, 2, 0))
+
     def test_pooling_readers(self):
-        a = {('holdout', 'speed', 'c1'): dict(gain=15, value_read=True, gain_recovered=False)}
-        b = {('holdout', 'speed', 'c1'): dict(gain=15, value_read=False, gain_recovered=True),
-             ('holdout', 'wit', 'c1'): dict(gain=0, value_read=True, gain_recovered=False)}
+        def card(value_read, gain_recovered, values=None):
+            return dict(gain=15, before=100, after=115, value_read=value_read, gain_recovered=gain_recovered, values=values or {}, gains={})
+        a = {('holdout', 'speed', 'c1'): card(True, False, {115: {'f1'}})}
+        b = {('holdout', 'speed', 'c1'): card(False, True, {115: {'f1', 'f2'}}),
+             ('holdout', 'wit', 'c1'): card(True, False)}
         pooled = union_cards(a, b)
-        self.assertEqual(pooled[('holdout', 'speed', 'c1')], dict(gain=15, value_read=True, gain_recovered=True))
+        speed = pooled[('holdout', 'speed', 'c1')]
+        self.assertEqual((speed['value_read'], speed['gain_recovered']), (True, True))
+        # A frame both readers read alike counts once.
+        self.assertEqual(speed['values'], {115: {'f1', 'f2'}})
+        self.assertEqual(agreed(speed), (True, False, True, False))
         self.assertEqual(len(pooled), 2)
 
 
