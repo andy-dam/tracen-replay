@@ -79,11 +79,11 @@ def judge(rows, reads):
             cell['false_gains'] += gain is not None
             continue
         low, high = sorted((row['before'], row['after']))
-        frame = row.get('frame', id(row))
+        time = row.get('source_timestamp_ms', 0)
         if value is not None:
-            card['values'].setdefault(value, set()).add(frame)
+            card['values'].setdefault(value, set()).add(time)
         if gain is not None:
-            card['gains'].setdefault(gain, set()).add(frame)
+            card['gains'].setdefault(gain, set()).add(time)
         if value is not None:
             cell['value_reads'] += 1
             if value in (row['before'], row['after']):
@@ -102,7 +102,7 @@ def judge(rows, reads):
 
 
 def union_cards(*card_sets):
-    """Card outcomes when several readers' reads are pooled; a frame read alike by both counts once."""
+    """Card outcomes when several readers' reads are pooled; a moment read alike by both counts once."""
     out = {}
     for cards in card_sets:
         for key, card in cards.items():
@@ -119,10 +119,19 @@ def union_cards(*card_sets):
 CARD_FIELDS = ('cards', 'cards_read', 'cards_agreed', 'cards_agreed_false', 'gain_cards', 'gains_recovered', 'gains_agreed', 'gains_agreed_false')
 
 
+# Two frames agree only when this far apart: the analyzer rereads a card at
+# 60 frames a second, and neighbouring frames catch the same moment of its
+# animation, half-covered digits and all.
+AGREE_GAP_MS = 200
+
+
 def agreed(card):
-    """What at least two frames of a card read alike: ``(values right, values false, gain right, gains false)``."""
-    values = {v for v, frames in card.get('values', {}).items() if len(frames) >= 2}
-    gains = {g for g, frames in card.get('gains', {}).items() if len(frames) >= 2}
+    """What two frames of a card at least AGREE_GAP_MS apart read alike:
+    ``(values right, values false, gain right, gains false)``."""
+    def settled(times):
+        return len(times) >= 2 and max(times) - min(times) >= AGREE_GAP_MS
+    values = {v for v, times in card.get('values', {}).items() if settled(times)}
+    gains = {g for g, times in card.get('gains', {}).items() if settled(times)}
     before, after = card.get('before'), card.get('after')
     if before is None:
         return False, False, False, False
@@ -138,9 +147,10 @@ def summarize(frames, cards):
     """One row per (split, kind, field) and a total per (split, kind), in a fixed order.
 
     Besides a card counting as read when any frame yields its value, the
-    agreed columns count it only when two frames read the same value, the
-    way the analyzer settles a card from its rereads; a value two frames
-    agree on that the card cannot show is an agreed false read.
+    agreed columns count it only when two frames at least AGREE_GAP_MS apart
+    read the same value, the way the analyzer settles a card from its
+    rereads; a value two such frames agree on that the card cannot show is
+    an agreed false read.
     """
     card_cells = defaultdict(lambda: dict.fromkeys(CARD_FIELDS, 0))
     for (split, field, _), card in cards.items():

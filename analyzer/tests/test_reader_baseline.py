@@ -53,33 +53,35 @@ class ReaderBaselineTests(unittest.TestCase):
         self.assertIn('| holdout | all | 4 | 50.0% | 2 | 50.0% |', markdown(table))
 
     def test_two_frames_must_agree(self):
-        def framed(frame, visit, field, before, after, value=None, gain_read=None):
-            return dict(box(visit, field, before, after, value=value, gain_read=gain_read), frame=frame)
+        def framed(time, visit, field, before, after, value=None, gain_read=None):
+            return dict(box(visit, field, before, after, value=value, gain_read=gain_read), frame=f'f{time}', source_timestamp_ms=time)
         rows = [
             # Read once: read, but not by two frames.
-            framed('f1', 'c1', 'speed', 100, 115, value=115),
-            # Two frames agree on the value after: agreed, and the gain follows from it.
-            framed('f1', 'c1', 'wit', 60, 70, value=70), framed('f2', 'c1', 'wit', 60, 70, value=70),
-            # Two frames agree on a value the card cannot show: an agreed false read.
-            framed('f1', 'c1', 'guts', 50, 60, value=5), framed('f2', 'c1', 'guts', 50, 60, value=5),
-            framed('f3', 'c1', 'guts', 50, 60, gain_read=10), framed('f4', 'c1', 'guts', 50, 60, gain_read=10),
+            framed(1000, 'c1', 'speed', 100, 115, value=115),
+            # Two frames 300 ms apart agree on the value after: agreed, and the gain follows from it.
+            framed(1000, 'c1', 'wit', 60, 70, value=70), framed(1300, 'c1', 'wit', 60, 70, value=70),
+            # Two frames 300 ms apart agree on a value the card cannot show: an agreed false read.
+            framed(1000, 'c1', 'guts', 50, 60, value=5), framed(1300, 'c1', 'guts', 50, 60, value=5),
+            framed(1000, 'c1', 'guts', 50, 60, gain_read=10), framed(1400, 'c1', 'guts', 50, 60, gain_read=10),
+            # Neighbouring frames of a reread catch the same moment: no agreement.
+            framed(2000, 'c1', 'power', 80, 90, value=8), framed(2017, 'c1', 'power', 80, 90, value=8),
         ]
         total = next(r for r in summarize(*judge(rows, current_reads(rows))) if r['field'] == 'all')
-        self.assertEqual((total['cards'], total['cards_read'], total['cards_agreed'], total['cards_agreed_false']), (3, 2, 1, 1))
-        # Every card's gain is recovered by some frame; two frames agree on it for wit (the value after) and guts (the gain).
-        self.assertEqual((total['gain_cards'], total['gains_recovered'], total['gains_agreed'], total['gains_agreed_false']), (3, 3, 2, 0))
+        self.assertEqual((total['cards'], total['cards_read'], total['cards_agreed'], total['cards_agreed_false']), (4, 2, 1, 1))
+        # Speed, wit and guts recover their gain; two frames agree on it for wit (the value after) and guts (the gain).
+        self.assertEqual((total['gain_cards'], total['gains_recovered'], total['gains_agreed'], total['gains_agreed_false']), (4, 3, 2, 0))
 
     def test_pooling_readers(self):
         def card(value_read, gain_recovered, values=None):
             return dict(gain=15, before=100, after=115, value_read=value_read, gain_recovered=gain_recovered, values=values or {}, gains={})
-        a = {('holdout', 'speed', 'c1'): card(True, False, {115: {'f1'}})}
-        b = {('holdout', 'speed', 'c1'): card(False, True, {115: {'f1', 'f2'}}),
+        a = {('holdout', 'speed', 'c1'): card(True, False, {115: {1000}})}
+        b = {('holdout', 'speed', 'c1'): card(False, True, {115: {1000, 1250}}),
              ('holdout', 'wit', 'c1'): card(True, False)}
         pooled = union_cards(a, b)
         speed = pooled[('holdout', 'speed', 'c1')]
         self.assertEqual((speed['value_read'], speed['gain_recovered']), (True, True))
-        # A frame both readers read alike counts once.
-        self.assertEqual(speed['values'], {115: {'f1', 'f2'}})
+        # A moment both readers read alike counts once.
+        self.assertEqual(speed['values'], {115: {1000, 1250}})
         self.assertEqual(agreed(speed), (True, False, True, False))
         self.assertEqual(len(pooled), 2)
 
