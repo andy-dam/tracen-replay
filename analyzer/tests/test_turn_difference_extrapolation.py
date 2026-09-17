@@ -2,6 +2,7 @@
 import unittest
 
 from tracen_replay.causal_accounting import CHANNELS, build
+from tracen_replay.learned_reader import read_shape
 
 
 def report(*, deltas=None, second_training=False, unparsed=None, residual_sign=1, race=False, outcome=False, lessons=(), performance_after=None, batches=(), card_only=False):
@@ -202,6 +203,81 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual((row['status'], row['direct_change']), ('balanced_observations', 11))
         completion = next(c for c in result['contributions'] if c['basis'] == 'observed_learned_training_gain')
         self.assertEqual(completion['completes'], '/gameplay_tracking/events/0/deltas/speed')
+
+    def card(self, doc, *frames, inside=True):
+        """Result frames of the training's card, each with what the learned reader read per field."""
+        if inside:
+            training = doc['gameplay_tracking']['events'][0]
+            training['last_seen_ms'] = max(training['last_seen_ms'], *(time for time, _ in frames))
+        for time, texts in frames:
+            fields = {}
+            for field, text in texts.items():
+                value, gain = read_shape(field, text, [0.99] * len(text))
+                fields[field] = dict(text=text, confidence=0.99, value=value, gain=gain)
+            doc['gameplay_tracking']['readings'].append(dict(
+                source_timestamp_ms=time, evidence=f'card-{time}.png', screen='training_result',
+                facts=dict(learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=fields))))
+
+    def speed_after(self, doc, value):
+        doc['gameplay_tracking']['checkpoints'][1]['values']['speed'] = value
+        doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['speed'] = value
+
+    def test_the_value_a_stat_lands_on_confirms_the_difference(self):
+        doc = report()
+        self.card(doc, (152, dict(speed='100/')), (158, dict(speed='109/')))
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual((event['learned_reader_gains'], event['learned_reader_values']), (dict(speed=9), dict(speed=109)))
+        self.assertEqual(event['learned_reader_frames'], dict(speed=['card-158.png']))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
+        self.assertEqual(turn_field(result, 'guts')['status'], 'balanced_with_derived_changes')
+
+    def test_a_read_outside_the_trainings_own_frames_confirms_nothing(self):
+        doc = report()
+        self.card(doc, (190, dict(speed='+9')), inside=False)
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
+
+    def test_a_value_on_the_way_up_confirms_nothing(self):
+        # The badge passed 109 while counting up to 112, the value it stayed on.
+        doc = report()
+        self.card(doc, (152, dict(speed='109/')), (158, dict(speed='112/')))
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
+
+    def test_a_value_never_overrules_a_gain_read_on_the_card_that_disagrees(self):
+        doc = report()
+        self.card(doc, (152, dict(speed='+8')), (158, dict(speed='109/')))
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
+
+    def test_a_zoomed_gain_cut_to_its_leading_digits_does_not_block_the_value(self):
+        doc = report()
+        self.speed_after(doc, 140)
+        self.card(doc, (152, dict(speed='+4')), (158, dict(speed='140/')))
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['learned_reader_values'], dict(speed=140))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
+
+    def test_amounts_counted_before_the_card_are_part_of_the_value(self):
+        for shown, confirmed in (('114/', True), ('109/', False)):
+            doc = report()
+            self.speed_after(doc, 114)
+            data = doc['gameplay_tracking']
+            data['readings'].append(dict(source_timestamp_ms=120, evidence='early.png'))
+            data['events'].append(dict(id='outcome-early', kind='outcome', first_seen_ms=120, last_seen_ms=120,
+                                       evidence='early.png', effects=[dict(kind='stat_change', field='speed', amount=5)],
+                                       field_evidence={'stat_change|speed|': ['early.png']}, deltas=dict(speed=5),
+                                       conflicting_readings=[]))
+            self.card(doc, (158, dict(speed=shown)))
+            result = build(doc)
+            with self.subTest(shown=shown):
+                self.assertEqual('learned_reader_values' in data['events'][0], confirmed)
+                self.assertEqual(turn_field(result, 'speed')['status'],
+                                 'balanced_observations' if confirmed else 'balanced_with_derived_changes')
 
     def test_a_conflicted_field_on_a_read_panel_still_takes_the_difference(self):
         doc = report(deltas=dict(guts=13))

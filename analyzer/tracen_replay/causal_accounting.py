@@ -9,7 +9,8 @@ not read, the one receipt that named the field but lost its number, the one
 lesson without an observed cost, or the one skill batch whose charge was never
 read (basis ``turn_difference``). When that owner is a training and the
 learned reader read exactly the difference as the stat's gain on its card,
-the amount is observed instead (basis ``observed_learned_training_gain``);
+or the value the stat lands on with it, the amount is observed instead
+(basis ``observed_learned_training_gain``);
 the reader's reads never make a difference, they only match one. Boundary source probes may make a turn
 opening available after reassembly, but this module never promotes a terminal
 observation or a later state into an endpoint.
@@ -250,26 +251,62 @@ def _training_can_own(event, read_key, field):
     return field in names or field in (event.get('gain_conflicts') or {})
 
 
-def _learned_gain_frames(event, readings, field, amount):
+def _learned_gain_frames(event, readings, field, amount, value_after=None):
     """The training's own result frames on which the learned reader read exactly this gain.
 
     The learned reader's reads are observations stored on the readings (see
     ``learned_reader``). A read only matters where it equals a difference the
-    stat bars left unexplained: the stat bars, not the model, decide.
+    stat bars left unexplained: the stat bars, not the model, decide. Given
+    ``value_after``, the stat's value once this gain lands, frames that read
+    that value count too, but only when it is the last value read on the card:
+    the badge counts up to it and stays, so an earlier frame can show a value
+    on the way. A value confirms the gain only through the amounts counted
+    before the card, so it never overrules a gain read on the same card that
+    disagrees; a zoomed gain cut to its leading digits does not disagree.
     """
     start, end = event.get('first_seen_ms'), event.get('last_seen_ms')
     if type(start) is not int or type(end) is not int or type(amount) is not int or amount <= 0:
         return []
-    frames = []
+    frames, values, gains = [], [], set()
     for row in readings:
         time = row.get('source_timestamp_ms')
-        if row.get('screen') != 'training_result' or type(time) is not int or not start - 250 <= time <= end + 250:
+        # Only frames inside the training's own window: a confirmed amount is
+        # timed by its frames, and one outside the window would leave it untimed.
+        if row.get('screen') != 'training_result' or type(time) is not int or not start <= time <= end:
+            continue
+        if not isinstance(row.get('evidence'), str):
             continue
         reads = (row.get('facts') or {}).get('learned_result_reads')
         read = ((reads.get('fields') or {}).get(field) or {}) if isinstance(reads, dict) else {}
-        if read.get('gain') == amount and isinstance(row.get('evidence'), str):
+        if read.get('gain') == amount:
             frames.append(row['evidence'])
+        if type(read.get('gain')) is int:
+            gains.add(read['gain'])
+        if type(read.get('value')) is int:
+            values.append((time, read['value'], row['evidence']))
+    disagrees = any(not str(amount).startswith(str(gain)) for gain in gains)
+    if (type(value_after) is int and values and not disagrees
+            and max(values, key=lambda v: v[0])[1] == value_after):
+        frames.extend(proof for _, value, proof in values if value == value_after)
     return list(dict.fromkeys(frames))
+
+
+def _value_after_training(row, contributions, event, gain):
+    """A stat's value once a training's gain lands, from the turn's opening value.
+
+    The opening plus every amount the turn counted for the field that was
+    observed before the training's card, plus the gain. None when any of those
+    amounts is unknown.
+    """
+    before, start = row.get('before'), event.get('first_seen_ms')
+    if type(before) is not int or type(start) is not int or type(gain) is not int:
+        return None
+    refs = set(row.get('contribution_refs') or ())
+    earlier = [c for c in contributions if c['id'] in refs
+               and type(c.get('observation_end_ms')) is int and c['observation_end_ms'] < start]
+    if any(type(c.get('amount')) is not int for c in earlier):
+        return None
+    return before + sum(c['amount'] for c in earlier) + gain
 
 
 def _clipped_badge_mode(event, readings, read_key, field, residual):
@@ -664,7 +701,8 @@ def build(report):
                 # A training card on which the learned reader saw exactly this many
                 # skill points is an owner the race cannot outrank.
                 learned_training = (training_event is not None and len(trainings) == 1 and bool(
-                    _learned_gain_frames(training_event, data['readings'], field, residual)))
+                    _learned_gain_frames(training_event, data['readings'], field, residual,
+                                         _value_after_training(row, contributions, training_event, residual))))
                 training_could = (bool(trainings) and (training_event is None or learned_training
                                   or _training_can_own(training_event, read_key, field)
                                   or _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)))
@@ -690,10 +728,12 @@ def build(report):
                 else:
                     mode = _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)
                     if mode is None and channel == 'stats' and _learned_gain_frames(
-                            training_event, data['readings'], field, residual):
+                            training_event, data['readings'], field, residual,
+                            _value_after_training(row, contributions, training_event, residual)):
                         # The recognizer read the panel without this stat, but
                         # the learned reader saw exactly the difference as its
-                        # gain on the card: the training owns it.
+                        # gain on the card, or the value it lands on: the
+                        # training owns it.
                         mode = 'learned_gain'
                     if mode:
                         possible.append(('training', training_parent, training_event, mode))
@@ -727,14 +767,18 @@ def build(report):
                 mode = possible[0][3] if len(possible[0]) > 3 else None
                 read = (owner.get(read_key) or {}).get(field)
                 # When the learned reader read the whole gain on the card (the
-                # difference, plus any leading digits the recognizer read), the
-                # amount is observed, not worked out.
-                learned = (_learned_gain_frames(owner, data['readings'], field,
-                                                residual + (read if mode == 'clipped_badge_prefix' else 0))
+                # difference, plus any leading digits the recognizer read), or
+                # the value the stat lands on with it, the amount is observed,
+                # not worked out.
+                gain = residual + (read if mode == 'clipped_badge_prefix' else 0)
+                value_after = _value_after_training(row, contributions, owner, gain)
+                learned = (_learned_gain_frames(owner, data['readings'], field, gain, value_after)
                            if channel == 'stats' else [])
                 if learned:
                     owner.setdefault('learned_reader_gains', {})[field] = residual
                     owner.setdefault('learned_reader_frames', {})[field] = learned
+                    if not _learned_gain_frames(owner, data['readings'], field, gain):
+                        owner.setdefault('learned_reader_values', {})[field] = value_after
                     add(f'{parent}/learned_reader_gains/{field}', parent, owner, channel, field, residual, learned,
                         'observed_learned_training_gain')
                 else:
