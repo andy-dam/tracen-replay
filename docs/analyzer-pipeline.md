@@ -295,6 +295,23 @@ window instead. Every assignment is stored both on the owner record (under
 flagged contribution, so a consumer can always show it as worked out from the
 difference between turns, replaceable by a viewer.
 
+**The learned reader.** A run given `--learned-reader` runs the exported
+result-card model (`learned_reader`) on every training result frame and
+stores its reads on the reading as `facts.learned_result_reads`: the model's
+fingerprint, the confidence threshold, and per stat box the transcription,
+its least certain character, and the value or gain it reads. The report
+records the model under `learned_reader`. The reads never make a difference;
+they only match one. A stat's difference that the sole training would take
+under the rule above becomes an observed amount (basis
+`observed_learned_training_gain`, stored on the training under
+`learned_reader_gains` with the frames under `learned_reader_frames`) when
+the model read exactly that gain on the training's own result frames, or the
+completed value for a clipped badge. Two cases the recognizer alone leaves
+open are also closed that way: a panel the recognizer read without the stat,
+and a skill-point difference in a turn that also has a race, which the
+training takes instead of the race when the model saw that many skill points
+on its card.
+
 ## Timeline document export
 
 `timeline_document.write` derives `timeline.json`

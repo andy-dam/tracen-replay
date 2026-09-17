@@ -131,6 +131,66 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(event['turn_difference_basis'], 'sole_training_visible_candidate_completed_by_turn_residual')
         self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
 
+    def learned(self, doc, **gains):
+        """The banner frame as a result frame on which the learned reader read these gains."""
+        fields = {field: dict(text=f'+{gain}', confidence=0.99, value=None, gain=gain) for field, gain in gains.items()}
+        doc['gameplay_tracking']['readings'][1].update(screen='training_result', facts=dict(
+            learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=fields)))
+
+    def test_a_learned_gain_equal_to_the_difference_is_observed(self):
+        doc = report()
+        self.learned(doc, speed=9)
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(speed=9))
+        self.assertEqual(event['learned_reader_frames'], dict(speed=['banner.png']))
+        self.assertEqual(event['turn_difference_gains'], dict(guts=13, skill_points=8))
+        row = turn_field(result, 'speed')
+        self.assertEqual((row['status'], row['direct_change'], row['derived_or_summary_change']), ('balanced_observations', 9, 0))
+        self.assertEqual(turn_field(result, 'guts')['status'], 'balanced_with_derived_changes')
+        learned = next(c for c in result['contributions'] if c['field'] == 'speed')
+        self.assertEqual((learned['basis'], learned['evidence']), ('observed_learned_training_gain', ['banner.png']))
+
+    def test_a_learned_gain_that_differs_from_the_difference_changes_nothing(self):
+        doc = report()
+        self.learned(doc, speed=8)
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
+
+    def test_a_panel_read_without_the_field_can_own_what_the_learned_reader_saw(self):
+        # The recognizer read guts only; speed stayed unexplained until the learned reader saw +9.
+        doc = report(deltas=dict(guts=13))
+        self.learned(doc, speed=9)
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['learned_reader_gains'], dict(speed=9))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
+        self.assertEqual(turn_field(result, 'skill_points')['status'], 'unexplained_change')
+
+    def test_skill_points_the_learned_reader_saw_on_the_card_go_to_the_training_not_the_race(self):
+        doc = report(deltas=dict(speed=9, guts=13), race=True)
+        without = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['races'][0].get('turn_difference_gains'), dict(skill_points=8))
+        doc = report(deltas=dict(speed=9, guts=13), race=True)
+        self.learned(doc, skill_points=8)
+        result = build(doc)
+        self.assertNotIn('turn_difference_gains', doc['gameplay_tracking']['races'][0])
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['learned_reader_gains'], dict(skill_points=8))
+        self.assertEqual(turn_field(result, 'skill_points')['status'], 'balanced_observations')
+        self.assertEqual(turn_field(without, 'skill_points')['status'], 'balanced_with_derived_changes')
+
+    def test_a_clipped_badge_completed_by_the_learned_reader_is_observed(self):
+        doc = report(deltas=dict(speed=1, guts=13, skill_points=8))
+        doc['gameplay_tracking']['checkpoints'][1]['values']['speed'] = 111
+        doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['speed'] = 111
+        self.learned(doc, speed=11)
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['learned_reader_gains'], dict(speed=10))
+        row = turn_field(result, 'speed')
+        self.assertEqual((row['status'], row['direct_change']), ('balanced_observations', 11))
+        completion = next(c for c in result['contributions'] if c['basis'] == 'observed_learned_training_gain')
+        self.assertEqual(completion['completes'], '/gameplay_tracking/events/0/deltas/speed')
+
     def test_a_conflicted_field_on_a_read_panel_still_takes_the_difference(self):
         doc = report(deltas=dict(guts=13))
         doc['gameplay_tracking']['events'][0]['conflicting_readings'] = {'speed': [9, 39]}

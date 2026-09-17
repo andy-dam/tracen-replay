@@ -7,7 +7,10 @@ explicit and flagged exception: a turn's remaining difference for a field goes
 to its only possible owner, the sole training whose gain for the field was
 not read, the one receipt that named the field but lost its number, the one
 lesson without an observed cost, or the one skill batch whose charge was never
-read (basis ``turn_difference``). Boundary source probes may make a turn
+read (basis ``turn_difference``). When that owner is a training and the
+learned reader read exactly the difference as the stat's gain on its card,
+the amount is observed instead (basis ``observed_learned_training_gain``);
+the reader's reads never make a difference, they only match one. Boundary source probes may make a turn
 opening available after reassembly, but this module never promotes a terminal
 observation or a later state into an endpoint.
 """
@@ -20,6 +23,9 @@ from .gameplay import CURRENCIES
 
 
 CHANNELS = {'stats': tuple(FIELDS), 'performance': tuple(CURRENCIES)}
+# Bases that are read off the screen rather than worked out; the learned reader's
+# gain counts only where it equals a difference the stat bars left unexplained.
+_OBSERVED_BASES = ('observed_receipt', 'observed_training_gain', 'observed_learned_training_gain', 'committed_skill_debit')
 
 _STATE_CONSTRAINED_BASES = frozenset({
     'visible_complete_gain_and_surrounding_state_constraints',
@@ -244,6 +250,28 @@ def _training_can_own(event, read_key, field):
     return field in names or field in (event.get('gain_conflicts') or {})
 
 
+def _learned_gain_frames(event, readings, field, amount):
+    """The training's own result frames on which the learned reader read exactly this gain.
+
+    The learned reader's reads are observations stored on the readings (see
+    ``learned_reader``). A read only matters where it equals a difference the
+    stat bars left unexplained: the stat bars, not the model, decide.
+    """
+    start, end = event.get('first_seen_ms'), event.get('last_seen_ms')
+    if type(start) is not int or type(end) is not int or type(amount) is not int or amount <= 0:
+        return []
+    frames = []
+    for row in readings:
+        time = row.get('source_timestamp_ms')
+        if row.get('screen') != 'training_result' or type(time) is not int or not start - 250 <= time <= end + 250:
+            continue
+        reads = (row.get('facts') or {}).get('learned_result_reads')
+        read = ((reads.get('fields') or {}).get(field) or {}) if isinstance(reads, dict) else {}
+        if read.get('gain') == amount and isinstance(row.get('evidence'), str):
+            frames.append(row['evidence'])
+    return list(dict.fromkeys(frames))
+
+
 def _clipped_badge_mode(event, readings, read_key, field, residual):
     """How a read training panel can still own a positive difference for a field.
 
@@ -465,8 +493,8 @@ def build(report):
             left, right = before['values'].get(field), after['values'].get(field)
             observed = right - left if type(left) is int and type(right) is int else None
             parts = [c for c in accepted if c['field'] == field]
-            direct = sum(c['amount'] for c in parts if c['basis'] in ('observed_receipt', 'observed_training_gain', 'committed_skill_debit'))
-            derived = sum(c['amount'] for c in parts if c['basis'] not in ('observed_receipt', 'observed_training_gain', 'committed_skill_debit'))
+            direct = sum(c['amount'] for c in parts if c['basis'] in _OBSERVED_BASES)
+            derived = sum(c['amount'] for c in parts if c['basis'] not in _OBSERVED_BASES)
             residual = observed - direct - derived if observed is not None else None
             ambiguous = [x for x in uncertain if by_id[x['contribution_ref']]['field'] == field]
             resource_rows.append(dict(field=field, before=left, after=right, observed_change=observed,
@@ -474,7 +502,7 @@ def build(report):
                 unresolved_change=residual, contribution_refs=[c['id'] for c in parts],
                 ambiguous_contributions=ambiguous,
                 status='missing_endpoint' if observed is None else 'unresolved_attribution' if ambiguous else
-                       'unexplained_change' if residual else 'balanced_with_derived_changes' if any(c['basis'] not in ('observed_receipt', 'observed_training_gain', 'committed_skill_debit') for c in parts) else 'balanced_observations'))
+                       'unexplained_change' if residual else 'balanced_with_derived_changes' if any(c['basis'] not in _OBSERVED_BASES for c in parts) else 'balanced_observations'))
         return resource_rows
 
     def checkpoint_comparisons():
@@ -632,7 +660,12 @@ def build(report):
                                    if isinstance(receipt, dict) and r.get('id') == receipt.get('race_id')), None)
                 # A training whose panel read its skill points (and cannot be a
                 # clipped badge of the total) leaves the race as the only owner.
-                training_could = (bool(trainings) and (training_event is None or _training_can_own(training_event, read_key, field)
+                # A training card on which the learned reader saw exactly this many
+                # skill points is an owner the race cannot outrank.
+                learned_training = (training_event is not None and len(trainings) == 1 and bool(
+                    _learned_gain_frames(training_event, data['readings'], field, residual)))
+                training_could = (bool(trainings) and (training_event is None or learned_training
+                                  or _training_can_own(training_event, read_key, field)
                                   or _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)))
                 if residual > 0 and race_index is not None and not training_could and not _unparsed_mentions(
                         data.get('unparsed_receipt_candidates'), field, start, end):
@@ -643,7 +676,8 @@ def build(report):
                     add(f'{parent}/turn_difference_gains/{field}', parent, race, channel, field, residual,
                         race.get('evidence'), 'turn_difference')
                     extrapolated += 1
-                continue
+                if not learned_training:
+                    continue
             # The sole training takes a positive difference when its result was
             # not read at all or its reading of the field conflicted. A result
             # panel read without a row for the field did not raise it.
@@ -654,6 +688,12 @@ def build(report):
                     possible.append(('training', training_parent, training_event))
                 else:
                     mode = _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)
+                    if mode is None and channel == 'stats' and _learned_gain_frames(
+                            training_event, data['readings'], field, residual):
+                        # The recognizer read the panel without this stat, but
+                        # the learned reader saw exactly the difference as its
+                        # gain on the card: the training owns it.
+                        mode = 'learned_gain'
                     if mode:
                         possible.append(('training', training_parent, training_event, mode))
             # The one outcome whose receipt named the field but lost its number.
@@ -684,21 +724,33 @@ def build(report):
             kind, parent, owner = possible[0][:3]
             if kind == 'training':
                 mode = possible[0][3] if len(possible[0]) > 3 else None
-                owner.setdefault(store, {})[field] = residual
-                owner['turn_difference_basis'] = ('sole_training_takes_turn_residual' if mode is None else
-                                                  f'sole_training_{mode}_completed_by_turn_residual')
-                if mode:
-                    read = (owner.get(read_key) or {}).get(field)
-                    owner.setdefault('turn_difference_completions', {})[field] = dict(
-                        mode=mode, read=read, completed=(read or 0) + residual)
-                add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, owner.get('evidence'),
-                    'turn_difference')
+                read = (owner.get(read_key) or {}).get(field)
+                # When the learned reader read the whole gain on the card (the
+                # difference, plus any leading digits the recognizer read), the
+                # amount is observed, not worked out.
+                learned = (_learned_gain_frames(owner, data['readings'], field,
+                                                residual + (read if mode == 'clipped_badge_prefix' else 0))
+                           if channel == 'stats' else [])
+                if learned:
+                    owner.setdefault('learned_reader_gains', {})[field] = residual
+                    owner.setdefault('learned_reader_frames', {})[field] = learned
+                    add(f'{parent}/learned_reader_gains/{field}', parent, owner, channel, field, residual, learned,
+                        'observed_learned_training_gain')
+                else:
+                    owner.setdefault(store, {})[field] = residual
+                    owner['turn_difference_basis'] = ('sole_training_takes_turn_residual' if mode is None else
+                                                      f'sole_training_{mode}_completed_by_turn_residual')
+                    if mode:
+                        owner.setdefault('turn_difference_completions', {})[field] = dict(
+                            mode=mode, read=read, completed=(read or 0) + residual)
+                    add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, owner.get('evidence'),
+                        'turn_difference')
                 if mode == 'clipped_badge_prefix':
                     # The read digits stay as observed; the completion is a
                     # second, flagged contribution on the same field, not a claim
                     # competing with it.
                     observed = next((c for c in contributions if c['event_ref'] == parent and c['channel'] == channel
-                                     and c['field'] == field and c['basis'] != 'turn_difference'), None)
+                                     and c['field'] == field and c['basis'] not in ('turn_difference', 'observed_learned_training_gain')), None)
                     if observed is not None:
                         contributions[-1]['completes'] = observed['id']
                         observed['completed_by'] = contributions[-1]['id']

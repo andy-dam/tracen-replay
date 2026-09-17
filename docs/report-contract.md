@@ -106,7 +106,8 @@ match `report.source.sha256`, and refuses a report claiming
 
 Schema `tracen-replay/causal-accounting-v1`. See
 [analyzer-pipeline.md](analyzer-pipeline.md) for the status vocabulary and
-the `turn_difference` rule. Top-level fields: `contributions` (one row per
+the `turn_difference` rule and the learned reader's
+`observed_learned_training_gain`, which counts as observed. Top-level fields: `contributions` (one row per
 accepted or flagged amount, with `channel`, `field`, `amount`, `basis`,
 `evidence`, `turn_id`), `comparisons` (checkpoint-to-checkpoint),
 `turn_transitions` (turn-opening-to-turn-opening, with `endpoint_availability`
@@ -196,8 +197,9 @@ strings and carry the value through either way.
 | `detail` | object, optional | `json.RawMessage` | the compacted underlying record (event/transaction), evidence and duplicated identity fields stripped |
 
 `Change`: `amount` (int or null), `basis` (str, optional: `observed_receipt`,
-`observed_training_gain`, `committed_skill_debit`, `state_derived`,
-`state_constrained`, `projected_debit`, `summary_only`, or `turn_difference`),
+`observed_training_gain`, `observed_learned_training_gain`,
+`committed_skill_debit`, `state_derived`, `state_constrained`,
+`projected_debit`, `summary_only`, or `turn_difference`),
 `read_amount` (int, optional: the digits actually read when a clipped badge
 was completed by a `turn_difference`; `amount` is then the completed value).
 

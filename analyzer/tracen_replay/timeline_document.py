@@ -115,7 +115,11 @@ def build(report):
     basis = _basis_map(report)
 
     contributions = {c.get('id'): c for c in accounting.get('contributions') or [] if isinstance(c, dict)}
-    extrapolations = [c for c in contributions.values() if c.get('basis') == 'turn_difference']
+    # Amounts the accounting assigned to an owner's entry: worked out from the
+    # turn difference, or read on the card by the learned reader where it
+    # equals that difference.
+    extrapolations = [c for c in contributions.values()
+                      if c.get('basis') in ('turn_difference', 'observed_learned_training_gain')]
 
     def owner_kind(contribution):
         ref = str(contribution.get('event_ref') or '')
@@ -187,11 +191,11 @@ def build(report):
             if c.get('event_ref') == ref and c.get('channel') and c.get('field'):
                 existing = (changes.get(c['channel']) or {}).get(c['field'])
                 if c.get('completes') and existing and type(existing.get('amount')) is int and type(c.get('amount')) is int:
-                    # A clipped badge: the read digits plus the difference, shown as worked out.
-                    changes[c['channel']][c['field']] = dict(amount=existing['amount'] + c['amount'], basis='turn_difference',
+                    # A clipped badge: the read digits plus the difference.
+                    changes[c['channel']][c['field']] = dict(amount=existing['amount'] + c['amount'], basis=c['basis'],
                                                               read_amount=existing['amount'])
                 else:
-                    changes.setdefault(c['channel'], {})[c['field']] = dict(amount=c.get('amount'), basis='turn_difference')
+                    changes.setdefault(c['channel'], {})[c['field']] = dict(amount=c.get('amount'), basis=c['basis'])
         item = dict(
             id=entry.get('id'), kind=entry.get('kind'), turn_id=entry.get('turn_id'),
             first_seen_ms=entry.get('first_seen_ms'), last_seen_ms=entry.get('last_seen_ms'),
