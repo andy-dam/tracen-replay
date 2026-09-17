@@ -41,15 +41,41 @@ used, not the requested setting; `cmd/tracen`'s readiness check reports the
 requested `-ocr-device` value and notes that the resolved device is the
 report's own field.
 
-## One observed run
+## Compact images
 
-In one end-to-end run of the service on this machine, a 40-minute 1080p
-recording produced 9,556 sampled frames at the base rate, and the OCR pass
-over them took about 25 minutes with 3 workers on the auto-selected device.
-This is a single observed run, taken from the service's job record, not a
-controlled benchmark: it does not isolate device, worker count, resolution
-or recording length as separate variables, and it should not be read as a
-throughput guarantee for a different machine or recording.
+`NeuralReader` wraps the RapidOCR engine in `CompactInputEngine`, which hands
+it every image as one compact array. Callers pass BGR views flipped from RGB
+arrays, and the engine cuts each detected text box out with OpenCV's
+`warpPerspective`, which copies such a view in full for every cut. On a
+gameplay pane with about 30 text lines that was more time than detection and
+recognition together. The same pixels read identically either way, so the
+wrapper leaves every observation and the reader's cache fingerprint as they
+were. Recognition-only calls on small crops were not affected.
+
+## Where the time goes
+
+Measured on this machine (DirectML on an RTX 5060 Ti) over 120 panes of a
+35-minute recording, one process at a time:
+
+| One base frame | Time |
+|---|---|
+| Detection and recognition of the full pane | about 95 ms (375 ms on the CPU provider) |
+| The rest of `NeuralReader.read` (fixed regions, layout) | about 20 ms |
+| Saving the pane as PNG | about 46 ms |
+| Parsing the observation | about 28 ms |
+| Hashing, decoding and cropping the frame | about 10 ms |
+
+Three OCR processes running together each slow down by about a third while
+the GPU stays mostly idle; larger recognition batches (24 lines instead of 6)
+did not help. The saved pane PNGs are hashed byte for byte by later stages,
+so their compression is part of the evidence, not a free setting.
+
+End to end, three service analyses of the same 35-minute recording with 3
+workers and 2 dense workers took 48.6 and 47.5 minutes before the compact
+images and 35.5 minutes after, with an identical report; the base OCR pass
+went from about 17 to 11 minutes and the training result rereads from 11 to
+7.5. These are observed runs from the service's job records, not a controlled
+benchmark, and not a throughput guarantee for another machine or recording.
 
 See [analysis-job.md](analysis-job.md) for the full set of worker
 controls and [evaluation.md](evaluation.md) for how OCR reading errors are

@@ -202,10 +202,11 @@ reading small fixed crops. The accounting labels them for free. Order:
       the recorder's mouse pointer over a `+8` read as `+9` at 0.998, which
       the value 138 on the same card contradicts, so nothing was confirmed
       from it.
-- [ ] **Ship the model trained on every recording.** Both held-out careers
+- [x] **Ship the model trained on every recording.** Both held-out careers
       checked out on the website, and the local service now runs the model
-      trained on every run. Done: a new report records that model's
-      fingerprint.
+      trained on every run. A website analysis of recorder C's career records
+      its fingerprint, and its accounting is identical to the held-out
+      model's run of the same recording.
 - [ ] **Flag a worked-out amount the card contradicts.** The accounting
       worked out a gain of 7 on a turn the counted-twice receipt made look
       balanced, while the model read `+12` on five frames of that card and
@@ -223,6 +224,16 @@ reading small fixed crops. The accounting labels them for free. Order:
       often.
 - [ ] **Later:** boundary and animation-state detection, using the current
       rules' decisions as labels.
+
+- [ ] **Faster analyses.** A full career took 48 minutes on this machine and
+      now takes 35 (docs/ocr-performance.md): the OCR engine copied a flipped
+      image view once per text box. What one frame still costs in the first
+      pass: the reader's OCR about 117 ms, saving the pane as PNG 46 ms (other
+      stages hash those files, so recompressing needs care), parsing 28 ms;
+      the GPU stays mostly idle and three OCR processes slow each other by a
+      third. Candidates: read only the regions a recognized screen uses,
+      assemble the report once instead of twice. Done: each change leaves a
+      recording's report identical and is timed end to end.
 
 ## 4. Code and repository hygiene
 
