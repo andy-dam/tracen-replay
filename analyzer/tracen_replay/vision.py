@@ -909,12 +909,17 @@ def _performance_panel_localized_requests(lines):
         return []
     observed={}
     merged_fields=set()
+    # A badge's number would otherwise stand in for the row it floats over,
+    # and the row whose own value the detector missed would never be reread.
+    badges=_performance_more_badge_numbers(lines,lines)
     for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
         band=(160,label_y-27,275,label_y+5)
         plain=[]
         merged=[]
         for line in lines:
             if not _performance_panel_line_eligible(line) or not within(line,band):
+                continue
+            if any(line is badge for badge in badges):
                 continue
             text=re.sub(r'\s+','',str(line.get('text','')).strip())
             if re.fullmatch(r'\d{1,3}',text):
@@ -942,6 +947,9 @@ def _performance_panel_localized_requests(lines):
         if field in merged_fields:
             continue
         box=[left,label_y-31,right,label_y+14]
+        covered=_performance_more_badge_bottom(lines,box)
+        if covered is not None and box[1]<covered<box[3]:
+            box=[left,covered,right,box[3]]
         requests.append((f'performance_panel_localized_current.{field}',box,{
             'role':'panel_localized_current',
             'input_eligible':True,
@@ -1257,6 +1265,61 @@ def _performance_panel_values(lines, identity, regions=None):
     return points
 
 
+def _performance_more_badge_numbers(lines, candidates):
+    """The candidate lines that are a "N more" badge's number.
+
+    A concert bonus draws a small badge over the panel, just above the row it
+    talks about, and the detector reads it either whole ("13 more") or split
+    into its number and the word "more". Split, the number looks exactly like
+    a row value inside that row's band, so the badge above a row would be
+    read as the row's own points. The number belongs to the badge when the
+    word sits beside it on the same line of pixels.
+    """
+    words = [line for line in lines
+             if isinstance(line, dict) and isinstance(line.get('box'), (list, tuple)) and len(line['box']) == 4
+             and re.fullmatch(r'more', str(line.get('text', '')).strip(), re.I)]
+    if not words:
+        return []
+    badges = []
+    for line in candidates:
+        box = line.get('box') if isinstance(line, dict) else None
+        if not isinstance(box, (list, tuple)) or len(box) != 4:
+            continue
+        if not re.fullmatch(r'\d{1,3}', re.sub(r'\s+', '', str(line.get('text', '')).strip())):
+            continue
+        for word in words:
+            other = word['box']
+            shared = min(box[3], other[3]) - max(box[1], other[1])
+            if shared * 2 < min(box[3] - box[1], other[3] - other[1]):
+                continue
+            if -8 <= other[0] - box[2] <= 30:
+                badges.append(line)
+                break
+    return badges
+
+
+def _performance_more_badge_bottom(lines, box):
+    """The lowest edge of a "N more" badge drawn over this crop, or None.
+
+    The badge overlaps the top of the value it talks about, so a crop of the
+    row's own geometry reads the badge instead of the value. Starting the
+    crop under the badge leaves the part of the value the badge does not
+    cover, which the recognizer reads or does not; the confidence floor still
+    decides whether it becomes a value.
+    """
+    bottom = None
+    parts = [line for line in lines
+             if isinstance(line, dict) and isinstance(line.get('box'), (list, tuple)) and len(line['box']) == 4
+             and re.fullmatch(r'(\d{1,3}\s*)?more', str(line.get('text', '')).strip(), re.I)]
+    parts += _performance_more_badge_numbers(lines, lines)
+    for line in parts:
+        left, top, right, low = line['box']
+        if right <= box[0] or left >= box[2] or low <= box[1] or top >= box[3]:
+            continue
+        bottom = low if bottom is None else max(bottom, low)
+    return bottom
+
+
 def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regions=None):
     """Parse one labeled performance row without merging unrelated views.
 
@@ -1268,9 +1331,11 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
     """
     band = (190, label_y - 30, 335, label_y + 15)
     raw = [line for line in lines if within(line, band)]
+    badges = _performance_more_badge_numbers(lines, raw)
     candidates = [line for line in raw
                   if _performance_panel_line_eligible(line)
-                  and line.get('confidence', 0) >= minimum_confidence]
+                  and line.get('confidence', 0) >= minimum_confidence
+                  and not any(line is badge for badge in badges)]
     merged=[];current=[];projected=[]
     for line in candidates:
         text=re.sub(r'\s+', '', str(line.get('text', '')).strip())

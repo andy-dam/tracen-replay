@@ -204,6 +204,32 @@ class PerformancePanelRecoveryTests(unittest.TestCase):
         self.assertNotIn('projected_performance_gains', facts)
         self.assertNotIn('awarded_performance_gains', facts)
 
+    def test_a_more_badge_over_a_row_is_not_that_row_value(self):
+        # A concert bonus draws "8 more" over the Vocal row, and the detector
+        # splits it into a number and the word while missing the row's own 4.
+        lines = [item for item in panel_lines() if item['text'] != '27']
+        lines += [line('8', (202, 404, 216, 418), 100), line('more', (212, 403, 254, 421), 100)]
+        facts = performance_panel_facts(lines, 'unknown', {})
+        self.assertNotIn('vocal', facts['performance_points'])
+        self.assertEqual(facts['performance_points']['dance'], 59)
+
+    def test_a_more_badge_does_not_hide_a_row_whose_value_was_read(self):
+        lines = panel_lines()
+        lines += [line('8', (202, 404, 216, 418), 100), line('more', (212, 403, 254, 421), 100)]
+        facts = performance_panel_facts(lines, 'unknown', {})
+        self.assertEqual(facts['performance_points']['vocal'], 27)
+
+    def test_a_covered_row_is_reread_from_below_its_badge(self):
+        from tracen_replay.vision import _performance_panel_localized_requests
+        lines = [item for item in panel_lines() if item['text'] != '27']
+        lines += [line('8', (202, 404, 216, 418), 100), line('more', (212, 403, 254, 421), 100)]
+        requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(lines))
+        self.assertEqual(requests['performance_panel_localized_current.vocal'][1], 421)
+        # A row no badge covers keeps the ordinary crop.
+        plain = [item for item in panel_lines() if item['text'] != '19']
+        requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(plain))
+        self.assertEqual(requests['performance_panel_localized_current.visual'][1], 488 - 31)
+
     def test_legacy_training_semantics_remain_screen_gated(self):
         lines = panel_lines()
         dance = next(item for item in lines if item['text'] == '59')
