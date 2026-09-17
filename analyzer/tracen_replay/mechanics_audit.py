@@ -87,16 +87,18 @@ def fragment_of(text,parsed):
     short (``Friendship with Light Hello is maxed``), with a letter or two
     wrong (``is mald`` for ``is maxed``), or with its number garbled
     (``Skill Pts went un hv 57``). Such a line is a fragment when it is a
-    prefix of a receipt that was parsed nearby, or within a few edits of one
-    of about the same length. The bound grows slowly with the length so a
-    long line tolerates a couple of misread glyphs while a short one does
-    not turn into a different receipt.
+    prefix of a receipt that was parsed nearby, within a few edits of one of
+    about the same length, or a word-by-word match of one. The bound grows
+    slowly with the length so a long line tolerates a couple of misread
+    glyphs while a short one does not turn into a different receipt.
     """
     import re
     from .gameplay import _edit_distance
     key=_receipt_key(text)
     if len(key)<8:return None
-    digits=re.findall(r'\d+',key)
+    # A number the recognizer split ("1 10" for "110") is the same number:
+    # what must agree is the digits the receipt shows, in order.
+    digits=''.join(re.findall(r'\d+',key))
     for full in parsed:
         other=_receipt_key(full)
         if other==key:return full
@@ -104,12 +106,36 @@ def fragment_of(text,parsed):
         # A variant must keep the receipt's subject and every number it shows;
         # "Guts went up by 3" is not a misread "Wit went up by 3", and a
         # different amount is a different receipt.
-        if key.split(' ',1)[0]!=other.split(' ',1)[0] or (digits and digits!=re.findall(r'\d+',other)):continue
+        if key.split(' ',1)[0]!=other.split(' ',1)[0] or (digits and digits!=''.join(re.findall(r'\d+',other))):continue
         bound=2+len(other)//12
         if abs(len(other)-len(key))<=3 and _edit_distance(key,other)<=bound:return full
-        # Cut short and misread at once: the line matches the head of the receipt within the bound.
-        if len(key)<len(other) and _edit_distance(key,other[:len(key)])<=bound:return full
+        # Cut short and misread at once. Compared word by word: a line that
+        # ends inside the receipt's name must not spend a whole line's
+        # tolerance on that name, or a hint for one skill folds into a hint
+        # for another and a real award goes missing.
+        if _words_fold(key.split(' '),other.split(' ')):return full
     return None
+
+
+def _words_fold(words,full_words):
+    """True when a line is a word-by-word reading of a longer receipt.
+
+    A receipt whose wording is fixed around its number and a name ("Gained 4
+    hint level(s) for Pace Chaser Savvy") is read with the boilerplate
+    damaged a glyph or two at a time (``leve"s) or`` for ``level(s) for``)
+    while the number and the name come through. Comparing word by word
+    spends the tolerance where the damage is instead of across the whole
+    line: every word must be its own word, a number must be that number
+    exactly, and the line may stop early where the panel cut it off.
+    """
+    from .gameplay import _edit_distance
+    if len(words)>len(full_words):return False
+    for word,other in zip(words,full_words):
+        if word==other:continue
+        # A number is that number: an amount read differently is another receipt.
+        if word.isdigit() or other.isdigit():return False
+        if _edit_distance(word,other)>max(2,len(other)//4):return False
+    return True
 
 
 def unparsed_receipt_candidates(readings):

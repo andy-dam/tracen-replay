@@ -58,6 +58,39 @@ class FragmentTests(unittest.TestCase):
         got = unparsed_receipt_candidates(readings)
         self.assertEqual([c['status'] for c in got], ['needs_review', 'ocr_fragment'])
 
+    def test_damaged_boilerplate_around_a_number_and_a_name_is_a_fragment(self):
+        hint = 'Gained 4 hint level(s) for Pace Chaser Savvy ○'
+        self.assertEqual(fragment_of('Gained 4 hint leve"s) or Pace Chaser', [hint]), hint)
+        self.assertEqual(fragment_of('Gained 1 hint level(s) tor Focus.', ['Gained 1 hint level(s) for Focus.']),
+                         'Gained 1 hint level(s) for Focus.')
+        # The number and the name are what the wording is about: neither may change.
+        self.assertIsNone(fragment_of('Gained 2 hint level(s) for Focus.', ['Gained 4 hint level(s) for Focus.']))
+        self.assertIsNone(fragment_of('Gained 4 hint level(s) for Focus.',
+                                      ['Gained 4 hint level(s) for Corner Recovery ○']))
+        # A cap receipt is not its stat's receipt, in either direction.
+        self.assertIsNone(fragment_of('Speed cap went up by 5.', ['Speed went up by 5.']))
+        self.assertIsNone(fragment_of('Speed went up by 5.', ['Speed cap went up by 5.']))
+        # A glyph read for the circle that grades a skill is still that skill.
+        self.assertEqual(fragment_of("Gained 1 hint leve'(s) for Right-Handed O.",
+                                     ['Gained 1 hint level(s) for Right-Handed ○.']),
+                         'Gained 1 hint level(s) for Right-Handed ○.')
+        # Boilerplate the panel cut mid-word still folds.
+        self.assertEqual(fragment_of('Stamina cap we.it', ['Stamina cap went up by 11.']),
+                         'Stamina cap went up by 11.')
+
+    def test_a_number_the_recognizer_split_is_the_same_number(self):
+        full = 'Skill Pts went up by 110.'
+        self.assertEqual(fragment_of('Skill Pts went up by 1 10.', [full]), full)
+        self.assertIsNone(fragment_of('Skill Pts went up by 1 10.', ['Skill Pts went up by 10.']))
+        readings = [
+            receipt_row(1000, 'Skill Pts went up by 110.',
+                        [dict(kind='stat_change', field='skill_points', amount=110, raw_text=full)]),
+            receipt_row(1250, 'Skill Pts went up by 1 10.'),
+        ]
+        got = unparsed_receipt_candidates(readings)
+        self.assertEqual([(c['raw_text'], c['status']) for c in got],
+                         [('Skill Pts went up by 1 10.', 'ocr_fragment')])
+
 
 if __name__ == '__main__':
     unittest.main()
