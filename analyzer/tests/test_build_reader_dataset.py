@@ -121,6 +121,17 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(sum(row['crops'] for row in manifest['counts']), len(rows))
         self.assertEqual(len({r['crop'] for r in rows}), len(rows))
 
+    def test_runs_can_be_added_to_a_dataset(self):
+        out = self.tmp / 'dataset-append'
+        build(out, [('first', self.make_run('run-p'))], kinds=('result_box',))
+        manifest = build(out, [('second', self.make_run('run-q'))], holdout=['second'], kinds=('result_box',), append=True)
+        rows = [json.loads(line) for line in (out / 'crops.jsonl').read_text(encoding='utf-8').splitlines()]
+        self.assertEqual([r['run'] for r in manifest['runs']], ['first', 'second'])
+        self.assertEqual({(r['run'], r['split']) for r in rows}, {('first', 'train'), ('second', 'holdout')})
+        self.assertEqual(sum(c['crops'] for c in manifest['counts']), len(rows))
+        with self.assertRaises(ValueError):
+            build(out, [('first', self.make_run('run-r'))], append=True)
+
     def test_panes_decoded_from_the_recording(self):
         import cv2
         import numpy as np

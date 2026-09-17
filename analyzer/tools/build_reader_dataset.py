@@ -32,7 +32,7 @@ recorders it did not learn from.
 
     python -m tools.build_reader_dataset --output DIR --run [NAME=]ROOT [--run ...]
         [--video NAME=RECORDING ...] [--holdout NAME ...] [--group NAME=GROUP ...]
-        [--kinds result_box performance_counter]
+        [--kinds result_box performance_counter] [--append]
 
 A run root is a directory holding ``report.json``. Its frames are read from
 the images its readings point at (the ordinary pass's ``gameplay/`` panes and
@@ -204,13 +204,14 @@ def load_run(root):
     return report, tracking, stats, counters
 
 
-def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box', 'performance_counter')):
+def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box', 'performance_counter'), append=False):
     """Write the dataset under ``output`` and return its manifest.
 
     ``runs`` are run roots, or ``(name, root)`` pairs. A run named in
     ``videos`` has its frames decoded from that recording instead of read
     from its root, so any training result reading counts, whatever reread
-    wrote its frame.
+    wrote its frame. With ``append``, the runs are added to the dataset
+    already in ``output``; a run name it already has is refused.
     """
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -219,11 +220,17 @@ def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box
     holdout = set(holdout)
     rows = []
     manifest_runs = []
-    counts = Counter()
+    if append and (output / 'manifest.json').exists():
+        rows = [json.loads(line) for line in (output / 'crops.jsonl').read_text(encoding='utf-8').splitlines() if line.strip()]
+        manifest_runs = json.loads((output / 'manifest.json').read_text(encoding='utf-8'))['runs']
+    existing = {run['run'] for run in manifest_runs}
     for run in runs:
         name, root = run if isinstance(run, tuple) else (None, run)
         root = Path(root)
         name = name or (root.name if root.name != 'run' else root.parent.name)
+        if name in existing:
+            raise ValueError(f'the dataset already has a run named {name}')
+        existing.add(name)
         report, tracking, stats, counter_checkpoints = load_run(root)
         split = 'holdout' if name in holdout else 'train'
         receipts = stat_receipts(tracking.get('events', []))
@@ -304,7 +311,6 @@ def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box
                                content='counter' if confirmed else 'unknown', target=str(value) if confirmed else None)
                 rows.append(row)
                 run_counts[(kind, row['content'])] += 1
-                counts[(split, kind, row['content'])] += 1
         manifest_runs.append(dict(run=name, root=str(root), video=str(videos[name]) if name in videos else None,
                                   split=split, group=groups.get(name), source_sha256=report.get('source', {}).get('sha256'),
                                   counts={('/'.join(key) if isinstance(key, tuple) else key): n for key, n in sorted(run_counts.items(), key=str)}))
@@ -312,7 +318,8 @@ def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box
         built_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
         crops=len(rows),
         runs=manifest_runs,
-        counts=[dict(split=s, kind=k, content=c, crops=n) for (s, k, c), n in sorted(counts.items())],
+        counts=[dict(split=s, kind=k, content=c, crops=n)
+                for (s, k, c), n in sorted(Counter((r['split'], r['kind'], r['content']) for r in rows).items())],
         label_rule='result_box: badge (target value/, or value for skill points) when the read value equals the value before or after '
                    'the training bracketed by the stat bars and receipts, gain when the read overlay equals the bracketed gain, '
                    'blank when the box holds no ink, unknown otherwise; performance_counter: the consensus of the menu visit.',
@@ -332,9 +339,10 @@ def main(argv=None):
     parser.add_argument('--holdout', action='append', default=[], help='run name that never feeds training')
     parser.add_argument('--group', action='append', default=[], help='NAME=GROUP: the recorder a run came from')
     parser.add_argument('--kinds', nargs='+', default=['result_box', 'performance_counter'], choices=['result_box', 'performance_counter'])
+    parser.add_argument('--append', action='store_true', help='add the runs to the dataset already in --output')
     args = parser.parse_args(argv)
-    if args.output.exists() and any(args.output.iterdir()):
-        raise SystemExit(f'Refusing to write into a non-empty directory: {args.output}')
+    if args.output.exists() and any(args.output.iterdir()) and not args.append:
+        raise SystemExit(f'Refusing to write into a non-empty directory: {args.output} (pass --append to add runs to it)')
 
     def pair(item):
         # NAME=ROOT, where NAME has no path separator; a bare ROOT is named after its directory.
@@ -343,7 +351,7 @@ def main(argv=None):
     runs = [pair(item) for item in args.run]
     groups = dict(item.split('=', 1) for item in args.group)
     videos = {name: Path(path) for name, path in (item.split('=', 1) for item in args.video)}
-    manifest = build(args.output, runs, args.holdout, groups, videos, tuple(args.kinds))
+    manifest = build(args.output, runs, args.holdout, groups, videos, tuple(args.kinds), append=args.append)
     for row in manifest['counts']:
         print(f"{row['split']:8} {row['kind']:20} {row['content']:8} {row['crops']:6}")
     print(f"{manifest['crops']} crops from {len(manifest['runs'])} runs -> {args.output}")
