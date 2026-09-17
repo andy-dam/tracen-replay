@@ -20,9 +20,9 @@ looks like. The design behind the learned readers is in
 ## 2. Gaps the six end-to-end reports show
 
 Read from the latest report of each recording in the acceptance account
-(four recorders, six careers). Across them 33 turns ask for a review; the
-first four items below account for 31 of those. Ordered by how much
-reviewer work each removes.
+(four recorders, six careers), ordered by how much reviewer work each item
+removes. The four this list opened with are closed; each item states what
+its own measurement of the latest reports showed.
 
 - [x] **Performance points earned by training are not read.** The real cause
       was narrower than this item claimed. A training can raise two
