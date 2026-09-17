@@ -83,11 +83,28 @@ reviewer work each removes.
       from the frame whose wording the overlay alone damaged, no receipt is
       counted from a line whose own number or name was not read, and the
       boundary policy above still holds.
-- [ ] **Stat badges partly unread on some training turns.** One or two of
-      the five badges on a training result are missed or misread, leaving
-      a small stat gap on a turn whose training was committed. Done: the
-      dataset builder below reports these as hard cases, and the badge
-      reader closes them.
+- [x] **Stat badges partly unread on some training turns.** The learned
+      reader closed these. Across the two careers analyzed with it, every
+      training gain the report still works out from the turn difference is one
+      of three things, and none is a badge the reader could see: a card no
+      frame was ever classified as a result (7 fields over 2 trainings, the
+      item below), a badge zoomed to its leading digit and completed from the
+      difference (2, recorded as completions), and a card whose read
+      contradicts the amount (2, now listed for review). The careers read
+      166 and 168 gains from the cards themselves, 19 and 7 of them through
+      the model.
+- [ ] **A result card only ever called a candidate is never read.** A
+      training result frame whose banner stays illegible is classified
+      `training_result_candidate`, and both the learned reader and the
+      accounting's search for a training's own frames require
+      `training_result`, so such a card contributes nothing and every one of
+      its gains is worked out from the turn difference. Two trainings across
+      two careers lose all their fields this way, seven in total. In one, the
+      card is on two sampled frames, at 162.0 s and 162.25 s, both
+      candidates, and the dense reread of that window produced no result
+      frame either. Done: those trainings' gains come from their own cards,
+      and a candidate frame still supplies no gain the stat bars do not
+      confirm.
 - [x] **A completed lesson purchase is not recorded, so nothing charges it.**
       The receipt's name was damaged in every spelling, so the repair that
       adopts the confirmed request name refused it and the purchase was
