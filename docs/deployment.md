@@ -41,15 +41,22 @@ hosted service.
 
 ## First step: containers
 
-Before any of the changes below, the application needs to run somewhere
-other than a developer's machine: one image with the client, the service,
-the analyzer, ffmpeg and the OCR models on the CPU provider (DirectML is
-Windows-only), with the data directory on a volume; then a worker image the
-service starts through a container runner instead of as a child process.
-The steps are in the repository's TODO list.
+The application image exists: one image with the client, the service, the
+analyzer, ffmpeg and the OCR models on the CPU provider (DirectML is
+Windows-only), with the data directory on a volume. It is described in
+[container.md](container.md). Still to come is a worker image the service
+starts through a container runner instead of as a child process; the steps
+are in the repository's TODO list.
+
+How a commit would become a running deployment — the image tag, the registry,
+the revision and the rollback — is in [ci-cd.md](ci-cd.md).
 
 ## What would have to change
 
+- **A host name the service answers for.** The API accepts `localhost`,
+  `127.0.0.1`, `::1` and the host named by `-addr` (`internal/api`), so a
+  public name or a proxy in front of it is refused until the allowed hosts
+  can be named.
 - **Auth beyond local accounts.** Sessions today are a cookie checked against
   rows in the local database (`internal/auth`), sized for accounts on one
   machine, not for a multi-tenant or internet-facing deployment.

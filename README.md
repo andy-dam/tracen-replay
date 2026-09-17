@@ -66,6 +66,8 @@ CI, so a green local run on Windows is not the whole suite.
 - [Analysis job](docs/analysis-job.md): the process contract between the service and the analyzer.
 - [Evaluation](docs/evaluation.md): how the analyzer is validated, and the plan for learned readers.
 - [OCR performance](docs/ocr-performance.md): sampling rates, worker pools and device selection.
+- [The application image](docs/container.md): the whole application in one container, and what changes inside it.
+- [Continuous integration and deployment](docs/ci-cd.md): what runs on a push, and how a merge to `main` would update a deployment.
 - [To do](TODO.md), the [roadmap](docs/roadmap.md) and [hosting later](docs/deployment.md).
 
 Repository conventions for contributors and coding agents are in
