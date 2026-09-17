@@ -61,11 +61,28 @@ reviewer work each removes.
       by" at 481 s of one career, cut off by a loading screen, counted at
       493 s as `+12`). What is left is damage in the wording rather than in
       the number. A hint receipt at 586 s of another career is read on seven
-      frames and cleanly on none: the number and the skill come through every
-      time while `level(s) for` does not, and six of the seven frames fall
-      under the parse confidence, so its four hint levels are missing from the
-      accounting. Done: that hint is counted, and no receipt is counted from a
-      line whose own number or name was not read.
+      frames and cleanly on none, so its four hint levels for Pace Chaser
+      Corners are missing from the accounting. The cursor rests on
+      `level(s) for` with the panel's sparkles drifting over it, while the
+      number and the skill come through every time. Six frames are zeroed by
+      the occlusion gate, five of them read at 95 or better before it, and the
+      seventh is not occluded at all but reads `or` for `for`.
+      Two invariants close the shortcuts. Occlusion runs before the reader
+      parses and a blocked line may not regain confidence later
+      (`full_recording.parse_receipt_pixels`), so the five zeroed readings
+      cannot be used downstream; and a damaged line may confirm a receipt that
+      was accepted but never assert one, which
+      `tests/test_receipt_ocr_gap_boundaries.py` pins by keeping `fr` for
+      `for` unparsed so a malformed line between two awards cannot become a
+      third. The sanctioned route is therefore the occlusion stage's own
+      resolution path: give hint receipt lines the source-validated per-word
+      alignment friendship receipts already get, resolve a line whose overlay
+      boxes provably cover only the fixed wording between the amount and the
+      name (as `boundary_repair_supported` does for a separator), and let the
+      existing one-glyph tolerance repair `level`. Done: that hint is counted
+      from the frame whose wording the overlay alone damaged, no receipt is
+      counted from a line whose own number or name was not read, and the
+      boundary policy above still holds.
 - [ ] **Stat badges partly unread on some training turns.** One or two of
       the five badges on a training result are missed or misread, leaving
       a small stat gap on a turn whose training was committed. Done: the
