@@ -33,6 +33,11 @@ BADGE_BOXES = {field: ((322, 518, 714)[i % 3], 834 if i < 3 else 952) for i, fie
 BADGE_BOXES = {field: (x, y, x + 126, y + 42) for field, (x, y) in BADGE_BOXES.items()}
 SKILL_BOX = (708, 952, 810, 990)
 RESULT_BOXES = {**BADGE_BOXES, 'skill_points': SKILL_BOX}
+# A training's result card sits in the same place whether or not its banner
+# was legible enough to confirm the screen, so a frame left at "candidate" is
+# read as well. What a read may do with an amount does not change: the stat
+# bars decide, and a read counts only where it equals a difference they left.
+RESULT_SCREENS = ('training_result', 'training_result_candidate')
 # The recognizer's boxes start exactly where a three-digit value begins, so a
 # four-digit value, the card's bounce or a zooming overlay pushes digits
 # outside them. The reader's boxes are wider: this much more on the left, top,
@@ -139,7 +144,7 @@ def annotate(readings, root, reader, threshold=THRESHOLD):
     root = Path(root)
     pending = []
     for row in readings:
-        if not isinstance(row, dict) or row.get('screen') != 'training_result' or not isinstance(row.get('evidence'), str):
+        if not isinstance(row, dict) or row.get('screen') not in RESULT_SCREENS or not isinstance(row.get('evidence'), str):
             continue
         facts = row.get('facts')
         if not isinstance(facts, dict):
@@ -177,7 +182,7 @@ def learned_gains(readings, field, start, end, slack_ms=250):
     gains = set()
     for row in readings:
         time = row.get('source_timestamp_ms') if isinstance(row, dict) else None
-        if row.get('screen') != 'training_result' or type(time) is not int or not start - slack_ms <= time <= end + slack_ms:
+        if row.get('screen') not in RESULT_SCREENS or type(time) is not int or not start - slack_ms <= time <= end + slack_ms:
             continue
         reads = (row.get('facts') or {}).get('learned_result_reads')
         gain = ((reads or {}).get('fields') or {}).get(field, {}).get('gain') if isinstance(reads, dict) else None

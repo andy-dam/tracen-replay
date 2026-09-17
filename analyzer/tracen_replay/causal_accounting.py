@@ -21,6 +21,9 @@ from copy import deepcopy
 
 from .reconcile import FIELDS
 from .gameplay import CURRENCIES
+# A result card is the same card on a frame whose banner left the screen a
+# candidate, so both count as the training's own frames.
+from .learned_reader import RESULT_SCREENS as _RESULT_SCREENS
 
 
 CHANNELS = {'stats': tuple(FIELDS), 'performance': tuple(CURRENCIES)}
@@ -272,7 +275,7 @@ def _learned_gain_frames(event, readings, field, amount, value_after=None):
         time = row.get('source_timestamp_ms')
         # Only frames inside the training's own window: a confirmed amount is
         # timed by its frames, and one outside the window would leave it untimed.
-        if row.get('screen') != 'training_result' or type(time) is not int or not start <= time <= end:
+        if row.get('screen') not in _RESULT_SCREENS or type(time) is not int or not start <= time <= end:
             continue
         if not isinstance(row.get('evidence'), str):
             continue
@@ -307,7 +310,7 @@ def _learned_gain_contradictions(event, readings, field, amount):
     found = {}
     for row in readings:
         time = row.get('source_timestamp_ms')
-        if row.get('screen') != 'training_result' or type(time) is not int or not start <= time <= end:
+        if row.get('screen') not in _RESULT_SCREENS or type(time) is not int or not start <= time <= end:
             continue
         if not isinstance(row.get('evidence'), str):
             continue

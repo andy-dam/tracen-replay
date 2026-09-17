@@ -204,7 +204,7 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         completion = next(c for c in result['contributions'] if c['basis'] == 'observed_learned_training_gain')
         self.assertEqual(completion['completes'], '/gameplay_tracking/events/0/deltas/speed')
 
-    def card(self, doc, *frames, inside=True):
+    def card(self, doc, *frames, inside=True, screen='training_result'):
         """Result frames of the training's card, each with what the learned reader read per field."""
         if inside:
             training = doc['gameplay_tracking']['events'][0]
@@ -215,7 +215,7 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
                 value, gain = read_shape(field, text, [0.99] * len(text))
                 fields[field] = dict(text=text, confidence=0.99, value=value, gain=gain)
             doc['gameplay_tracking']['readings'].append(dict(
-                source_timestamp_ms=time, evidence=f'card-{time}.png', screen='training_result',
+                source_timestamp_ms=time, evidence=f'card-{time}.png', screen=screen,
                 facts=dict(learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=fields))))
 
     def speed_after(self, doc, value):
@@ -250,6 +250,24 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
     def test_a_value_never_overrules_a_gain_read_on_the_card_that_disagrees(self):
         doc = report()
         self.card(doc, (152, dict(speed='+8')), (158, dict(speed='109/')))
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
+
+    def test_a_card_on_a_candidate_frame_confirms_the_difference(self):
+        # The banner was not legible enough to confirm the screen, but the
+        # card is the same card and its badge is the same badge.
+        doc = report()
+        self.card(doc, (152, dict(speed='+9')), screen='training_result_candidate')
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(speed=9))
+        self.assertEqual(event['learned_reader_frames'], dict(speed=['card-152.png']))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
+
+    def test_a_card_on_another_screen_confirms_nothing(self):
+        doc = report()
+        self.card(doc, (152, dict(speed='+9')), screen='training_preview')
         result = build(doc)
         self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
         self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
