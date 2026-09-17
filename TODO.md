@@ -93,7 +93,7 @@ its own measurement of the latest reports showed.
       contradicts the amount (2, now listed for review). The careers read
       166 and 168 gains from the cards themselves, 19 and 7 of them through
       the model.
-- [ ] **A result card only ever called a candidate is never read.** A
+- [x] **A result card only ever called a candidate is never read.** A
       training result frame whose banner stays illegible is classified
       `training_result_candidate`, and both the learned reader and the
       accounting's search for a training's own frames require
@@ -102,9 +102,11 @@ its own measurement of the latest reports showed.
       two careers lose all their fields this way, seven in total. In one, the
       card is on two sampled frames, at 162.0 s and 162.25 s, both
       candidates, and the dense reread of that window produced no result
-      frame either. Done: those trainings' gains come from their own cards,
-      and a candidate frame still supplies no gain the stat bars do not
-      confirm.
+      frame either. Both screens now count, and what a read may do is
+      unchanged. A fresh analysis of that career reads that training's four
+      gains from its own card, speed 2, power 2, guts 10 and skill points 5,
+      where every one of them used to be worked out; 24 candidate frames carry
+      reads, and four amounts moved from derived to observed.
 - [x] **A completed lesson purchase is not recorded, so nothing charges it.**
       The receipt's name was damaged in every spelling, so the repair that
       adopts the confirmed request name refused it and the purchase was
@@ -144,12 +146,16 @@ its own measurement of the latest reports showed.
       date came a minute after the recovery result, past the 30-second wait.
       Point-spending screens now extend the wait; two rests recovered in the
       Hishi Amazon recording.
-- [ ] **A "N more" badge is read as a performance value.** On the training
-      screen a small "8 more" badge sits above the Vocal row; one turn's
-      opening read Vocal 8 where the row shows 4, which leaves +4 unexplained
-      on the turn before and -4 on that turn. These are the only two
-      unexplained fields left in recorder C's fresh website report. Done: that
-      opening reads 4 and both turns balance.
+- [x] **A "N more" badge is read as a performance value.** A concert bonus
+      draws the badge over the row it talks about, and the detector splits it
+      into its number and the word, so the number sat inside that row's band
+      and became the row's points. A number the word sits beside is now the
+      badge's, and the row whose value the badge covers is reread from under
+      it. A fresh analysis of that career: its two unexplained turn fields are
+      gone, the boundary reads Vocal 4 and no longer 8, and the run has six
+      fewer missing endpoints than before, because rows the badges hid now
+      read. On the saved readings of six recordings only that career's 22
+      readings change, every one of them dropping the same wrong Vocal 8.
 - [ ] **A race-day opening is sometimes never observed.** Nothing is carried
       from the previous turn any more: a ledger turn's opening is observed or
       it says it was not. Measured on the latest report of each of five
