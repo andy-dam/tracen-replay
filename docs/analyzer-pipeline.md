@@ -301,6 +301,13 @@ window instead. Every assignment is stored both on the owner record (under
 flagged contribution, so a consumer can always show it as worked out from the
 difference between turns, replaceable by a viewer.
 
+A worked-out amount whose own training card the learned reader read as a
+different gain is recorded on the training as `contradicted_turn_difference`
+with those reads and their frames, raised as a
+`worked_out_amount_contradicted_by_card` accounting issue, and listed in the
+review queue. The amount does not change: the stat bars decide it, and a read
+cut to its leading digits disagrees with nothing.
+
 **The learned reader.** A run given `--learned-reader` runs the exported
 result-card model (`learned_reader`) on every training result frame and
 stores its reads on the reading as `facts.learned_result_reads`: the model's

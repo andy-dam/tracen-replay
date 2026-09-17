@@ -229,11 +229,15 @@ reading small fixed crops. The accounting labels them for free. Order:
       trained on every run. A website analysis of recorder C's career records
       its fingerprint, and its accounting is identical to the held-out
       model's run of the same recording.
-- [ ] **Flag a worked-out amount the card contradicts.** The accounting
-      worked out a gain of 7 on a turn the counted-twice receipt made look
-      balanced, while the model read `+12` on five frames of that card and
-      the value 876 over 864. Done: a worked-out amount that a confident read
-      on its own card contradicts is listed for review.
+- [x] **Flag a worked-out amount the card contradicts.** A difference worked
+      out for a training whose card the model read as another gain is
+      recorded on the training with the reads and their frames, raised as an
+      accounting issue and listed in the review queue. The amount itself does
+      not change: the stat bars decide it, and a read cut to its leading
+      digits disagrees with nothing. Rebuilding the accounting of six saved
+      reports raises two findings, both in one career, a card reading `+18`
+      skill points where 13 was worked out and one reading `+9` where 8 was;
+      the `+18` is what the card shows, checked against the recording.
 - [ ] **Pointer-covered digits in the reader's training data.** Recordings
       show the mouse pointer over the result card, and one covered `8` read
       as `9` with high confidence. Done: boxes with the pointer over a digit
