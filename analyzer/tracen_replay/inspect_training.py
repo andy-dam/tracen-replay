@@ -8,6 +8,7 @@ from pathlib import Path
 from pathlib import PurePosixPath, PureWindowsPath
 from collections.abc import Mapping
 from .pipeline import decode_frames, PipelineError
+from .proof_writer import save_while
 from .vision import NeuralReader, parse
 from .transactions import training_events
 from .full_recording import save_json
@@ -645,7 +646,9 @@ def inspect(source,root,readings):
                 if raw.get('source_frame_sha256')!=image_digest:raise PipelineError('Inspection evidence changed.')
             else:
                 with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop((148,0,958,1080))
-                raw=reader.read_training(pane);pane.save(evidence)
+                saved=save_while(pane,evidence)
+                try:raw=reader.read_training(pane)
+                finally:saved()
                 raw.update(source_timestamp_ms=frame['source_timestamp_ms'],source_frame_sha256=image_digest,
                            evidence=evidence.relative_to(root).as_posix(),source_sha256=digest)
                 save_json(cache,raw)

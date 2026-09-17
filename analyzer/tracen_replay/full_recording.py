@@ -10,6 +10,7 @@ import threading
 import time
 import traceback
 from .pipeline import probe,decode_frames,PipelineError
+from .proof_writer import save_while
 from .vision import NeuralReader,OCR_DEVICE,parse
 from .reconcile import preview_segments
 from .gameplay import screen_summary
@@ -592,8 +593,10 @@ def _analyze_frame(reader,frame,root,source_sha256):
             parsed.update(source_timestamp_ms=saved['source_timestamp_ms'],evidence=saved['evidence'])
             return frame['id'],saved,True,parsed
     with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop((148,0,958,1080))
-    raw=reader.read(pane)
-    relative=f'gameplay/{frame["id"]}.png';pane.save(root/relative)
+    relative=f'gameplay/{frame["id"]}.png'
+    saved=save_while(pane,root/relative)
+    try:raw=reader.read(pane)
+    finally:saved()
     raw.update(source_timestamp_ms=frame['source_timestamp_ms'],evidence=relative,source_frame_sha256=digest)
     save_json(path,raw)
     parsed=parse_receipt_pixels(
