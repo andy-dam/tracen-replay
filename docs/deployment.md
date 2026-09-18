@@ -25,6 +25,18 @@ hosted service.
   [analysis-job.md](analysis-job.md)). Nothing about that contract assumes
   the worker runs on the same machine as the caller, only that the caller can
   start a process and read its output.
+- **One process per analysis, deliberately.** The analyzer is started fresh
+  for each job and exits when it is done, and a persistent worker would be a
+  step backwards. What it would save is interpreter start, imports and one
+  OCR session per worker, seconds against an analysis of twenty minutes or
+  more; what it would cost is holding the memory an analysis needs (a main
+  process peaking near 5 GB, each OCR worker near 2 GB) between jobs, and a
+  protocol and lifecycle to maintain. Exiting returns all of it to the
+  operating system. The same shape is what a serverless job billed by the
+  second wants: a container that never scales to zero would spend a whole
+  month's free grant in about half a day of idling, while a process per
+  analysis spends it only on work. Hosting changes who starts that process,
+  not the fact that it is one.
 - **Jobs and reports are rows in one database.** `internal/store` keeps
   `users`, `sessions`, `recordings`, `jobs`, `reports` and `corrections` in a
   single SQLite file today. The `internal/jobs.Store` and `auth.Store`
