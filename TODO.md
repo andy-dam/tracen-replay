@@ -169,30 +169,42 @@ its own measurement of the latest reports showed.
       fewer missing endpoints than before, because rows the badges hid now
       read. On the saved readings of six recordings only that career's 22
       readings change, every one of them dropping the same wrong Vocal 8.
-- [ ] **A turn spent on anything but training or a race has no action.** The
-      ledger's whole action vocabulary is `training` and `race`:
-      `turn_action_receipts` holds 71 records for the Grass Wonder career, 60
-      and 11, and nothing else. Six of its 74 turns therefore report
-      `missing_action`, and those six are not one thing. Two were Recreation,
-      which the player chose: turn-026 shows the Recreation screen and then
-      "Energy recovered by 38." and "Max Energy increased by 4.", and turn-067
-      has the same shape. Two are inheritance turns (30-odd `inheritance_spark`
-      and 13 `inheritance_inspiration` effects each), one is a concert whose
-      `great_success` the report already holds in `gameplay_tracking.concerts`,
-      and one is a song and lesson turn.
-      The last four are spent by the game rather than chosen, and the ledger
-      already has a shape for that: in `turn_ledger.py` the block that sets
-      `action_status` keeps a `phase_race_turn`'s finale race out of
-      `decisions` and counts it as `scheduled_race_actions` instead, so those
-      turns read `one_action` rather than looking wrong. Measured on
-      `.local/verify-panel4/run/report.json`; this is accounting, so it is
-      checked in seconds against that saved report rather than by a fresh
-      analysis. Only that one career has been read this way, and it is a Grand
-      Live career, so check a second career's actionless turns before fixing
-      the shape. Done: a turn
-      spent on a choice the player made carries that choice as its action, a
-      turn the game spent for the player says so, and `missing_action` is left
-      meaning a turn whose action was genuinely never seen.
+- [x] **A turn spent on anything but training or a race has no action.** The
+      six actionless turns of the Grass Wonder career were not what this item
+      first said: all six are choices the player made, and none was spent by
+      the game. Five are Recreation with the friend card Light Hello, the five
+      titled episodes of its outing chain ("Repose in the Lunar Mare" through
+      "At Rainbow Cove"), and one is a Rest ("Well-Rested!", energy recovered
+      by 61) after three lessons; the inheritance events and the concert sit
+      on the same turns as an outing and spend nothing. The analyzer already
+      had `outing` and `rest` actions, each needing its confirmation prompt on
+      a sampled frame, and this recording has none: the prompt is one click,
+      and at four frames a second the player dismissed it between two samples
+      every time. Checked against the recording: the Recreation menu at
+      596.75 s goes straight to the outing's scene at 597.75 s, and the hub at
+      927.75 s to the "Well-Rested!" scene at 928.0 s.
+      The request evidence is now what ordinary play does leave on screen. The
+      Recreation menu waits for the player, so it stands in as an outing's
+      request when no confirmation was sampled; the hub left straight into
+      the Rest's own scene stands in for the Rest prompt when its last frame
+      is within a second of that scene, nothing else was sampled between, and
+      the receipt could be nobody else's (no companion line, no treated
+      condition, not the infirmary's scene). Each receipt says so, the ledger
+      carries it as `identity_basis` (`outing_menu_and_receipt`,
+      `hub_exit_and_receipt`), and the client says the choice itself was not
+      seen, as for `result_card_only`. The second career checked, B/Gran
+      Concert, has one such turn of a third kind: the summer camp merges Rest
+      and Recreation into one "Rest & Recreation" prompt the classifier does
+      not label. The Rest rule now knows that prompt by its wording and names
+      the Rest after it, but that turn stays `missing_action` because its
+      receipt was read on one frame, and a Rest receipt read once proves
+      nothing, as before. On the saved readings of twelve reports, nine
+      careers, only the Grass Wonder report changes: five outings and two
+      rests (the sixth turn and a pre-debut rest at 200.5 s, checked against
+      the recording), its six `missing_action` turns all read `one_action`,
+      and its accounting summary is unchanged; the other eleven gain no
+      receipt. No "spent by the game" shape was needed and none was added;
+      `missing_action` still means a turn whose action was never seen.
 - [ ] **A result screen's panel rows are never reread.** The panel rereads,
       including the slot crop that catches a box clipped short of a number's
       first digit, are requested only where the career stat grid is detected,
