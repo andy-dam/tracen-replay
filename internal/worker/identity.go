@@ -27,8 +27,13 @@ func VersionArgv(python string) ([]string, error) {
 	if python == "" {
 		return nil, errors.New("worker: python interpreter is required")
 	}
-	return []string{python, "-X", "utf8", "-m", "tracen_replay.analysis_job", "--worker-version"}, nil
+	return append([]string{python, "-X", "utf8", "-m", "tracen_replay.analysis_job"}, VersionArgs()...), nil
 }
+
+// VersionArgs is the analyzer's own argument for the identity query: what
+// VersionArgv passes after the interpreter and the module, and what a worker
+// container takes.
+func VersionArgs() []string { return []string{"--worker-version"} }
 
 // DecodeVersion parses that answer, which must hold exactly one JSON object of
 // the worker-version schema carrying a source digest. It is as strict as the

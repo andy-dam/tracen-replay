@@ -55,6 +55,8 @@ func TestMain(m *testing.M) {
 	case "child":
 		time.Sleep(60 * time.Second)
 		os.Exit(0)
+	case "docker":
+		os.Exit(fakeDocker(os.Args[1:]))
 	}
 	os.Exit(4)
 }

@@ -5,6 +5,9 @@ services:
   tracen:
     build:
       context: .
+      # The whole application; the Dockerfile's worker stage is the analyzer
+      # alone, for a service that starts analyses as containers.
+      target: app
       args:
         OCR_RUNTIME: cpu
     image: tracen-replay:local

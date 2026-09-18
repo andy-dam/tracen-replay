@@ -10,7 +10,8 @@ service and the analyzer.
 **The service** is the Go binary `tracen` (`cmd/tracen`, package `main`,
 plus `internal/*`). It serves the HTTP API and the browser client from one
 process, keeps a SQLite database of accounts, uploads, jobs and reports, and
-runs the analyzer as a child process for each submitted recording.
+runs the analyzer for each submitted recording as a child process or, when
+started with `-worker-image`, as a container of the worker image.
 
 **The client** is the Vue application under `web/`. It only ever talks to
 the service's `/api` routes (`web/src/api.ts`) and knows recordings, jobs and
@@ -38,12 +39,15 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
    upload, checks the queue limit, creates a `jobs` row in status `queued`,
    and creates `<data>/jobs/<job id>/`.
 3. `Manager.Run` pulls one queued job at a time and starts the worker
-   (`internal/runner.Exec`) with the command `internal/worker.Command`
-   builds: the recording, an output directory
+   (`internal/runner.Exec`, or `internal/runner.Container` when the service
+   was started with `-worker-image`) with the command
+   `internal/worker.Command` builds: the recording, an output directory
    (`<data>/jobs/<job id>/run/`), the OCR worker counts, the model
    directory, `--prune-frames`, `--prune-working-data` (unless the service
    was started with `-keep-working-data`), and `--owner-pid` set to the
-   service's own process id.
+   service's own process id (dropped by the container runner, which mounts
+   the recording and the run directory into the container instead; see
+   [container.md](container.md)).
 4. While the worker runs, its stderr progress lines are parsed
    (`internal/worker.ParseProgress`) and written into the job row (stage,
    OCR processed/total); `internal/jobs.Hub` fans the same updates out to
@@ -74,7 +78,8 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
 - **Cancellation.** `Manager.Cancel` on a queued job marks it `cancelled`
   directly. On a running job it cancels the job's context; `runner.Exec.Run`
   then kills the worker's whole process tree and waits up to its kill grace
-  (five seconds by default) before returning.
+  (five seconds by default) before returning, and `runner.Container.Run`
+  removes the worker container by name.
 - **Interruption recovery on restart.** `Manager.Recover` runs once at
   startup and marks every job still `running` from a previous process as
   `interrupted` (`internal/store.MarkInterrupted`); an interrupted job is
@@ -84,7 +89,9 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
   `psutil` and, once it is gone, kills every process it started and exits
   with status 3: if the service dies without shutting down cleanly, nobody
   would read the result and an orphaned analysis would otherwise keep the
-  GPU and memory busy.
+  GPU and memory busy. A worker container cannot watch the service's pid, so
+  it carries a label naming the service's data directory instead, and the
+  service removes the containers under its label when it starts.
 - **Windows job object.** On Windows, `internal/runner` assigns the worker
   process to a job object created with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`
   (`internal/runner/tree_windows.go`). Closing the job's handle, which
@@ -134,7 +141,7 @@ Everything lives under the `-data` directory (default `.local/tracen-data`):
 | `internal/auth` | User accounts and sessions: password hashing, session tokens, sign-in rate limiting |
 | `internal/artifacts` | Confined access to a job's files: the report, the log tail, and frames extracted on demand |
 | `internal/jobs` | The job lifecycle: admission, the durable queue, the single worker loop, cancellation and restart recovery |
-| `internal/runner` | Starts the analyzer as a child process and kills its whole process tree on cancellation or shutdown |
+| `internal/runner` | Starts the analyzer as a child process (`Exec`), killing its whole process tree on cancellation or shutdown, or as a container of the worker image (`Container`), removed by name |
 | `internal/store` | The SQLite-backed store for jobs, reports, uploaded recordings, users and sessions |
 | `internal/timeline` | Reads the compact `timeline.json` document the analyzer writes; the only analyzer output the browser-facing endpoints are built on |
 | `internal/webassets` | Embeds the built browser client and serves it with a single-page fallback |

@@ -69,6 +69,21 @@ func (c Command) Argv() ([]string, error) {
 		return nil, errors.New("worker: python interpreter is required")
 	case c.WorkDir == "":
 		return nil, errors.New("worker: working directory is required")
+	}
+	args, err := c.Args(filepath.Clean)
+	if err != nil {
+		return nil, err
+	}
+	return append([]string{c.Python, "-X", "utf8", "-m", "tracen_replay.analysis_job"}, args...), nil
+}
+
+// Args returns the analyzer's own arguments, source first: what Argv passes
+// after the interpreter and the module, and what a worker container takes,
+// since the worker image's entrypoint is that interpreter and module. clean
+// normalizes each path; Argv passes filepath.Clean, and a caller whose paths
+// belong to another file system, a Linux container's, passes path.Clean.
+func (c Command) Args(clean func(string) string) ([]string, error) {
+	switch {
 	case c.Source == "":
 		return nil, errors.New("worker: source recording is required")
 	case c.Output == "":
@@ -84,30 +99,29 @@ func (c Command) Argv() ([]string, error) {
 	case !validDevice(c.OCRDevice):
 		return nil, fmt.Errorf("worker: ocr device %q is not one of auto, cpu, dml, cuda", c.OCRDevice)
 	}
-	argv := []string{c.Python, "-X", "utf8", "-m", "tracen_replay.analysis_job",
-		filepath.Clean(c.Source), "--output", filepath.Clean(c.Output), "--workers", strconv.Itoa(c.Workers)}
+	args := []string{clean(c.Source), "--output", clean(c.Output), "--workers", strconv.Itoa(c.Workers)}
 	if c.ModelDir != "" {
-		argv = append(argv, "--model-dir", filepath.Clean(c.ModelDir))
+		args = append(args, "--model-dir", clean(c.ModelDir))
 	}
 	if c.DenseWorkers > 0 {
-		argv = append(argv, "--dense-workers", strconv.Itoa(c.DenseWorkers))
+		args = append(args, "--dense-workers", strconv.Itoa(c.DenseWorkers))
 	}
 	if c.FPS > 0 {
-		argv = append(argv, "--fps", strconv.FormatFloat(c.FPS, 'f', -1, 64))
+		args = append(args, "--fps", strconv.FormatFloat(c.FPS, 'f', -1, 64))
 	}
 	if c.LearnedReader != "" {
-		argv = append(argv, "--learned-reader", filepath.Clean(c.LearnedReader))
+		args = append(args, "--learned-reader", clean(c.LearnedReader))
 	}
 	if c.PruneFrames {
-		argv = append(argv, "--prune-frames")
+		args = append(args, "--prune-frames")
 	}
 	if c.PruneWorkingData {
-		argv = append(argv, "--prune-working-data")
+		args = append(args, "--prune-working-data")
 	}
 	if c.OwnerPID > 0 {
-		argv = append(argv, "--owner-pid", strconv.Itoa(c.OwnerPID))
+		args = append(args, "--owner-pid", strconv.Itoa(c.OwnerPID))
 	}
-	return argv, nil
+	return args, nil
 }
 
 func validDevice(device string) bool {

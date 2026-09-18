@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,16 +41,29 @@ func (e Exec) Probe(ctx context.Context, argv []string, dir string) ([]byte, err
 	return stdout.Bytes(), nil
 }
 
+// VersionQuery returns the identity query for the analyzer an interpreter
+// reaches: the --worker-version run of docs/analysis-job.md, started the way
+// an analysis is.
+func (e Exec) VersionQuery(python, workDir string) func(context.Context) ([]byte, error) {
+	return func(ctx context.Context) ([]byte, error) {
+		argv, err := worker.VersionArgv(python)
+		if err != nil {
+			return nil, err
+		}
+		return e.Probe(ctx, argv, workDir)
+	}
+}
+
 // AnalyzerVersion asks the installed analyzer who it is, once. The answer is
-// the identity of a tree on disk, so it cannot change while the service runs,
-// and asking costs an interpreter start that no request should pay twice. A
-// failure is not remembered: the analyzer may simply not have been reachable
-// yet, and the next caller should be free to ask again.
+// the identity of a tree on disk or of an image, so it cannot change while
+// the service runs, and asking costs an interpreter or container start that
+// no request should pay twice. A failure is not remembered: the analyzer may
+// simply not have been reachable yet, and the next caller should be free to
+// ask again.
 type AnalyzerVersion struct {
-	// Exec starts the interpreter; Python and WorkDir address the analyzer.
-	Exec    Exec
-	Python  string
-	WorkDir string
+	// Ask runs the identity query and returns its stdout: Exec.VersionQuery
+	// for an interpreter, Container.VersionQuery for the worker image.
+	Ask func(ctx context.Context) ([]byte, error)
 
 	once sync.Mutex
 	got  bool
@@ -63,11 +77,10 @@ func (a *AnalyzerVersion) Version(ctx context.Context) (worker.WorkerVersion, er
 	if a.got {
 		return a.held, nil
 	}
-	argv, err := worker.VersionArgv(a.Python)
-	if err != nil {
-		return worker.WorkerVersion{}, err
+	if a.Ask == nil {
+		return worker.WorkerVersion{}, errors.New("no analyzer to ask for its version")
 	}
-	stdout, err := a.Exec.Probe(ctx, argv, a.WorkDir)
+	stdout, err := a.Ask(ctx)
 	if err != nil {
 		return worker.WorkerVersion{}, err
 	}

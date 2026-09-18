@@ -66,6 +66,10 @@ func run() error {
 	allowedOrigins := flag.String("allowed-origin", "", "comma-separated client origins served from elsewhere that may call the API with credentials, e.g. http://localhost:5173")
 	cookieSameSite := flag.String("cookie-samesite", "strict", "session cookie SameSite: strict (client served here), lax (client on another port or subdomain of the same site), none (another site; needs HTTPS)")
 	keepWorkingData := flag.Bool("keep-working-data", false, "keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); by default only the report, timeline, viewer page and log are kept")
+	workerImage := flag.String("worker-image", "", "run each analysis as a container of this worker image (the Dockerfile's worker stage) instead of as a child process; -python, -workdir and -model-dir are then unused")
+	dockerCLI := flag.String("docker", "docker", "docker command line client, used with -worker-image")
+	workerGPUs := flag.String("worker-gpus", "", "docker run --gpus value for the worker container, e.g. all, for an image built with the CUDA wheel; empty stays on the CPU provider")
+	workerUser := flag.String("worker-user", "", "docker run --user value for the worker container, e.g. 1000:1000, so its files belong to the service's user on a Linux host")
 	flag.Parse()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
@@ -82,10 +86,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	dataDirAbs, err := filepath.Abs(*dataDir)
+	if err != nil {
+		return err
+	}
+	// The worker is a child process unless an image is named; then each
+	// analysis is a container of that image, labelled with this data
+	// directory so a restart can end the containers a dead service left.
+	var jobRunner jobs.Runner = runner.Exec{Logger: logger}
+	analyzerQuery := runner.Exec{Logger: logger}.VersionQuery(*python, workDirAbs)
+	var container *runner.Container
+	if *workerImage != "" {
+		container = &runner.Container{Docker: *dockerCLI, Image: *workerImage, GPUs: *workerGPUs, User: *workerUser, Owner: dataDirAbs, Logger: logger}
+		jobRunner = *container
+		analyzerQuery = container.VersionQuery()
+	}
 	manager, err := jobs.NewManager(jobs.Config{DataDir: *dataDir, Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader,
 		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
-		Recordings: db, Logger: logger}, db, runner.Exec{Logger: logger})
+		Recordings: db, Logger: logger}, db, jobRunner)
 	if err != nil {
 		return err
 	}
@@ -102,6 +121,11 @@ func run() error {
 	} else if len(interrupted) > 0 {
 		logger.Warn("interrupted jobs found from a previous run", "count", len(interrupted))
 	}
+	if container != nil {
+		if _, err := container.Reap(ctx); err != nil {
+			logger.Warn("worker containers of a previous run could not be checked", "error", err)
+		}
+	}
 	loopDone := make(chan struct{})
 	go func() {
 		manager.Run(ctx)
@@ -113,16 +137,30 @@ func run() error {
 		return fmt.Errorf("bad -addr: %w", err)
 	}
 	ready := func() []api.Check {
-		checks := []api.Check{
-			check("python", *python, func() error { _, err := os.Stat(*python); return err }),
-			check("ffmpeg", *ffmpeg, func() error { _, err := exec.LookPath(*ffmpeg); return err }),
-			check("model-dir", *modelDir, func() error { _, err := os.Stat(filepath.Join(*modelDir, "PP-OCRv6_det_small.onnx")); return err }),
-			check("analyzer", workDirAbs, func() error {
-				_, err := os.Stat(filepath.Join(workDirAbs, "tracen_replay", "analysis_job.py"))
-				return err
-			}),
-			{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"},
+		var checks []api.Check
+		if container != nil {
+			checks = []api.Check{
+				check("docker", *dockerCLI, func() error { _, err := exec.LookPath(*dockerCLI); return err }),
+				check("ffmpeg", *ffmpeg, func() error { _, err := exec.LookPath(*ffmpeg); return err }),
+				check("worker-image", *workerImage, func() error {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_, err := container.ImageID(ctx)
+					return err
+				}),
+			}
+		} else {
+			checks = []api.Check{
+				check("python", *python, func() error { _, err := os.Stat(*python); return err }),
+				check("ffmpeg", *ffmpeg, func() error { _, err := exec.LookPath(*ffmpeg); return err }),
+				check("model-dir", *modelDir, func() error { _, err := os.Stat(filepath.Join(*modelDir, "PP-OCRv6_det_small.onnx")); return err }),
+				check("analyzer", workDirAbs, func() error {
+					_, err := os.Stat(filepath.Join(workDirAbs, "tracen_replay", "analysis_job.py"))
+					return err
+				}),
+			}
 		}
+		checks = append(checks, api.Check{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"})
 		if *learnedReader != "" {
 			checks = append(checks, check("learned-reader", *learnedReader, func() error { _, err := os.Stat(*learnedReader); return err }))
 		}
@@ -147,11 +185,11 @@ func run() error {
 	}
 	// The analyzer names itself, so a report can say whether the analyzer that
 	// made it is still the one installed. Asked on first use, not at startup:
-	// serving must not wait on an interpreter, and a missing analyzer is a
-	// readiness problem rather than a reason not to listen.
-	analyzer := &runner.AnalyzerVersion{Exec: runner.Exec{Logger: logger}, Python: *python, WorkDir: workDirAbs}
+	// serving must not wait on an interpreter or a container, and a missing
+	// analyzer is a readiness problem rather than a reason not to listen.
+	analyzer := &runner.AnalyzerVersion{Ask: analyzerQuery}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
-		Analyzer: analyzer.Version,
+		Analyzer:     analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
 		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static})

@@ -501,11 +501,23 @@ hosting choice.
       the GPU, with the stage split in [docs/ocr-performance.md](docs/ocr-performance.md);
       the report is close to the GPU run's but not identical, since the CPU
       recognizer reads a few frames differently. Done.
-- [ ] **A worker image.** The analyzer alone, taking the same command line
-      the service uses (`docs/analysis-job.md`), so the service can start it
-      as a container instead of a child process. Done: the service has a
-      runner that talks to a worker container and the end-to-end run passes
-      through it.
+- [x] **A worker image.** The Dockerfile's `worker` stage is the analyzer
+      alone (1.51 GB, built in about two minutes on top of the cached
+      layers), with the analyzer's own command line as its entrypoint, and
+      the `app` stage is built on top of it. `internal/runner.Container`
+      starts one container per job when the service is given
+      `-worker-image`: the recording, the run directory and the learned
+      reader are mounted under `/job`, the terminal object's paths are
+      mapped back to the host, cancellation removes the container by name,
+      and containers carry a label so a restarted service ends the ones a
+      dead service left. Checked on 2026-09-18 against real docker from the
+      website's API: a two-minute clip uploaded, submitted and analyzed to a
+      report in 7.5 minutes on the CPU provider (481 base frames), the
+      report's paths and identity right in the browser's summary; a cancel
+      removed the running container in under two seconds; killing the
+      service mid-job left the container running and the restart removed
+      it while marking the job interrupted ([docs/container.md](docs/container.md)).
+      Done.
 - [ ] **Image hygiene.** Multi-stage build, pinned base images and model
       files, no recordings or local evidence in the context (`.dockerignore`),
       health checks wired to `/healthz` and `/readyz`, and a CI job that

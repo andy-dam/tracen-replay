@@ -18,7 +18,14 @@ python -m tracen_replay.analysis_job <source> --output <run dir> [options]
 `source` is a local video file; `--output` is the run directory the worker
 writes into. The service always adds `-X utf8` to the interpreter invocation
 and runs it with `WorkDir` (the directory containing the `tracen_replay`
-package) as the working directory.
+package) as the working directory. The worker image's entrypoint is that
+interpreter invocation (`python -X utf8 -m tracen_replay.analysis_job`), so
+a container of it takes exactly the arguments after it, and
+`internal/runner.Container` gives it the same ones a child process gets,
+with the recording and the run directory at their mount points
+(`/job/source/<name>`, `/job/run`) and no `--owner-pid`; the terminal
+object's paths are then mapped back to the host run directory before the
+service reads them (see [container.md](container.md)).
 
 | Flag | Default | Meaning |
 | --- | --- | --- |

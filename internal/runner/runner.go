@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,15 +52,8 @@ func (e Exec) Run(ctx context.Context, cmd worker.Command, onProgress func(worke
 	}
 	child.Env = append(append([]string{}, base...), cmd.Env()...)
 	configureTree(child)
-	stdout, err := child.StdoutPipe()
+	s, err := startStreams(child, onProgress, logs)
 	if err != nil {
-		return 0, nil, err
-	}
-	stderr, err := child.StderrPipe()
-	if err != nil {
-		return 0, nil, err
-	}
-	if err := child.Start(); err != nil {
 		return 0, nil, fmt.Errorf("start analyzer: %w", err)
 	}
 	// Bind the child to a tree object whose lifetime is this process's: on
@@ -71,13 +65,60 @@ func (e Exec) Run(ctx context.Context, cmd worker.Command, onProgress func(worke
 	}
 	defer tree.close()
 
+	select {
+	case err := <-s.done:
+		return exitStatus(err, s.out.Bytes(), s.outErr)
+	case <-ctx.Done():
+		tree.kill(child)
+		select {
+		case <-s.done:
+		case <-time.After(grace(e.KillGrace)):
+			child.Process.Kill()
+			<-s.done
+		}
+		return -1, s.out.Bytes(), ctx.Err()
+	}
+}
+
+// grace is how long a cancelled worker gets to go away before it is killed
+// outright; zero means five seconds.
+func grace(configured time.Duration) time.Duration {
+	if configured == 0 {
+		return 5 * time.Second
+	}
+	return configured
+}
+
+// streams is a started worker's output: stdout collected whole, bounded by
+// MaxStdout, and stderr copied line by line to the log and parsed for
+// progress. done receives the outcome of Wait once both streams are drained.
+type streams struct {
+	out    bytes.Buffer
+	outErr error
+	// lastLine is the last non-blank stderr line, the reason when a worker
+	// never got as far as its own output.
+	lastLine string
+	done     chan error
+}
+
+func startStreams(child *exec.Cmd, onProgress func(worker.Progress), logs io.Writer) (*streams, error) {
+	stdout, err := child.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	stderr, err := child.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+	if err := child.Start(); err != nil {
+		return nil, err
+	}
+	s := &streams{done: make(chan error, 1)}
 	var wg sync.WaitGroup
-	var out bytes.Buffer
-	var outErr error
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, outErr = io.Copy(&out, io.LimitReader(stdout, MaxStdout+1))
+		_, s.outErr = io.Copy(&s.out, io.LimitReader(stdout, MaxStdout+1))
 		io.Copy(io.Discard, stdout)
 	}()
 	go func() {
@@ -89,35 +130,19 @@ func (e Exec) Run(ctx context.Context, cmd worker.Command, onProgress func(worke
 			if logs != nil {
 				io.WriteString(logs, line+"\n")
 			}
+			if strings.TrimSpace(line) != "" {
+				s.lastLine = line
+			}
 			if p, ok := worker.ParseProgress(line); ok && onProgress != nil {
 				onProgress(p)
 			}
 		}
 	}()
-
-	waitErr := make(chan error, 1)
 	go func() {
 		wg.Wait()
-		waitErr <- child.Wait()
+		s.done <- child.Wait()
 	}()
-
-	grace := e.KillGrace
-	if grace == 0 {
-		grace = 5 * time.Second
-	}
-	select {
-	case err := <-waitErr:
-		return exitStatus(err, out.Bytes(), outErr)
-	case <-ctx.Done():
-		tree.kill(child)
-		select {
-		case <-waitErr:
-		case <-time.After(grace):
-			child.Process.Kill()
-			<-waitErr
-		}
-		return -1, out.Bytes(), ctx.Err()
-	}
+	return s, nil
 }
 
 func exitStatus(err error, stdout []byte, outErr error) (int, []byte, error) {

@@ -1,9 +1,12 @@
 # syntax=docker/dockerfile:1
 
-# The whole application in one image: the Go service with the browser client
-# embedded, the Python analyzer, ffmpeg and the OCR models. OCR runs on the
-# CPU provider, which is several times slower per frame than a GPU; build
-# with OCR_RUNTIME=cuda for the CUDA wheel instead.
+# Two images from one file. The last stage, app, is the whole application:
+# the Go service with the browser client embedded, the Python analyzer,
+# ffmpeg and the OCR models. The worker stage underneath it is the analyzer
+# alone, for a service that starts each analysis as a container
+# (`docker build --target worker`). OCR runs on the CPU provider, which is
+# several times slower per frame than a GPU; build with OCR_RUNTIME=cuda for
+# the CUDA wheel instead.
 
 # The client is built straight into the Go package that embeds it.
 FROM node:22-bookworm-slim AS client
@@ -23,14 +26,15 @@ COPY internal/ ./internal/
 COPY --from=client /src/internal/webassets/dist/ ./internal/webassets/dist/
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/tracen ./cmd/tracen
 
-FROM python:3.13-slim-bookworm AS app
+# The analyzer alone. A container of this stage takes the analyzer's own
+# command line (docs/analysis-job.md), source first, with the recording and
+# the run directory mounted under /job by internal/runner.Container.
+FROM python:3.13-slim-bookworm AS worker
 # cpu (the default) or cuda. The CUDA wheel replaces the CPU one and brings
 # its own NVIDIA runtime libraries, so the container needs --gpus to use it.
 ARG OCR_RUNTIME=cpu
 ARG ONNXRUNTIME_GPU_VERSION=1.29.0
-ENV PORT=8765 \
-	TRACEN_DATA=/data \
-	PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
 	PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ffmpeg \
@@ -50,6 +54,14 @@ RUN mkdir -p /opt/tracen/models \
 	&& python -c "from tracen_replay.vision import NeuralReader; print(sorted(NeuralReader('/opt/tracen/models').models))" \
 	&& test -f /opt/tracen/models/PP-OCRv6_det_small.onnx \
 	&& test -f /opt/tracen/models/en_PP-OCRv5_rec_mobile.onnx
+WORKDIR /opt/tracen/analyzer
+ENTRYPOINT ["python", "-X", "utf8", "-m", "tracen_replay.analysis_job"]
+
+# The whole application on top of the worker: the service, with the client
+# embedded, starts the same analyzer as a child process.
+FROM worker AS app
+ENV PORT=8765 \
+	TRACEN_DATA=/data
 COPY --from=service /out/tracen /usr/local/bin/tracen
 COPY docker/entrypoint.sh /usr/local/bin/tracen-entrypoint
 RUN chmod +x /usr/local/bin/tracen-entrypoint && mkdir -p /data

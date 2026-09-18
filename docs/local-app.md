@@ -66,6 +66,10 @@ directory, so no user path is hardcoded):
 | `-allowed-origin` | unset | comma-separated client origins served from elsewhere that may call the API with credentials, e.g. `http://localhost:5173` |
 | `-cookie-samesite` | `strict` | the session cookie's SameSite: `strict` when the service serves the client, `lax` for a client on another port or subdomain of the same site, `none` for another site (needs HTTPS) |
 | `-keep-working-data` | off | keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); off keeps only the report, timeline, viewer page and log |
+| `-worker-image` | unset | run each analysis as a container of this worker image instead of a child process; `-python`, `-workdir` and `-model-dir` are then unused (see [container.md](container.md)) |
+| `-docker` | `docker` | the docker command line client, with `-worker-image` |
+| `-worker-gpus` | unset | `docker run --gpus` value for the worker container, e.g. `all` |
+| `-worker-user` | unset | `docker run --user` value for the worker container, e.g. `1000:1000` |
 
 Example with everything explicit, as a configuration you can keep in a script:
 
@@ -76,8 +80,8 @@ Example with everything explicit, as a configuration you can keep in a script:
 ```
 
 `/readyz` lists the checks the server makes (python, ffmpeg, model-dir,
-analyzer, ocr-device); the client shows the result as the pill in
-the header. A failed check names the path it looked at. The checks are
+analyzer, ocr-device; with `-worker-image`: docker, ffmpeg, worker-image,
+ocr-device); the client shows the result as the pill in the header. A failed check names the path it looked at. The checks are
 advisory: a job submitted while one fails is accepted and then ends as
 `failed` with the worker's own message (for example `invalid_paths` when the
 model directory is missing), so fix the check before queueing work.

@@ -61,10 +61,12 @@ hosted service.
 
 The application image exists: one image with the client, the service, the
 analyzer, ffmpeg and the OCR models on the CPU provider (DirectML is
-Windows-only), with the data directory on a volume. It is described in
-[container.md](container.md). Still to come is a worker image the service
-starts through a container runner instead of as a child process; the steps
-are in the repository's TODO list.
+Windows-only), with the data directory on a volume. The worker image exists
+too: the analyzer alone, which the service starts as one container per
+analysis when given `-worker-image`, through `internal/runner.Container`.
+Both are described in [container.md](container.md). The worker is still
+spawned by the service, on the same docker host; addressing a worker that
+runs elsewhere is the last item below.
 
 How a commit would become a running deployment — the image tag, the registry,
 the revision and the rollback — is in [ci-cd.md](ci-cd.md).

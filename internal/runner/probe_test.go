@@ -8,11 +8,11 @@ import (
 )
 
 func fakeAnalyzer(mode string) *AnalyzerVersion {
-	return &AnalyzerVersion{
-		Exec:    Exec{Env: append(os.Environ(), "TRACEN_FAKE_WORKER="+mode)},
-		Python:  os.Args[0],
-		WorkDir: ".",
-	}
+	return &AnalyzerVersion{Ask: fakeQuery(mode)}
+}
+
+func fakeQuery(mode string) func(context.Context) ([]byte, error) {
+	return Exec{Env: append(os.Environ(), "TRACEN_FAKE_WORKER="+mode)}.VersionQuery(os.Args[0], ".")
 }
 
 func TestProbeRefusesAnEmptyCommand(t *testing.T) {
@@ -32,7 +32,7 @@ func TestAnalyzerVersionAsksOnceAndKeepsTheAnswer(t *testing.T) {
 	}
 	// The identity belongs to a tree on disk, so a second caller pays nothing.
 	// Breaking the fake proves the answer came from the cache and not a rerun.
-	analyzer.Exec = Exec{Env: append(os.Environ(), "TRACEN_FAKE_WORKER=version-broken")}
+	analyzer.Ask = fakeQuery("version-broken")
 	again, err := analyzer.Version(context.Background())
 	if err != nil || again != version {
 		t.Fatalf("cached call returned %+v, %v", again, err)
@@ -50,7 +50,7 @@ func TestAnalyzerVersionDoesNotRememberAFailure(t *testing.T) {
 		t.Errorf("error lost the analyzer's message: %v", err)
 	}
 	// A later caller may ask again, because nothing says the failure is final.
-	analyzer.Exec = Exec{Env: append(os.Environ(), "TRACEN_FAKE_WORKER=version")}
+	analyzer.Ask = fakeQuery("version")
 	if _, err := analyzer.Version(context.Background()); err != nil {
 		t.Fatalf("second attempt: %v", err)
 	}
