@@ -3,7 +3,25 @@ import unittest
 import json
 from pathlib import Path
 from tracen_replay.receipt_names import (collapse_punctuated_hint_variants,
-    collapse_separator_hint_variants, collapse_visual_hint_variants)
+    collapse_separator_hint_variants, collapse_uncorroborated_hint_variants,
+    collapse_visual_hint_variants)
+
+
+def recovered_sample(name='Sp.unner', amount=4, proof='occluded-receipt-recovery/f/1.png',
+                     others=(('Spring Runner ○', 4, 8), ('Glittering Star', 5, 4))):
+    """One event holding a garbled recovery spelling beside corroborated awards."""
+    weak = dict(kind='skill_hint_change', name=name, amount=amount,
+                raw_text=f'Gained {amount} hint level(s) for {name}.')
+    held = [dict(kind='skill_hint_change', name=other, amount=value,
+                 raw_text=f'Gained {value} hint level(s) for {other}.')
+            for other, value, _seen in others]
+    evidence = {'skill_hint_change||' + name: [proof]}
+    sightings = {name: 1}
+    for other, _value, seen in others:
+        evidence['skill_hint_change||' + other] = [f'gameplay/{other}-{i}.png' for i in range(seen)]
+        sightings[other] = seen
+    event = dict(effects=[*held, weak], field_evidence=evidence, conflicting_readings=[])
+    return event, sightings
 
 
 def sample():
@@ -243,6 +261,64 @@ class HintReceiptIdentityTests(unittest.TestCase):
                 }
                 collapse_separator_hint_variants(event,rows)
                 self.assertEqual(len(event['effects']),2)
+
+
+class UncorroboratedHintSpellingTests(unittest.TestCase):
+    def names(self, event):
+        return sorted(e['name'] for e in event['effects'] if e['kind'] == 'skill_hint_change')
+
+    def test_a_spelling_only_one_recovered_frame_read_joins_the_award(self):
+        event, sightings = recovered_sample()
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertEqual(self.names(event), ['Glittering Star', 'Spring Runner ○'])
+        award = next(e for e in event['effects'] if e['name'] == 'Spring Runner ○')
+        self.assertEqual(award['name_resolution'], 'uncorroborated_recovered_spelling')
+        self.assertEqual(award['alternate_name_evidence'],
+                         [dict(name='Sp.unner', evidence=['occluded-receipt-recovery/f/1.png'])])
+        # The award keeps the frame that read it, under the name that stands.
+        self.assertIn('occluded-receipt-recovery/f/1.png',
+                      event['field_evidence']['skill_hint_change||Spring Runner ○'])
+
+    def test_distance_only_chooses_between_the_awards_at_that_amount(self):
+        # Two awards at the same amount: the nearer name takes the garble, and
+        # the skill it is not a damaged spelling of is left alone.
+        event, sightings = recovered_sample(
+            name='Med ym Corners O', amount=1,
+            others=(('Medium Corners ○', 1, 11), ('Non-Standard Distance ○', 1, 2)))
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertEqual(self.names(event), ['Medium Corners ○', 'Non-Standard Distance ○'])
+        award = next(e for e in event['effects'] if e['name'] == 'Medium Corners ○')
+        self.assertEqual([a['name'] for a in award['alternate_name_evidence']],
+                         ['Med ym Corners O'])
+
+    def test_what_nothing_else_corroborates_keeps_what_the_recovery_read(self):
+        # No award at that amount to join, so the recovery's own reading stands.
+        event, sightings = recovered_sample(name='Come What May', amount=1,
+                                            others=(('Spring Runner ○', 4, 8),))
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertEqual(self.names(event), ['Come What May', 'Spring Runner ○'])
+
+    def test_a_base_pass_reading_and_a_recurring_name_are_both_left_alone(self):
+        # A garbled spelling the ordinary pass produced is not this rule's.
+        event, sightings = recovered_sample(proof='gameplay/part-012-frame-000009.png')
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertIn('Sp.unner', self.names(event))
+        # A skill the run saw more than once stays its own award at any amount.
+        event, sightings = recovered_sample(name='Corner Adept')
+        sightings['Corner Adept'] = 2
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertIn('Corner Adept', self.names(event))
+        # So do two candidates that corroborate each other no better.
+        event, sightings = recovered_sample(others=(('Spring Runner ○', 4, 1),))
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertIn('Sp.unner', self.names(event))
+
+    def test_an_award_already_under_review_is_not_quietly_merged(self):
+        event, sightings = recovered_sample()
+        event['conflicting_readings'] = [dict(field='skill_hint_change||Spring Runner ○',
+                                              reason='changing_effect_value')]
+        collapse_uncorroborated_hint_variants(event, sightings)
+        self.assertIn('Sp.unner', self.names(event))
 
 
 if __name__=='__main__':unittest.main()

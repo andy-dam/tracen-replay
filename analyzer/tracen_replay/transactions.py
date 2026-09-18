@@ -2327,6 +2327,11 @@ def continued_title(current,row):
 def outcome_events(readings):
     events=[];current=None
     rows_by_evidence={r['evidence']:r for r in readings}
+    # How often the whole run spelled a skill that way. A name only one frame
+    # ever produced is not corroborated by anything, wherever it turns up.
+    hint_name_sightings=Counter(
+        effect.get('name') for row in readings for effect in (row.get('effects') or [])
+        if effect.get('kind')=='skill_hint_change')
     for row in readings:
         # Event reconciliation annotates accepted alternatives. Keep those
         # annotations separate from the original parsed observations.
@@ -2493,6 +2498,8 @@ def outcome_events(readings):
             event['field_evidence'].setdefault(base_key,[]).extend(event['field_evidence'].get(variant_key,[]))
             removed.append(effect)
         event['effects']=[e for e in event['effects'] if e not in removed]
+        from .receipt_names import collapse_uncorroborated_hint_variants
+        collapse_uncorroborated_hint_variants(event,hint_name_sightings)
         from .receipt_names import collapse_separator_hint_variants
         collapse_separator_hint_variants(event,rows_by_evidence)
         from .receipt_names import collapse_song_variants

@@ -153,7 +153,7 @@ its own measurement of the latest reports showed.
       fewer missing endpoints than before, because rows the badges hid now
       read. On the saved readings of six recordings only that career's 22
       readings change, every one of them dropping the same wrong Vocal 8.
-- [ ] **A hint award is counted once per spelling of its skill.** An event's
+- [x] **A hint award is counted once per spelling of its skill.** An event's
       effects are keyed by kind, field and name, so a skill spelled two ways
       becomes two awards, and the hint totals a report prints are inflated by
       exactly that. No balance notices, because hint levels are in neither the
@@ -170,12 +170,19 @@ its own measurement of the latest reports showed.
       Corners ○` is close to `Medium Straightaways ○`.
       What separates them is corroboration. Every real award here is read on
       one to eight frames and its name recurs through the run; every duplicate
-      is one recovered frame whose spelling appears nowhere else. Done: a
-      recovered receipt that is the only sighting of its name does not create
-      an award the event already holds at that amount, it joins it as
-      evidence; an award nothing else corroborates keeps whatever the recovery
-      read, and a genuinely different skill at the same amount stays its own
-      award.
+      is one recovered frame whose spelling appears nowhere else.
+      A spelling the run produced once, on a recovery frame and nowhere else,
+      now joins an award the event already holds at the same amount under a
+      name read more often, keeping the frame as that award's evidence.
+      Distance is asked only which of the awards held at that amount the
+      garble belongs to, never whether it is one, and it answers only when one
+      is strictly nearest: the event carrying `Med ym Corners O` holds two
+      awards at one level and two at five, and each garble went to the right
+      one. Across every saved report, nine careers, only five awards change:
+      the four named above and `Cluner Adept` beside `Corner Adept` in a
+      second career. `Come What May`, which only the recovery ever read, keeps
+      its own award because nothing in its event stands at that amount, and
+      `Cprner Adept`, a garble the ordinary pass read twice, is left alone.
 - [ ] **A race-day opening is sometimes never observed.** Nothing is carried
       from the previous turn any more: a ledger turn's opening is observed or
       it says it was not. Measured on the latest report of each of five

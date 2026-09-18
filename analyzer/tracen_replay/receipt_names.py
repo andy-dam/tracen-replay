@@ -1300,6 +1300,69 @@ def collapse_punctuated_hint_variants(event,rows_by_evidence):
     event['effects']=[e for e in event['effects'] if e not in removed]
 
 
+def _recovered_reading(evidence):
+    """Whether a proof came from a recovery pass rather than the base one."""
+    return isinstance(evidence,str) and not evidence.startswith('gameplay/')
+
+
+def _nearest_hint_award(name,candidates):
+    """Which held award a garbled spelling belongs to, when one stands out.
+
+    Distance cannot say whether a spelling is garbled: ``Sp.unner`` is far
+    from the name it damages, while ``Medium Corners`` is close to a
+    different skill.  Corroboration decides that.  Distance is asked only
+    which of the awards the event already holds at that amount the garble
+    belongs to, and it answers only when one of them is strictly nearer than
+    every other.
+    """
+    from .gameplay import _edit_distance
+    scored=sorted((_edit_distance(str(name or ''),str(item.get('name') or '')),index,item)
+                  for index,item in enumerate(candidates))
+    if not scored or (len(scored)>1 and scored[0][0]==scored[1][0]):return None
+    return scored[0][2]
+
+
+def collapse_uncorroborated_hint_variants(event,hint_name_sightings):
+    """Fold a hint spelling that one recovered frame is the only sighting of.
+
+    The receipt log scrolls while an event runs, so a receipt the recovery
+    reads again sits at a different height on every frame and a garbled
+    re-read shares no slot with the clean one.  The distance between the two
+    settles nothing either: ``Sp.unner`` is far from ``Spring Runner`` while
+    ``Medium Corners`` is close to ``Medium Straightaways``.  What separates
+    them is corroboration -- a real award's name recurs through the run, and
+    a garbled re-read is one recovered frame's spelling and appears nowhere
+    else.  Such a spelling joins an award the event already holds at the same
+    amount whose own name was read more often, so the award keeps its count
+    and gains the frame as evidence.
+
+    An award nothing else corroborates keeps whatever the recovery read, a
+    skill the run saw more than once stays its own award at any amount, and
+    two equally uncorroborated candidates leave each other alone.
+    """
+    hints=[e for e in event['effects'] if e['kind']=='skill_hint_change']
+    removed=[]
+    for weak in hints:
+        if hint_name_sightings.get(weak.get('name'))!=1:continue
+        key='skill_hint_change||'+str(weak.get('name') or '')
+        proofs=event['field_evidence'].get(key) or []
+        if not proofs or not all(_recovered_reading(proof) for proof in proofs):continue
+        targets=[held for held in hints
+                 if held is not weak and held.get('amount')==weak.get('amount')
+                 and (hint_name_sightings.get(held.get('name')) or 0)>1]
+        target=_nearest_hint_award(weak.get('name'),targets)
+        if target is None:continue
+        keys={'skill_hint_change||'+str(effect.get('name') or '') for effect in (weak,target)}
+        if any(item.get('field') in keys for item in event.get('conflicting_readings',[])):continue
+        target.setdefault('alternate_name_evidence',[]).append(dict(
+            name=weak.get('name'),evidence=list(proofs)))
+        target['name_resolution']='uncorroborated_recovered_spelling'
+        event['field_evidence'].setdefault(
+            'skill_hint_change||'+str(target.get('name') or ''),[]).extend(proofs)
+        removed.append(weak)
+    event['effects']=[effect for effect in event['effects'] if effect not in removed]
+
+
 _HINT_SEPARATOR_RE = re.compile(r"[\s\-\u2010-\u2015\u2212]+")
 
 
