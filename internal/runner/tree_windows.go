@@ -5,12 +5,26 @@ package runner
 import (
 	"os/exec"
 	"strconv"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-func configureTree(cmd *exec.Cmd) {}
+// configureTree keeps the analyzer off the desktop. Python is a console
+// program, so Windows gives it a console window of its own whenever the
+// service has none to lend it -- which is every way the service normally
+// runs, from a double-clicked binary to a Windows service -- and one flashes
+// up for each analysis. The service already reads the worker's output through
+// pipes, so the console has nothing to show and no one to read it.
+//
+// This is a Windows-only concern: there is no equivalent on Unix, where the
+// child simply inherits the parent's file descriptors, so the //go:build
+// counterpart sets a process group and nothing else. A container has no
+// desktop at all.
+func configureTree(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
+}
 
 // tree is a Windows job object holding the worker and every process it
 // creates. The job is created with KILL_ON_JOB_CLOSE, so the whole tree ends

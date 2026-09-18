@@ -36,7 +36,13 @@ hosted service.
   second wants: a container that never scales to zero would spend a whole
   month's free grant in about half a day of idling, while a process per
   analysis spends it only on work. Hosting changes who starts that process,
-  not the fact that it is one.
+  not the fact that it is one. The service starts it with no console of its
+  own: Python is a console program, so a Windows host that runs the service
+  without a console would otherwise flash up a window for every analysis,
+  while the service reads the worker through pipes and has no use for one.
+  The flag is Windows-only and lives behind the build tag that already splits
+  process-tree handling; a Linux host or a container inherits file descriptors
+  and has no desktop to put a window on.
 - **Jobs and reports are rows in one database.** `internal/store` keeps
   `users`, `sessions`, `recordings`, `jobs`, `reports` and `corrections` in a
   single SQLite file today. The `internal/jobs.Store` and `auth.Store`
