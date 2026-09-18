@@ -122,8 +122,9 @@ type Entry struct {
 	ContextTitle    string `json:"context_title,omitempty"`
 	TrainingOption  string `json:"training_option,omitempty"`
 	ActionKind      string `json:"action_kind,omitempty"`
-	// IdentityBasis says how a committed action was identified when it was
-	// not read from its own commit, for example result_card_only.
+	// IdentityBasis says what stood in for a committed action's commit when
+	// no frame showed it: result_card_only, outing_menu_and_receipt or
+	// hub_exit_and_receipt.
 	IdentityBasis    string                       `json:"identity_basis,omitempty"`
 	RawText          string                       `json:"raw_text,omitempty"`
 	AccountingRole   string                       `json:"accounting_role,omitempty"`
@@ -268,8 +269,10 @@ type TurnSummary struct {
 	// action (training, race, rest, outing, infirmary) for the season strip.
 	ActionKind     string `json:"action_kind,omitempty"`
 	TrainingOption string `json:"training_option,omitempty"`
-	// ActionBasis is the action's identity basis when it was not read from
-	// its own commit (result_card_only: a lone result card stood in for it).
+	// ActionBasis is the action's identity basis when no frame showed its
+	// commit: result_card_only (a lone result card stood in for it),
+	// outing_menu_and_receipt or hub_exit_and_receipt (the confirmation fell
+	// between sampled frames).
 	ActionBasis string `json:"action_basis,omitempty"`
 	// ActionFilledIn is true when the action shown is the viewer's own answer
 	// rather than the report's reading (see ApplyCorrections).

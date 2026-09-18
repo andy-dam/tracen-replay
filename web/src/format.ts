@@ -198,12 +198,20 @@ export function actionClass(turn: TurnSummary): string {
   return classes.join(" ");
 }
 
+/** What stood in for a commit the report never saw, by `action_basis`. */
+export const BASIS_NOTE: Record<string, string> = {
+  result_card_only: "from its result card",
+  outing_menu_and_receipt: "from the Recreation menu and its receipt",
+  hub_exit_and_receipt: "from the hub and its receipt",
+};
+
 export function describeAction(turn: TurnSummary): string {
   if (turn.action_status === "missing_action") return "not seen by the report";
   const base = turn.action_kind === "training" && turn.training_option ? `${turn.training_option} training` : turn.action_kind === "training" ? "training (option not read)" : turn.action_kind ?? "action";
   const text = turn.action_status === "multiple_actions" ? `${base} and more` : base;
   if (turn.action_filled_in) return `${text} (filled in by you)`;
-  return turn.action_basis === "result_card_only" ? `${text} (from its result card)` : text;
+  const note = turn.action_basis ? BASIS_NOTE[turn.action_basis] : undefined;
+  return note ? `${text} (${note})` : text;
 }
 
 /** Count of fields whose accounting across the turn is not balanced. */

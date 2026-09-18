@@ -3,7 +3,7 @@
 // analyzer flagged, amounts it derived rather than observed). The wording
 // is the ledger's own status, made readable; nothing is judged here.
 import type { Entry, TurnSummary } from "./api";
-import { statusText } from "./format";
+import { BASIS_NOTE, statusText } from "./format";
 
 export interface Warning {
   text: string;
@@ -45,7 +45,8 @@ export function turnWarnings(t: TurnSummary): Warning[] {
     else out.push({ text: "no action seen in this window", serious: true });
   }
   if (t.action_status === "multiple_actions") out.push({ text: `${t.action_count} actions in one window`, serious: true });
-  if (t.action_basis === "result_card_only" && !t.action_filled_in) out.push({ text: "action taken from its result card; the choice itself was not seen", serious: false });
+  const basis = t.action_basis ? BASIS_NOTE[t.action_basis] : undefined;
+  if (basis && !t.action_filled_in) out.push({ text: `action taken ${basis}; the choice itself was not seen`, serious: false });
   if (t.window_kind !== "calendar_turn" && t.window_kind !== "phase_race_turn" && t.window_kind !== "countdown_segment") {
     out.push({ text: `window is ${t.window_kind.replaceAll("_", " ")}, not a calendar boundary`, serious: false });
   }

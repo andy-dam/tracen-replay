@@ -89,7 +89,7 @@ export interface TurnSummary {
   accounting_status_counts: Record<string, number>;
   action_kind?: string;
   training_option?: string;
-  /** How the action was identified when its commit was not seen: result_card_only. */
+  /** What stood in for a commit the report never saw: result_card_only, outing_menu_and_receipt or hub_exit_and_receipt. */
   action_basis?: string;
   /** The action shown is the viewer's own answer, not the report's reading. */
   action_filled_in?: boolean;
