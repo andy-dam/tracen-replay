@@ -5,6 +5,22 @@ looks like. The design behind the learned readers is in
 [docs/evaluation.md](docs/evaluation.md); the longer horizon is in
 [docs/roadmap.md](docs/roadmap.md).
 
+How an item gets checked decides how long it takes, so an item that has been
+measured says which it needs; one that does not say has not been costed yet.
+A change to the accounting is checked in seconds by running that module
+over a saved report; a change to what is read off the screen can only be
+checked by a fresh analysis, about 35 minutes, because the readings are
+cached against the reader's fingerprint. Run one with
+[docs/analysis-job.md](docs/analysis-job.md), from a snapshot of the analyzer
+rather than the working tree: its "output directory after a run" section says
+why, since editing the tree mid-run changes the reader fingerprint the caches
+carry and fails the run partway.
+
+Where an item quotes a number, it names the report it was measured on. The
+current reference report for the Grass Wonder career is
+`.local/verify-panel4/run/report.json`; the recording is under
+`~/Downloads/recordings/`.
+
 ## 1. Release 0.1.0
 
 - [x] Decide that the current analyzer and application are the release, then
@@ -165,9 +181,15 @@ its own measurement of the latest reports showed.
       `great_success` the report already holds in `gameplay_tracking.concerts`,
       and one is a song and lesson turn.
       The last four are spent by the game rather than chosen, and the ledger
-      already has a shape for that: a `phase_race_turn` keeps the finale race
-      out of `decisions` and counts it as `scheduled_race_actions` instead, so
-      those turns read `one_action` rather than looking wrong. Done: a turn
+      already has a shape for that: in `turn_ledger.py` the block that sets
+      `action_status` keeps a `phase_race_turn`'s finale race out of
+      `decisions` and counts it as `scheduled_race_actions` instead, so those
+      turns read `one_action` rather than looking wrong. Measured on
+      `.local/verify-panel4/run/report.json`; this is accounting, so it is
+      checked in seconds against that saved report rather than by a fresh
+      analysis. Only that one career has been read this way, and it is a Grand
+      Live career, so check a second career's actionless turns before fixing
+      the shape. Done: a turn
       spent on a choice the player made carries that choice as its action, a
       turn the game spent for the player says so, and `missing_action` is left
       meaning a turn whose action was genuinely never seen.
@@ -182,9 +204,16 @@ its own measurement of the latest reports showed.
       there only because three corrected frames carry that turn's endpoint.
       The sidebar is persistent and the reading code already knows it stays up
       while result cards animate, so the gate is where the request code
-      happens to sit rather than a judgement about the panel. Done: a row is
-      offered the same crops wherever the panel is identified, and a fresh
-      analysis shows the result-screen rows reading what the panel shows.
+      happens to sit rather than a judgement about the panel. In `vision.py`
+      the panel request block sits inside the branch taken when the current
+      stat grid is detected, beside the component and cap requests; the crops
+      themselves are built in `_performance_panel_localized_requests`.
+      Measured on `.local/verify-panel4/run/report.json`. This changes what is
+      read, so it needs a fresh analysis to check, and it changes the reader
+      fingerprint, so nothing else may edit the analyzer while that runs.
+      Done: a row is offered the same crops wherever the panel is identified,
+      and a fresh analysis shows the result-screen rows reading what the panel
+      shows.
 - [x] **A hint award is counted once per spelling of its skill.** An event's
       effects are keyed by kind, field and name, so a skill spelled two ways
       becomes two awards, and the hint totals a report prints are inflated by
