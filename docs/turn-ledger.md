@@ -173,7 +173,18 @@ was observed after the action, `closing_basis` is `unavailable`.
 `boundary_state_recovery.apply_opening_endpoint_projections` runs after the
 ledger's own resolution and can fill an opening that recovery proved was
 visible before the action; an accepted or rejected projection is recorded
-under `opening_endpoint_projection`.
+under `opening_endpoint_projection`. This is what one reading can open: a
+single complete frame becomes an opening (`basis:
+source_bound_single_frame_before_action`) only when the producer accepted it
+as a state observation and the frame carries the turn's own identity, its
+date or countdown. A finale race window has no such number, since all three
+finale races count down from 1 and are told apart by the race advance that
+opened each window, so its identity is the phase label alone and a frame
+showing `Finale Underway` inside the window's bounds is its own
+(`ownership_basis: same_phase_inside_finale_race_window_before_action`).
+A reading with no calendar identity at all, such as a race-day hub with no
+stat bar, opens nothing, and the turn keeps saying its opening was not
+observed.
 
 ## Resource comparisons
 

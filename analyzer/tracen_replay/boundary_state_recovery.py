@@ -31,6 +31,11 @@ DEFAULT_MAX_WINDOWS = 12
 DEFAULT_MAX_DURATION_MS = 6000
 DEFAULT_FPS = 60
 _PHASE_BOUNDARIES = frozenset({'Junior Year Pre-Debut', 'Finale Underway'})
+# The identity of a finale race window: its phase, with whatever countdown a
+# row shows. The three finale races all read "1 turn left", so the label
+# cannot tell them apart; the race advance that opened the window does, and
+# the window's own bounds decide which rows are its own.
+_ANY_COUNTDOWN = 'any_countdown'
 
 
 def _proof(value):
@@ -137,7 +142,7 @@ def _source_acceptance_reason(report, readings, index, row, channel, *, start_ms
     time = _valid_time(row)
     if time is None or not start_ms <= time < action_time_ms:
         return 'outside_owner_pre_action_window'
-    if expected_boundary is not None and boundary_identity(row) != _identity_tuple(expected_boundary):
+    if expected_boundary is not None and not _identity_matches(boundary_identity(row), expected_boundary):
         return 'source_boundary_mismatch'
     source = report.get('source', {}) if isinstance(report, dict) else {}
     expected_source = source.get('sha256') if isinstance(source, dict) else None
@@ -266,7 +271,34 @@ def turn_boundary_identity(turn):
     if phase in _PHASE_BOUNDARIES:
         if type(value) is int and value >= 0:
             return (phase, value)
+        if value is None and turn.get('window_kind') == 'phase_race_turn':
+            return (phase, _ANY_COUNTDOWN)
     return None
+
+
+def _identity_matches(identity, expected):
+    """Whether a row's identity proves it belongs to a turn with this one.
+
+    A dated or numbered turn needs the same date or countdown on the row. A
+    finale race window needs only its phase: its rows are told apart from
+    the neighbouring races' by the window's bounds, not by a countdown.
+    """
+    expected = _identity_tuple(expected)
+    identity = _identity_tuple(identity)
+    if expected is None or identity is None:
+        return False
+    if expected[1] == _ANY_COUNTDOWN:
+        return identity[0] == expected[0]
+    return identity == expected
+
+
+def _ownership_basis(expected):
+    expected = _identity_tuple(expected)
+    if expected is None:
+        return 'bounded_pre_action_source_window'
+    if expected[1] == _ANY_COUNTDOWN:
+        return 'same_phase_inside_finale_race_window_before_action'
+    return 'same_calendar_boundary_before_action'
 
 
 def _identity_json(identity):
@@ -339,7 +371,7 @@ def _candidate_for(readings, channel, start_ms, action_time_ms, *, expected_boun
                 and row_source_sha256 != expected_source_sha256):
             continue
         identity = boundary_identity(row)
-        if expected_boundary is not None and identity != expected_boundary:
+        if expected_boundary is not None and not _identity_matches(identity, expected_boundary):
             continue
         evidence = _proof(row.get('evidence'))
         values = _observed_values(row, channel)
@@ -352,9 +384,7 @@ def _candidate_for(readings, channel, start_ms, action_time_ms, *, expected_boun
                               observed_fields=tuple(field for field in CHANNEL_FIELDS[channel]
                                                      if field in values), evidence=evidence,
                               readability=len(values), boundary_identity=identity,
-                              ownership_basis=('same_calendar_boundary_before_action'
-                                               if expected_boundary is not None else
-                                               'bounded_pre_action_source_window')))
+                              ownership_basis=_ownership_basis(expected_boundary)))
     if not candidates:
         return None
     return max(candidates, key=lambda candidate: (
@@ -435,7 +465,7 @@ def _candidate_windows(report, readings, *, probe_radius_ms=DEFAULT_RADIUS_MS,
                 channels=[],
                 priority=0,
                 boundary_identity=_identity_json(expected_boundary),
-                ownership_basis='same_calendar_boundary_before_action',
+                ownership_basis=_ownership_basis(expected_boundary),
                 source_sha256=report['source'].get('sha256'),
             ))
             request['channels'].append(dict(
@@ -663,7 +693,7 @@ def apply_opening_endpoint_projections(turn_ledger, projections, *, source_sha25
         expected_boundary = turn_boundary_identity(turn)
         declared_boundary = _identity_tuple(projection.get('boundary_identity'))
         declared_source = projection.get('source_sha256')
-        if (expected_boundary is None or declared_boundary != expected_boundary
+        if (expected_boundary is None or not _identity_matches(declared_boundary, expected_boundary)
                 or (source_sha256 is not None and declared_source != source_sha256)):
             rejected.append(dict(owner_turn_id=turn_id, channel=channel,
                                  reason='source_or_boundary_mismatch'))
@@ -841,7 +871,7 @@ def promote(readings, fresh, windows):
                     expected_identity_json = _identity_json(expected_identity)
                     row_identity = boundary_identity(row)
                     if (expected_identity_json is not None
-                            and _identity_json(row_identity) != expected_identity_json):
+                            and not _identity_matches(row_identity, expected_identity)):
                         # A probe can straddle a UI transition.  Do not let a
                         # readable panel from the other side of that
                         # transition satisfy this request.

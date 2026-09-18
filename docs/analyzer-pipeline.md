@@ -124,7 +124,7 @@ has its own frame-rate and budget, spent across the whole run:
 | `training_gain_recovery` | a training result has conflicting gain digits, a source-bound candidate that was not accepted, a gain read on exactly one result frame, or a committed result with no signed gain read at all | 60 fps | up to 96 windows and 120 s of source |
 | `receipt_recovery` (numeric receipt recovery) | an ordinary receipt caption names a field but its number is incomplete | 30 fps | up to 20 windows and 30 s of source |
 | `occluded_receipt_recovery` | a cursor or particle crosses a receipt line for friendship, hints, conditions, songs, or another effect | 16 fps | up to 128 windows and 240 s of source |
-| `boundary_state_recovery` | the turn ledger has no stats/performance opening for a turn, and an existing reading proves that panel was visible before the committed action | 60 fps | up to 12 windows, each padded 200 ms, totalling 6 s |
+| `boundary_state_recovery` | the turn ledger has no stats/performance opening for a turn, and an existing reading proves that panel was visible before the committed action, showing the turn's own date or countdown (or, in a finale race window, the phase label: the three finale races all count down from 1 and are told apart by the race advance that opened each window) | 60 fps | up to 12 windows, each padded 200 ms, totalling 6 s |
 | `weak_state_recovery` | (same-frame, no new decode) a field on an already-captured frame is missing or below the confidence floor | n/a | up to 16 crop requests per frame |
 | `preview_recovery` | (same-frame, no new decode) a translucent Grand Live training-preview row overlaps a Concert Bonuses row in one detector box | n/a | up to 16 crop requests per frame |
 
