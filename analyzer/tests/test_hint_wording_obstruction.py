@@ -65,5 +65,29 @@ class HintWordingObstructionTests(unittest.TestCase):
         self.assertEqual(parse(source)['effects'], [])
 
 
+    def test_a_repaired_receipt_does_not_add_an_award_the_event_holds(self):
+        from tracen_replay.transactions import outcome_events
+        clean = dict(kind='skill_hint_change', name='Medium Corners ○', amount=4,
+                     raw_text='Gained 4 hint level(s) for Medium Corners ○.', confidence=99)
+        repaired = dict(kind='skill_hint_change', name='Medium Corners O', amount=4,
+                        raw_text='Gained 4 hint level(s) for Medium Corners O.', confidence=97,
+                        original_text='Gained 4 hint levei(s) for Medium Corners O.',
+                        text_normalization='obstructed_hint_wording')
+        def reading(time, effect):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='event_outcome',
+                        facts={}, effects=[dict(effect)], stats={}, ocr={'neural': []})
+        events = outcome_events([reading(1000, clean), reading(1250, repaired)])
+        self.assertEqual(len(events), 1)
+        hints = [e for e in events[0]['effects'] if e['kind'] == 'skill_hint_change']
+        self.assertEqual([(e['amount'], e['name']) for e in hints], [(4, 'Medium Corners ○')])
+        # The repaired frame still counts as evidence for the award it read.
+        self.assertIn('1250.png', events[0]['field_evidence']['skill_hint_change||Medium Corners ○'])
+        # A different skill at the same amount is still its own award.
+        other = dict(repaired, name='Medium Straightaways ○')
+        events = outcome_events([reading(1000, clean), reading(1250, other)])
+        hints = [e for e in events[0]['effects'] if e['kind'] == 'skill_hint_change']
+        self.assertEqual(len(hints), 2)
+
+
 if __name__ == '__main__':
     unittest.main()

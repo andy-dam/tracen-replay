@@ -2399,6 +2399,19 @@ def outcome_events(readings):
                 if count>1:current['conflicting_readings'].append(dict(reason='multiple_same_field_lines',field='|'.join(str(part or '') for part in key),evidence=row['evidence']))
         for effect,key in zip(effects,keys):
             key='|'.join(str(part or '') for part in key)
+            # A receipt whose wording was repaired is a weaker reading than a
+            # clean one, so it corroborates an award the event already holds
+            # under a name one glyph away rather than becoming a second award
+            # of the same thing.
+            if (effect.get('kind')=='skill_hint_change' and key not in current['effects']
+                    and effect.get('text_normalization')=='obstructed_hint_wording'):
+                from .receipt_names import _identity_single_glyph_variant
+                twin=next((other for other,held in current['effects'].items()
+                           if held.get('kind')=='skill_hint_change' and held.get('amount')==effect.get('amount')
+                           and _identity_single_glyph_variant(held.get('name'),effect.get('name'))),None)
+                if twin:
+                    current['field_evidence'].setdefault(twin,[]).append(row['evidence'])
+                    continue
             current['effect_observations'].setdefault(key,[]).append((time,row['evidence'],effect))
             prior=current['effects'].get(key)
             if prior and (prior.get('amount'),prior.get('direction'),prior.get('value'))!=(effect.get('amount'),effect.get('direction'),effect.get('value')):
