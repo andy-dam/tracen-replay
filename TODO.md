@@ -18,7 +18,8 @@ carry and fails the run partway.
 
 Where an item quotes a number, it names the report it was measured on. The
 current reference report for the Grass Wonder career is
-`.local/verify-panel4/run/report.json`; the recording is under
+`.local/verify-panel5/run/report.json` (`verify-panel4` is the run before
+the panel rereads reached result screens); the recording is under
 `~/Downloads/recordings/`.
 
 ## 1. Release 0.1.0
@@ -205,27 +206,30 @@ its own measurement of the latest reports showed.
       and its accounting summary is unchanged; the other eleven gain no
       receipt. No "spent by the game" shape was needed and none was added;
       `missing_action` still means a turn whose action was never seen.
-- [ ] **A result screen's panel rows are never reread.** The panel rereads,
-      including the slot crop that catches a box clipped short of a number's
-      first digit, are requested only where the career stat grid is detected,
-      so a frame classified as a training result or preview gets none of them.
-      On the Grass Wonder recording that is 179 readings carrying panel
-      values, 66 of them holding a single-digit value, the shape a clipped
-      read takes. One such frame sits inside the turn the slot crop was built
-      for and still reads Vocal 8 where the panel says 18; it cost nothing
-      there only because three corrected frames carry that turn's endpoint.
-      The sidebar is persistent and the reading code already knows it stays up
-      while result cards animate, so the gate is where the request code
-      happens to sit rather than a judgement about the panel. In `vision.py`
-      the panel request block sits inside the branch taken when the current
-      stat grid is detected, beside the component and cap requests; the crops
-      themselves are built in `_performance_panel_localized_requests`.
-      Measured on `.local/verify-panel4/run/report.json`. This changes what is
-      read, so it needs a fresh analysis to check, and it changes the reader
-      fingerprint, so nothing else may edit the analyzer while that runs.
-      Done: a row is offered the same crops wherever the panel is identified,
-      and a fresh analysis shows the result-screen rows reading what the panel
-      shows.
+- [x] **A result screen's panel rows are never reread.** The panel's bounded
+      rereads (the component split of a merged line, the fixed-row and glyph
+      crops of a doubted row, the slot crop of a read row, the cap crops)
+      were requested only beside the career stat grid, and a training
+      result's frames have no grid while its cards animate; previews still
+      have it and already got them. They are now requested wherever the
+      panel's `Performance` heading is at its place, which is the
+      identification the result parser already relied on; each builder still
+      gates on the panel's own row geometry, so a frame without the rows asks
+      for nothing but its absent caps. Checked by a fresh analysis of the
+      Grass Wonder recording from a snapshot (`.local/verify-panel5`, now the
+      reference report): the result frame that read Vocal 8 where the panel
+      says 18 reads 18 from its slot crop; 20 result-card rows that had no
+      value now read one (751 panel values on those 179 readings, from 727);
+      two turn endpoints stop being missing (68 to 66) and nothing becomes
+      unexplained (4 before and after); a preview frame whose line read
+      Composure 3 while the slot crop read 31 is now unknown rather than 3,
+      because a line that is the head of the wider reading, not its tail,
+      proves nothing. The single-digit values left on result frames are the
+      current half of a merged `value+award` line (`1+15`, `0+30`, `5+20`)
+      and are right. The run took 31.4 minutes against 33.5 for the previous
+      run of the same recording, so the extra crops cost nothing visible; the
+      six actionless turns of the item above read `one_action` end to end in
+      this run.
 - [x] **A hint award is counted once per spelling of its skill.** An event's
       effects are keyed by kind, field and name, so a skill spelled two ways
       becomes two awards, and the hint totals a report prints are inflated by
