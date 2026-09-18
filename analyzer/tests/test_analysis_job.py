@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from tests.test_gameplay import workspace_temp
 from tests.test_report_contract import valid_report
-from tracen_replay.analysis_job import JOB_SCHEMA, main
+from tracen_replay.analysis_job import JOB_SCHEMA, WORKER_VERSION_SCHEMA, main
 from tracen_replay.pipeline import PipelineError
 
 
@@ -128,6 +128,22 @@ class AnalysisJobTests(unittest.TestCase):
         self.assertEqual(payload['error']['code'], 'invalid_paths')
         self.assertIn('馬', payload['error']['message'])
         stdout.getvalue().encode('ascii')
+
+    def test_worker_version_answers_without_a_source_output_or_model(self):
+        stdout = io.StringIO()
+        with patch("sys.stdout", stdout):
+            self.assertEqual(main(["--worker-version"]), 0)
+        record = json.loads(stdout.getvalue())
+        self.assertEqual(record["schema_version"], WORKER_VERSION_SCHEMA)
+        self.assertEqual(sorted(record["worker_version"]), ["code_digest", "package"])
+        self.assertRegex(record["worker_version"]["code_digest"], r"^[0-9a-f]{64}$")
+        # It is the identity question, not a job, so it never claims a status.
+        self.assertNotIn("status", record)
+        # And it answers even where a job's own arguments would be rejected.
+        stdout = io.StringIO()
+        with patch("sys.stdout", stdout):
+            self.assertEqual(main(["--worker-version", "--output", "nowhere", "missing.mp4"]), 0)
+        self.assertEqual(json.loads(stdout.getvalue())["schema_version"], WORKER_VERSION_SCHEMA)
 
     def test_success_emits_one_record_and_redirects_producer_progress(self):
         with workspace_temp() as root:

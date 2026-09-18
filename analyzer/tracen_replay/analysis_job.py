@@ -30,6 +30,9 @@ from .report_contract import (
 
 
 JOB_SCHEMA = "tracen-replay/analysis-job-v1"
+# Answering who the analyzer is, which is a different question from how a job
+# went and so carries its own envelope rather than a job status nothing ran.
+WORKER_VERSION_SCHEMA = "tracen-replay/worker-version-v1"
 MIN_FPS = 1.0
 MAX_FPS = 8.0
 MIN_WORKERS = 1
@@ -726,7 +729,16 @@ def _success(report_path: Path, output: Path, report: Mapping[str, object], payl
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run one analysis job and emit one terminal JSON envelope."""
+    """Run one analysis job and emit one terminal JSON envelope.
+
+    ``--worker-version`` instead reports this analyzer's identity and exits.
+    A caller comparing the analyzer a report was made by against the installed
+    one must be able to ask without a source, an output directory or a model,
+    so this answers before the parser requires any of them.
+    """
+    if "--worker-version" in (sys.argv[1:] if argv is None else list(argv)):
+        _emit({"schema_version": WORKER_VERSION_SCHEMA, "worker_version": worker_version()})
+        return 0
     parser = _parser()
     try:
         args = parser.parse_args(argv)
