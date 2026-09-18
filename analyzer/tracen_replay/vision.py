@@ -909,6 +909,16 @@ def _performance_panel_component_requests(lines):
     return requests
 
 
+def _performance_panel_cap_top(lines,cap_y):
+    """The upper edge of a panel row's cap line, when the detector read one."""
+    found=[line for line in lines
+           if _performance_panel_line_eligible(line)
+           and re.fullmatch(r'/\s*\d{1,4}',re.sub(r'\s+','',str(line.get('text','')).strip()))
+           and within(line,(185,cap_y-25,280,cap_y+25))
+           and isinstance(line.get('box'),(list,tuple)) and len(line['box'])==4]
+    return min(line['box'][1] for line in found) if found else None
+
+
 def _performance_panel_localized_requests(lines):
     """Request bounded value crops for rows the detector did not expose.
 
@@ -962,6 +972,12 @@ def _performance_panel_localized_requests(lines):
         if field in merged_fields:
             continue
         box=[left,label_y-31,right,label_y+14]
+        # Never take in the row's cap. A crop that does reads the cap's digits
+        # when the value itself is faint, and a row whose value happens to
+        # equal its cap cannot tell the two apart afterwards.
+        cap=_performance_panel_cap_top(lines,_cap_y)
+        if cap is not None and box[1]<cap<box[3]:
+            box=[left,box[1],right,cap]
         covered=_performance_more_badge_bottom(badge_parts,box)
         if covered is not None and box[1]<covered<box[3]:
             box=[left,covered,right,box[3]]

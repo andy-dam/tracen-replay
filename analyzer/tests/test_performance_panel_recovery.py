@@ -242,13 +242,20 @@ class PerformancePanelRecoveryTests(unittest.TestCase):
         requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(self.doubted_row()))
         # The row's fixed geometry, which can reach into the cap below it, and
         # the detector's own box, which can have clipped a digit.
-        self.assertEqual((requests['performance_panel_localized_current.passion'][1],
-                          requests['performance_panel_localized_current.passion'][3]), (376 - 31, 376 + 14))
+        self.assertEqual(requests['performance_panel_localized_current.passion'][1], 376 - 31)
         self.assertEqual(requests['performance_panel_localized_glyph.passion'], [223, 348, 257, 386])
         # A row the detector missed altogether has only its fixed geometry.
         missed = [item for item in panel_lines() if item['text'] != '42']
         requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(missed))
         self.assertNotIn('performance_panel_localized_glyph.passion', requests)
+
+    def test_a_reread_never_takes_in_the_row_cap(self):
+        from tracen_replay.vision import _performance_panel_localized_requests
+        requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(self.doubted_row()))
+        # The fixture's Passion cap sits at 377; the crop stops there rather
+        # than at the row's nominal bottom, so the cap's digits cannot stand
+        # in for a faint value.
+        self.assertEqual(requests['performance_panel_localized_current.passion'][3], 377)
 
     def test_two_rereads_that_disagree_leave_the_row_unknown(self):
         def region(name, text, box):

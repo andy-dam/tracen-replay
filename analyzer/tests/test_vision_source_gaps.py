@@ -52,7 +52,8 @@ class VisionSourceGapTests(unittest.TestCase):
             ['performance_panel_localized_current.vocal',
              'performance_panel_localized_current.visual'],
         )
-        self.assertEqual(requests[0][1], [200, 401, 270, 446])
+        # The crop stops at the row's cap rather than running into it.
+        self.assertEqual(requests[0][1], [200, 401, 270, 433])
         self.assertEqual(requests[0][2]['preprocess'], 'panel_grayscale_autocontrast')
 
     def test_localized_rows_complete_a_fixed_geometry_panel_without_merging_phases(self):
