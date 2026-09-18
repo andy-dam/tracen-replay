@@ -41,6 +41,21 @@ Read from the latest report of each recording in the acceptance account
 removes. The four this list opened with are closed; each item states what
 its own measurement of the latest reports showed.
 
+On 2026-09-18 the four careers whose latest reports predated this week's
+fixes were analyzed again on the same tree (27 to 36 minutes each on the
+GPU), so every career now has a fresh report. Against their September 15
+reports, with the settled-badge rule applied: Hishi Amazon 10 unexplained
+fields to 0, 11 unreadable receipts to 0, missing actions 5 to 2 (one of
+them a window that expects none); Should have been better 18 unreadable
+receipts to 2 and the same 5 unexplained fields, all on late turns after the
+player stopped opening the stats screen; own 01-59 2 unexplained to 0 and 26
+unreadable to 0; own 12-21 64 unreadable to 0 and its 1 unexplained and 1
+unresolved field unchanged. Turns a viewer is pointed at fell from 24, 29,
+29 and 24 to 15, 18, 13 and 14, and on every career most of what is left is
+"race reward on a separate receipt", 12 to 17 turns each, a flag the
+recordings' style raises on nearly every race; whether it deserves to be
+serious is the next thing to look at.
+
 - [x] **Performance points earned by training are not read.** The real cause
       was narrower than this item claimed. A training can raise two
       performance currencies by the same amount, and the sidebar award crop
