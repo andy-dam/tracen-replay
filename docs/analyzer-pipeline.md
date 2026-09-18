@@ -91,6 +91,7 @@ field unknown.
 | `weak_state_recovery` | any same-frame field below the normal confidence floor, from bounded crop candidates | via `automatic_refinement`, then loaded as an early sidecar |
 | `numeric_cap_refinement` | visible stat/performance caps and clipped current/cap ratios | via `automatic_refinement`, then loaded as an early sidecar |
 | `performance_panel_refinement` | the current/projected performance panel when its merged line is weak but two localized crops are readable | via `automatic_refinement`, then loaded as an early sidecar |
+| `performance_panel_localized_current` / `performance_panel_localized_glyph` | a panel row the detector missed or doubted, read again from the row's fixed geometry and, when the detector did put a box around the number, from that box; the row keeps a value only where the two agree | inside the reading itself |
 | `status_badge_refinement` | a mood/hype badge below the 97% status threshold, rereading the same crop in three contrast views | via `automatic_refinement`, then loaded as an early sidecar |
 | `base_receipt_refinement` | a base receipt line, using three correlated OCR views of the same row | applied while loading cached readings |
 | `race_identity_refinement` | race-result fields (name, course, grade, placing) that did not change, via a source-bound crop reread | applied while loading cached readings |

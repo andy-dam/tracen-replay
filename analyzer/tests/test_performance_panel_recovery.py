@@ -230,6 +230,42 @@ class PerformancePanelRecoveryTests(unittest.TestCase):
         requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(plain))
         self.assertEqual(requests['performance_panel_localized_current.visual'][1], 488 - 31)
 
+    def doubted_row(self):
+        """The panel with Passion read as a faint 0 the detector doubted."""
+        lines = panel_lines()
+        passion = next(item for item in lines if item['text'] == '42')
+        passion.update(text='0', confidence=65.7, box=[229, 354, 251, 380])
+        return lines
+
+    def test_a_doubted_row_is_reread_twice_over(self):
+        from tracen_replay.vision import _performance_panel_localized_requests
+        requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(self.doubted_row()))
+        # The row's fixed geometry, which can reach into the cap below it, and
+        # the detector's own box, which can have clipped a digit.
+        self.assertEqual((requests['performance_panel_localized_current.passion'][1],
+                          requests['performance_panel_localized_current.passion'][3]), (376 - 31, 376 + 14))
+        self.assertEqual(requests['performance_panel_localized_glyph.passion'], [223, 348, 257, 386])
+        # A row the detector missed altogether has only its fixed geometry.
+        missed = [item for item in panel_lines() if item['text'] != '42']
+        requests = dict((name, box) for name, box, _meta in _performance_panel_localized_requests(missed))
+        self.assertNotIn('performance_panel_localized_glyph.passion', requests)
+
+    def test_two_rereads_that_disagree_leave_the_row_unknown(self):
+        def region(name, text, box):
+            return {name: dict(text=text, confidence=99, box=list(box), role='panel_localized_current',
+                               input_eligible=True, component='current',
+                               geometry_basis='fixed_row_panel_geometry' if 'current' in name else 'detected_value_line_geometry')}
+        lines = self.doubted_row()
+        regions = {**region('performance_panel_localized_current.passion', '350', [202, 345, 267, 390]),
+                   **region('performance_panel_localized_glyph.passion', '0', [223, 348, 257, 386])}
+        facts = performance_panel_facts(lines, 'unknown', {}, regions)
+        self.assertNotIn('passion', facts['performance_points'])
+        # Agreeing on the number is what accepts it.
+        regions = {**region('performance_panel_localized_current.passion', '0', [202, 345, 267, 390]),
+                   **region('performance_panel_localized_glyph.passion', '0', [223, 348, 257, 386])}
+        facts = performance_panel_facts(lines, 'unknown', {}, regions)
+        self.assertEqual(facts['performance_points']['passion'], 0)
+
     def test_legacy_training_semantics_remain_screen_gated(self):
         lines = panel_lines()
         dance = next(item for item in lines if item['text'] == '59')

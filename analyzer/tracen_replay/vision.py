@@ -973,6 +973,25 @@ def _performance_panel_localized_requests(lines):
             'source_row_geometry':dict(field=field,label_y=label_y,box=list(box)),
             'preprocess':'panel_grayscale_autocontrast',
         }))
+        if source is None:
+            continue
+        # The detector found this row's own number and was unsure of it. A
+        # crop of fixed geometry can reach into the row's cap, where a faint
+        # value comes back as the cap's digits, while a crop of the detector's
+        # own box inherits a box that clipped a digit. Read both: they either
+        # agree on the number or the row stays unknown.
+        a,b,c,d=source['box']
+        glyph=[max(left,a-6),b-6,min(right,c+6),d+6]
+        if glyph==box:
+            continue
+        requests.append((f'performance_panel_localized_glyph.{field}',glyph,{
+            'role':'panel_localized_current',
+            'input_eligible':True,
+            'component':'current',
+            'geometry_basis':'detected_value_line_geometry',
+            'source_row_geometry':dict(field=field,label_y=label_y,box=list(glyph)),
+            'preprocess':'panel_grayscale_autocontrast',
+        }))
     return requests
 
 
@@ -1162,6 +1181,7 @@ def _performance_panel_localized_candidates(regions, field, label_y,
         return []
     prefixes=(
         'performance_panel_localized_current.',
+        'performance_panel_localized_glyph.',
         'panel_localized_current.',
     )
     band=(160,label_y-35,280,label_y+20)
@@ -1178,7 +1198,7 @@ def _performance_panel_localized_candidates(regions, field, label_y,
             continue
         if observation.get('role') not in (None,'panel_localized_current'):
             continue
-        if observation.get('geometry_basis') not in (None,'fixed_row_panel_geometry'):
+        if observation.get('geometry_basis') not in (None,'fixed_row_panel_geometry','detected_value_line_geometry'):
             continue
         try:
             if not within(observation,band) or float(observation.get('confidence',0))<minimum_confidence:
@@ -1383,8 +1403,12 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
         regions, field, label_y, 'projected', minimum_confidence)
     localized_current = _performance_panel_localized_candidates(
         regions, field, label_y, minimum_confidence)
-    current.extend(dict(value=item['value'], observation=item['observation'],
-                        localized=True) for item in localized_current)
+    # Crops of one row that agree are one reading of it; they differ only in
+    # where they were cut. Crops that disagree stay separate, and the row is
+    # then as unresolved as any other disagreement leaves it.
+    agreed = {item['value'] for item in localized_current}
+    current.extend(dict(value=item['value'], observation=item['observation'], localized=True)
+                   for item in (localized_current[:1] if len(agreed) == 1 else localized_current))
     evidence=dict(field=field,band=list(band),
                   raw_observations=[_performance_panel_record(line) for line in raw])
     if component_current or component_projected:
