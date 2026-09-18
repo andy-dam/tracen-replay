@@ -683,21 +683,8 @@ class NeuralReader:
                         pass
                 requests.append((f'current.{field}', request_box))
             requests += [('countdown',(264,57,325,101))]
-            # A detector can merge the current and projected values in one
-            # performance-panel line.  Keep the merged detector observation,
-            # and ask recognition for two same-row component crops so a
-            # source-backed split is possible when their geometry is clear.
-            component_requests = _performance_panel_component_requests(lines)
-            requests += [(name, box) for name, box, _meta in component_requests]
-            component_metadata = {name: meta for name, _box, meta in component_requests}
-            localized_requests = _performance_panel_localized_requests(lines)
-            requests += [(name, box) for name, box, _meta in localized_requests]
-            localized_metadata = {name: meta for name, _box, meta in localized_requests}
-            cap_requests = _performance_panel_cap_requests(lines)
-            requests += [(name, box) for name, box, _meta in cap_requests]
-            cap_metadata = {name: meta for name, _box, meta in cap_requests}
-        else:
-            component_metadata = {}
+        panel_requests, component_metadata, localized_metadata, cap_metadata = _performance_panel_requests(lines, current)
+        requests += panel_requests
         if not grid:
             stat_cap_requests = _main_stat_cap_requests(lines)
             requests += [(name, box) for name, box, _meta in stat_cap_requests]
@@ -1049,6 +1036,42 @@ def _performance_panel_localized_requests(lines):
             'preprocess':'panel_grayscale_autocontrast',
         }))
     return requests
+
+
+def _performance_panel_heading(lines):
+    """Whether the sidebar's ``Performance`` heading is at its fixed place.
+
+    This is the identification the preview and result parser already relies
+    on.  The panel can be on screen without the stat grid, while a training's
+    result cards animate, and its heading is the one word that never moves.
+    """
+    if not isinstance(lines, list):
+        return False
+    return any(isinstance(l, dict) and l.get('text') == 'Performance' and within(l, (150, 250, 270, 285))
+               for l in lines)
+
+
+def _performance_panel_requests(lines, current):
+    """The sidebar's bounded rereads, wherever the panel is on screen.
+
+    The performance sidebar is persistent: it stays up while a training's
+    result cards animate, where the stat grid is gone.  Its rereads are
+    therefore asked for beside the grid or under the panel's own heading,
+    and each builder still gates on the panel's row geometry, asking for
+    nothing where the rows are not there.  A detector can merge a row's
+    current and projected values in one line: the merged observation is kept
+    and two same-row component crops are asked for, so a source-backed split
+    is possible when their geometry is clear.  Returns the crop requests and
+    the metadata of the component, localized and cap crops.
+    """
+    if not current and not _performance_panel_heading(lines):
+        return [], {}, {}, {}
+    component = _performance_panel_component_requests(lines)
+    localized = _performance_panel_localized_requests(lines)
+    caps = _performance_panel_cap_requests(lines)
+    requests = [(name, box) for name, box, _meta in component + localized + caps]
+    return (requests, {name: meta for name, _box, meta in component},
+            {name: meta for name, _box, meta in localized}, {name: meta for name, _box, meta in caps})
 
 
 def _performance_panel_identity(lines):
@@ -1710,7 +1733,7 @@ def performance_panel_facts(lines, screen, stats, regions=None):
     eligible = screen in ('training_preview', 'training_result') or (
         stats.get('observation_profile') == 'race_day_lower_totals'
         and all(type(stats.get('values', {}).get(f)) is int for f in FIELDS))
-    if not eligible or not any(l['text']=='Performance' and within(l,(150,250,270,285)) for l in lines):
+    if not eligible or not _performance_panel_heading(lines):
         return {}
     points={};projected={};provenance={}
     for i,field in enumerate(CURRENCIES):
