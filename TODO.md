@@ -418,10 +418,26 @@ reading small fixed crops. The accounting labels them for free. Order:
       reports raises two findings, both in one career, a card reading `+18`
       skill points where 13 was worked out and one reading `+9` where 8 was;
       the `+18` is what the card shows, checked against the recording.
-- [ ] **Pointer-covered digits in the reader's training data.** Recordings
-      show the mouse pointer over the result card, and one covered `8` read
-      as `9` with high confidence. Done: boxes with the pointer over a digit
-      are in the dataset, and the held-out false reads do not rise.
+- [x] **Pointer-covered digits in the reader's training data.** The pointer
+      is the game's own lime arrow, and it rests on the card far more often
+      than one case suggested: the dataset builder now flags every result box
+      it lies over (lime pixels inside the box proper, past the margin where a
+      green stat icon sits), 6,163 of the 68,838 boxes of dataset-v5, with
+      546 labeled badges and 546 labeled gains in the training runs and 45
+      labeled boxes held out, among them the very `+8` that read as `+9`.
+      Flagged boxes keep their own training bucket, so the per-card cap never
+      trades them for clean frames, and the held-out judgement reports them
+      as a scope of their own. Judged against a control trained the same day
+      with the old grouping, since the shipped model's own settings no
+      longer reproduce its lower counts: all-frames false reads are level
+      (105 and 322 against the control's 100 and 324, within the run-to-run
+      band the second seed confirms), pass-frame false values fall from 20 to
+      16, and on the 233 held-out pointer boxes false values and gains fall
+      from 14 and 3 to 12 and 2, with no labeled pointer frame read wrongly
+      where the control reads a covered `625/` as `65/` at full confidence.
+      The four runs are tabled in `.local/learned-readers/pointer-v9.md`;
+      `reader-final-v2`, the same setting trained on every run, is what the
+      service now loads.
 - [ ] **Second model: text repair.** Learn the recognizer's character
       confusions from receipt lines paired with their resolved names, and
       replace the hand-set edit distances with one repair that uses the
