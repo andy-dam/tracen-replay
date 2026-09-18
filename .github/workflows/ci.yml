@@ -66,3 +66,45 @@ jobs:
         run: python -m pip install -e "./analyzer[vision]"
       - name: Unit and contract tests (the tests that need local recordings live in analyzer/lab/tests and are not run here)
         run: python -X utf8 -m unittest discover -s analyzer/tests -t analyzer -p "test_*.py"
+
+  image:
+    name: Container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the worker image
+        run: docker build --target worker -t tracen-replay-worker:ci .
+      - name: Build the application image on top of it
+        run: docker build --target app -t tracen-replay:ci .
+      - name: The worker answers the identity query
+        run: docker run --rm tracen-replay-worker:ci --worker-version
+      - name: The application starts, is ready and reports healthy
+        run: |
+          docker run -d --name tracen -p 8765:8765 tracen-replay:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8765/readyz && break
+            sleep 2
+          done
+          echo
+          curl -fsS http://127.0.0.1:8765/healthz
+          echo
+          for i in $(seq 1 40); do
+            [ "$(docker inspect --format '{{.State.Health.Status}}' tracen)" = healthy ] && break
+            sleep 2
+          done
+          docker inspect --format 'health: {{.State.Health.Status}}' tracen
+          [ "$(docker inspect --format '{{.State.Health.Status}}' tracen)" = healthy ]
+          docker logs tracen
+          docker rm -f tracen
+      # `docker images` reports the unpacked size in every image store;
+      # `docker image inspect` reports the compressed size under the
+      # containerd store and the unpacked one under overlay2.
+      - name: Image sizes (unpacked)
+        run: |
+          {
+            echo '| Image | Size |'
+            echo '| --- | ---: |'
+            for image in tracen-replay-worker:ci tracen-replay:ci; do
+              echo "| $image | $(docker images --format '{{.Size}}' "$image") |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"

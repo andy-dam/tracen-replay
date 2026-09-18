@@ -145,7 +145,9 @@ difference is configuration rather than a second pipeline.
   100% of the traffic.
 - `/healthz` answers when the service is up; `/readyz` lists the checks it
   makes for python, ffmpeg, the model directory, the analyzer and the OCR
-  device (see [local-app.md](local-app.md)).
+  device (see [local-app.md](local-app.md)) and answers 503 when one fails.
+  The image's own health check asks `/readyz`; a platform's liveness probe
+  belongs on `/healthz`, its readiness and startup probes on `/readyz`.
 - Every report records the analyzer's fingerprint, so reports produced before
   and after a deploy are distinguishable.
 

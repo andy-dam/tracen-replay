@@ -518,10 +518,21 @@ hosting choice.
       service mid-job left the container running and the restart removed
       it while marking the job interrupted ([docs/container.md](docs/container.md)).
       Done.
-- [ ] **Image hygiene.** Multi-stage build, pinned base images and model
-      files, no recordings or local evidence in the context (`.dockerignore`),
-      health checks wired to `/healthz` and `/readyz`, and a CI job that
-      builds the image. Done: the image builds in CI and its size is known.
+- [x] **Image hygiene.** The three base images are pinned by digest, the
+      Python packages by `docker/constraints.txt`, and the downloaded model
+      files are checked against `docker/models.sha256` (a changed download
+      fails the build). The build context is 40 kB. The image's health
+      check asks `/readyz`, which answers 503 when a check fails, so a
+      broken image is unhealthy rather than merely up; `/healthz` stays
+      the liveness answer. The `image` CI job builds both targets, asks the
+      worker for its version, starts the application and waits for
+      `/readyz`, `/healthz` and docker's own healthy status, and writes the
+      sizes into the run summary. Sizes on 2026-09-18: worker 1.51 GB
+      unpacked (424 MB compressed), application 1.53 GB (430 MB); ffmpeg's
+      Debian dependencies are 466 MB of that and the Python packages 435 MB
+      ([docs/container.md](docs/container.md)). The job's steps were run by
+      hand on this machine against the same commands; the workflow itself
+      runs on the next push. Done.
 
 ## 6. Hosting
 

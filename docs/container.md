@@ -64,6 +64,64 @@ The learned result-card reader is not in the image. It is an exported file
 that is passed to the service with `-learned-reader`, so a container that
 should use one mounts it and names it in the arguments.
 
+## What is pinned
+
+A rebuild from the same commit produces the same image, months later:
+
+- **Base images** are named by digest in every `FROM`, with the tag beside
+  the digest for the reader. `docker buildx imagetools inspect <tag>` gives
+  the current digest of a tag; update all three together.
+- **Python packages** are pinned by [`docker/constraints.txt`](../docker/constraints.txt),
+  which pip takes as constraints when it installs the analyzer's `vision`
+  extra. A requirement the extra drops is simply not installed; a new one is
+  resolved freely until it is added. To move every package forward, build
+  once without the file and copy `pip freeze` from the image back into it.
+- **Model files** are checked against [`docker/models.sha256`](../docker/models.sha256)
+  after the reader downloads them; a download that differs fails the build.
+  The two hashes the reader's fingerprint names are among them.
+
+The build context is under 2 MB: [`.dockerignore`](../.dockerignore) keeps
+out `.local` (recordings, models, runs, session records), `.git`, the
+virtual environment, `node_modules`, the built client, the lab and every
+`.exe` and `.db`.
+
+## Health
+
+The image's `HEALTHCHECK` asks `/readyz` every 30 seconds after a 30-second
+start period. `/readyz` answers 503 when any of the service's checks fails
+(the interpreter, ffmpeg, the models, the analyzer), so an image with a
+broken analyzer shows as unhealthy rather than merely up. `/healthz` answers
+200 whenever the process serves, which is the liveness question; a platform
+with separate probes should point liveness at `/healthz` and readiness and
+startup at `/readyz`.
+
+## Size
+
+Measured on 2026-09-18:
+
+| Image | Unpacked | Compressed (what a registry stores and a pull downloads) |
+| --- | ---: | ---: |
+| `tracen-replay-worker` | 1.51 GB | 424 MB |
+| `tracen-replay` (application) | 1.53 GB | 430 MB |
+
+`docker images` reports the unpacked size in every image store; `docker
+image inspect` reports the compressed size under the containerd store and
+the unpacked one under overlay2, so the CI step uses the former. The
+application adds only the service binary (18 MB) on top of the worker.
+Of the worker, ffmpeg and the libraries Debian installs with it are 466 MB,
+the Python packages (opencv, onnxruntime, numpy, rapidocr and their
+dependencies) 435 MB, the Python base image about 120 MB, the analyzer 32 MB
+and the models 19 MB. A static ffmpeg build would take about 400 MB off; it
+is not done, because it would mean trusting a third party's binary.
+
+## In CI
+
+The `image` job of [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+builds both targets on every push and pull request, asks the worker image
+for its version, starts the application image and waits for `/readyz`, for
+`/healthz` and for docker to report the container healthy, and writes both
+sizes into the run's summary.
+
 ## What differs from the local build
 
 The analyzer inside the image is a snapshot of the commit it was built from.
