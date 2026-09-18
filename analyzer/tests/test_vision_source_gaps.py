@@ -7,6 +7,7 @@ from tests.test_neural_transactions import line, raw
 from tests.test_performance_panel_recovery import panel_lines
 from tracen_replay.performance_panel_refinement import candidate_fields
 from tracen_replay.vision import (
+    _performance_panel_field,
     _performance_panel_localized_requests,
     parse,
     performance_panel_facts,
@@ -49,12 +50,74 @@ class VisionSourceGapTests(unittest.TestCase):
 
         self.assertEqual(
             [name for name, _box, _meta in requests],
-            ['performance_panel_localized_current.vocal',
-             'performance_panel_localized_current.visual'],
+            # The rows the detector did read are asked for their whole slot;
+            # the rows it missed are read from the neighbours' geometry.
+            ['performance_panel_localized_slot.dance',
+             'performance_panel_localized_slot.passion',
+             'performance_panel_localized_current.vocal',
+             'performance_panel_localized_current.visual',
+             'performance_panel_localized_slot.composure'],
         )
+        missing = [request for request in requests if 'localized_current' in request[0]]
         # The crop stops at the row's cap rather than running into it.
-        self.assertEqual(requests[0][1], [200, 401, 270, 433])
-        self.assertEqual(requests[0][2]['preprocess'], 'panel_grayscale_autocontrast')
+        self.assertEqual(missing[0][1], [200, 401, 270, 433])
+        self.assertEqual(missing[0][2]['preprocess'], 'panel_grayscale_autocontrast')
+
+    def test_a_confident_row_is_still_asked_for_its_whole_slot(self):
+        # The detector boxed only the last digit of ``18`` and read that digit
+        # perfectly, so nothing in the line itself reports the clipping.
+        lines = panel_lines()
+        vocal = next(item for item in lines if item['text'] == '27')
+        vocal.update(text='8', box=[229, 406, 251, 441], confidence=100.0)
+
+        requests = {name: box for name, box, _meta in _performance_panel_localized_requests(lines)}
+
+        self.assertEqual(requests['performance_panel_localized_slot.vocal'],
+                         [200, 403, 270, 444])
+        # The row was never treated as settled, and the widened crop keeps the
+        # height the detector read the digit at.
+        self.assertEqual(requests['performance_panel_localized_slot.dance'][1:4:2], [291, 332])
+
+    def test_a_widened_crop_that_extends_the_reading_proves_the_clipped_digit(self):
+        lines = panel_lines()
+        vocal = next(item for item in lines if item['text'] == '27')
+        vocal.update(text='8', box=[229, 406, 251, 441], confidence=100.0)
+        regions = {'performance_panel_localized_slot.vocal': line(
+            '18', [212, 406, 252, 441], 99) | {
+                'role': 'panel_localized_current',
+                'input_eligible': True,
+                'component': 'current',
+                'geometry_basis': 'slot_widened_value_geometry',
+            }}
+
+        facts = performance_panel_facts(lines, 'unknown', {}, regions)
+        observation = _performance_panel_field(lines, 'vocal', 432, regions=regions)
+
+        self.assertEqual(facts['performance_points']['vocal'], 18)
+        self.assertEqual(observation['basis'], 'slot_widened_panel_crop')
+        self.assertEqual(observation['current']['value'], 18)
+
+    def test_a_widened_crop_settles_nothing_unless_it_extends_the_reading(self):
+        lines = panel_lines()
+        vocal = next(item for item in lines if item['text'] == '27')
+        vocal.update(text='8', box=[229, 406, 251, 441], confidence=100.0)
+
+        def read(text, box=(212, 406, 252, 441)):
+            regions = {'performance_panel_localized_slot.vocal': line(text, box, 99) | {
+                'role': 'panel_localized_current',
+                'input_eligible': True,
+                'component': 'current',
+                'geometry_basis': 'slot_widened_value_geometry',
+            }}
+            return performance_panel_facts(lines, 'unknown', {}, regions)['performance_points']
+
+        # The same number from a wider view is the row confirming itself.
+        self.assertEqual(read('8')['vocal'], 8)
+        # A different number that is not the reading extended is a conflict.
+        self.assertNotIn('vocal', read('35'))
+        # ``8`` is the tail of ``18``, but a crop that did not reach further
+        # left than the detector's own box cannot have seen another digit.
+        self.assertNotIn('vocal', read('18', (229, 406, 251, 441)))
 
     def test_localized_rows_complete_a_fixed_geometry_panel_without_merging_phases(self):
         lines = panel_lines(values={

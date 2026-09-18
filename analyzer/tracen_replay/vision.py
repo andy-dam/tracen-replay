@@ -924,6 +924,28 @@ def _performance_panel_cap_top(lines,cap_y):
     return min(line['box'][1] for line in found) if found else None
 
 
+def _performance_panel_slot_box(source,left,right):
+    """One row's whole value slot, at the height the detector read it.
+
+    A detector box can stop short of a number's first digit: ``18`` comes back
+    as a clean ``8``, and the confidence belongs to the glyphs inside that box
+    rather than to where its edges fell, so a clipped reading looks settled.
+    The box is sound vertically -- the clipping is horizontal -- so widening it
+    across the slot asks the one question the reading cannot answer itself:
+    whether another digit stands to its left.
+    """
+    box=source.get('box')
+    if not isinstance(box,(list,tuple)) or len(box)!=4:
+        return None
+    try:
+        a,b,c,d=[float(value) for value in box]
+    except (TypeError,ValueError):
+        return None
+    if c-a<=0 or d-b<=0 or a<=left:
+        return None
+    return [left,round(b-3),right,round(d+3)]
+
+
 def _performance_panel_localized_requests(lines):
     """Request bounded value crops for rows the detector did not expose.
 
@@ -972,6 +994,19 @@ def _performance_panel_localized_requests(lines):
     requests=[]
     for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
         source=observed.get(field)
+        if source is not None and field not in merged_fields:
+            # Asked for however the line read. A clipped box reads its own
+            # glyphs perfectly, so confidence cannot excuse the row from it.
+            slot=_performance_panel_slot_box(source,left,right)
+            if slot is not None:
+                requests.append((f'performance_panel_localized_slot.{field}',slot,{
+                    'role':'panel_localized_current',
+                    'input_eligible':True,
+                    'component':'current',
+                    'geometry_basis':'slot_widened_value_geometry',
+                    'source_row_geometry':dict(field=field,label_y=label_y,box=list(slot)),
+                    'preprocess':'panel_grayscale_autocontrast',
+                }))
         if source is not None and source.get('confidence',0)>=90:
             continue
         if field in merged_fields:
@@ -1233,6 +1268,67 @@ def _performance_panel_localized_candidates(regions, field, label_y,
     return candidates
 
 
+def _performance_panel_slot_candidates(regions, field, label_y,
+                                       minimum_confidence=97):
+    """Read the slot-widened crop of a row the detector already reported."""
+    if not isinstance(regions,dict):
+        return []
+    band=(160,label_y-35,280,label_y+20)
+    candidates=[]
+    for name in sorted(regions):
+        if not isinstance(name,str) or not name.startswith('performance_panel_localized_slot.'):
+            continue
+        if not name.endswith('.'+str(field)):
+            continue
+        observation=regions[name]
+        if not isinstance(observation,dict) or not _performance_panel_line_eligible(observation):
+            continue
+        if observation.get('geometry_basis')!='slot_widened_value_geometry':
+            continue
+        try:
+            if not within(observation,band) or float(observation.get('confidence',0))<minimum_confidence:
+                continue
+        except (TypeError,ValueError):
+            continue
+        text=re.sub(r'\s+','',str(observation.get('text','')).strip())
+        if not re.fullmatch(_PANEL_VALUE,text):
+            continue
+        candidates.append(dict(value=int(text),text=text,observation=observation,region=name))
+    return candidates
+
+
+def _panel_clipped_value(current, slot_candidates):
+    """The slot reading that proves the detector's box clipped a leading digit.
+
+    The slot crop covers the detector's own box and the empty part of the slot
+    beside it, so it saw everything that reading saw.  When it comes back with
+    that reading as the tail of a longer number, the extra digits stood where
+    the box stopped, and the row is the longer number.  Anything else -- a
+    disagreement that is not an extension, a second reading of either crop --
+    is not this, and the row is left to the ordinary conflict rules.
+    """
+    if len(slot_candidates)!=1 or len(current)!=1 or current[0].get('localized'):
+        return None
+    source=current[0]['observation']
+    slot=slot_candidates[0]
+    text=re.sub(r'\s+','',str(source.get('text','')).strip())
+    if not re.fullmatch(_PANEL_VALUE,text):
+        return None
+    if slot['text']==text or not slot['text'].endswith(text):
+        return None
+    box=source.get('box'); wider=slot['observation'].get('box')
+    if not isinstance(box,(list,tuple)) or not isinstance(wider,(list,tuple)):
+        return None
+    if len(box)!=4 or len(wider)!=4:
+        return None
+    try:
+        if not (float(wider[0])<float(box[0]) and float(wider[2])>=float(box[2])-2):
+            return None
+    except (TypeError,ValueError):
+        return None
+    return dict(value=slot['value'],observation=slot['observation'],localized=True,clipped=True)
+
+
 def _performance_panel_cap_requests(lines):
     """Request bounded rereads for absent or ambiguous panel cap rows."""
     requests = []
@@ -1430,6 +1526,19 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
     agreed = {item['value'] for item in localized_current}
     current.extend(dict(value=item['value'], observation=item['observation'], localized=True)
                    for item in (localized_current[:1] if len(agreed) == 1 else localized_current))
+    slot_current = _performance_panel_slot_candidates(
+        regions, field, label_y, minimum_confidence)
+    clipped = _panel_clipped_value(current, slot_current)
+    if clipped is not None:
+        current = [clipped]
+    else:
+        # A crop of the whole slot saw everything the line saw. Reading the
+        # same number is that row confirming itself and adds no candidate;
+        # reading a different one that is not the line extended leaves two
+        # readings of one row, which is a conflict like any other.
+        seen = {item['value'] for item in current}
+        current.extend(dict(value=item['value'], observation=item['observation'], localized=True)
+                       for item in slot_current if item['value'] not in seen)
     evidence=dict(field=field,band=list(band),
                   raw_observations=[_performance_panel_record(line) for line in raw])
     if component_current or component_projected:
@@ -1443,6 +1552,11 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
         evidence['localized_observations'] = [
             _performance_panel_record(item['observation'])
             for item in localized_current
+        ]
+    if slot_current:
+        evidence['slot_observations'] = [
+            _performance_panel_record(item['observation'])
+            for item in slot_current
         ]
 
     # Component crops are a separately localized source observation.  They
@@ -1543,7 +1657,9 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
                         projected=dict(value=projected[0]['value'],observation=_performance_panel_record(projected[0]['observation'])))
         return evidence
     if len(current)==1 and not projected:
-        basis='same_row_localized_panel_crop' if current[0].get('localized') else 'labeled_panel_row_geometry'
+        basis=('slot_widened_panel_crop' if current[0].get('clipped') else
+               'same_row_localized_panel_crop' if current[0].get('localized') else
+               'labeled_panel_row_geometry')
         evidence.update(status='resolved_current_panel_value',basis=basis,
                         current=dict(value=current[0]['value'],observation=_performance_panel_record(current[0]['observation'])),
                         projected=None)

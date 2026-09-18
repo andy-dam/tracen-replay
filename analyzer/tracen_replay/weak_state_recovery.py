@@ -354,7 +354,8 @@ def _localized_candidates(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
     for name, box, metadata in _performance_panel_localized_requests(lines):
         field = name.rsplit(".", 1)[-1]
         result.append(_request(
-            request_id=f"panel-localized:{field}",
+            request_id=("panel-slot:" if name.startswith('performance_panel_localized_slot.')
+                        else "panel-localized:") + field,
             region=name,
             channel="performance",
             field=field,
@@ -363,7 +364,10 @@ def _localized_candidates(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
             pattern="panel_current",
             minimum_confidence=PANEL_LOCALIZED_CONFIDENCE_FLOOR,
             priority=25,
-            basis="fixed_row_panel_geometry",
+            # The request states which geometry it came from; a crop widened
+            # to the row's slot is not the fixed-row crop and must not be
+            # relabelled as one on its way through recovery.
+            basis=str(metadata.get("geometry_basis") or "fixed_row_panel_geometry"),
             metadata=metadata,
         ))
     return result
@@ -1106,16 +1110,23 @@ def _validate_request_contract(request: Mapping[str, Any]) -> None:
         if field not in PANEL_FIELDS:
             raise ValueError("Weak-state localized panel field alias is invalid.")
         request_id = request.get("id")
-        if request_id not in {f"panel-localized:{field}", f"panel-weak-row:{field}"}:
+        if request_id not in {f"panel-localized:{field}", f"panel-weak-row:{field}",
+                              f"panel-slot:{field}"}:
             raise ValueError("Weak-state localized panel request alias is invalid.")
+        # A slot crop is one row's own detector line widened across the value
+        # slot, not the fixed-row crop, and it carries its own region and
+        # geometry so the two can never be read as each other.
+        slot = request_id.startswith("panel-slot:")
         contract = {
             "id": request_id,
-            "region": f"performance_panel_localized_current.{field}",
+            "region": (f"performance_panel_localized_slot.{field}" if slot
+                       else f"performance_panel_localized_current.{field}"),
             "channel": "performance",
             "pattern": "panel_current",
-            "geometry_basis": "fixed_row_panel_geometry",
+            "geometry_basis": ("slot_widened_value_geometry" if slot
+                               else "fixed_row_panel_geometry"),
             "minimum_confidence": PANEL_LOCALIZED_CONFIDENCE_FLOOR,
-            "priority": 25 if request_id.startswith("panel-localized:") else 20,
+            "priority": 20 if request_id.startswith("panel-weak-row:") else 25,
             "component": "current",
         }
         _validate_panel_crop_geometry(request, field, component="current")
