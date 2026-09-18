@@ -145,7 +145,13 @@ func run() error {
 	if sameSite == 0 {
 		return fmt.Errorf("bad -cookie-samesite %q: strict, lax or none", *cookieSameSite)
 	}
+	// The analyzer names itself, so a report can say whether the analyzer that
+	// made it is still the one installed. Asked on first use, not at startup:
+	// serving must not wait on an interpreter, and a missing analyzer is a
+	// readiness problem rather than a reason not to listen.
+	analyzer := &runner.AnalyzerVersion{Exec: runner.Exec{Logger: logger}, Python: *python, WorkDir: workDirAbs}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
+		Analyzer: analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
 		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static})

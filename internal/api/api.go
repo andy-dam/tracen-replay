@@ -25,6 +25,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/timeline"
+	"github.com/andy-dam/tracen-replay/internal/worker"
 )
 
 // Jobs is what the handlers need from the job manager.
@@ -88,6 +89,10 @@ type Config struct {
 	UploadLimit int64
 	// Ready runs the readiness probes; nil means always ready.
 	Ready func() []Check
+	// Analyzer reports the installed analyzer's identity, so a report can say
+	// whether the analyzer that made it is still the one on disk. nil leaves
+	// the comparison out rather than guessing at it.
+	Analyzer func(context.Context) (worker.WorkerVersion, error)
 	// AllowedHosts lists the Host header values this service answers for;
 	// empty allows loopback names only.
 	AllowedHosts []string
@@ -783,7 +788,38 @@ func (s *Server) reportSummary(w http.ResponseWriter, r *http.Request) {
 		"report": report, "source": doc.Source, "recognition": doc.Recognition, "summary": doc.Summary,
 		"turns": len(doc.Turns), "entries": len(doc.Entries), "unassigned": len(doc.Unassigned()),
 		"schema_version": doc.SchemaVersion, "note": doc.Note, "video_available": hasVideo,
+		"analyzer": s.analyzerLedger(r, report),
 	})
+}
+
+// analyzerLedger says which analyzer made this report and whether that is
+// still the analyzer on disk. Both halves are optional and each is reported
+// only when it is known: a report registered from a bundle never had a job to
+// record an identity, and an analyzer that cannot be reached must not make a
+// report look current or stale. "stale" is stated only when both are in hand.
+func (s *Server) analyzerLedger(r *http.Request, report jobs.Report) map[string]any {
+	ledger := map[string]any{}
+	var made *worker.WorkerVersion
+	if report.JobID != "" {
+		if job, err := s.cfg.Jobs.Get(r.Context(), report.JobID); err == nil && job.Result != nil {
+			made = job.Result.WorkerVersion
+		}
+	}
+	if made != nil {
+		ledger["report"] = made
+	}
+	if s.cfg.Analyzer != nil {
+		if installed, err := s.cfg.Analyzer(r.Context()); err == nil {
+			ledger["installed"] = installed
+			if made != nil {
+				ledger["stale"] = made.CodeDigest != installed.CodeDigest
+			}
+		}
+	}
+	if len(ledger) == 0 {
+		return nil
+	}
+	return ledger
 }
 
 func (s *Server) reportTurns(w http.ResponseWriter, r *http.Request) {
