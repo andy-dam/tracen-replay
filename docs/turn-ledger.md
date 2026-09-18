@@ -120,6 +120,19 @@ summary carries it as `action_basis` and the client says the choice itself
 was not seen. Two results in one window, or any other action, leave the
 window `missing_action` rather than guessing between them.
 
+A Rest or an outing is committed by its own rule from a confirmation prompt,
+a receipt and what follows ([analyzer-pipeline.md](analyzer-pipeline.md#rules-by-screen)).
+The prompt is a dialog dismissed with one more click, and at four frames a
+second it can fall between two samples. When it did, the receipt says what
+stood in for it and the ledger copies that onto the `committed_action` entry
+as `identity_basis`: `outing_menu_and_receipt` (the Recreation menu, which
+waits for the player, was sampled and nothing but the outing's own scene came
+between it and the receipt) or `hub_exit_and_receipt` (the hub was left
+straight into the Rest's scene, within a second and with nothing else
+sampled between, and the receipt could be nobody else's). The summary carries
+these as `action_basis` like `result_card_only`, and the client says the
+choice itself was not seen.
+
 ## Opening and closing states
 
 For each turn and each channel (`stats`, `performance`), the ledger picks one

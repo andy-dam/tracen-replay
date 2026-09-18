@@ -304,5 +304,123 @@ class RestActionTests(unittest.TestCase):
         self.assertEqual(reconstruct(readings, events), [])
 
 
+VALUES = {"speed": 840, "stamina": 241, "power": 474, "guts": 328, "wit": 425, "skill_points": 948}
+
+
+def hub(time, evidence, calendar="Classic Year Early Sep"):
+    frame = row(time, evidence, calendar=calendar)
+    frame["stats"]["values"] = dict(VALUES)
+    return frame
+
+
+def hub_exit_sequence():
+    """The Grass Wonder career, Classic Year Early Sep: a training preview
+    backed out of, the hub, then the Rest's own scene and its receipt, with
+    no prompt on any sampled frame."""
+    amount = recovery(61)
+    readings = [
+        row(926000, "preview.png", screen="training_preview", calendar="Classic Year Early Sep"),
+        hub(926250, "hub-a.png"), hub(926500, "hub-b.png"), hub(926750, "hub-c.png"), hub(927000, "hub-d.png"),
+        hub(927250, "hub-e.png"), hub(927500, "hub-f.png"), hub(927750, "hub-g.png"),
+        row(928000, "scene-a.png", calendar="Classic Year Early Sep", context="Well-Rested!"),
+        row(928250, "scene-b.png", calendar="Classic Year Early Sep", context="Well-Rested!"),
+        row(928750, "result-a.png", screen="event_outcome", calendar="Classic Year Early Sep",
+            context="Well-Rested!", texts=("Energy recovered by 61.",), effects=(amount,)),
+        row(929000, "result-b.png", screen="event_outcome", calendar="Classic Year Early Sep",
+            context="Well-Rested!", texts=("Energy recovered by 61.",), effects=(amount,)),
+        row(929750, "next-a.png", calendar="Classic Year Late Sep"),
+        row(930000, "next-b.png", calendar="Classic Year Late Sep"),
+    ]
+    return readings, [dict(event(928750, 929000, amount=61), context_title="Well-Rested!")]
+
+
+class HubExitRestTests(unittest.TestCase):
+    def test_the_hub_left_straight_into_the_result_stands_in_for_the_prompt(self):
+        readings, events = hub_exit_sequence()
+        actions = reconstruct(readings, events)
+        self.assertEqual(len(actions), 1)
+        action = actions[0]
+        self.assertEqual(action["basis"], "hub_exit_repeated_recovery_and_turn_boundary_without_a_sampled_confirmation")
+        self.assertEqual(action["identity_basis"], "hub_exit_and_receipt")
+        self.assertIsNone(action["confirmation_timestamp_ms"])
+        self.assertEqual(action["confirmation_evidence"], [])
+        self.assertEqual(action["hub_exit_timestamp_ms"], 927750)
+        # The hub frames within a second of the exit are the request evidence.
+        self.assertEqual(action["hub_exit_evidence"], ["hub-c.png", "hub-d.png", "hub-e.png", "hub-f.png", "hub-g.png"])
+        self.assertEqual(action["evidence"][:7], action["hub_exit_evidence"] + ["result-a.png", "result-b.png"])
+        self.assertEqual(action["next_calendar"], "Classic Year Late Sep")
+        self.assertEqual(action["recovery_effects"], [recovery(61)])
+        self.assertNotIn("name", action)
+
+    def test_a_gap_or_another_screen_between_hub_and_result_leaves_it_unknown(self):
+        # The hub last seen more than a second before the result's scene.
+        readings, events = hub_exit_sequence()
+        readings = [r for r in readings if r["source_timestamp_ms"] not in (927000, 927250, 927500, 927750)]
+        self.assertEqual(reconstruct(readings, events), [])
+        # The outing menu, or the infirmary's prompt, sampled in between.
+        for screen in ("outing_selection", "infirmary_confirmation", "training_preview"):
+            readings, events = hub_exit_sequence()
+            readings.append(row(927900, "between.png", screen=screen))
+            self.assertEqual(reconstruct(readings, events), [], screen)
+        # A dense boundary reread between them is not a screen the player saw.
+        readings, events = hub_exit_sequence()
+        readings.append(row(927900, "reread.png", screen="boundary_state_recovery"))
+        self.assertEqual(len(reconstruct(readings, events)), 1)
+
+    def test_a_receipt_that_could_be_another_actions_is_not_a_rest(self):
+        readings, events = hub_exit_sequence()
+        events[0]["effects"].append(dict(kind="friendship_status", name="Light Hello",
+                                         raw_text="Friendship with Light Hello is maxed out."))
+        self.assertEqual(reconstruct(readings, events), [])
+        readings, events = hub_exit_sequence()
+        events[0]["effects"].append(dict(kind="condition_removed", name="Slacker", raw_text="Recovered from Slacker."))
+        self.assertEqual(reconstruct(readings, events), [])
+        readings, events = hub_exit_sequence()
+        events[0]["context_title"] = "At the Infirmary"
+        for frame in readings:
+            if frame["context_title"] == "Well-Rested!":
+                frame["context_title"] = "At the Infirmary"
+        self.assertEqual(reconstruct(readings, events), [])
+
+    def test_without_hub_frames_a_missing_prompt_still_leaves_the_rest_unproved(self):
+        readings, events = dated_sequence()
+        readings = [r for r in readings if r["screen"] != "rest_confirmation"]
+        self.assertEqual(reconstruct(readings, events), [])
+
+
+CAMP_PROMPT = ("Rest & Recreation", "Relax and have fun?", "This will take up the entire turn.",
+               "Recovers energy and improves mood by one level.")
+
+
+def camp_sequence(*texts):
+    readings, events = dated_sequence()
+    for frame in readings:
+        if frame["screen"] == "rest_confirmation":
+            frame["screen"] = "unknown"
+            if texts:
+                frame["ocr"] = ocr(*texts)
+    return readings, events
+
+
+class SummerCampRestTests(unittest.TestCase):
+    def test_the_merged_prompt_is_known_by_its_wording_without_a_screen_label(self):
+        readings, events = camp_sequence(*CAMP_PROMPT)
+        actions = reconstruct(readings, events)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0]["basis"], "rest_confirmation_repeated_recovery_and_turn_boundary")
+        self.assertEqual((actions[0]["name"], actions[0]["name_basis"]),
+                         ("Rest & Recreation", "confirmation_prompt_title"))
+        self.assertEqual(actions[0]["confirmation_timestamp_ms"], 1000)
+        self.assertNotIn("identity_basis", actions[0])
+
+    def test_the_wording_is_the_whole_of_it(self):
+        # The dialog's title alone, while it loads, proves nothing.
+        readings, events = camp_sequence("Rest & Recreation", "Cancel", "OK")
+        self.assertEqual(reconstruct(readings, events), [])
+        # Nor does the plain prompt's wording on a frame the classifier did not label.
+        readings, events = camp_sequence()
+        self.assertEqual(reconstruct(readings, events), [])
+
+
 if __name__ == "__main__":
     unittest.main()

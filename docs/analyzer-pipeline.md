@@ -248,6 +248,28 @@ repeats the same receipt does not start a new event. Hint awards
 receipt time; ambiguous effect candidates (uncertain hint names, competing
 readings) are kept visible with `accepted_award: false` rather than counted. A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix, a bounded misread of about the same length (same subject, same digits, a couple of edits per dozen characters), or a word-by-word reading that may stop early (each word within a couple of edits, every number exactly as the receipt shows it) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
 
+**Rest and outings.** Both spend the turn, so a recovery line alone never
+identifies either. An outing is a request followed by its receipt with no
+other action between: the request is the confirmation prompt when one was
+sampled, and otherwise the last Recreation menu frame, because the menu waits
+for the player while the prompt after it is one click and can fall between
+two samples at four frames a second (`basis:
+outing_menu_followed_by_recovery_receipt_without_a_sampled_confirmation`,
+`identity_basis: outing_menu_and_receipt`). A hub frame with its stat bar read
+twice within half a second between request and receipt means the player
+backed out, and the outing is not asserted. A Rest is its prompt, a receipt
+read on two frames with the same amount, and the next date within thirty
+seconds of the result or of the point-spending screens that follow it. The
+plain prompt is known by its screen label and wording; the summer camp's
+merged "Rest & Recreation" prompt, which the classifier does not label, by
+its wording alone, and the Rest then carries that name. With no prompt on any
+frame, the hub the player left stands in when its last frame is within a
+second of the Rest's own scene, nothing else was sampled between the two, and
+the receipt could be nobody else's: no companion line, no treated condition,
+and not the infirmary's own scene (`basis:
+hub_exit_repeated_recovery_and_turn_boundary_without_a_sampled_confirmation`,
+`identity_basis: hub_exit_and_receipt`).
+
 ## Turn ledger
 
 `turn_ledger.build` joins the assembled events, transactions and checkpoints

@@ -3,6 +3,8 @@
 Rest is a turn-consuming action, so a positive energy delta alone is not
 enough to identify it.  This module joins the source confirmation prompt, a
 repeated result receipt, and the next observed date/countdown transition.
+When no prompt was sampled, the hub the player left straight into the
+result stands in for it, provided the receipt could be nobody else's.
 The event title is deliberately not used as an identity signal: scenario
 events can appear between the result and the next turn boundary.
 """
@@ -27,6 +29,11 @@ from .turn_boundary import (
 
 
 _CONFIRMATION = "take the day off to let your trainee recover energy?"
+# At the summer camp the game offers Rest and Recreation as one action. Its
+# prompt has wording of its own and the classifier gives it no screen label,
+# so it is known by that wording alone; no other screen carries it.
+_CAMP_TITLE = "rest & recreation"
+_CAMP_CONFIRMATION = "relax and have fun?"
 _ENTIRE_TURN = "this will take up the entire turn."
 _CANCEL_STATUS = re.compile(
     r"\b(?:cancelled|canceled|aborted|declined)\b"
@@ -57,6 +64,12 @@ _INTERLUDE_SCREENS = frozenset({
     "concert_result", "concert_result_candidate", "concert_bonus_update",
 })
 _MAX_CONFIRMATION_DELAY_MS = 10_000
+_MAX_HUB_EXIT_GAP_MS = 1_000
+_HUB_LOOKBACK_MS = 3_000
+# A receipt with one of these lines belongs to another recovery action: an
+# outing names its companion, the infirmary the condition it treated.
+_OTHER_RECOVERY_EFFECTS = frozenset({"friendship_change", "friendship_status", "condition_removed"})
+_INFIRMARY_TITLE = "at the infirmary"
 _MAX_BOUNDARY_DELAY_MS = 30_000
 _MAX_INTERLUDE_MS = 10 * 60_000
 _PHASE_LABELS = frozenset({"Junior Year Pre-Debut", "Finale Underway"})
@@ -109,9 +122,20 @@ def _ocr_text(row, minimum_confidence=95):
 
 
 def _is_confirmation(row):
-    return (isinstance(row, dict) and row.get("screen") == "rest_confirmation"
-            and _CONFIRMATION in _ocr_text(row)
-            and _ENTIRE_TURN in _ocr_text(row))
+    if not isinstance(row, dict):
+        return False
+    text = _ocr_text(row)
+    if _ENTIRE_TURN not in text:
+        return False
+    if row.get("screen") == "rest_confirmation" and _CONFIRMATION in text:
+        return True
+    return _is_camp_confirmation(row, text)
+
+
+def _is_camp_confirmation(row, text=None):
+    if text is None:
+        text = _ocr_text(row)
+    return _CAMP_TITLE in text and _CAMP_CONFIRMATION in text and _ENTIRE_TURN in text
 
 
 def _is_cancel_status(row):
@@ -179,6 +203,69 @@ def _confirmation_group(ordered, event_first):
             break
         group.insert(0, row)
     return group
+
+
+def _is_hub(row):
+    """A frame of the career hub: the stat bar is read, and no screen the
+    classifier names, no dialogue title and no completed action is over it."""
+    if not isinstance(row, dict) or row.get("screen") not in (None, "", "unknown"):
+        return False
+    stats = row.get("stats")
+    values = stats.get("values") if isinstance(stats, dict) else None
+    if not isinstance(values, dict) or not values:
+        return False
+    title = row.get("context_title")
+    if isinstance(title, str) and title.strip():
+        return False
+    return row.get("completed_action") in (None, "", "rest") and not _is_cancel_status(row)
+
+
+def _rest_shaped(event):
+    """Whether the receipt could be nobody's but a Rest: no companion line,
+    no treated condition, and not the infirmary's own scene."""
+    if any(effect.get("kind") in _OTHER_RECOVERY_EFFECTS for effect in _effects(event.get("effects"))):
+        return False
+    title = event.get("context_title")
+    return not (isinstance(title, str) and " ".join(title.split()).casefold() == _INFIRMARY_TITLE)
+
+
+def _hub_exit_group(ordered, event):
+    """The hub frames the player left straight into this result.
+
+    The Rest prompt is a dialog dismissed with one more click, and at four
+    frames a second it can fall between two samples.  What is still sampled
+    is the hub before it, with the stat bar up and nothing over it, and the
+    result's own scene right after.  The last hub frame must be within a
+    second of the first frame of that scene, with nothing else sampled
+    between them: an outing shows its menu first, the infirmary its own
+    prompt, a training its preview, and each of those is a labelled screen.
+    """
+    first, _ = _event_times(event)
+    own = event.get("context_title")
+    own = " ".join(own.split()).casefold() if isinstance(own, str) and own.strip() else None
+    scene_start = first
+    for row in reversed(_rows_between(ordered, first - _MAX_CONFIRMATION_DELAY_MS, first)):
+        time = _time(row)
+        if time is None or time >= first:
+            continue
+        title = row.get("context_title")
+        if own and isinstance(title, str) and " ".join(title.split()).casefold() == own:
+            scene_start = time
+            continue
+        break
+    hubs = [row for row in _rows_between(ordered, scene_start - _HUB_LOOKBACK_MS, scene_start)
+            if _time(row) is not None and scene_start - _HUB_LOOKBACK_MS <= _time(row) < scene_start
+            and _is_hub(row)]
+    if not hubs or scene_start - _time(hubs[-1]) > _MAX_HUB_EXIT_GAP_MS:
+        return []
+    exit_time = _time(hubs[-1])
+    for row in _rows_between(ordered, exit_time, scene_start):
+        time = _time(row)
+        if (time is not None and exit_time < time < scene_start
+                and row.get("screen") != "boundary_state_recovery"):
+            return []
+    group = [row for row in hubs if exit_time - _time(row) <= _MAX_HUB_EXIT_GAP_MS]
+    return group if _repeated_observation(group) else []
 
 
 def _blocked_between(ordered, start, end, *, allow_event_dialogue=False,
@@ -375,7 +462,7 @@ def _boundary(ordered, confirmation_time, result_end, deadline=None):
     return dict(row=next_rows[0], rows=next_rows, kind="phase_date")
 
 
-def _action(event, confirmations, result_rows, boundary, followup=None):
+def _action(event, request_rows, result_rows, boundary, followup=None, *, prompt_seen=True):
     first, last = _event_times(event)
     result_observations = [row for row, _ in result_rows]
     recovery_effects = []
@@ -386,9 +473,10 @@ def _action(event, confirmations, result_rows, boundary, followup=None):
             seen.add(key)
             recovery_effects.append(deepcopy(effect))
     boundary_rows = boundary.get("rows", [boundary["row"]])
-    confirmation_time = _time(confirmations[0])
+    request_evidence = _evidence_list(request_rows)
+    confirmation_time = _time(request_rows[0]) if prompt_seen else None
     result_evidence = _evidence_list(result_observations)
-    confirmation_evidence = _evidence_list(confirmations)
+    confirmation_evidence = request_evidence if prompt_seen else []
     boundary_evidence = _evidence_list(boundary_rows)
     followup_evidence = []
     if followup is not None:
@@ -403,7 +491,7 @@ def _action(event, confirmations, result_rows, boundary, followup=None):
         next_date_timestamp_ms=_time(boundary["row"]),
         event_id=event.get("id"),
         click_timestamp_ms=None,
-        evidence=list(dict.fromkeys(confirmation_evidence + result_evidence
+        evidence=list(dict.fromkeys(request_evidence + result_evidence
                                     + boundary_evidence + followup_evidence)),
         confirmation_evidence=confirmation_evidence,
         result_evidence=result_evidence,
@@ -413,8 +501,14 @@ def _action(event, confirmations, result_rows, boundary, followup=None):
         next_calendar=_calendar_text(boundary["row"]),
         boundary_kind=boundary["kind"],
         recovery_effects=recovery_effects,
-        basis="rest_confirmation_repeated_recovery_and_turn_boundary",
+        basis=("rest_confirmation_repeated_recovery_and_turn_boundary" if prompt_seen
+               else "hub_exit_repeated_recovery_and_turn_boundary_without_a_sampled_confirmation"),
     )
+    if not prompt_seen:
+        action.update(hub_exit_timestamp_ms=_time(request_rows[-1]), hub_exit_evidence=request_evidence,
+                      identity_basis="hub_exit_and_receipt")
+    elif any(_is_camp_confirmation(row) for row in request_rows):
+        action.update(name="Rest & Recreation", name_basis="confirmation_prompt_title")
     if followup is not None:
         action.update(
             post_result_action_kind="goal_race",
@@ -467,9 +561,14 @@ def reconstruct(readings, events):
                for prior_first, prior_last in used_spans):
             continue
         confirmations = _confirmation_group(ordered, first)
-        if not confirmations or _is_cancel_status(confirmations[-1]):
+        if confirmations and _is_cancel_status(confirmations[-1]):
             continue
-        confirmation_time = _time(confirmations[0])
+        request_rows = confirmations
+        if not request_rows and _rest_shaped(event):
+            request_rows = _hub_exit_group(ordered, event)
+        if not request_rows:
+            continue
+        confirmation_time = _time(request_rows[0])
         if confirmation_time is None:
             continue
         # Event-level effects nominate the expected amount; source rows must
@@ -500,7 +599,7 @@ def reconstruct(readings, events):
                             allow_event_dialogue=True,
                             allow_action_screens=allowed_screens | _INTERLUDE_SCREENS):
             continue
-        action = _action(event, confirmations, rows, boundary, followup)
+        action = _action(event, request_rows, rows, boundary, followup, prompt_seen=bool(confirmations))
         if interlude_end > last:
             action["post_result_interlude_end_ms"] = interlude_end
         result.append(action)

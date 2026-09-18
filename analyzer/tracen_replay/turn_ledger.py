@@ -16,6 +16,9 @@ from .reconcile import FIELDS
 SCHEMA = 'tracen-replay/turn-ledger-v1'
 PERFORMANCE_FIELDS = ('dance', 'passion', 'vocal', 'visual', 'composure')
 TRANSACTIONS = ('lesson_purchases', 'skill_purchases', 'races', 'concerts', 'song_acquisitions')
+# A receipt whose commit was on no sampled frame says what stood in for it;
+# the ledger carries that so a reader knows the choice itself was not seen.
+UNSEEN_COMMIT_BASES = frozenset({'outing_menu_and_receipt', 'hub_exit_and_receipt'})
 
 
 def _time(value, duration, label):
@@ -473,7 +476,9 @@ def build(report):
         add(_ref('turn_action_receipts', index), 'committed_action', time, time, action.get('evidence'),
             action_kind=action['kind'], training_option=action.get('training_option'),
             event_ref=event_ids.get(event_id), reward_link_status='linked_event' if event_id else 'separate_receipt',
-            click_timestamp_ms=action.get('click_timestamp_ms'))
+            click_timestamp_ms=action.get('click_timestamp_ms'),
+            **({'identity_basis': action['identity_basis']}
+               if action.get('identity_basis') in UNSEEN_COMMIT_BASES else {}))
     # A training result card seen on one frame, or without its training name,
     # proves no committed action on its own.  In a window that expects one
     # decision and holds no other, that lone result is what the player did:

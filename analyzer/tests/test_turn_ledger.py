@@ -145,6 +145,26 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertEqual(lesson['accounting_role'], 'reference_only_not_an_additional_award')
         self.assertNotIn('performance_changes', lesson)
 
+    def test_a_receipt_whose_commit_was_not_sampled_says_what_stood_in(self):
+        source = report()
+        data = source['gameplay_tracking']
+        data['events'] = [dict(id='outing', kind='outcome', first_seen_ms=500, last_seen_ms=600, evidence='500.png',
+                              effects=[dict(kind='energy_change', amount=38)])]
+        data['turn_action_receipts'] = [dict(kind='outing', source_timestamp_ms=500, evidence=['400.png', '500.png'],
+                                             event_id='outing', identity_basis='outing_menu_and_receipt')]
+        actions = [e for e in build(source)['timeline'] if e['kind'] == 'committed_action']
+        self.assertEqual([(a['action_kind'], a['identity_basis']) for a in actions],
+                         [('outing', 'outing_menu_and_receipt')])
+        # A training's own identity basis says how its receipt was read, not
+        # what stood in for its commit, and stays off the entry as before.
+        data['events'] = [dict(id='result', kind='training', training_option='speed', first_seen_ms=500,
+                              last_seen_ms=600, evidence='500.png', deltas={}, effects=[])]
+        data['turn_action_receipts'] = [dict(kind='training', training_option='speed', source_timestamp_ms=500,
+                                             evidence='500.png', event_id='result', identity_basis='observed_gains')]
+        actions = [e for e in build(source)['timeline'] if e['kind'] == 'committed_action']
+        self.assertEqual(len(actions), 1)
+        self.assertNotIn('identity_basis', actions[0])
+
     def test_a_lone_training_result_stands_in_for_an_unseen_commit(self):
         source = report()
         data = source['gameplay_tracking']

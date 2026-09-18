@@ -2763,6 +2763,14 @@ def outing_actions(readings,events):
         mood=any(e['kind']=='mood_change' and e.get('direction')=='up' for e in event['effects'])
         if not recovery and not (mood and len(companions)==1):continue
         requests=[r for r in readings if r['screen']=='outing_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
+        # The confirmation is a dialog dismissed with one more click, and at
+        # four frames a second it can fall between two samples. The Recreation
+        # menu before it waits for the player, so it is on a frame: with no
+        # confirmation sampled, the last menu is the request. The hub check
+        # below still rejects a menu the player backed out of.
+        confirmed=bool(requests)
+        if not confirmed and recovery:
+            requests=[r for r in readings if r['screen']=='outing_selection' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
         if not requests:continue
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
@@ -2780,8 +2788,11 @@ def outing_actions(readings,events):
         action=dict(kind='outing',source_timestamp_ms=event['first_seen_ms'],event_id=event['id'],
                             companion=companions.pop() if len(companions)==1 else None,
                             evidence=list(dict.fromkeys([request['evidence'],event['evidence']]+extra)),click_timestamp_ms=None,
-                            basis='outing_request_followed_by_recovery_receipt_without_another_turn_action' if recovery else
+                            basis=('outing_request_followed_by_recovery_receipt_without_another_turn_action' if confirmed
+                                   else 'outing_menu_followed_by_recovery_receipt_without_a_sampled_confirmation') if recovery else
                                   'outing_request_support_event_and_observed_next_date')
+        if not confirmed:
+            action['identity_basis']='outing_menu_and_receipt'
         # A visible confirmation is a request, not proof of the click. Keep
         # the receipt as the execution witness and preserve both source times.
         action['request_observed_at_ms']=time
