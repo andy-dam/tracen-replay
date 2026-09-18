@@ -153,6 +153,24 @@ its own measurement of the latest reports showed.
       fewer missing endpoints than before, because rows the badges hid now
       read. On the saved readings of six recordings only that career's 22
       readings change, every one of them dropping the same wrong Vocal 8.
+- [ ] **A turn spent on anything but training or a race has no action.** The
+      ledger's whole action vocabulary is `training` and `race`:
+      `turn_action_receipts` holds 71 records for the Grass Wonder career, 60
+      and 11, and nothing else. Six of its 74 turns therefore report
+      `missing_action`, and those six are not one thing. Two were Recreation,
+      which the player chose: turn-026 shows the Recreation screen and then
+      "Energy recovered by 38." and "Max Energy increased by 4.", and turn-067
+      has the same shape. Two are inheritance turns (30-odd `inheritance_spark`
+      and 13 `inheritance_inspiration` effects each), one is a concert whose
+      `great_success` the report already holds in `gameplay_tracking.concerts`,
+      and one is a song and lesson turn.
+      The last four are spent by the game rather than chosen, and the ledger
+      already has a shape for that: a `phase_race_turn` keeps the finale race
+      out of `decisions` and counts it as `scheduled_race_actions` instead, so
+      those turns read `one_action` rather than looking wrong. Done: a turn
+      spent on a choice the player made carries that choice as its action, a
+      turn the game spent for the player says so, and `missing_action` is left
+      meaning a turn whose action was genuinely never seen.
 - [ ] **A result screen's panel rows are never reread.** The panel rereads,
       including the slot crop that catches a box clipped short of a number's
       first digit, are requested only where the career stat grid is detected,
@@ -204,12 +222,22 @@ its own measurement of the latest reports showed.
       in two careers the one missing is the same race day, "Junior Year Late
       Dec", where nothing was read before the action. Performance openings are
       missing on the four pre-debut turns, where the panel does not exist yet,
-      and partial on two to sixteen others. The fix this item wants, reading
-      the Full Stats panel the player can open, cannot be checked against
-      anything in hand: no recording has that panel open inside a career, and
-      the analyzer has no reader for it. The only frames showing aptitudes are
-      the trainee select and career completion screens. Done: a recording that
-      opens Full Stats on a race day gives that turn an observed opening.
+      and partial on two to sixteen others. On the newest recording it is one
+      turn in seventy-four, the URA Finale, and the four pre-debut turns whose
+      panel does not exist yet.
+      This item previously wanted the Full Stats panel the player can open.
+      That is not a fix: it only works if the player opened that panel, and a
+      recording is of someone playing however they like. Whatever reads this
+      opening has to read it off what ordinary play already puts on screen.
+      What ordinary play shows was then measured on the newest recording's one
+      such turn. The stat bar is on screen there, but exactly once before the
+      action, on a training-preview frame, and an opening is taken only from a
+      repeated or corroborated state. So "not observed" is the evidence rules
+      working, not a gap in the footage, and the question left is a policy
+      one: whether a single stat-bar reading before the action may open a
+      turn. Done: that question is answered on purpose, either by a rule that
+      says what one reading can open or by closing this and letting the
+      report keep saying the opening was not observed.
 - [ ] **Ambiguous effects.** Circle base variants, recipient identity and
       inheritance spark identity are the three reasons left. Done: each has
       a rule or is presented with the two candidates to choose from.
