@@ -455,9 +455,23 @@ reading small fixed crops. The accounting labels them for free. Order:
       remembered, and OCR workers collect garbage every 25 frames, which
       holds each near 2 GB where they reached 6 to 9 GB. Left: the service
       still runs 3 and 2 workers, chosen so the machine stays usable during an
-      analysis; the training result rereads read the whole screen on about
-      2,300 frames where the card's fixed boxes might do. Done: a full career
-      analyzes in about 18 minutes, half of 35, with an identical report.
+      analysis. The stages of a fresh Mayano run of 1,841 s: base readings
+      635, dense result-card rereads 411, automatic refinement 163, assembly
+      149, occluded receipt recovery 114, reload 84. The rereads (3,232
+      frames in 85 windows) already read the card through 25 fixed crops,
+      but `read_training` then runs the general detector over the whole pane
+      on every frame to build the preview panel and keep same-frame header
+      anchors: measured on 60 frames of one window, 175 ms per frame, of
+      which 90 ms is that full read (34 ms detection, 52 ms recognizing every
+      line it found, dialogue included), 38 ms the fixed crops, 17 ms badge
+      localization and 11 ms gain refinement. Detecting only the bands its
+      consumers use, the header and countdown at the top and the card and
+      receipt band at the bottom, would take about three minutes off that
+      stage, but the dense readings' raw lines would then not be the whole
+      pane's, so "identical" has first to be decided as identical accounting
+      and timeline rather than identical readings, and each attempt costs a
+      fresh run to check. Done: a full career analyzes in about 18 minutes,
+      half of 35, with an identical report.
 
 ## 4. Code and repository hygiene
 
