@@ -815,6 +815,11 @@ class NeuralReader:
         return raw
 
 
+# A row's value as the panel writes it: no leading zero, so the "015" a
+# recognizer returns for a row reading "0" beside its "+15" award badge is
+# not a value of fifteen.
+_PANEL_VALUE = r'0|[1-9]\d{0,2}'
+
 _PERFORMANCE_PANEL_ROWS = (
     # The abbreviated labels and the /200 cap are part of the panel identity;
     # the values themselves are deliberately read from a separate band.
@@ -947,7 +952,7 @@ def _performance_panel_localized_requests(lines):
             if any(line is badge for badge in badges):
                 continue
             text=re.sub(r'\s+','',str(line.get('text','')).strip())
-            if re.fullmatch(r'\d{1,3}',text):
+            if re.fullmatch(_PANEL_VALUE,text):
                 plain.append(line)
             elif re.fullmatch(r'\d{1,3}\+\d{1,3}',text):
                 merged.append(line)
@@ -1086,7 +1091,7 @@ def _performance_panel_identity_from_localized(lines, regions, stats):
             if not _performance_panel_line_eligible(line) or not within(line,band):
                 continue
             text=re.sub(r'\s+','',str(line.get('text','')).strip())
-            if re.fullmatch(r'\d{1,3}',text) and line.get('confidence',0)>=90:
+            if re.fullmatch(_PANEL_VALUE,text) and line.get('confidence',0)>=90:
                 values.append(int(text))
         values.extend(item['value'] for item in _performance_panel_localized_candidates(
             regions, field, label_y, 90))
@@ -1176,7 +1181,7 @@ def _performance_panel_component_candidates(regions, field, label_y,
             continue
         text = re.sub(r'\s+', '', str(observation.get('text', '')).strip())
         if component == 'current':
-            match = re.fullmatch(r'\d{1,3}', text)
+            match = re.fullmatch(_PANEL_VALUE, text)
         else:
             # The plus glyph can be clipped by the right component crop.  The
             # crop role supplies the sign semantics; merged/slash text does
@@ -1222,7 +1227,7 @@ def _performance_panel_localized_candidates(regions, field, label_y,
         except (TypeError,ValueError):
             continue
         text=re.sub(r'\s+','',str(observation.get('text','')).strip())
-        if not re.fullmatch(r'\d{1,3}',text):
+        if not re.fullmatch(_PANEL_VALUE,text):
             continue
         candidates.append(dict(value=int(text),observation=observation,region=name,component='current',localized=True))
     return candidates
@@ -1398,7 +1403,7 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
         if match:
             merged.append(dict(value=int(match[1]), amount=int(match[2]), observation=line))
             continue
-        match=re.fullmatch(r'\d{1,3}',text)
+        match=re.fullmatch(_PANEL_VALUE,text)
         if match:current.append(dict(value=int(text),observation=line));continue
         match=re.fullmatch(r'\+(\d{1,3})',text)
         if match:projected.append(dict(value=int(match[1]),observation=line))

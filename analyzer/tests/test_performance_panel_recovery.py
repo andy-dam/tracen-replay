@@ -273,6 +273,19 @@ class PerformancePanelRecoveryTests(unittest.TestCase):
         facts = performance_panel_facts(lines, 'unknown', {}, regions)
         self.assertEqual(facts['performance_points']['passion'], 0)
 
+    def test_a_row_and_its_award_badge_read_as_one_number_are_not_a_value(self):
+        # A row reading "0" beside a "+15" award badge comes back as "015"
+        # when the recognizer drops the plus; fifteen is the award, not the row.
+        lines = panel_lines()
+        dance = next(item for item in lines if item['text'] == '59')
+        dance.update(text='015', confidence=90.7, box=[223, 293, 317, 334])
+        facts = performance_panel_facts(lines, 'unknown', {})
+        self.assertNotIn('dance', facts['performance_points'])
+        self.assertEqual(facts['performance_points']['passion'], 42)
+        # A row that really is zero still reads zero.
+        dance.update(text='0', confidence=99)
+        self.assertEqual(performance_panel_facts(lines, 'unknown', {})['performance_points']['dance'], 0)
+
     def test_legacy_training_semantics_remain_screen_gated(self):
         lines = panel_lines()
         dance = next(item for item in lines if item['text'] == '59')
