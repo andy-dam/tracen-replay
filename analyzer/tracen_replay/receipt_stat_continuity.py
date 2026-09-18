@@ -97,6 +97,16 @@ def _slot(row,effect):
             ('box','text','confidence','complete','amount_observed','source')}
 
 
+def _blank_receipt_band(row):
+    """Nothing read at all where the receipt lines sit, and nothing parsed."""
+    facts=row.get('facts') if isinstance(row.get('facts'),dict) else {}
+    if row.get('screen','unknown')!='unknown' or row.get('effects') or facts.get('effect_candidates') or facts.get('occluded_receipt_lines'):return False
+    for line in (row.get('ocr') or {}).get('neural',[]):
+        box=line.get('box',[]) if isinstance(line,dict) else []
+        if _valid_box(box) and 790<(box[1]+box[3])/2<950:return False
+    return True
+
+
 def _bridge(left,right,effect,rows,by_evidence):
     key=_effect_key(effect)
     if any(c.get('field')==key for event in (left,right) for c in event.get('conflicting_readings',[])):return None
@@ -114,18 +124,26 @@ def _bridge(left,right,effect,rows,by_evidence):
     # sample is twice that.
     if any(not 0<y['source_timestamp_ms']-x['source_timestamp_ms']<=_STEP_MS for x,y in zip(chain,chain[1:])):return None
     slots=[_slot(row,effect) for row in chain]
-    if any(slot is None for slot in slots):return None
+    if slots[0] is None or slots[-1] is None:return None
+    # The one sample between two reads may show nothing in the receipt band
+    # at all: the award's own animation covers the box as its line lands, and
+    # the reader finds no text under it. Only its neighbours then say the box
+    # stayed, so exactly one such frame is allowed, blank rather than showing
+    # any other line, with the line back on the same pixels after it.
+    blank=len(chain)==3 and slots[1] is None and _blank_receipt_band(chain[1])
+    if any(slot is None for slot in slots) and not blank:return None
     if not _titles_are_compatible(left,right,chain) or any(_is_boundary(r) for r in chain):return None
     if not slots[0]['complete'] or not slots[-1]['complete']:return None
+    if blank and not _same_line_geometry(slots[0]['box'],slots[-1]['box']):return None
     # The frames between the two reads must show why they parsed nothing: a
     # line read clearly with part of its grammar lost, or the whole line read
     # under the confidence a receipt parse needs. A whole line read at that
     # confidence would have parsed, so frames that show only that are no proof.
-    inner=slots[1:-1]
+    inner=[slot for slot in slots[1:-1] if slot is not None]
     dropout=any(slot['confidence']>=_PARSE_CONFIDENCE for slot in inner) and any(not slot['complete'] for slot in inner)
     under=(any(slot['complete'] and slot['confidence']<_PARSE_CONFIDENCE for slot in inner)
            and not any(slot['complete'] and slot['confidence']>=_PARSE_CONFIDENCE for slot in inner))
-    if not (dropout or under):return None
+    if not (dropout or under or blank):return None
     # A stationary row and compatible explicit values are required through
     # every observed frame. Scrolling/another effect value vetoes continuity.
     anchor=slots[0]['box']
@@ -134,12 +152,12 @@ def _bridge(left,right,effect,rows,by_evidence):
         # A line cut before its amount ends early; its start and row must hold.
         if not slot['amount_observed'] and box[2]<anchor[2]:box=[box[0],box[1],anchor[2],box[3]]
         return _same_receipt_slot(anchor,box) and abs((anchor[1]+anchor[3]-box[1]-box[3])/2)<=4
-    if not all(stationary(slot) for slot in slots[1:]):return None
+    if not all(stationary(slot) for slot in slots[1:] if slot is not None):return None
     for row in middle:
         for observed in row.get('effects',[])+row.get('facts',{}).get('effect_candidates',[]):
             if _effect_key(observed)==key and _effect_signature(observed)!=_effect_signature(effect):return None
     return [dict(source_timestamp_ms=row['source_timestamp_ms'],evidence=row['evidence'],
-                 **slot,accepted_as_effect=False) for row,slot in zip(chain,slots)]
+                 **(slot if slot is not None else dict(blank=True)),accepted_as_effect=False) for row,slot in zip(chain,slots)]
 
 
 def collapse_cross_event_stat_duplicates(events,readings):
@@ -163,7 +181,8 @@ def collapse_cross_event_stat_duplicates(events,readings):
                     if track:candidates.append((left,prior,track))
             if len(candidates)!=1:continue
             left,prior,track=candidates[0]
-            proof=dict(basis='stationary_stat_receipt_across_observed_grammar_dropout',
+            proof=dict(basis=('stationary_stat_receipt_across_blank_frame' if any(t.get('blank') for t in track)
+                              else 'stationary_stat_receipt_across_observed_grammar_dropout'),
                        earlier_event_id=left.get('id'),later_event_id=right.get('id'),track_evidence=track)
             prior.setdefault('cross_event_duplicate_evidence',[]).append(proof)
             right.setdefault('deduplicated_receipt_effects',[]).append(dict(effect=dict(effect),**proof))

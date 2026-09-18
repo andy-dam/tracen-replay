@@ -194,5 +194,62 @@ class StatReceiptContinuityTests(unittest.TestCase):
             collapse_cross_event_stat_duplicates(events,rows)
             with self.subTest(change=change):self.assertEqual(len(events[1]['effects']),1)
 
+    def blank_fixture(self):
+        """One box read twice around a frame the award's animation blanked."""
+        effect = dict(kind='stat_change', field='skill_points', amount=5, raw_text='Skill Pts went up by 5.')
+        friendship = dict(kind='friendship_status', name='Director Akikawa', value='maximum',
+                          raw_text='Friendship with Director Akikawa is maxed out.')
+        rows = [
+            dict(source_timestamp_ms=1000, evidence='1000.png', screen='event_outcome', facts={}, effects=[copy.deepcopy(effect)],
+                 ocr=dict(neural=[dict(text=effect['raw_text'], confidence=97.7, box=[316, 806, 532, 836])]), context_title=None),
+            dict(source_timestamp_ms=1267, evidence='1267.png', screen='unknown', facts={}, effects=[],
+                 ocr=dict(neural=[dict(text='Career', confidence=99.9, box=[20, 10, 80, 30])]), context_title=None),
+            dict(source_timestamp_ms=1533, evidence='1533.png', screen='event_outcome', facts={},
+                 effects=[copy.deepcopy(effect), copy.deepcopy(friendship)],
+                 ocr=dict(neural=[dict(text=effect['raw_text'], confidence=97.5, box=[316, 805, 530, 835]),
+                                  dict(text='Friendship with Director Akikawa is maxed out.', confidence=98.7, box=[316, 830, 766, 859])]),
+                 context_title=None)]
+        key = 'stat_change|skill_points|'
+        events = [dict(id='event-0', first_seen_ms=1000, last_seen_ms=1000, context_title=None,
+                       effects=[copy.deepcopy(effect)], field_evidence={key: ['1000.png']}, conflicting_readings=[]),
+                  dict(id='event-1', first_seen_ms=1533, last_seen_ms=1533, context_title=None,
+                       effects=[copy.deepcopy(effect), copy.deepcopy(friendship)], field_evidence={key: ['1533.png']}, conflicting_readings=[])]
+        return events, rows
+
+    def test_one_blank_frame_under_the_awards_animation_bridges_the_same_line(self):
+        events, rows = self.blank_fixture()
+        before = copy.deepcopy(rows)
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual([e['kind'] for e in events[1]['effects']], ['friendship_status'])
+        proof = events[1]['deduplicated_receipt_effects'][0]
+        self.assertEqual(proof['basis'], 'stationary_stat_receipt_across_blank_frame')
+        self.assertTrue(proof['track_evidence'][1]['blank'])
+        self.assertEqual(rows, before)
+
+    def test_a_blank_frame_bridges_nothing_unless_alone_blank_and_on_the_same_pixels(self):
+        with self.subTest('two blank frames'):
+            events, rows = self.blank_fixture()
+            rows.insert(2, dict(source_timestamp_ms=1400, evidence='1400.png', screen='unknown', facts={}, effects=[],
+                                ocr=dict(neural=[]), context_title=None))
+            rows[3].update(source_timestamp_ms=1667, evidence='1667.png')
+            events[1].update(first_seen_ms=1667, last_seen_ms=1667, field_evidence={'stat_change|skill_points|': ['1667.png']})
+            collapse_cross_event_stat_duplicates(events, rows)
+            self.assertEqual(len(events[1]['effects']), 2)
+        with self.subTest('another line in the band'):
+            events, rows = self.blank_fixture()
+            rows[1]['ocr']['neural'].append(dict(text='Some other line entirely.', confidence=99, box=[316, 806, 532, 836]))
+            collapse_cross_event_stat_duplicates(events, rows)
+            self.assertEqual(len(events[1]['effects']), 2)
+        with self.subTest('the line back on other pixels'):
+            events, rows = self.blank_fixture()
+            rows[2]['ocr']['neural'][0]['box'] = [316, 840, 530, 870]
+            collapse_cross_event_stat_duplicates(events, rows)
+            self.assertEqual(len(events[1]['effects']), 2)
+        with self.subTest('a frame of another screen'):
+            events, rows = self.blank_fixture()
+            rows[1]['screen'] = 'training_result'
+            collapse_cross_event_stat_duplicates(events, rows)
+            self.assertEqual(len(events[1]['effects']), 2)
+
 
 if __name__=='__main__':unittest.main()

@@ -143,9 +143,17 @@ def _receiptish_text(text):
 
 
 def _is_boundary(row):
-    """Reject screens and dialogue that cannot be part of one receipt chain."""
+    """Reject screens and dialogue that cannot be part of one receipt chain.
+
+    A long line in the receipt band that reads as none of the receipt
+    grammars is narrative. A line the parser turned into one of the row's
+    effects (a friendship status, a condition) is a receipt line whatever
+    its grammar, so it does not end a chain.
+    """
     if row.get("screen", "unknown") not in _ALLOWED_RECEIPT_SCREENS:
         return True
+    parsed = {" ".join(str(effect.get("raw_text", "")).split()).casefold()
+              for effect in row.get("effects", []) if isinstance(effect, dict) and effect.get("raw_text")}
     for line in row.get("ocr", {}).get("neural", []):
         box = line.get("box", [])
         confidence = _line_confidence(line)
@@ -154,7 +162,8 @@ def _is_boundary(row):
         if (confidence >= 95 and _valid_box(box)
                 and 790 < (box[1] + box[3]) / 2 < 950
                 and len(str(line.get("text", ""))) > 25
-                and not _receiptish_text(line.get("text"))):
+                and not _receiptish_text(line.get("text"))
+                and " ".join(str(line.get("text", "")).split()).casefold() not in parsed):
             return True
     return False
 

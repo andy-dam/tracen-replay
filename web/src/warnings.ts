@@ -62,7 +62,7 @@ export function entryWarnings(e: Entry): Warning[] {
   if (e.conflicts_present) out.push({ text: "conflicting readings", serious: true, advice: ADVICE.conflict });
   if (e.accepted_award === false && e.kind !== "unparsed_receipt" && e.kind !== "ambiguous_effect") out.push({ text: "not an accepted award", serious: false, advice: ADVICE.notAccepted });
   if (e.accounting_role === "reference_only_not_an_additional_award") out.push({ text: "reference only, not an additional award", serious: false, advice: ADVICE.referenceOnly });
-  if (e.reward_link_status && e.reward_link_status !== "linked_event") out.push({ text: `reward link: ${e.reward_link_status.replaceAll("_", " ")}`, serious: true, advice: ADVICE.rewardLink });
+  if (e.reward_link_status && e.reward_link_status !== "linked_event" && e.reward_link_status !== "linked_race") out.push({ text: `reward link: ${e.reward_link_status.replaceAll("_", " ")}`, serious: true, advice: ADVICE.rewardLink });
   if (e.assignment_basis && e.assignment_basis !== "observed_within_calendar_window") out.push({ text: `assigned by ${e.assignment_basis.replaceAll("_", " ")}`, serious: false, advice: ADVICE.assignedBy });
   if (e.kind === "ambiguous_effect") out.push({ text: `ambiguous effect${typeof d.reason === "string" ? `: ${d.reason.replaceAll("_", " ")}` : ""}`, serious: true, advice: ADVICE.ambiguous });
   if (e.kind === "unparsed_receipt") out.push({ text: "receipt could not be parsed", serious: true, advice: ADVICE.unparsed });

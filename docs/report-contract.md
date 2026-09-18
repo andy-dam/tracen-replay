@@ -189,7 +189,7 @@ strings and carry the value through either way.
 | `raw_text` | str, optional | string | the caption text for an unparsed receipt |
 | `accounting_role` | str, optional | string | for example `reference_only_not_an_additional_award` |
 | `transaction_id` | str, optional | string | the underlying transaction's own id |
-| `reward_link_status` | str, optional | string | `linked_event` or `separate_receipt` for a committed action |
+| `reward_link_status` | str, optional | string | for a committed action: `linked_event` (its receipt names an outcome event), `linked_race` (a race receipt whose race id names a race record, which holds the placing, fans and rewards), or `separate_receipt` (a receipt tied to neither) |
 | `effect` | object, optional | `json.RawMessage` | the raw effect record for a `skill_hint_change` or `ambiguous_effect` entry |
 | `accepted_award` | bool, optional | `*bool` | false for an ambiguous or unparsed candidate |
 | `conflicts_present` | bool, optional | `*bool` | true when the underlying event/transaction has an unresolved conflict |

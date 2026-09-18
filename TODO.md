@@ -379,6 +379,33 @@ serious is the next thing to look at.
       three on final turns with no observed closing state, one flagged for a
       performance-row disagreement. Done.
 
+- [x] **Every race is flagged "reward link: separate receipt".** After the
+      settled-badge rule this was most of what a viewer was pointed at, 11 to
+      17 turns per career on every recording. It was a constant, not a
+      finding: a race receipt never names an outcome event, its rewards live
+      on the race's own result record, and the ledger called anything
+      without an event id a separate receipt. A race receipt whose race id
+      names a race record is now `linked_race`, and the client warns only
+      for a receipt tied to neither. On the seven careers' saved reports
+      every one of the 90 race actions is linked. Done 2026-09-18.
+- [x] **One dialogue box read twice across the award's own animation.** The
+      learned reader's disagreement on Gran Concert's Senior Late Sep card
+      (it read +18 skill points, the bars left 13) led to the real fault: the
+      "+5 Skill Pts" animation covered the outcome box for one sampled frame,
+      the box was read again with a friendship line appended, and the same
+      +5 was counted twice, so the stat bars balanced with 13 wrongly given
+      to the training. The receipt continuity rule now bridges exactly one
+      blank frame (nothing at all in the receipt band, the line back on the
+      same pixels after it), and a line the parser turned into an effect no
+      longer counts as narrative at the chain's end. Over the seven careers'
+      saved readings this fires once, on that box, and nowhere else. A rule
+      letting the text reader and the bars outvote the learned reader was
+      tried the same day and taken out: it settled this very card at the
+      wrong 13, because a stray text read equal to a corrupted difference is
+      exactly how a wrong number slips through, and the model's disagreement
+      was the alarm that found the double count. Done 2026-09-18; the fresh
+      Gran Concert analysis is the check.
+
 ## 3. Learned readers (the neural network)
 
 The rules already decide which screen is on frame; what still fails is

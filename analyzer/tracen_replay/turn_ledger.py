@@ -466,6 +466,9 @@ def build(report):
                 event_id=identity, candidate=deepcopy(candidate), accepted_award=False,
                 occurrence_count=None,
                 timing_basis='linked_candidate_observations' if times else 'event_window')
+    # A race's rewards live on its result record, not on an outcome event:
+    # a race receipt whose race id names one is linked through it.
+    race_ids = {r.get('id') for r in data.get('races') or [] if isinstance(r, dict) and r.get('id')}
     for index, action in enumerate(data['turn_action_receipts']):
         if action.get('kind') not in ('training', 'race', 'rest', 'outing', 'infirmary'):
             raise ValueError('Unknown committed action kind')
@@ -473,9 +476,12 @@ def build(report):
         if event_id is not None and event_id not in event_ids:
             raise ValueError(f'Action refers to missing event {event_id}')
         time = action['source_timestamp_ms']
+        link = ('linked_event' if event_id
+                else 'linked_race' if action['kind'] == 'race' and action.get('race_id') in race_ids
+                else 'separate_receipt')
         add(_ref('turn_action_receipts', index), 'committed_action', time, time, action.get('evidence'),
             action_kind=action['kind'], training_option=action.get('training_option'),
-            event_ref=event_ids.get(event_id), reward_link_status='linked_event' if event_id else 'separate_receipt',
+            event_ref=event_ids.get(event_id), reward_link_status=link,
             click_timestamp_ms=action.get('click_timestamp_ms'),
             **({'identity_basis': action['identity_basis']}
                if action.get('identity_basis') in UNSEEN_COMMIT_BASES else {}))

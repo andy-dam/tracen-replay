@@ -513,6 +513,20 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(event['contradicted_turn_difference']['speed']['worked_out'], 9)
         self.assertNotIn('settled_conflicting_readings', event)
 
+    def test_a_learned_read_that_differs_keeps_a_matching_text_read_from_settling(self):
+        # The text reader read the badge as 3 (cut) and 9, the bars leave 9,
+        # but the model read 8 on the card. Two of three agree, and still the
+        # disagreement stays raised: a text read that equals a difference some
+        # other error corrupted is how a wrong number would slip through.
+        doc = report()
+        doc['gameplay_tracking']['events'][0]['conflicting_readings'] = dict(speed=[3, 9])
+        self.learned(doc, speed=8)
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['contradicted_turn_difference']['speed']['worked_out'], 9)
+        self.assertNotIn('settled_conflicting_readings', event)
+        self.assertEqual(len([i for i in result['issues'] if i['kind'] == 'worked_out_amount_contradicted_by_card']), 1)
+
 
 
 if __name__ == '__main__':

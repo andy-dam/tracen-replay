@@ -304,7 +304,10 @@ def _settle_conflicting_reads(event, field, gain, settled_by):
     confirmed on the card by the learned reader or standing on its own, is
     one of those very reads, the disagreement is settled: the card showed
     this number too. The reads stay beside the amount for a reviewer. A
-    difference that matches none of them settles nothing.
+    difference that matches none of them settles nothing, and neither does
+    one the learned reader read differently on the card: a text read that
+    happens to equal a difference some other error corrupted is how a wrong
+    number would slip through, and the model's disagreement is the alarm.
     """
     reads = event.get('conflicting_readings')
     if not isinstance(reads, dict) or not isinstance(reads.get(field), list) or gain not in reads[field]:

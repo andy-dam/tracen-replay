@@ -590,6 +590,19 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertIn('2000.png', turns[2]['evidence'])
         self.assertTrue(all(t['expects_one_action'] for t in turns[1:]))
 
+    def test_a_race_receipt_naming_its_race_record_is_linked_through_it(self):
+        # A race's rewards live on its result record, so a receipt whose race
+        # id names one is linked; one naming no record, or none, is separate.
+        source = report(); data = source['gameplay_tracking']
+        data['races'] = [dict(id='race-001', first_seen_ms=500, last_seen_ms=600, evidence='500.png',
+                              race_name='Junior Make Debut', placing=1)]
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=500, race_id='race-001'),
+                                        dict(kind='race', source_timestamp_ms=1000, race_id='race-009'),
+                                        dict(kind='race', source_timestamp_ms=2000)]
+        rows = [r for r in build(source)['timeline'] if r['kind'] == 'committed_action']
+        self.assertEqual([r['reward_link_status'] for r in rows], ['linked_race', 'separate_receipt', 'separate_receipt'])
+
+
 
 if __name__ == '__main__':
     unittest.main()
