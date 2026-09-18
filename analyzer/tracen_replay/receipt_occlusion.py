@@ -89,6 +89,11 @@ def hint_wording_obstructed(line,overlays):
     fixed wording, which is what allows the wording, and nothing else, to be
     repaired.
     """
+    from .receipt_grammar import hint_wording
+    # Only a line whose fixed wording the obstruction damaged: a line that
+    # reads cleanly needs no repair, and unblocking it would assert a receipt
+    # the event may already have counted under a better reading.
+    if not hint_wording(line.get('text','')):return False
     boxes=hint_data_boxes(line)
     if not boxes or not overlays:return False
     for overlay in overlays:

@@ -34,6 +34,10 @@ class HintWordingObstructionTests(unittest.TestCase):
 
     def test_an_obstruction_on_the_wording_alone_leaves_the_data_readable(self):
         self.assertTrue(hint_wording_obstructed(hint_line(), PARTICLES))
+        # A line that reads cleanly needs no repair, and the event may already
+        # have counted that receipt from a better reading of it.
+        whole = [(w if w != 'levei(s)' else 'level(s)', b) for w, b in WORDS]
+        self.assertFalse(hint_wording_obstructed(hint_line(whole), PARTICLES))
         # Touching the number, or any word of the name, is not that.
         self.assertFalse(hint_wording_obstructed(hint_line(), [[395, 830, 410, 845]]))
         self.assertFalse(hint_wording_obstructed(hint_line(), [[600, 830, 620, 845]]))
