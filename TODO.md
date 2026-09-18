@@ -54,35 +54,32 @@ its own measurement of the latest reports showed.
       closes all three such turns in the six reports. Rebuilding the Hishi
       Amazon re-analysis with only this change reverted puts its two gaps
       back, which is what attributes them to it.
-- [ ] **A receipt whose wording the recognizer damaged is not counted.** The
-      count this item asked about is met: the latest report of each recording
-      lists one or two receipt lines for review, not ten, and every numberless
-      line traced back to an award counted from a later frame ("Speed went up
-      by" at 481 s of one career, cut off by a loading screen, counted at
-      493 s as `+12`). What is left is damage in the wording rather than in
-      the number. A hint receipt at 586 s of another career is read on seven
-      frames and cleanly on none, so its four hint levels for Pace Chaser
-      Corners are missing from the accounting. The cursor rests on
-      `level(s) for` with the panel's sparkles drifting over it, while the
-      number and the skill come through every time. Six frames are zeroed by
-      the occlusion gate, five of them read at 95 or better before it, and the
-      seventh is not occluded at all but reads `or` for `for`.
-      Two invariants close the shortcuts. Occlusion runs before the reader
-      parses and a blocked line may not regain confidence later
-      (`full_recording.parse_receipt_pixels`), so the five zeroed readings
-      cannot be used downstream; and a damaged line may confirm a receipt that
-      was accepted but never assert one, which
-      `tests/test_receipt_ocr_gap_boundaries.py` pins by keeping `fr` for
-      `for` unparsed so a malformed line between two awards cannot become a
-      third. The sanctioned route is therefore the occlusion stage's own
-      resolution path: give hint receipt lines the source-validated per-word
-      alignment friendship receipts already get, resolve a line whose overlay
-      boxes provably cover only the fixed wording between the amount and the
-      name (as `boundary_repair_supported` does for a separator), and let the
-      existing one-glyph tolerance repair `level`. Done: that hint is counted
-      from the frame whose wording the overlay alone damaged, no receipt is
-      counted from a line whose own number or name was not read, and the
-      boundary policy above still holds.
+- [x] **A receipt whose wording the recognizer damaged is not counted.** The
+      count this item asked about was already met: the latest report of each
+      recording listed one or two receipt lines for review, not ten, and every
+      numberless line traced back to an award counted from a later frame
+      ("Speed went up by" at 481 s of one career, cut off by a loading screen,
+      counted at 493 s as `+12`). What was left was damage in the wording. A
+      hint receipt at 586 s of another career was read on seven frames and
+      cleanly on none, its four levels for Pace Chaser Corners missing from the
+      accounting, with a cursor resting on `level(s) for` and the panel's
+      sparkles drifting across it while the number and the skill came through
+      every time.
+      The recognizer reports where each word it read sits, which costs nothing
+      and changes no text or score, so the reader keeps those boxes for the
+      receipt band. An overlay that touches neither the number nor any word of
+      the name can only have damaged the fixed wording between them: that line
+      keeps its confidence (`overlay_covers_fixed_hint_wording`) and only then
+      may `level(s)` and `for` each be repaired by one glyph, which also lets a
+      name that wrapped onto the next line join. A line that reads cleanly is
+      not unblocked, and a repaired reading corroborates an award the event
+      already holds under a name one glyph away rather than adding a second.
+      Two fresh analyses: the award is counted with
+      `text_normalization: obstructed_hint_wording`, the career's review list
+      goes from one item to none, its turn accounting is unchanged, and the
+      duplicate spellings an earlier, broader rule produced are gone. Without
+      that geometry a damaged line is blocked as before and still never
+      asserts a receipt by itself, which the boundary tests pin.
 - [x] **Stat badges partly unread on some training turns.** The learned
       reader closed these. Across the two careers analyzed with it, every
       training gain the report still works out from the turn difference is one
