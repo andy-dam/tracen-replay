@@ -403,8 +403,12 @@ serious is the next thing to look at.
       tried the same day and taken out: it settled this very card at the
       wrong 13, because a stray text read equal to a corrupted difference is
       exactly how a wrong number slips through, and the model's disagreement
-      was the alarm that found the double count. Done 2026-09-18; the fresh
-      Gran Concert analysis is the check.
+      was the alarm that found the double count. Done 2026-09-18, checked by
+      a fresh Gran Concert analysis the same day: the +5 counted once, the
+      card's +18 read straight off the card with nothing left to work out,
+      no contradiction on either card, and the turns a viewer is pointed at
+      down from 17 to 6 (one unreadable receipt, one ambiguous effect, three
+      cut skill lists, one window with no action seen).
 
 ## 3. Learned readers (the neural network)
 
