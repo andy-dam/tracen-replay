@@ -474,11 +474,12 @@ reading small fixed crops. The accounting labels them for free. Order:
 
 ## 4. Code and repository hygiene
 
-- [ ] Tests that depend on locally preserved evidence now name it through
-      `analyzer/tests/localdata.py`. Next: either publish small fixtures for
-      the rules they cover, or move the rest under `analyzer/lab/tests` so a
-      clean checkout's skip count is expected. Done: the main suite has no
-      skips on a clean checkout.
+- [x] Tests that depend on locally preserved evidence now live under
+      `analyzer/lab/tests` and run only where the evidence is; the 57 whose
+      evidence had been pruned for good were deleted rather than left to
+      skip. The main suite runs every one of its tests on a clean checkout
+      and skips none, checked by running it with `TRACEN_LOCAL_EVIDENCE`
+      pointed at an empty directory.
 - [x] The `analyzer/lab` tools are evaluation history; the directory's
       README says so.
 - [ ] The analyzer package keeps its name. Revisit only if it is ever
