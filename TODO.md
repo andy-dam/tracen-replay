@@ -156,6 +156,23 @@ its own measurement of the latest reports showed.
       fewer missing endpoints than before, because rows the badges hid now
       read. On the saved readings of six recordings only that career's 22
       readings change, every one of them dropping the same wrong Vocal 8.
+- [ ] **A hint award is counted once per spelling of its skill.** An event's
+      effects are keyed by kind, field and name, so a skill the recognizer
+      spelled two ways across the frames of one event becomes two awards. One
+      event of one career holds `Spring Runner ○`, `Sprir Runner` and
+      `Sp.unner`, all of 4 levels: one award counted three times. The same
+      event pairs `Medium Corners ○` with `Med ym Corners O` and `Risky
+      Business` with `usiness`, and two other events pair `Let's Pump Some
+      Iron` with `Let's Pump Some Iron!`. The hint totals a report prints are
+      inflated by exactly this, and nothing in the stat or performance
+      accounting notices, because hint levels are not part of either balance.
+      Name similarity alone cannot decide it: `Sp.unner` is far from `Spring
+      Runner ○` while `Medium Corners ○` is close to `Medium Straightaways ○`.
+      The receipt's own line slot across nearby frames is the stronger signal,
+      the one `receipt_names.near` and `receipt_stat_continuity` already use,
+      and it needs the line's box to travel with the parsed effect. Done: one
+      award per receipt per event, keeping the best-read spelling and
+      recording the variants rather than counting them.
 - [ ] **A race-day opening is sometimes never observed.** Nothing is carried
       from the previous turn any more: a ledger turn's opening is observed or
       it says it was not. Measured on the latest report of each of five
