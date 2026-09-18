@@ -11,3 +11,4 @@
 Dockerfile text eol=lf
 .dockerignore text eol=lf
 *.ps1 text eol=crlf
+docker/** text eol=lf
