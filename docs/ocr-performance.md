@@ -102,13 +102,32 @@ guarantee for another machine or recording.
 ## In the application image
 
 The [application image](container.md) installs the CPU provider, so the same
-per-frame work costs more. Measured on this machine inside the container, with
-two base workers and one dense worker, a 45-second clip read its 181 base
-frames in 57.7 seconds: 3.1 frames per second, or 1.6 per worker against the
-4.4 per worker of the DirectML runs above. The whole clip, from capture to a
-saved report, took 132 seconds, and the worker's main process stayed under
-1 GB. No full career has been analyzed in the image yet, so the end-to-end
-table has no container row.
+per-frame work costs more. Measured on this machine inside the container
+(Docker Desktop with 12 CPUs and 16 GB available to it), with the image's
+default two base workers and one dense worker, a 45-second clip read its 181
+base frames in 57.7 seconds, 3.1 frames per second, and reached a saved
+report in 132 seconds. A full career, the 33-minute Mayano CM-prep
+recording with 8,513 base frames, analyzed in the image the same day it was
+analyzed on this machine's GPU with three base workers and two dense ones:
+
+| Stage | In the image (CPU provider) | On the GPU (DirectML) |
+|---|---:|---:|
+| Base readings | 3,093 s (2.8 frames per second) | 712 s |
+| Dense result-card rereads | 1,466 s | 411 s |
+| Reload of cached readings | 623 s | 84 s |
+| Refinement passes and recovery | 1,633 s | 393 s |
+| Assembly, boundary recovery and output | 872 s | 225 s |
+| Whole analysis | 7,818 s (2 h 10 min) | 1,841 s (31 min) |
+
+The worker's main process peaked at 4.3 GB and each OCR worker stayed near
+1.5 GB. The two reports are not identical: the CPU recognizer reads a few
+frames differently, and those differences carry through the dense rereads
+(9,434 readings against 9,453) into the accounting, which left one turn
+field unexplained where the GPU run left none and took 15 amounts from the
+learned reader against 11. Both runs found the action and the opening state
+of all 74 turns and listed nothing for review. Reports are identical only
+across runs on one provider; a container row cannot be compared frame for
+frame with the table above.
 
 See [analysis-job.md](analysis-job.md) for the full set of worker
 controls and [evaluation.md](evaluation.md) for how OCR reading errors are

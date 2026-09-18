@@ -490,14 +490,17 @@ reading small fixed crops. The accounting labels them for free. Order:
 Running the service anywhere but this machine starts here, before any
 hosting choice.
 
-- [ ] **One image for the local application.** The image is built
+- [x] **One image for the local application.** The image is built
       ([docs/container.md](docs/container.md)): the client, the Go binary,
       the analyzer with its `vision` extra, ffmpeg and the OCR models, on a
       configurable port with the data directory on a volume, with the CUDA
       wheel behind a build argument. `docker compose up` serves the front
       page, accepts an upload, and analyzed a 45-second clip to a report on
-      the CPU provider. Left: a full career analyzed in the image, with the
-      time it takes recorded in the OCR performance note.
+      the CPU provider. A full career (Mayano CM prep) analyzed in the image
+      with its default two and one workers in 2 h 10 min against 31 min on
+      the GPU, with the stage split in [docs/ocr-performance.md](docs/ocr-performance.md);
+      the report is close to the GPU run's but not identical, since the CPU
+      recognizer reads a few frames differently. Done.
 - [ ] **A worker image.** The analyzer alone, taking the same command line
       the service uses (`docs/analysis-job.md`), so the service can start it
       as a container instead of a child process. Done: the service has a
