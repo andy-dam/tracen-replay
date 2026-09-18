@@ -23,6 +23,17 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 	switch mode {
+	case "version":
+		// Answers whatever argv it is handed, the way the analyzer's
+		// --worker-version does: no job, one object, nothing on stdout but it.
+		fmt.Fprintln(os.Stderr, "[WARNING] some library noise")
+		fmt.Fprint(os.Stdout, `{"schema_version":"tracen-replay/worker-version-v1",`+
+			`"worker_version":{"package":"0.1.0","code_digest":`+
+			`"2eca55da00a834e13e6d32583091299d086ba8d7c9033639527be5b099f0af65"}}`)
+		os.Exit(0)
+	case "version-broken":
+		fmt.Fprintln(os.Stderr, "ModuleNotFoundError: No module named 'tracen_replay'")
+		os.Exit(1)
 	case "ok":
 		fmt.Fprintln(os.Stderr, `{"stage": "stage_done", "name": "capture", "wall_s": 1.5}`)
 		fmt.Fprintln(os.Stderr, "[WARNING] some library noise")
