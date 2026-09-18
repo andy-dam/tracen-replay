@@ -157,22 +157,28 @@ its own measurement of the latest reports showed.
       read. On the saved readings of six recordings only that career's 22
       readings change, every one of them dropping the same wrong Vocal 8.
 - [ ] **A hint award is counted once per spelling of its skill.** An event's
-      effects are keyed by kind, field and name, so a skill the recognizer
-      spelled two ways across the frames of one event becomes two awards. One
-      event of one career holds `Spring Runner ○`, `Sprir Runner` and
-      `Sp.unner`, all of 4 levels: one award counted three times. The same
-      event pairs `Medium Corners ○` with `Med ym Corners O` and `Risky
-      Business` with `usiness`, and two other events pair `Let's Pump Some
-      Iron` with `Let's Pump Some Iron!`. The hint totals a report prints are
-      inflated by exactly this, and nothing in the stat or performance
-      accounting notices, because hint levels are not part of either balance.
-      Name similarity alone cannot decide it: `Sp.unner` is far from `Spring
-      Runner ○` while `Medium Corners ○` is close to `Medium Straightaways ○`.
-      The receipt's own line slot across nearby frames is the stronger signal,
-      the one `receipt_names.near` and `receipt_stat_continuity` already use,
-      and it needs the line's box to travel with the parsed effect. Done: one
-      award per receipt per event, keeping the best-read spelling and
-      recording the variants rather than counting them.
+      effects are keyed by kind, field and name, so a skill spelled two ways
+      becomes two awards, and the hint totals a report prints are inflated by
+      exactly that. No balance notices, because hint levels are in neither the
+      stat nor the performance accounting.
+      Where the second spelling comes from is now clear. One event of one
+      career holds `Spring Runner ○` from eight base-pass frames and, beside
+      it, `Sprir Runner` and `Sp.unner`, each asserted by a single frame of the
+      occluded-receipt recovery; the same event pairs `Medium Corners ○` with a
+      one-frame `Med ym Corners O` and `Risky Business` with a one-frame
+      `usiness`. The receipt log scrolls while an event runs, so the same
+      receipt is read at a different height on every frame and its garbled
+      re-reads carry no shared slot to match on. Name distance decides nothing
+      either: `Sp.unner` is far from `Spring Runner ○` while `Medium
+      Corners ○` is close to `Medium Straightaways ○`.
+      What separates them is corroboration. Every real award here is read on
+      one to eight frames and its name recurs through the run; every duplicate
+      is one recovered frame whose spelling appears nowhere else. Done: a
+      recovered receipt that is the only sighting of its name does not create
+      an award the event already holds at that amount, it joins it as
+      evidence; an award nothing else corroborates keeps whatever the recovery
+      read, and a genuinely different skill at the same amount stays its own
+      award.
 - [ ] **A race-day opening is sometimes never observed.** Nothing is carried
       from the previous turn any more: a ledger turn's opening is observed or
       it says it was not. Measured on the latest report of each of five
