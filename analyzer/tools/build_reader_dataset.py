@@ -25,6 +25,11 @@ training result frame is cut and written with what it shows:
 The lesson menu's performance counters are a second kind, whose target is
 the consensus of the menu visit the frame belongs to.
 
+A result box also records whether the game's pointer lies over it
+(``pointer``, with the count of its pixels): the player's mouse rests on the
+card in many recordings, and a digit under the lime arrow reads differently.
+``--mark-pointer`` adds that flag to a dataset already built, cutting nothing.
+
 Runs are the unit of splitting: ``--holdout`` names runs that never feed
 training, ``--group`` tags each run with the recorder it came from, and the
 manifest records both so a model is only ever judged on recordings and
@@ -80,6 +85,53 @@ def ink_share(image):
     rgb = np.asarray(image.convert('RGB')).astype(np.int32)
     luminance = 299 * rgb[..., 0] + 587 * rgb[..., 1] + 114 * rgb[..., 2]
     return float(((luminance < 140_000) & (rgb[..., 0] >= rgb[..., 2])).mean())
+
+
+# The game's own pointer is a bright lime arrow with a pale outline, drawn
+# over the card wherever the player's mouse rests. Its lime (red about 150,
+# green above 200, blue low) is brighter than the green a Wit training's
+# card is themed in (green about 145) and redder than the teal glow some
+# gain overlays animate with (red below 100), and it is looked for inside
+# the box proper, past the crop's left margin where the stat icons, some of
+# them green, always sit.
+POINTER_GREEN = 180
+POINTER_MIN_PIXELS = 40
+
+
+def pointer_pixels(image, margin=READER_MARGIN):
+    """How many pixels of the game's pointer lie inside the box proper."""
+    rgb = np.asarray(image.convert('RGB')).astype(np.int32)[:, margin[0]:]
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    return int(((g > POINTER_GREEN) & (g > r + 40) & (g > b + 70) & (r > 110) & (r < 210)).sum())
+
+
+def pointer_summary(rows):
+    """How many result boxes of each split and content the pointer lies over."""
+    return [dict(split=split, content=content, crops=n) for (split, content), n in sorted(
+        Counter((r['split'], r['content']) for r in rows if r['kind'] == 'result_box' and r.get('pointer')).items())]
+
+
+def write_dataset(output, rows, manifest):
+    with (output / 'crops.jsonl').open('w', encoding='utf-8') as stream:
+        for row in rows:
+            stream.write(json.dumps(row, ensure_ascii=False) + '\n')
+    (output / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
+def mark_pointer(output):
+    """Flag the boxes the pointer lies over in a dataset already built, cutting nothing."""
+    rows = [json.loads(line) for line in (output / 'crops.jsonl').read_text(encoding='utf-8').splitlines() if line.strip()]
+    for row in rows:
+        if row['kind'] != 'result_box':
+            continue
+        with Image.open(output / row['crop']) as image:
+            pixels = pointer_pixels(image)
+        row['pointer_pixels'] = pixels
+        row['pointer'] = pixels >= POINTER_MIN_PIXELS
+    manifest = json.loads((output / 'manifest.json').read_text(encoding='utf-8'))
+    manifest['pointer_boxes'] = pointer_summary(rows)
+    write_dataset(output, rows, manifest)
+    return manifest
 
 
 def stat_receipts(events):
@@ -283,9 +335,11 @@ def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box
                     if visit is not None:
                         before, after, gain = card_values(previous, following, receipts, field, time)
                     ink = ink_share(crop)
+                    pointer = pointer_pixels(crop)
                     content, target = classify(field, value, gain_read, before, after, gain, ink)
                     row.update(before=before, after=after, gain=gain, read_value=value, read_cap=cap, read_gain=gain_read,
-                               ink=round(ink, 4), content=content, target=target)
+                               ink=round(ink, 4), content=content, target=target,
+                               pointer_pixels=pointer, pointer=pointer >= POINTER_MIN_PIXELS)
                 else:
                     value = (facts.get('performance_points') or {}).get(field)
                     value = value if isinstance(value, int) else None
@@ -306,25 +360,33 @@ def build(output, runs, holdout=(), groups=None, videos=None, kinds=('result_box
                 for (s, k, c), n in sorted(Counter((r['split'], r['kind'], r['content']) for r in rows).items())],
         label_rule='result_box: badge (target value/, or value for skill points) when the read value equals the value before or after '
                    'the training bracketed by the stat bars and receipts, gain when the read overlay equals the bracketed gain, '
-                   'blank when the box holds no ink, unknown otherwise; performance_counter: the consensus of the menu visit.',
+                   'blank when the box holds no ink, unknown otherwise; performance_counter: the consensus of the menu visit. '
+                   f'A result box is flagged pointer when at least {POINTER_MIN_PIXELS} pixels of the game\'s lime pointer lie inside it.',
+        pointer_boxes=pointer_summary(rows),
     )
-    with (output / 'crops.jsonl').open('w', encoding='utf-8') as stream:
-        for row in rows:
-            stream.write(json.dumps(row, ensure_ascii=False) + '\n')
-    (output / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    write_dataset(output, rows, manifest)
     return manifest
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     parser.add_argument('--output', type=Path, required=True, help='dataset directory to create')
-    parser.add_argument('--run', action='append', required=True, help='[NAME=]ROOT: a run root holding report.json')
+    parser.add_argument('--run', action='append', default=[], help='[NAME=]ROOT: a run root holding report.json')
+    parser.add_argument('--mark-pointer', action='store_true',
+                        help='flag the boxes the pointer lies over in the dataset already in --output, cutting nothing')
     parser.add_argument('--video', action='append', default=[], help="NAME=RECORDING: decode the run's frames from its recording")
     parser.add_argument('--holdout', action='append', default=[], help='run name that never feeds training')
     parser.add_argument('--group', action='append', default=[], help='NAME=GROUP: the recorder a run came from')
     parser.add_argument('--kinds', nargs='+', default=['result_box', 'performance_counter'], choices=['result_box', 'performance_counter'])
     parser.add_argument('--append', action='store_true', help='add the runs to the dataset already in --output')
     args = parser.parse_args(argv)
+    if args.mark_pointer:
+        manifest = mark_pointer(args.output)
+        for row in manifest['pointer_boxes']:
+            print(f"{row['split']:8} pointer over {row['content']:8} {row['crops']:6}")
+        return
+    if not args.run:
+        parser.error('--run is required unless --mark-pointer is given')
     if args.output.exists() and any(args.output.iterdir()) and not args.append:
         raise SystemExit(f'Refusing to write into a non-empty directory: {args.output} (pass --append to add runs to it)')
 

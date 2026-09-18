@@ -194,6 +194,15 @@ a value for; looser picks also take frames whose number is only partly
 visible, which teaches the model to fill in hidden digits and raises its
 false reads.
 
+The player's mouse rests on the card in many recordings, and the game's own
+pointer, a bright lime arrow, then lies over a digit: a `+8` under it was
+once read as `+9` at high confidence. The dataset flags every result box the
+pointer lies over (`pointer`, from the lime pixels inside the box proper,
+past the margin where a green stat icon can sit), such boxes keep their own
+training bucket so the per-card cap never trades them for clean frames of
+the same card, and the held-out judgement reports them as a scope of their
+own beside all frames and pass frames.
+
 Each round is judged on every box of the held-out runs, per run and over
 all of them, beside the current reader and pooled with it, both on all
 frames and on the ordinary pass's frames alone, which is what a reader

@@ -71,5 +71,16 @@ class TrainReaderTests(unittest.TestCase):
         self.assertEqual(sum(r['content'] == 'gain' for r in epoch), 10)
 
 
+    def test_pointer_frames_keep_their_own_bucket(self):
+        def row(time, pointer):
+            return dict(split='train', kind='result_box', run='r', visit='c1', frame=f'f{time}', field='speed',
+                        target='115/1600', content='badge', source_timestamp_ms=time, pointer=pointer)
+        rows = [row(t, False) for t in range(20)] + [row(100 + t, True) for t in range(3)]
+        groups = training_groups(rows, {'result_box'})
+        # The cap applies to the clean frames; the three frames under the pointer all stay.
+        self.assertEqual(len(groups['badge']), MAX_PER_TARGET + 3)
+        self.assertEqual(sum(r['pointer'] for r in groups['badge']), 3)
+
+
 if __name__ == '__main__':
     unittest.main()

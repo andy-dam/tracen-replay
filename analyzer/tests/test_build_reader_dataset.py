@@ -54,6 +54,46 @@ class CardValueTests(unittest.TestCase):
         self.assertEqual(ink_share(Image.new('RGB', (10, 10), (107, 74, 46))), 1.0)
 
 
+class PointerTests(unittest.TestCase):
+    LIME = (147, 214, 58)
+
+    def test_the_pointer_is_counted_only_inside_the_box(self):
+        from tools.build_reader_dataset import POINTER_MIN_PIXELS, pointer_pixels
+        image = Image.new('RGB', (162, 58), (250, 240, 200))
+        ImageDraw.Draw(image).rectangle((60, 20, 71, 31), fill=self.LIME)
+        self.assertEqual(pointer_pixels(image), 144)
+        self.assertGreaterEqual(144, POINTER_MIN_PIXELS)
+        # A green stat icon sits in the crop's left margin, never inside the box.
+        image = Image.new('RGB', (162, 58), (250, 240, 200))
+        ImageDraw.Draw(image).rectangle((5, 20, 25, 40), fill=self.LIME)
+        self.assertEqual(pointer_pixels(image), 0)
+        # A Wit training's card is themed in a darker green than the pointer,
+        # and a gain overlay's glow is a teal with far less red.
+        self.assertEqual(pointer_pixels(Image.new('RGB', (162, 58), (97, 144, 41))), 0)
+        self.assertEqual(pointer_pixels(Image.new('RGB', (162, 58), (90, 225, 140))), 0)
+
+    def test_marking_flags_the_boxes_the_pointer_lies_over(self):
+        from tools.build_reader_dataset import mark_pointer
+        root = Path(tempfile.mkdtemp(prefix='reader-pointer-'))
+        self.addCleanup(shutil.rmtree, root, True)
+        (root / 'r/result_box/speed').mkdir(parents=True)
+        plain = Image.new('RGB', (162, 58), (250, 240, 200))
+        plain.save(root / 'r/result_box/speed/a.png')
+        covered = plain.copy()
+        ImageDraw.Draw(covered).rectangle((60, 20, 71, 31), fill=self.LIME)
+        covered.save(root / 'r/result_box/speed/b.png')
+        rows = [dict(run='r', split='train', kind='result_box', field='speed', crop='r/result_box/speed/a.png', content='badge'),
+                dict(run='r', split='train', kind='result_box', field='speed', crop='r/result_box/speed/b.png', content='badge'),
+                dict(run='r', split='train', kind='performance_counter', field='dance', crop='none.png', content='counter')]
+        (root / 'crops.jsonl').write_text('\n'.join(json.dumps(r) for r in rows) + '\n', encoding='utf-8')
+        (root / 'manifest.json').write_text(json.dumps(dict(crops=3)), encoding='utf-8')
+        manifest = mark_pointer(root)
+        marked = [json.loads(line) for line in (root / 'crops.jsonl').read_text(encoding='utf-8').splitlines()]
+        self.assertEqual([r.get('pointer') for r in marked], [False, True, None])
+        self.assertEqual(marked[1]['pointer_pixels'], 144)
+        self.assertEqual(manifest['pointer_boxes'], [dict(split='train', content='badge', crops=1)])
+
+
 class BuildTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix='reader-dataset-'))

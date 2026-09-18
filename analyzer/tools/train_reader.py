@@ -18,9 +18,9 @@ round's model finds far likelier than any other. Each round is judged on
 every box of the held-out runs the way the accounting uses a reader (see
 ``reader_baseline``): per card, whether its value or its gain was read, and
 per frame, how many reads were false; per held-out run and over all of
-them; and on all frames and on the ordinary pass's frames alone. The
-analyzer's own reader is judged on the same boxes, alone and pooled with the
-learned one.
+them; on all frames, on the ordinary pass's frames alone, and on the frames
+where the game's pointer lies over the box. The analyzer's own reader is
+judged on the same boxes, alone and pooled with the learned one.
 
 Three conditions share the head, the data and the schedule:
 
@@ -72,9 +72,11 @@ SHARE_WEIGHTS = dict(badge=2)
 # the model to fill in hidden digits.
 VERIFIED_FLOOR = 0.9
 VERIFIED_RATIO = 100.0
-# Held-out boxes are judged on every frame, and on the ordinary pass's frames
-# alone: what a reader gets without the analyzer's high-rate rereads.
-SCOPES = {'all frames': lambda row: True, 'pass frames': lambda row: row['frame'].startswith('gameplay/')}
+# Held-out boxes are judged on every frame, on the ordinary pass's frames
+# alone (what a reader gets without the analyzer's high-rate rereads), and
+# on the frames where the game's pointer lies over the box.
+SCOPES = {'all frames': lambda row: True, 'pass frames': lambda row: row['frame'].startswith('gameplay/'),
+          'pointer frames': lambda row: bool(row.get('pointer'))}
 
 
 def encode(text):
@@ -151,9 +153,11 @@ def training_groups(rows, kinds):
     for row in rows:
         if row['split'] != 'train' or row['kind'] not in kinds or row.get('target') is None:
             continue
-        # Verified hard frames keep their own buckets, so the cap never trades
-        # them for easy frames of the same card.
-        buckets[(row['run'], row.get('visit') or row['frame'], row['kind'], row['field'], row['target'], bool(row.get('verified')))].append(row)
+        # Verified hard frames and frames with the pointer over the box keep
+        # their own buckets, so the cap never trades them for easy frames of
+        # the same card.
+        buckets[(row['run'], row.get('visit') or row['frame'], row['kind'], row['field'], row['target'],
+                 bool(row.get('verified')), bool(row.get('pointer')))].append(row)
     groups = defaultdict(list)
     for bucket in buckets.values():
         bucket.sort(key=lambda r: r['source_timestamp_ms'])
