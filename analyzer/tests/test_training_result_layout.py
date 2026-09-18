@@ -173,7 +173,7 @@ class TrainingResultLayoutTests(unittest.TestCase):
         ]
 
         class Engine:
-            def __call__(self, _image):
+            def __call__(self, _image, **_kwargs):
                 return SimpleNamespace(
                     boxes=boxes,
                     txts=[entry["text"] for entry in detector_lines],
@@ -267,7 +267,7 @@ class TrainingResultLayoutTests(unittest.TestCase):
         ]
 
         class Engine:
-            def __call__(self, _image):
+            def __call__(self, _image, **_kwargs):
                 return SimpleNamespace(
                     boxes=boxes,
                     txts=[line["text"] for line in detector_lines],

@@ -61,6 +61,44 @@ def receipt_line(line):
         770<=line['box'][1]<1000 and bool(re.match(r'^Inspired by\s+\S',line.get('text',''))))
 
 
+def hint_data_boxes(line):
+    """The boxes of a hint receipt's number and skill name, or None.
+
+    The recognizer returns where each word it read sits, and a hint receipt
+    says its number and its name in words of their own: "Gained 4 hint
+    level(s) for Pace Chaser Corners". Everything between them is fixed UI
+    text. The split is only trusted while the fixed words are within the
+    repair tolerance of what they should say, so a line damaged past that
+    yields nothing here.
+    """
+    from .receipt_grammar import hint_wording
+    words=line.get('word_boxes')
+    if not isinstance(words,list) or len(words)<6:return None
+    if not all(isinstance(w,dict) and isinstance(w.get('box'),list) and len(w['box'])==4 for w in words):return None
+    text=' '.join(w.get('text','') for w in words)
+    if text!=line.get('text') or not (hint_wording(text) or re.fullmatch(r'Gained \d+ hint level\(s\) for \S.*',text)):
+        return None
+    return [words[1]['box']]+[w['box'] for w in words[5:]]
+
+
+def hint_wording_obstructed(line,overlays):
+    """True when an obstruction on a hint receipt covers none of its data.
+
+    The number and the name are what the receipt says; the words between them
+    are fixed. An overlay that touches neither can only have damaged that
+    fixed wording, which is what allows the wording, and nothing else, to be
+    repaired.
+    """
+    boxes=hint_data_boxes(line)
+    if not boxes or not overlays:return False
+    for overlay in overlays:
+        for box in boxes:
+            if (min(overlay[2],box[2])-max(overlay[0],box[0])>0
+                    and min(overlay[3],box[3])-max(overlay[1],box[1])>0):
+                return False
+    return True
+
+
 def recovered_leading_digit(line,alignments):
     """Padded OCR views can expose a digit missed by the tight alignment crop."""
     from .refine_receipts import consensus
@@ -470,6 +508,13 @@ def annotate(raw,pane):
             if not name_overlaps and recovered_leading_digit(line,raw.get('overlay_alignment',[])):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
                                      basis='padded_views_recover_leading_digit',independent_frame_count=1))
+                continue
+            # An obstruction that covers a hint receipt's fixed wording and
+            # neither its number nor its name leaves both readable, so the
+            # line keeps its confidence and the wording may be repaired.
+            if hint_wording_obstructed(line,overlaps):
+                resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
+                                     basis='overlay_covers_fixed_hint_wording',independent_frame_count=1))
                 continue
             animated_overlaps=[box for box in overlaps if box in particle_boxes]
             blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps,

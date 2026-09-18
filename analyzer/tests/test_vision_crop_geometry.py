@@ -18,7 +18,7 @@ class _FakeEngine:
     def __init__(self):
         self.recognition_images = None
 
-    def __call__(self, _image):
+    def __call__(self, _image, **_kwargs):
         # The full-pane detector adds the 148px gameplay origin to x values.
         box = np.asarray([
             [362.0, 693.0], [402.0, 693.0],

@@ -96,7 +96,7 @@ class TrainingResultPerformanceDirectTests(unittest.TestCase):
                             dtype=float) for line in detector_lines]
 
         class Engine:
-            def __call__(self, _image):
+            def __call__(self, _image, **_kwargs):
                 return SimpleNamespace(boxes=boxes, txts=[l['text'] for l in detector_lines],
                                        scores=[l['confidence'] / 100 for l in detector_lines])
 

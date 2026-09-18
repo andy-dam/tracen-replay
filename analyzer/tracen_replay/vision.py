@@ -108,6 +108,12 @@ def animation_gain_badges(lines):
     return found
 
 
+def _word_box(quad):
+    """One recognized word's corner points as a box in gameplay coordinates."""
+    xs=[float(point[0]) for point in quad];ys=[float(point[1]) for point in quad]
+    return [round(min(xs))+148,round(min(ys)),round(max(xs))+148,round(max(ys))]
+
+
 def within(line,box):
     left,top,right,bottom=line['box']
     return box[0] <= (left+right)/2 <= box[2] and box[1] <= (top+bottom)/2 <= box[3]
@@ -591,12 +597,20 @@ class NeuralReader:
         if pane.size != (810,1080):
             raise ValueError('Neural OCR accepts only the gameplay crop.')
         array=self.np.array(pane.convert('RGB'))
-        result=self.engine(array[:,:,::-1])
+        # The recognizer knows where each word it read sits. Asking for that
+        # costs nothing and changes no text or score; it is kept for the
+        # receipt band alone, where an obstruction over a line has to be
+        # judged word by word.
+        result=self.engine(array[:,:,::-1],return_word_box=True)
         lines=[]
         if result.txts:
-            for box,text,score in zip(result.boxes,result.txts,result.scores):
-                lines.append(dict(text=text,confidence=round(float(score)*100,4),
-                    box=[round(float(box[:,0].min()))+148,round(float(box[:,1].min())),round(float(box[:,0].max()))+148,round(float(box[:,1].max()))]))
+            found=getattr(result,'word_results',None) or ((),)*len(result.txts)
+            for box,text,score,words in zip(result.boxes,result.txts,result.scores,found):
+                line=dict(text=text,confidence=round(float(score)*100,4),
+                    box=[round(float(box[:,0].min()))+148,round(float(box[:,1].min())),round(float(box[:,0].max()))+148,round(float(box[:,1].max()))])
+                if words and 770<=line['box'][1]<1000:
+                    line['word_boxes']=[dict(text=word,box=_word_box(quad)) for word,_score,quad in words]
+                lines.append(line)
         def crop(box):
             left, top, right, bottom = _normalize_crop_box(box)
             return array[top:bottom,left-PANE[0]:right-PANE[0],::-1]
@@ -2095,6 +2109,20 @@ def parse(raw):
         raw.get('wrapped_receipt_observations'),
         raw,
     )
+    # A hint receipt whose fixed wording an obstruction damaged, its number
+    # and its name proven clear by the same obstruction's geometry, is
+    # repaired to what those fixed words say. This happens before the lines
+    # are joined: damaged wording also hides the name that wrapped onto the
+    # following line.
+    obstructed={(item.get('text'),tuple(item.get('box') or ()))
+                for item in raw.get('resolved_receipt_occlusions') or []
+                if isinstance(item,dict) and item.get('basis')=='overlay_covers_fixed_hint_wording'}
+    if obstructed:
+        from .receipt_grammar import hint_wording
+        for position,line in enumerate(outcome_lines):
+            if (line['text'],tuple(line['box'])) not in obstructed:continue
+            mended=hint_wording(line['text'])
+            if mended:outcome_lines[position]=dict(line,text=mended,original_hint_wording=line['text'])
     joined=[];index=0
     while index<len(outcome_lines):
         line=outcome_lines[index]
@@ -2119,7 +2147,10 @@ def parse(raw):
             following=outcome_lines[index+1]
             if (0<following['box'][1]-line['box'][1]<40 and abs(following['box'][0]-line['box'][0])<=15
                 and len(following['text'].split())<=4 and re.search(r'[.!]$',following['text']) and not effects_from_lines([following])):
+                mended=line.get('original_hint_wording')
                 line=dict(line,text=line['text']+' '+following['text'],confidence=min(line['confidence'],following['confidence']));index+=1
+                # The receipt as it was read spans both physical lines.
+                if mended:line['original_hint_wording']=mended+' '+following['text']
         joined.append(line);index+=1
     repairs={}
     from .receipt_grammar import normalize as normalize_receipt_grammar, boundary_repair_supported
@@ -2163,6 +2194,10 @@ def parse(raw):
                     'text_normalization', 'source_wrapped_friendship_receipt')
         if effect['raw_text'] in repairs:
             effect['original_text']=repairs[effect['raw_text']];effect['text_normalization']='fixed_receipt_verb'
+        wording_line=next((l for l in joined if l['text']==effect['raw_text'] and l.get('original_hint_wording')),None)
+        if wording_line:
+            effect['original_text']=wording_line['original_hint_wording']
+            effect['text_normalization']='obstructed_hint_wording'
     # Typewriter/fade frames can expose a prefix such as "... by 5" of "... by 57."
     # Numeric receipts require their visible sentence terminator in this layout.
     effects=[e for e in parsed_effects if e.get('amount') is None or re.search(r'[.!]$',e['raw_text'])]

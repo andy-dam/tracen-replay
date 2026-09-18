@@ -188,6 +188,19 @@ was corrupted by an on-screen cursor (`"Speed went uply 30."`,
 distance against the known phrase; the subject and the amount are never
 changed, and a missing amount is not repaired.
 
+A hint receipt says its number and its skill name in words of their own, with
+fixed wording between them, and the recognizer reports where each word it read
+sits (`word_boxes`, kept for the receipt band). When every overlay over such a
+line falls clear of the number and of every word of the name, the obstruction
+can only have damaged that fixed wording: the line keeps its confidence
+(`resolved_receipt_occlusions`, basis `overlay_covers_fixed_hint_wording`)
+instead of being blocked, and `level(s)` and `for` may each be repaired by one
+glyph, which also lets a name that wrapped onto the next line join. The
+repaired effect keeps what was read under `original_text` with
+`text_normalization: obstructed_hint_wording`. Without that geometry a damaged
+line is still blocked, and a damaged line still never asserts a receipt on its
+own.
+
 **Result banners and rereads.** A training's identity heading counts on
 result frames even when a level digit was not read. A result word missing
 its final glyph (`SUCCES`, `FAILUR`) is accepted as that word when the same

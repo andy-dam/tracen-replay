@@ -73,6 +73,27 @@ def boundary_repair_supported(line, overlay):
     return False
 
 
+def hint_wording(text):
+    """Return a hint receipt whose two fixed words are repaired, or None.
+
+    "Gained 4 hint level(s) for Pace Chaser Corners" keeps its data in the
+    number and the skill name; the two words between them are fixed UI text.
+    Each may carry one damaged glyph, the tolerance this module allows
+    everywhere. The number, the name and the punctuation come back exactly as
+    they were read.
+
+    Repairing those words is only safe where something proves the damage came
+    from an obstruction rather than from the text; see
+    ``receipt_occlusion.hint_wording_obstructed``.
+    """
+    match = re.fullmatch(r'(?P<head>Gained \d+ hint )(?P<level>\S+) (?P<preposition>\S+) (?P<name>\S.*)', text)
+    if not match or (match['level'], match['preposition']) == ('level(s)', 'for'):
+        return None
+    if not fixed_word(match['level'], 'level(s)') or not fixed_word(match['preposition'], 'for'):
+        return None
+    return f"{match['head']}level(s) for {match['name']}"
+
+
 def normalize(text, *, allow_boundary_repair=False):
     receipt = friendship_receipt(text)
     if receipt and receipt['boundary_repaired'] and not allow_boundary_repair:

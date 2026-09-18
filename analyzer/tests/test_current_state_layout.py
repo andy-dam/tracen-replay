@@ -160,7 +160,7 @@ class CurrentStateLayoutTests(unittest.TestCase):
         ]
 
         class Engine:
-            def __call__(self, _image):
+            def __call__(self, _image, **_kwargs):
                 return SimpleNamespace(
                     boxes=boxes,
                     txts=[entry["text"] for entry in detector_lines],
