@@ -2332,6 +2332,11 @@ def outcome_events(readings):
     hint_name_sightings=Counter(
         effect.get('name') for row in readings for effect in (row.get('effects') or [])
         if effect.get('kind')=='skill_hint_change')
+    # The same count by kind, for the recipient and circle spellings the
+    # identity passes leave as candidates.
+    name_sightings=Counter(
+        (effect.get('kind'),effect.get('name')) for row in readings for effect in (row.get('effects') or [])
+        if effect.get('kind') in ('skill_hint_change','inheritance_spark','friendship_change','friendship_status'))
     for row in readings:
         # Event reconciliation annotates accepted alternatives. Keep those
         # annotations separate from the original parsed observations.
@@ -2509,8 +2514,13 @@ def outcome_events(readings):
     events=collapse_cross_event_hint_duplicates(events,readings)
     events=collapse_cross_event_stat_duplicates(events,readings)
     from .hint_identity_quarantine import quarantine_receipt_identity_conflicts
+    from .receipt_names import collapse_uncorroborated_recipient_variants,collapse_uncorroborated_circle_base_variants
     for event in events:
         quarantine_receipt_identity_conflicts(event, rows_by_evidence, effect_kind='skill_hint_change')
+        # A candidate the run corroborates nowhere else joins the reading it
+        # damaged; the rest stay candidates for the reader to decide.
+        collapse_uncorroborated_recipient_variants(event,name_sightings)
+        collapse_uncorroborated_circle_base_variants(event,name_sightings)
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
         attach_inheritance_occurrences(event,rows_by_evidence)

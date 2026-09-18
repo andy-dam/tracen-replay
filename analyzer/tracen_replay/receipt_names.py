@@ -1363,6 +1363,119 @@ def collapse_uncorroborated_hint_variants(event,hint_name_sightings):
     event['effects']=[effect for effect in event['effects'] if effect not in removed]
 
 
+def _candidate_frames(candidate):
+    return [proof for proof in (candidate.get('evidence') or []) if isinstance(proof, str)]
+
+
+def _drop_conflicts(event, fields, reasons):
+    event['conflicting_readings'] = [
+        item for item in event.get('conflicting_readings', [])
+        if not (item.get('field') in fields and item.get('reason') in reasons)]
+
+
+def collapse_uncorroborated_recipient_variants(event, name_sightings):
+    """Fold a recipient spelling the run produced only here into the one it knows.
+
+    Adjacent views of one receipt slot can disagree on the recipient's name
+    (``Agnes Tachyon`` and ``\u00c1gnes Tachyon``, ``Etsuko Otonashi`` and
+    ``Etsuk Otonashi``), and the conflict handler rightly keeps both as
+    candidates: distance cannot say which is damaged.  Corroboration can.  A
+    supporter's name recurs through the run on every receipt that names them,
+    while a damaged spelling is read on the frames of this one receipt and
+    nowhere else.  When exactly one candidate of a disputed slot recurs
+    elsewhere and every other candidate is known only here, the recurring
+    spelling is the receipt and the others are its evidence.  Two spellings
+    that both recur, or none that does, leave the slot as undecided as the
+    conflict handler left it.
+    """
+    candidates = event.get('ambiguous_effect_candidates')
+    if not isinstance(candidates, list):
+        return
+    groups = {}
+    for candidate in candidates:
+        if (isinstance(candidate, dict) and candidate.get('reason') == 'unresolved_recipient_identity'
+                and isinstance(candidate.get('effect'), dict)):
+            effect = candidate['effect']
+            groups.setdefault((effect.get('kind'), effect.get('amount'), effect.get('direction'), effect.get('value')),
+                              []).append(candidate)
+
+    def elsewhere(candidate):
+        effect = candidate['effect']
+        return (name_sightings.get((effect.get('kind'), effect.get('name'))) or 0) - len(_candidate_frames(candidate))
+
+    folded = []
+    for members in groups.values():
+        recurring = [candidate for candidate in members if elsewhere(candidate) > 0]
+        if len(members) < 2 or len(recurring) != 1:
+            continue
+        target = recurring[0]
+        effect = deepcopy(target['effect'])
+        effect['name_resolution'] = 'uncorroborated_spelling_joins_recurring_recipient'
+        key = str(effect.get('kind')) + '||' + str(effect.get('name') or '')
+        proofs = event.setdefault('field_evidence', {}).setdefault(key, [])
+        proofs.extend(proof for proof in _candidate_frames(target) if proof not in proofs)
+        for other in members:
+            if other is target:
+                continue
+            effect.setdefault('alternate_name_evidence', []).append(dict(
+                name=other['effect'].get('name'), evidence=_candidate_frames(other)))
+            proofs.extend(proof for proof in _candidate_frames(other) if proof not in proofs)
+        event.setdefault('effects', []).append(effect)
+        _drop_conflicts(event, {str(c['effect'].get('kind')) + '||' + str(c['effect'].get('name') or '') for c in members},
+                        {'recipient_name_changes_in_adjacent_same_slot_receipt'})
+        folded.extend(members)
+    if folded:
+        event['ambiguous_effect_candidates'] = [c for c in candidates if not any(c is f for f in folded)]
+
+
+_CIRCLE_MARKERS = '\u25cb\u25ce'
+
+
+def collapse_uncorroborated_circle_base_variants(event, name_sightings):
+    """Fold a bare spelling read nowhere else into its circle-proven award.
+
+    A receipt's circle marker is a small glyph at the end of the line, and
+    the recognizer drops it on some frames, so one line reads as ``Corner
+    Recovery \u25cb`` and as ``Corner Recovery``.  The circle fallback keeps the
+    proven circle award and holds the bare spelling as a possible duplicate
+    or additional effect, because it could not show the two readings to be
+    one slot.  Corroboration decides the rest.  A skill the run knows without
+    a circle is read that way on its own receipts; a bare spelling read only
+    on this receipt's frames, beside the proven circle award at the same
+    amount, is that award with its glyph unread, and becomes its evidence.  A
+    bare spelling read anywhere else in the run stays a candidate.
+    """
+    candidates = event.get('ambiguous_effect_candidates')
+    if not isinstance(candidates, list):
+        return
+    effects_by_key = {str(effect.get('kind')) + '||' + str(effect.get('name') or ''): effect
+                      for effect in event.get('effects', []) if isinstance(effect, dict) and effect.get('name')}
+    folded = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or candidate.get('reason') != 'unresolved_circle_base_variant':
+            continue
+        weak = candidate.get('effect') or {}
+        strong_ref = candidate.get('possible_duplicate_of') or {}
+        strong = effects_by_key.get(strong_ref.get('field'))
+        if strong is None or strong.get('kind') != weak.get('kind') or strong.get('amount') != weak.get('amount'):
+            continue
+        strong_name = str(strong.get('name') or '').strip()
+        if (not strong_name or strong_name[-1] not in _CIRCLE_MARKERS
+                or strong_name[:-1].strip() != str(weak.get('name') or '').strip()):
+            continue
+        frames = _candidate_frames(candidate)
+        if (name_sightings.get((weak.get('kind'), weak.get('name'))) or 0) > len(frames):
+            continue
+        strong.setdefault('alternate_name_evidence', []).append(dict(name=weak.get('name'), evidence=list(frames)))
+        strong['name_resolution'] = 'circle_glyph_unread_on_uncorroborated_base_reading'
+        proofs = event.setdefault('field_evidence', {}).setdefault(strong_ref['field'], [])
+        proofs.extend(proof for proof in frames if proof not in proofs)
+        _drop_conflicts(event, {candidate.get('field'), strong_ref.get('field')}, {'unresolved_circle_variant_relation'})
+        folded.append(candidate)
+    if folded:
+        event['ambiguous_effect_candidates'] = [c for c in candidates if not any(c is f for f in folded)]
+
+
 _HINT_SEPARATOR_RE = re.compile(r"[\s\-\u2010-\u2015\u2212]+")
 
 

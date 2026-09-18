@@ -19,11 +19,22 @@ class HintIdentityFallbackIntegrationTests(unittest.TestCase):
         self.assertNotIn('Example Skill',names)
         strong=next(effect for effect in event['effects'] if effect['name']=='Example Skill ○')
         self.assertEqual(strong['visual_symbol_observation'],mapping['strong-2']['effects'][0]['visual_symbol_observation'])
+        # The bare spelling was read on no other receipt of the run, so it is
+        # this award with its glyph unread: it joins as evidence rather than
+        # staying a candidate.
+        self.assertEqual(event['ambiguous_effect_candidates'],[])
+        self.assertIn(dict(name='Example Skill',evidence=['weak-before','weak-after']),strong['alternate_name_evidence'])
+        self.assertEqual(strong['name_resolution'],'circle_glyph_unread_on_uncorroborated_base_reading')
+        self.assertEqual(rows,original)
+        # Read elsewhere in the run as well, the bare spelling may be an award
+        # of its own and stays the unresolved candidate the fallback made.
+        elsewhere=[_row(9000,'elsewhere',_weak_effect())]
+        for row in elsewhere:row.update(stats={},facts={})
+        event=outcome_events(rows+elsewhere)[0]
         candidate=event['ambiguous_effect_candidates'][0]
         self.assertEqual(candidate['evidence'],['weak-before','weak-after'])
         self.assertFalse(candidate['continuity_proven'])
         self.assertIsNone(candidate['occurrence_count'])
-        self.assertEqual(rows,original)
 
     def test_unverified_circle_keeps_existing_unknown_variant_behavior(self):
         weak=_weak_effect()
