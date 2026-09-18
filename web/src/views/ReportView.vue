@@ -28,6 +28,38 @@ const allEntries = ref<Entry[]>([]);
 const unassigned = ref<Entry[]>([]);
 const finalStats = ref<Record<string, number | null> | null>(null);
 const seekMs = ref<number | null>(null);
+// A report is the reading of one analyzer. When the installed one has moved
+// on, say so and offer the run again; the recording is matched by its hash,
+// because without it there is nothing to analyze again and no button to show.
+const staleAnalyzer = computed(() => summary.value?.analyzer?.stale === true);
+const analyzerBuild = computed(() => {
+  const made = summary.value?.analyzer?.report;
+  return made ? `${made.package} · ${made.code_digest.slice(0, 7)}` : "";
+});
+const reanalyzeSource = ref<string | null>(null);
+const reanalyzing = ref(false);
+async function offerReanalysis() {
+  const hash = summary.value?.report.source_sha256;
+  if (!staleAnalyzer.value || !hash) return;
+  try {
+    const recordings = await api.recordings();
+    reanalyzeSource.value = recordings.find((r) => r.sha256 === hash)?.id ?? null;
+  } catch {
+    reanalyzeSource.value = null;
+  }
+}
+async function analyzeAgain() {
+  if (!reanalyzeSource.value) return;
+  reanalyzing.value = true;
+  try {
+    const job = await api.submit(reanalyzeSource.value);
+    window.location.hash = `#/jobs/${encodeURIComponent(job.id)}`;
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    reanalyzing.value = false;
+  }
+}
 const tab = ref<"turn" | "check">("turn");
 const error = ref("");
 // A warning link opens a turn and then seeks to the entry once the turn is loaded.
@@ -96,7 +128,7 @@ onMounted(async () => {
     turns.value = t;
     unassigned.value = u;
     allEntries.value = all;
-    await Promise.all([loadTurn(current.value), loadFinal()]);
+    await Promise.all([loadTurn(current.value), loadFinal(), offerReanalysis()]);
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -239,6 +271,14 @@ const checkCount = computed(() => {
           <span v-if="checkCount"> · <button class="linkish" @click="tab = 'check'">{{ checkCount }} thing{{ checkCount === 1 ? "" : "s" }} to check</button></span>
         </p>
         <p v-if="summary.summary.stage_failures.length" class="error small">Stages skipped during analysis: {{ summary.summary.stage_failures.map((f) => f.stage).join(", ") }}.</p>
+        <p v-if="analyzerBuild" class="muted small">
+          Read by analyzer {{ analyzerBuild }}.
+          <template v-if="staleAnalyzer">
+            The installed analyzer is newer.
+            <button v-if="reanalyzeSource" class="linkish" :disabled="reanalyzing" @click="analyzeAgain">{{ reanalyzing ? "Starting…" : "Analyze Again" }}</button>
+            <span v-else>Its recording is no longer here, so it cannot be analyzed again.</span>
+          </template>
+        </p>
       </div>
       <div class="run-final">
         <div class="run-final-label">At the End of the Run</div>

@@ -148,6 +148,19 @@ export interface Summary {
   entries: number;
   unassigned: number;
   video_available: boolean;
+  // Which analyzer made this report and which one is installed now. Each side
+  // is present only when it is known, and `stale` only when both are, so an
+  // absent field means unknown rather than same.
+  analyzer?: {
+    report?: AnalyzerVersion;
+    installed?: AnalyzerVersion;
+    stale?: boolean;
+  } | null;
+}
+
+export interface AnalyzerVersion {
+  package: string;
+  code_digest: string;
 }
 
 export interface Readiness {

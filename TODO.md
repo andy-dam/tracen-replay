@@ -153,6 +153,20 @@ its own measurement of the latest reports showed.
       fewer missing endpoints than before, because rows the badges hid now
       read. On the saved readings of six recordings only that career's 22
       readings change, every one of them dropping the same wrong Vocal 8.
+- [ ] **A result screen's panel rows are never reread.** The panel rereads,
+      including the slot crop that catches a box clipped short of a number's
+      first digit, are requested only where the career stat grid is detected,
+      so a frame classified as a training result or preview gets none of them.
+      On the Grass Wonder recording that is 179 readings carrying panel
+      values, 66 of them holding a single-digit value, the shape a clipped
+      read takes. One such frame sits inside the turn the slot crop was built
+      for and still reads Vocal 8 where the panel says 18; it cost nothing
+      there only because three corrected frames carry that turn's endpoint.
+      The sidebar is persistent and the reading code already knows it stays up
+      while result cards animate, so the gate is where the request code
+      happens to sit rather than a judgement about the panel. Done: a row is
+      offered the same crops wherever the panel is identified, and a fresh
+      analysis shows the result-screen rows reading what the panel shows.
 - [x] **A hint award is counted once per spelling of its skill.** An event's
       effects are keyed by kind, field and name, so a skill spelled two ways
       becomes two awards, and the hint totals a report prints are inflated by
@@ -202,10 +216,19 @@ its own measurement of the latest reports showed.
 - [x] **Entries before the first turn.** The check screen lists them under
       "Before the Career Starts" and says they belong to the run, not to a
       turn.
-- [ ] A report keeps the ledger of the analyzer that made it. Show the
-      analyzer version on the report page and offer "Analyze again" when the
-      installed analyzer is newer. Done: an old report says so and the button
-      is one click.
+- [x] A report keeps the ledger of the analyzer that made it. The analyzer
+      names itself (`--worker-version`: its package version and a digest over
+      its source), which it can now be asked without a source, an output
+      directory or a model, in about a second. That identity was already
+      recorded on the job a report came from, so the report page reads it
+      there and no column was added; the service asks the installed analyzer
+      once, on first use, so serving never waits on an interpreter. A report
+      read by an older analyzer says so and offers "Analyze Again", which
+      matches its recording by hash and queues it in one click. Each half is
+      shown only when it is known and staleness only when both are: an
+      imported report never had a job to record one, an unreachable analyzer
+      leaves the comparison unmade, and a recording that is gone says so
+      instead of offering a button that cannot work.
 - [x] The dashboard tile says "queued or running" for the analyses it
       counts.
 - [x] The runs page shows one row per recording, with earlier analyses of
