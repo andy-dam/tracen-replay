@@ -196,8 +196,11 @@ class ReceiptSamplingTests(unittest.TestCase):
         plan = self.make_plan(data, pad_ms=200)
         self.assertEqual(len(plan['targets']), 1)
         self.assertEqual(plan['targets'][0]['kind'], 'conflicting_receipt_readings')
-        self.assertNotIn('energy_change', json.dumps(plan))
-        self.assertNotIn('-18', json.dumps(plan))
+        # The plan's own creation date is not a leaked value: on the 18th of
+        # a month it would otherwise spell one.
+        written = json.dumps({key: value for key, value in plan.items() if key != 'created_at_utc'})
+        self.assertNotIn('energy_change', written)
+        self.assertNotIn('-18', written)
         self.assertEqual(plan['targets'][0]['reason'],
                          'source event retained conflicting receipt readings')
 
