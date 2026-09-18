@@ -260,29 +260,33 @@ its own measurement of the latest reports showed.
       second career. `Come What May`, which only the recovery ever read, keeps
       its own award because nothing in its event stands at that amount, and
       `Cprner Adept`, a garble the ordinary pass read twice, is left alone.
-- [ ] **A race-day opening is sometimes never observed.** Nothing is carried
-      from the previous turn any more: a ledger turn's opening is observed or
-      it says it was not. Measured on the latest report of each of five
-      careers, stats openings are observed on all but zero to four turns, and
-      in two careers the one missing is the same race day, "Junior Year Late
-      Dec", where nothing was read before the action. Performance openings are
-      missing on the four pre-debut turns, where the panel does not exist yet,
-      and partial on two to sixteen others. On the newest recording it is one
-      turn in seventy-four, the URA Finale, and the four pre-debut turns whose
-      panel does not exist yet.
-      This item previously wanted the Full Stats panel the player can open.
-      That is not a fix: it only works if the player opened that panel, and a
-      recording is of someone playing however they like. Whatever reads this
-      opening has to read it off what ordinary play already puts on screen.
-      What ordinary play shows was then measured on the newest recording's one
-      such turn. The stat bar is on screen there, but exactly once before the
-      action, on a training-preview frame, and an opening is taken only from a
-      repeated or corroborated state. So "not observed" is the evidence rules
-      working, not a gap in the footage, and the question left is a policy
-      one: whether a single stat-bar reading before the action may open a
-      turn. Done: that question is answered on purpose, either by a rule that
-      says what one reading can open or by closing this and letting the
-      report keep saying the opening was not observed.
+- [x] **A race-day opening is sometimes never observed.** The policy question
+      this item left, whether a single stat-bar reading before the action may
+      open a turn, turned out to be answered in the code already, and the
+      answer stands: one reading opens a turn only when the producer accepted
+      that frame as a state observation and the frame carries the turn's own
+      identity (`basis: source_bound_single_frame_before_action`, in
+      `boundary_state_recovery`), or when a 60 fps probe around it repeats
+      it; a reading with no identity opens nothing. What was missing was the
+      identity of the finale race windows: the three finale races all count
+      down from 1 and are told apart by the race advance that opened each
+      window, so those windows carried no calendar identity and the recovery
+      stage skipped them, probe and single-frame path alike. A finale race
+      window is now identified by its phase label, and a frame showing
+      `Finale Underway` inside its bounds is its own
+      (`ownership_basis: same_phase_inside_finale_race_window_before_action`).
+      Measured first across eleven reports of nine careers: fifteen turns
+      lack a stats opening, and only two of them have any complete reading
+      before the action, the Grass Wonder finale (a training-preview frame
+      the producer had already accepted, with its six values read twice on
+      the frame at 99.9) and one recorder A finale turn whose frame shows no
+      phase label; the other thirteen are race-day hubs with no stat bar and
+      first pre-debut turns, where the report is right to say the opening was
+      not observed. Rebuilt from the saved readings: the Grass Wonder
+      reference reads 74 of 74 stats openings, the finale's predecessor gains
+      its closing, unexplained fields go from 4 to 2 and missing endpoints
+      from 66 to 54; the other ten reports gain no projection and their
+      accounting is untouched by this change.
 - [ ] **Ambiguous effects.** Circle base variants, recipient identity and
       inheritance spark identity are the three reasons left. Done: each has
       a rule or is presented with the two candidates to choose from.
