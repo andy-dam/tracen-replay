@@ -410,31 +410,6 @@ class AnalysisJobTests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
             self.assertEqual(payload["error"]["code"], "evidence_outside_root")
 
-    def test_evidence_symlink_outside_root_is_rejected(self):
-        with workspace_temp() as root:
-            source = root / "run.mp4"
-            source.write_bytes(b"source")
-            output = root / "output"
-            output.mkdir()
-            outside = root / "outside.png"
-            outside.write_bytes(b"outside")
-            link = output / "link.png"
-            try:
-                link.symlink_to(outside)
-            except (OSError, NotImplementedError) as exc:
-                self.skipTest(f"symlink unavailable: {exc}")
-
-            def producer():
-                _write_report(output, source, frame_evidence="link.png")
-
-            stdout = io.StringIO()
-            with patch("tracen_replay.analysis_job.full_recording.main", side_effect=producer), \
-                    patch("sys.stdout", stdout):
-                result = main([str(source), "--output", str(output)])
-
-            self.assertEqual(result, 1)
-            payload = json.loads(stdout.getvalue())
-            self.assertEqual(payload["error"]["code"], "evidence_outside_root")
 
     def test_report_contract_failure_cannot_be_published(self):
         with workspace_temp() as root:

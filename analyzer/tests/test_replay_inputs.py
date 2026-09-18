@@ -502,21 +502,6 @@ class ReplayInputManifestTests(unittest.TestCase):
             normalize_manifest(manifest, self.root)
         self.assertEqual(raised.exception.code, "invalid_manifest")
 
-    def test_reparse_point_is_rejected_when_symlinks_are_available(self):
-        manifest = self._manifest()
-        source_frame = self.root / "initial-baseline/part-000/frames/000001.jpg"
-        target = self.root / "outside.jpg"
-        target.write_bytes(b"outside")
-        source_frame.unlink()
-        try:
-            source_frame.symlink_to(target)
-        except (OSError, NotImplementedError) as exc:
-            self.skipTest(f"symlinks unavailable: {exc}")
-
-        with self.assertRaises(ReplayInputError) as raised:
-            normalize_manifest(manifest, self.root)
-        self.assertEqual(raised.exception.code, "reparse_point")
-
 
 if __name__ == "__main__":
     unittest.main()

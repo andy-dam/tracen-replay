@@ -79,16 +79,6 @@ class TimelineDocumentTests(unittest.TestCase):
             self.assertGreater(size, 0)
             self.assertTrue((Path(tmp) / 'timeline.json').is_file())
 
-    def test_real_report_when_available(self):
-        path = localdata.root("held_out_recording_report", "report.json")
-        if not path.is_file():
-            self.skipTest("local evidence 'held_out_recording_report' is not present")
-        report = json.loads(path.read_text(encoding='utf-8'))
-        payload = json.dumps(build(report), ensure_ascii=False, separators=(',', ':'))
-        self.assertLess(len(payload.encode('utf-8')), 3_000_000)
-        self.assertNotIn('.png', payload)
-        self.assertNotIn('.jpg', payload)
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,10 +24,17 @@ Run the suite from the repository root:
 python -X utf8 -m unittest discover -s analyzer/tests -t analyzer
 ```
 
-Tests that depend on locally preserved fixtures (frozen source caches,
-prepared recording sidecars, installed OCR models) call `self.skipTest(...)`
-or `@unittest.skipUnless(...)` when those fixtures are not present, so the
-suite still passes on a clean checkout. Rule tests build a small fixture of
+Every test in that suite runs on a clean checkout; none skips. The tests
+that depend on locally preserved fixtures (frozen source caches, prepared
+recording sidecars, installed OCR models) live in `analyzer/lab/tests`,
+name what they need through `analyzer/tests/localdata.py`, and run only
+where that evidence is:
+
+```
+python -X utf8 -m unittest discover -s analyzer/lab/tests -t analyzer
+```
+
+Rule tests build a small fixture of
 frame readings, checkpoints and events, then assert what the rule under test
 does with them; the aim is one focused test per rule rather than one test
 that exercises a whole report.

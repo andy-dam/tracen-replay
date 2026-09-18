@@ -92,28 +92,6 @@ class RaceActionReceiptTests(unittest.TestCase):
             ],
         )
 
-    def test_actual_candidate_v1_report_rows_rejoin_without_worker_replay(self):
-        report_path = localdata.root("full_worker_candidate_first_recording_report", "report.json")
-        if not report_path.exists():
-            self.skipTest("preserved candidate report is unavailable")
-        with report_path.open(encoding="utf-8") as stream:
-            report = json.load(stream)
-        records = report["gameplay_tracking"]["races"]
-        found = {
-            row["race_id"]: row
-            for row in assemble_race_action_receipts(records)
-            if row.get("race_id") in {"race-003", "race-004", "race-006"}
-        }
-
-        self.assertEqual(
-            [(found[race_id]["race_name"], found[race_id]["placing"])
-             for race_id in ("race-003", "race-004", "race-006")],
-            [
-                ("NHK Mile Cup", 1),
-                ("Mile Championship", 1),
-                ("Tenno Sho (Spring)", 1),
-            ],
-        )
 
     def test_cross_race_id_time_and_source_mismatches_remain_unknown(self):
         cases = {

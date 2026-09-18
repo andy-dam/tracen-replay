@@ -312,36 +312,6 @@ class EventChoiceAdapterTests(unittest.TestCase):
             self.assertEqual(result["observations"][0]["offered_card_candidates"][1]["text"],
                              "Alpha option")
 
-    def test_prepared_recording_choices_survive_namespace_rebasing(self):
-        report_path = localdata.root('full_worker_candidate_batch_reports', 'independent-02', 'report.json')
-        root = localdata.root('prepared_snapshot_early', 'independent-02')
-        if not report_path.is_file() or not (root / 'neural').is_dir():
-            self.skipTest('Prepared recording report or its prepared evidence root is not present in this checkout')
-        report = json.loads(report_path.read_text(encoding='utf-8'))
-        readings = [row for row in report['gameplay_tracking']['readings']
-                    if 1267000 <= row['source_timestamp_ms'] <= 1274000]
-        result = build_choice_observations(readings, root)
-        self.assertEqual(len(result['committed_choices']), 1)
-        choice = result['committed_choices'][0]
-        self.assertEqual(choice['selected_index'], 1)
-        self.assertEqual(choice['selection_observed_ms'], 1271000)
-        self.assertEqual(choice['phase'], 'committed')
-        self.assertIsNone(choice['click_timestamp_ms'])
-        self.assertTrue(all(path.startswith('initial-baseline/')
-                            for path in choice['evidence']))
-        self.assertNotIn('evidence_path_mismatch', result['audit']['counts'])
-        # Exercise the same consumer projection and frozen source row that
-        # exposed the missing action in the complete worker output.
-        from tracen_replay.observation_evaluate import evaluate
-        report['gameplay_tracking']['dialogue_choices'] = result['committed_choices']
-        reference = json.loads((base / 'source-references/independent-02.json')
-                               .read_text(encoding='utf-8'))
-        expected = next(row for case in reference['cases'] for row in case['observations']
-                        if row['id'] == 'ind02-t053-expression-conviction-choice')
-        grade = evaluate(dict(source_sha256=reference['source_sha256'],
-                              scope_ms=[1267000, 1274001], reference_complete=False,
-                              observations=[expected]), report_document(report))
-        self.assertEqual(grade['results'][0]['status'], 'correct')
 
     def test_nested_sidecar_local_paths_keep_exact_namespace(self):
         with workspace_temp() as root:
@@ -424,19 +394,6 @@ class EventChoiceAdapterTests(unittest.TestCase):
             ], root, raw_rows=[first, second])
             self.assertEqual(result["observations"], [])
             self.assertEqual(result["audit"]["counts"]["missing_raw_sidecar"], 1)
-
-    @localdata.needs("development_third_recording_baseline", "neural", "part-010-frame-000285.json")
-    def test_independent_source_cache_fixture_reaches_commitment_adapter(self):
-        base = localdata.root("development_third_recording_baseline")
-        readings = []
-        for number in range(272, 286):
-            raw = json.loads((base / "neural" / f"part-010-frame-{number:06d}.json").read_text(encoding="utf-8"))
-            readings.append({"source_timestamp_ms": raw["source_timestamp_ms"],
-                             "evidence": raw["evidence"], "screen": "unknown"})
-        result = build_choice_observations(readings, base)
-        self.assertEqual(result["committed_choice_count"], 1)
-        self.assertEqual(result["committed_choices"][0]["selected_text"],
-                         "Your dedication to the potential of Umamusume?")
 
 
 if __name__ == "__main__":

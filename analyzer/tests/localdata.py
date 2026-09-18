@@ -2,9 +2,11 @@
 
 Some tests replay real frames, OCR caches and reports preserved from earlier
 analyses. Those files live under the repository's ``.local`` directory, are
-never published, and are absent on a clean checkout; a test that needs them
-skips instead of failing. This module is the only place that knows where
-they are: every test names a root here by what it is, not by where it sits.
+never published, and are absent on a clean checkout. Such tests live in
+``analyzer/lab/tests``, not in the main suite, and skip rather than fail
+when the evidence is missing there too. This module is the only place that
+knows where the evidence is: every test names a root here by what it is,
+not by where it sits.
 
 ``TRACEN_LOCAL_EVIDENCE`` overrides the base directory (default ``.local``,
 resolved against the current working directory, which the suite runs from

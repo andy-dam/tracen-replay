@@ -66,35 +66,6 @@ class EnergyPopupTests(unittest.TestCase):
             result["source_proof"]["label"]["box"][1],
         )
 
-    def test_actual_prepared_source_sidecar_has_popup_proof(self):
-        path = localdata.root(
-            "prepared_snapshot_mid",
-            "independent-02/initial-baseline/neural/part-001-frame-000444.json",
-        )
-        if not path.is_file():
-            self.skipTest("local prepared source sidecars are not part of a clean checkout")
-        source = json.loads(path.read_text(encoding="utf-8"))
-        root = path.parents[1]
-        gameplay = root / "gameplay" / "part-001-frame-000444.png"
-        source_frame = root / "part-001" / "frames" / "000444.jpg"
-        if not gameplay.is_file() or not source_frame.is_file():
-            self.skipTest("local prepared source images are not part of a clean checkout")
-        with Image.open(gameplay) as image:
-            self.assertEqual(image.size, (810, 1080))
-            self.assertEqual(
-                hashlib.sha256(image.convert("RGB").tobytes()).hexdigest(),
-                source["gameplay_sha256"],
-            )
-        self.assertEqual(
-            hashlib.sha256(source_frame.read_bytes()).hexdigest(),
-            source["source_frame_sha256"],
-        )
-        result = read_energy_popup(source)
-        self.assertIsNotNone(result)
-        self.assertEqual(result["amount"], 20)
-        self.assertEqual(result["source_timestamp_ms"], 230750)
-        self.assertEqual(result["source_proof"]["amount"]["box"], [469, 565, 624, 641])
-        self.assertEqual(result["source_proof"]["label"]["box"], [479, 633, 617, 700])
 
     def test_popup_survives_suppressed_lower_receipt_without_using_it(self):
         source = raw(
@@ -196,46 +167,6 @@ class EnergyPopupTests(unittest.TestCase):
         result = read_energy_popup(source)
         source["lines"][0]["text"] = "+99"
         self.assertEqual(result["source_proof"]["amount"]["text"], "+20")
-
-    def test_vision_and_outcome_reconstruction_emit_one_actual_source_effect(self):
-        from tracen_replay.full_recording import parse_receipt_pixels
-        from tracen_replay.transactions import outcome_events
-
-        sidecar = localdata.root(
-            "prepared_snapshot_mid",
-            "independent-02/initial-baseline/neural/part-001-frame-000444.json",
-        )
-        gameplay = sidecar.parents[1] / "gameplay" / "part-001-frame-000444.png"
-        source_frame = sidecar.parents[1] / "part-001" / "frames" / "000444.jpg"
-        if not sidecar.is_file() or not gameplay.is_file() or not source_frame.is_file():
-            self.skipTest("local prepared source artifacts are not part of a clean checkout")
-        source = json.loads(sidecar.read_text(encoding="utf-8"))
-        frame = {
-            "id": "part-001-frame-000444",
-            "source_timestamp_ms": source["source_timestamp_ms"],
-            "evidence": "part-001/frames/000444.jpg",
-        }
-        reading = parse_receipt_pixels(source, sidecar.parents[1], frame)
-        reading.update(source_timestamp_ms=source["source_timestamp_ms"],
-                       evidence=source["evidence"])
-        energy = [effect for effect in reading["effects"]
-                  if effect.get("kind") == "energy_change"]
-        self.assertEqual(len(energy), 1)
-        self.assertEqual(energy[0]["amount"], 20)
-        self.assertEqual(energy[0]["source_proof"]["amount"]["text"], "+20")
-        self.assertTrue(any(
-            item.get("animated_overlay_occluded") is True
-            for item in reading["facts"].get("occluded_receipt_lines", [])
-        ))
-        self.assertEqual(reading["facts"]["energy_popup_observation"]["amount"], 20)
-        events = outcome_events([reading])
-        self.assertEqual(len(events), 1)
-        self.assertEqual(len(events[0]["effects"]), 1)
-        self.assertEqual(events[0]["effects"][0]["amount"], 20)
-        self.assertEqual(
-            events[0]["effects"][0]["source_proof"]["amount"]["text"],
-            "+20",
-        )
 
 
 if __name__ == "__main__":

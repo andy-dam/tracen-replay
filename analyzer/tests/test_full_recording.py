@@ -254,18 +254,19 @@ class FullRecordingTests(unittest.TestCase):
 
             main()
 
-            analyze.assert_called_once_with(report, root, 4, localdata.MODEL_DIR, pool=full_recording.ocr_pool_for_device())
+            # The CLI's default model directory, whatever this checkout's local evidence base is.
+            analyze.assert_called_once_with(report, root, 4, Path('.local/models/rapidocr'), pool=full_recording.ocr_pool_for_device())
             automatic.assert_called_once_with(
-                report, root, allow_ocr=True, model_dir=localdata.MODEL_DIR,
+                report, root, allow_ocr=True, model_dir=Path('.local/models/rapidocr'),
                 max_panel_frames=512, max_status_frames=512,
             )
             race_quantities.assert_called_once_with(
                 root,
-                model_dir=localdata.MODEL_DIR,
+                model_dir=Path('.local/models/rapidocr'),
             )
             cached.assert_called_once_with(report, root, workers=4)
             prepare_hints.assert_called_once_with(
-                rows, root, 'a' * 64, model_dir=localdata.MODEL_DIR)
+                rows, root, 'a' * 64, model_dir=Path('.local/models/rapidocr'))
             builder.assert_called_once_with(rows, root, [])
             assemble.assert_called_once_with(
                 report, rows, [], [], [], committed_choices=[],

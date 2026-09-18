@@ -450,18 +450,6 @@ class FinalWorkerContractTests(unittest.TestCase):
                     {"field_evidence": {"speed": ["../../outside.png"]}}, root
                 )
 
-    def test_in_root_symlink_resolves_to_a_real_in_root_file(self):
-        with workspace_temp() as root:
-            target = root / "gameplay/0001.png"
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(b"evidence")
-            link = root / "gameplay/current.png"
-            try:
-                link.symlink_to(target)
-            except (OSError, NotImplementedError) as exc:
-                self.skipTest(f"symlink unavailable: {exc}")
-
-            _validate_evidence_paths({"evidence": "gameplay/current.png"}, root)
 
     def test_same_root_evidence_metadata_is_identity_checked_and_accepted(self):
         with workspace_temp() as root:

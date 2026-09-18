@@ -123,39 +123,6 @@ class ClippedSuccessTests(unittest.TestCase):
             ], 'training_result'),
         )
 
-    @unittest.skipUnless(SOURCE_RAW.exists(), 'preserved third-recording prepared source cache is unavailable')
-    def test_prepared_source_runs_through_parse_training_event_and_report_document(self):
-        raw = json.loads(SOURCE_RAW.read_text(encoding='utf-8'))
-        parsed = parse(raw)
-
-        self.assertEqual(parsed['screen'], 'training_result')
-        self.assertEqual(parsed['facts']['training_outcome'], 'success')
-        self.assertEqual(parsed['facts']['success_banner'][0]['text'], 'SUCCES')
-        self.assertEqual(parsed['facts']['success_banner'][0]['confidence'], 99.54)
-
-        row = dict(
-            parsed,
-            source_timestamp_ms=raw['source_timestamp_ms'],
-            evidence=raw['evidence'],
-            source_frame_sha256=raw.get('source_frame_sha256'),
-            gameplay_sha256=raw.get('gameplay_sha256'),
-        )
-        events = training_events([row])
-        self.assertEqual(len(events), 1)
-        self.assertEqual(events[0]['training_outcome'], 'success')
-        self.assertEqual(events[0]['success_evidence'], [raw['evidence']])
-        self.assertEqual(events[0]['outcome_observations'][0]['source_timestamp_ms'], 155250)
-
-        document = report_document({
-            'source': {'sha256': 'a' * 64},
-            'gameplay_tracking': {
-                'readings': [row],
-                'events': events,
-                'turn_action_receipts': [],
-            },
-        })
-        self.assertEqual(document['source_sha256'], 'a' * 64)
-
 
 if __name__ == '__main__':
     unittest.main()

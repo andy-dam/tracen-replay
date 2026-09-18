@@ -433,22 +433,6 @@ class WorkerPreparationProofTests(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(CONCERT_MANIFEST, target)
 
-    @unittest.skipUnless(CONCERT_SIDECAR.exists() and CONCERT_MANIFEST.exists(), "preserved v1 concert sidecar is not present")
-    def test_concert_preflight_rejects_missing_nested_pts_manifest_then_passes(self):
-        with workspace_temp() as root:
-            self._materialize_concert_worker(root, include_manifest=False)
-            with self.assertRaises(preparation.PreparationError) as caught:
-                preparation._validate_concert_panel_sidecars(root)
-            self.assertEqual(caught.exception.code, "concert_panel_validation_failed")
-            self.assertIn("missing or escapes", str(caught.exception))
-
-            self._materialize_concert_worker(root, include_manifest=True)
-            result = preparation._validate_concert_panel_sidecars(root)
-            self.assertEqual(result["checked"], 1)
-            self.assertEqual(
-                result["sidecars"],
-                ["concert-panel-refinement/part-005-frame-000248.json"],
-            )
 
     def test_repair_stages_proofs_without_editing_worker_manifest(self):
         with workspace_temp() as root:

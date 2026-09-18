@@ -109,16 +109,6 @@ class CurrentStateLayoutTests(unittest.TestCase):
         self.assertFalse(result["current_grid"])
         self.assertIn("incomplete_current_panel", result["rejections"])
 
-    def test_shogi_result_cards_are_not_current_bar(self):
-        if not SHOGI_SOURCE.is_file():
-            self.skipTest("Shogi source cache is unavailable")
-        raw = json.loads(SHOGI_SOURCE.read_text(encoding="utf-8"))
-        result = detect_current_state_layout(
-            raw["lines"], header=raw.get("header"), current_grid=False,
-        )
-
-        self.assertFalse(result["current_grid"])
-        self.assertEqual(result["status"], "rejected")
 
     def test_malformed_geometry_and_confidence_fail_closed(self):
         lines = copy.deepcopy(current_lines())
@@ -131,19 +121,6 @@ class CurrentStateLayoutTests(unittest.TestCase):
         self.assertGreaterEqual(result["rejections"].get("line_geometry", 0), 1)
         self.assertGreaterEqual(result["rejections"].get("line_confidence", 0), 1)
 
-    def test_source_cases_from_late_projection_diagnostic_are_recognized(self):
-        available = [path for path in SOURCE_CASES if path.is_file()]
-        if len(available) != len(SOURCE_CASES):
-            self.skipTest("late projection source cache is unavailable")
-        for path in available:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            with self.subTest(path=path.name):
-                result = detect_current_state_layout(
-                    raw["lines"], header=raw.get("header"),
-                    current_grid=raw.get("current_grid", False),
-                )
-                self.assertTrue(result["current_grid"])
-                self.assertEqual(result["observed"]["stat_row_count"], 5)
 
     def test_neural_reader_promotes_translucent_current_bar_before_crops(self):
         from unittest.mock import patch
