@@ -287,9 +287,32 @@ its own measurement of the latest reports showed.
       its closing, unexplained fields go from 4 to 2 and missing endpoints
       from 66 to 54; the other ten reports gain no projection and their
       accounting is untouched by this change.
-- [ ] **Ambiguous effects.** Circle base variants, recipient identity and
-      inheritance spark identity are the three reasons left. Done: each has
-      a rule or is presented with the two candidates to choose from.
+- [x] **Ambiguous effects.** Measured on seven careers' latest reports: 16
+      candidates, of four reasons. Two now have a rule, decided by the same
+      corroboration that settles a garbled hint spelling. A recipient slot
+      read as two spellings on adjacent frames (`Agnes Tachyon` beside
+      `Ágnes Tachyon`, `Etsuko Otonashi` beside `Etsuk Otonashi`) takes the
+      spelling the run produced on other receipts when the other spelling was
+      read on this receipt's frames and nowhere else; two spellings that both
+      recur, or none, stay candidates. A bare skill spelling beside its
+      circle-proven twin at the same amount (`Front Runner Savvy` beside
+      `Front Runner Savvy ○`, read on eight and two frames) is that award with
+      its glyph unread when the run read the bare spelling nowhere else; the
+      one bare spelling the run also read on its own receipt, `Corner
+      Recovery` in the Gran Concert career, stays a candidate. Re-assembling
+      events from the saved readings, eight candidates fold and nothing else
+      changes but the two restored friendship lines and the evidence the
+      folded frames add. The eight left are presented, as before, with their
+      reason: the three alternate spellings of an accepted spark, that one
+      bare hint, and the four Grass Wonder spark slots. Those four are one
+      shape: on each inheritance the log shows `Stamina spark activated!`
+      and, four lines later, `Speed spark activated!` at the same height,
+      with a second `Inspired by Oguri Cap!` line between them that the slot
+      tracker takes for the first, so it holds both names as one slot. Both
+      sparks are real; settling them needs the tracker to align whole frames
+      (the earlier frame's last lines are the later frame's first lines,
+      shifted by one amount), which is a change to that module for another
+      day, not a reason to guess.
 - [x] **Entries before the first turn.** The check screen lists them under
       "Before the Career Starts" and says they belong to the run, not to a
       turn.
