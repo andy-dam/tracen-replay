@@ -465,13 +465,12 @@ reading small fixed crops. The accounting labels them for free. Order:
       which 90 ms is that full read (34 ms detection, 52 ms recognizing every
       line it found, dialogue included), 38 ms the fixed crops, 17 ms badge
       localization and 11 ms gain refinement. Detecting only the bands its
-      consumers use, the header and countdown at the top and the card and
-      receipt band at the bottom, would take about three minutes off that
-      stage, but the dense readings' raw lines would then not be the whole
-      pane's, so "identical" has first to be decided as identical accounting
-      and timeline rather than identical readings, and each attempt costs a
-      fresh run to check. Done: a full career analyzes in about 18 minutes,
-      half of 35, with an identical report.
+      consumers use would take about three minutes off that stage at the
+      cost of the dense readings' raw lines no longer being the whole pane's;
+      decided against on 2026-09-18, three minutes is not worth it. Anything
+      that gets to the goal has to come from the base pass. Done: a full
+      career analyzes in about 18 minutes, half of 35, with an identical
+      report.
 
 ## 4. Code and repository hygiene
 
