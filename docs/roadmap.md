@@ -41,7 +41,40 @@ beyond one machine, an object store for uploads and job outputs, a queue that
 outlives one process, and GPU workers addressed rather than spawned. No
 provider is chosen yet.
 
-## 4. Source-code hygiene
+## 4. Recordings the analyzer cannot read yet
+
+Everything read today assumes one layout. A recording must be exactly
+1920x1080 or the capture stage refuses it, the game pane is the constant crop
+`[148, 0, 958, 1080]`, and every later read is expressed in that pane's
+810x1080 coordinates: the performance rows, the five result badge boxes, the
+receipt band, the learned reader's crops. The detector finds text anywhere,
+but which row a number belongs to is geometry. A recording from a phone, a
+differently sized window or a non-English client is therefore refused with an
+explicit error rather than read wrongly, which is the right default and also
+the reason none of them can be analyzed.
+
+How much work another layout is depends on one measurement: whether its game
+area has the same proportions as the pane above.
+
+- **Same proportions**, as a capture that pillarboxes the game or an emulator
+  at that ratio would give: locate the game area in each recording instead of
+  assuming the constant, then scale it to 810x1080. Every fixed box survives,
+  because they all live in pane coordinates, so one mapping carries the whole
+  pipeline.
+- **A phone's own proportions**: the game reflows its layout, elements
+  anchored to the top and bottom move apart, and no single scale maps the
+  boxes. That needs geometry per layout, or reads anchored to landmarks the
+  frame itself shows (row labels, panel edges) instead of constants. The fixed
+  geometry is load-bearing in the reader, the occlusion gate and the evidence
+  proofs, and the learned reader's boxes were cut at those exact coordinates,
+  so its dataset would have to be re-cut or the model retrained.
+
+The first step is a measurement, not a design: ten seconds captured on the
+device answers which of the two it is. A non-English client is the same class
+of problem one layer up, where the fixed words a receipt is repaired against
+are English.
+
+## 5. Source-code hygiene
 
 - Keep the analyzer package named `tracen_replay` under `analyzer/`; nothing
   in this roadmap renames it.
