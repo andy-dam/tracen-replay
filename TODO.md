@@ -343,6 +343,27 @@ its own measurement of the latest reports showed.
       store column to maintain. The analyzer's own `--reparse-only` mode
       stays for evaluation work. Do not re-add this as a product feature.
 
+- [x] **A training card read as several gains stays flagged after the stat
+      bars settled it.** The biggest reviewer load left on the fresh reports:
+      3 to 6 "conflicting readings" per career, nearly all training cards
+      whose badge was read as two or three numbers over its 60 fps frames (a
+      digit cut by the sparkle, a glyph misread under the glow, beside the
+      number the badge settles on). The accounting already settled every such
+      field from the stat bars, confirmed on the card by the learned reader
+      or standing alone, and the settled amount was one of the card's own
+      reads; only the flag never cleared. Now the accounting records
+      `settled_conflicting_readings` on the training when the settled amount
+      is one of the reads, the timeline document drops the entry's flag when
+      every disputed field is settled and nothing else raised it, and the
+      other reads are shown beside the amount as `disagreeing_reads` with a
+      note instead of a warning. Rebuilt from the seven careers' saved
+      reports on 2026-09-18: flagged training cards 26 to 6, unexplained
+      fields unchanged at 0 on each. The six left are right to stay: two
+      where the learned reader read a different number than the bars settle
+      on (Gran Concert Junior Late Feb wit, Senior Late Jul skill points),
+      three on final turns with no observed closing state, one flagged for a
+      performance-row disagreement. Done.
+
 ## 3. Learned readers (the neural network)
 
 The rules already decide which screen is on frame; what still fails is

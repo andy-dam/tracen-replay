@@ -294,6 +294,25 @@ def _learned_gain_frames(event, readings, field, amount, value_after=None):
     return list(dict.fromkeys(frames))
 
 
+def _settle_conflicting_reads(event, field, gain, settled_by):
+    """Record that the stat bars settled a badge whose reads disagreed.
+
+    A training whose card was read as two or three gains for one field (a
+    digit cut by the sparkle, a glyph misread under the glow, beside the
+    number the badge settles on) carries the reads as ``conflicting_readings``
+    and no amount. When the difference the stat bars leave for the field,
+    confirmed on the card by the learned reader or standing on its own, is
+    one of those very reads, the disagreement is settled: the card showed
+    this number too. The reads stay beside the amount for a reviewer. A
+    difference that matches none of them settles nothing.
+    """
+    reads = event.get('conflicting_readings')
+    if not isinstance(reads, dict) or not isinstance(reads.get(field), list) or gain not in reads[field]:
+        return
+    event.setdefault('settled_conflicting_readings', {})[field] = dict(
+        amount=gain, reads=sorted(set(reads[field])), settled_by=settled_by)
+
+
 def _learned_gain_contradictions(event, readings, field, amount):
     """The reads on a training's own card that contradict a worked-out amount.
 
@@ -813,6 +832,8 @@ def build(report):
                         owner.setdefault('learned_reader_values', {})[field] = value_after
                     add(f'{parent}/learned_reader_gains/{field}', parent, owner, channel, field, residual, learned,
                         'observed_learned_training_gain')
+                    if channel == 'stats':
+                        _settle_conflicting_reads(owner, field, gain, 'learned_reader_on_card')
                 else:
                     owner.setdefault(store, {})[field] = residual
                     owner['turn_difference_basis'] = ('sole_training_takes_turn_residual' if mode is None else
@@ -836,6 +857,8 @@ def build(report):
                         # On the contribution too, so a reviewer sees the card's
                         # own number beside the one worked out for it.
                         contributions[-1]['contradicted_reads'] = contradicted
+                    elif channel == 'stats':
+                        _settle_conflicting_reads(owner, field, gain, 'turn_difference')
                 if mode == 'clipped_badge_prefix':
                     # The read digits stay as observed; the completion is a
                     # second, flagged contribution on the same field, not a claim

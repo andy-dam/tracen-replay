@@ -204,7 +204,11 @@ strings and carry the value through either way.
 was completed by a `turn_difference`; `amount` is then the completed value),
 `contradicted_by` (array of int, optional: the gains a reader saw on the
 training's own card while `amount` was worked out from the turn difference;
-the amount stands and the disagreement is a reviewer's to settle).
+the amount stands and the disagreement is a reviewer's to settle),
+`disagreeing_reads` (array of int, optional: the other gains the card was
+read as when the stat bars settled the field at `amount`, itself one of the
+card's reads; nothing is left to settle and `conflicts_present` is not set
+for it).
 
 ### Summary
 

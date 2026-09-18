@@ -110,6 +110,8 @@ export interface Change {
   read_amount?: number | null;
   /** gains a reader saw on the training's own card while this amount was worked out from the turn difference */
   contradicted_by?: number[];
+  /** the other gains the card was read as when the stat bars settled the field at this amount, itself one of the card's reads */
+  disagreeing_reads?: number[];
 }
 
 export interface Entry {

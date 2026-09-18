@@ -100,6 +100,36 @@ def _basis_map(report):
     return out
 
 
+def _settled_conflicts(entry, record, changes):
+    """The disputed badges of a training that the stat bars settled, by field.
+
+    The ledger flags a training whose card was read as different gains for a
+    field. The accounting settles such a field when the difference the stat
+    bars leave for it is one of those reads (``settled_conflicting_readings``
+    on the event); the entry then carries that amount, and the other reads
+    belong beside it for a reviewer, not as a conflict. Any other source of
+    the flag (an ambiguous effect, a performance-row disagreement, an
+    acquisition conflict, a worked-out amount the card contradicts) or a
+    field the bars did not settle keeps the flag, and this returns None.
+    """
+    reads = record.get('conflicting_readings') if isinstance(record, dict) else None
+    if record is None or record.get('kind') != 'training' or not isinstance(reads, dict) or not reads:
+        return None
+    if (record.get('ambiguous_effect_candidates') or record.get('performance_reading_conflicts')
+            or record.get('contradicted_turn_difference') or entry.get('acquisition_conflicts')):
+        return None
+    settled = record.get('settled_conflicting_readings') or {}
+    stats = changes.get('stats') or {}
+    out = {}
+    for field, values in reads.items():
+        settlement, change = settled.get(field), stats.get(field)
+        if (not isinstance(settlement, dict) or not isinstance(change, dict)
+                or type(settlement.get('amount')) is not int or change.get('amount') != settlement['amount']):
+            return None
+        out[field] = sorted(v for v in set(values) if v != settlement['amount'])
+    return out
+
+
 def _state_values(state):
     if not isinstance(state, dict):
         return None
@@ -213,6 +243,14 @@ def build(report):
                     'accepted_award', 'accounting_role', 'transaction_id', 'reward_link_status', 'conflicts_present'):
             if entry.get(key) not in (None, '', [], {}):
                 item[key] = _compact(entry[key]) if isinstance(entry[key], (dict, list)) else entry[key]
+        settled = _settled_conflicts(entry, record, changes) if item.get('conflicts_present') else None
+        if settled is not None:
+            # The card's reads disagreed and the stat bars settled the field at
+            # one of them: shown beside the amount, not as a conflict.
+            item['conflicts_present'] = False
+            for field, others in settled.items():
+                if others:
+                    changes['stats'][field]['disagreeing_reads'] = others
         if changes:
             item['changes'] = changes
         if isinstance(record, dict):

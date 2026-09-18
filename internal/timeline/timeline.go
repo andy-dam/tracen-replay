@@ -107,6 +107,10 @@ type Change struct {
 	// when Amount was worked out from the turn difference instead. The
 	// amount stands; the disagreement is for a reviewer to settle.
 	ContradictedBy []int `json:"contradicted_by,omitempty"`
+	// DisagreeingReads holds the other gains the card was read as for this
+	// field when the stat bars settled it at Amount, itself one of the
+	// card's reads. Nothing is left to settle; they are shown for the record.
+	DisagreeingReads []int `json:"disagreeing_reads,omitempty"`
 }
 
 // Entry is one ledger entry. TurnID is empty for entries outside every

@@ -479,6 +479,41 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(turn_field(result, 'skill_points')['status'], 'balanced_with_derived_changes')
         self.assertNotIn('turn_difference_gains', doc['gameplay_tracking']['races'][0])
 
+    def test_a_disputed_badge_is_settled_when_the_difference_is_one_of_its_reads(self):
+        # The speed badge was read as +1 (a digit cut by the sparkle), +9 and
+        # +18 (misread under the glow); the stat bars leave 9, which the card
+        # read too. Guts was read as 4 and 5 and the bars leave 13: settled
+        # by nothing, the flag stays.
+        doc = report()
+        doc['gameplay_tracking']['events'][0]['conflicting_readings'] = dict(speed=[18, 1, 9], guts=[4, 5])
+        build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['turn_difference_gains'], dict(speed=9, guts=13, skill_points=8))
+        self.assertEqual(event['settled_conflicting_readings'],
+                         dict(speed=dict(amount=9, reads=[1, 9, 18], settled_by='turn_difference')))
+
+    def test_a_disputed_badge_the_learned_reader_confirmed_is_settled_on_the_card(self):
+        doc = report()
+        doc['gameplay_tracking']['events'][0]['conflicting_readings'] = dict(speed=[1, 9, 18])
+        self.learned(doc, speed=9)
+        build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(speed=9))
+        self.assertEqual(event['settled_conflicting_readings'],
+                         dict(speed=dict(amount=9, reads=[1, 9, 18], settled_by='learned_reader_on_card')))
+
+    def test_a_difference_the_card_contradicts_settles_nothing(self):
+        # The model read the badge as 18 while the bars say 9: a disagreement
+        # for a reviewer, not a settlement.
+        doc = report()
+        doc['gameplay_tracking']['events'][0]['conflicting_readings'] = dict(speed=[1, 9, 18])
+        self.learned(doc, speed=18)
+        build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['contradicted_turn_difference']['speed']['worked_out'], 9)
+        self.assertNotIn('settled_conflicting_readings', event)
+
+
 
 if __name__ == '__main__':
     unittest.main()

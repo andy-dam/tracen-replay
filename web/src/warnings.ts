@@ -3,7 +3,7 @@
 // analyzer flagged, amounts it derived rather than observed). The wording
 // is the ledger's own status, made readable; nothing is judged here.
 import type { Entry, TurnSummary } from "./api";
-import { BASIS_NOTE, statusText } from "./format";
+import { BASIS_NOTE, signed, statusText } from "./format";
 
 export interface Warning {
   text: string;
@@ -30,6 +30,7 @@ const ADVICE = {
   songName: "The song's name was read two different ways. Nothing changes in the totals; add a note with the right title if you want it recorded.",
   skillList: "The list of purchased skills was cut off, so some skills or their point costs may be missing. Seek to the skill screen and add any purchase the report lacks as a missed event.",
   failed: "The training failed, so its displayed gains were not applied. Nothing to do unless the stat bar shows they were.",
+  settledReads: "The badge was read as more than one number while the card animated, and the stat bars before and after the turn settle it at the amount shown, which the card showed too. Nothing to do; seek to the card if you want to see it.",
   derived: "This amount was not read from a badge; the report worked it out from other observations. Seek to the result screen: if the badge shows a different number, type that number in; if it matches, mark it Reviewed.",
 } as const;
 
@@ -74,13 +75,16 @@ export function entryWarnings(e: Entry): Warning[] {
   if ((e.kind === "skill_purchases" || e.kind === "skill_purchase_batch") && d.purchased_list_complete === false) out.push({ text: "purchased skill list incomplete", serious: true, advice: ADVICE.skillList });
   if (e.kind === "training" && d.training_outcome === "failure") out.push({ text: "training failed", serious: false, advice: ADVICE.failed });
   const derived: string[] = [];
+  const settled: string[] = [];
   for (const fields of Object.values(e.changes ?? {})) {
     for (const [field, c] of Object.entries(fields)) {
+      if (c.disagreeing_reads?.length) settled.push(`${field.replace("_", " ")} also read as ${c.disagreeing_reads.map(signed).join(", ")}, settled at ${signed(c.amount)}`);
       if (c.basis === "turn_difference") derived.push(`${field.replace("_", " ")} (worked out from the difference between turns)`);
       else if (!c.basis || !c.basis.startsWith("observed_")) derived.push(`${field.replace("_", " ")} (${(c.basis ?? "basis unknown").replaceAll("_", " ")})`);
     }
   }
   if (derived.length) out.push({ text: `amount not read directly: ${derived.join(", ")}`, serious: false, advice: ADVICE.derived });
+  if (settled.length) out.push({ text: `badge settled by the stat bars: ${settled.join("; ")}`, serious: false, advice: ADVICE.settledReads });
   return out;
 }
 
@@ -94,6 +98,7 @@ export const FLAG_GUIDE: { text: string; serious: boolean; advice: string }[] = 
   { text: "song name conflicted", serious: true, advice: ADVICE.songName },
   { text: "purchased skill list incomplete", serious: true, advice: ADVICE.skillList },
   { text: "amount not read directly", serious: false, advice: ADVICE.derived },
+  { text: "badge settled by the stat bars", serious: false, advice: ADVICE.settledReads },
   { text: "not an accepted award", serious: false, advice: ADVICE.notAccepted },
   { text: "reference only, not an additional award", serious: false, advice: ADVICE.referenceOnly },
   { text: "assigned by time", serious: false, advice: ADVICE.assignedBy },

@@ -345,6 +345,19 @@ with those reads and their frames, raised as a
 review queue. The amount does not change: the stat bars decide it, and a read
 cut to its leading digits disagrees with nothing.
 
+The opposite case is settled rather than flagged. A card read as two or three
+gains for one field (a digit cut by the sparkle, a glyph misread under the
+glow, beside the number the badge settles on) carries them as
+`conflicting_readings` and no amount; when the difference the stat bars leave
+for that field, confirmed on the card by the learned reader or standing on
+its own, is one of those very reads, the accounting records
+`settled_conflicting_readings` on the training (the amount, the reads, and
+`learned_reader_on_card` or `turn_difference`). The timeline document then
+drops the entry's `conflicts_present` flag, provided nothing else raised it,
+and lists the other reads beside the amount as `disagreeing_reads`. On three
+fresh careers this settled 13 of the 14 flagged training cards; the one left
+sat on a turn with no observed closing state.
+
 **The learned reader.** A run given `--learned-reader` runs the exported
 result-card model (`learned_reader`) on every training result frame,
 including one whose banner stayed too faint to confirm the screen and left it

@@ -79,6 +79,46 @@ class TimelineDocumentTests(unittest.TestCase):
             self.assertGreater(size, 0)
             self.assertTrue((Path(tmp) / 'timeline.json').is_file())
 
+    def test_a_disputed_badge_settled_by_the_stat_bars_is_no_longer_a_conflict(self):
+        # The card was read as +1, +12 and +18 for speed; the accounting settled
+        # it at 12, one of those reads, so the entry carries the amount with the
+        # other reads beside it and is not flagged.
+        report = _report()
+        ref = '/gameplay_tracking/events/0'
+        events = report['gameplay_tracking'].setdefault('events', [])
+        if not events:
+            events.append({})
+        events[0].update(kind='training', conflicting_readings={'speed': [1, 12, 18]},
+                         settled_conflicting_readings={'speed': dict(amount=12, reads=[1, 12, 18], settled_by='learned_reader_on_card')})
+        report['turn_ledger']['timeline'] = [
+            dict(id='entry-result', kind='training', source_ref=ref, first_seen_ms=100, last_seen_ms=100,
+                 assignment_basis='observed_within_calendar_window', conflicts_present=True)]
+        report['causal_accounting'] = dict(report.get('causal_accounting') or {}, contributions=[
+            dict(id=f'{ref}/learned_reader_gains/speed', event_ref=ref, channel='stats', field='speed', amount=12,
+                 basis='observed_learned_training_gain')])
+        entry = build(report)['entries'][0]
+        self.assertFalse(entry.get('conflicts_present'))
+        self.assertEqual(entry['changes'], {'stats': {'speed': {
+            'amount': 12, 'basis': 'observed_learned_training_gain', 'disagreeing_reads': [1, 18]}}})
+
+        # Anything short of a settlement of every disputed field keeps the flag.
+        def flagged(mutate):
+            doc = json.loads(json.dumps(report))
+            mutate(doc['gameplay_tracking']['events'][0], doc)
+            entry = build(doc)['entries'][0]
+            return entry.get('conflicts_present'), 'disagreeing_reads' in entry['changes']['stats']['speed']
+        cases = {
+            'no settlement recorded': lambda e, d: e.pop('settled_conflicting_readings'),
+            'settled at another amount': lambda e, d: e['settled_conflicting_readings']['speed'].update(amount=18),
+            'a second field unsettled': lambda e, d: e['conflicting_readings'].update(guts=[4, 5]),
+            'the card contradicts a worked-out amount': lambda e, d: e.update(contradicted_turn_difference={'guts': {}}),
+            'an ambiguous effect on the same event': lambda e, d: e.update(ambiguous_effect_candidates=[{}]),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(name):
+                self.assertEqual(flagged(mutate), (True, False))
+
+
 
 if __name__ == '__main__':
     unittest.main()
