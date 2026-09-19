@@ -2476,6 +2476,20 @@ def outcome_events(readings):
                     continue
             current['effect_observations'].setdefault(key,[]).append((time,row['evidence'],effect))
             prior=current['effects'].get(key)
+            # A number read from the gain popup stands in only until the
+            # receipt line itself reads its number on a frame of the same
+            # box: the line outranks the popup, whichever came first.
+            popup_new=effect.get('amount_basis')=='gain_popup_on_same_frame'
+            popup_prior=bool(prior) and prior.get('amount_basis')=='gain_popup_on_same_frame'
+            if prior and popup_prior!=popup_new:
+                superseded=prior if popup_prior else effect
+                current.setdefault('superseded_gain_popups',[]).append(dict(
+                    field=key,popup_amount=superseded.get('amount'),
+                    evidence=list(current['field_evidence'].get(key,[])) if popup_prior else [row['evidence']]))
+                if popup_prior:
+                    current['effects'][key]=effect
+                    current['field_evidence'][key]=[row['evidence']]
+                continue
             if prior and (prior.get('amount'),prior.get('direction'),prior.get('value'))!=(effect.get('amount'),effect.get('direction'),effect.get('value')):
                 current['conflicting_readings'].append(dict(reason='changing_effect_value',field=key,evidence=row['evidence']))
             else:

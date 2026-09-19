@@ -80,6 +80,24 @@ class GainPopupTests(unittest.TestCase):
         raw['lines'] = raw['lines'][:2]
         self.assertEqual([e for e in parse(raw)['effects'] if e['kind'] == 'stat_change'], [])
 
+    def test_the_receipt_lines_own_number_outranks_the_popup_in_the_event(self):
+        from tracen_replay.transactions import outcome_events
+
+        def row(time, effect):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='event_outcome', context_title=None,
+                        effects=[effect], stats={}, facts={}, ocr=dict(neural=[]))
+        popup = dict(kind='stat_change', field='skill_points', amount=51, amount_basis='gain_popup_on_same_frame',
+                     raw_text='Skill Pts went up by', confidence=96)
+        line = dict(kind='stat_change', field='skill_points', amount=5, raw_text='Skill Pts went up by 5.', confidence=99)
+        for order in ((popup, line, line), (line, popup, line)):
+            event = outcome_events([row(1000 + 250 * i, dict(e)) for i, e in enumerate(order)])[0]
+            self.assertEqual([(e['field'], e['amount']) for e in event['effects'] if e['kind'] == 'stat_change'], [('skill_points', 5)], order)
+            self.assertEqual(event['conflicting_readings'], [], order)
+            self.assertEqual(event['superseded_gain_popups'][0]['popup_amount'], 51, order)
+        # With no frame reading the line's number, the popup's number stands.
+        event = outcome_events([row(1000, dict(popup)), row(1250, dict(popup))])[0]
+        self.assertEqual([(e['field'], e['amount']) for e in event['effects'] if e['kind'] == 'stat_change'], [('skill_points', 51)])
+
     def test_skill_points_use_their_own_label(self):
         lines = [line('Skill Pts went up by', (313, 827, 515, 867), 93),
                  line('+30', (317, 444, 426, 521), 98), line('Skill Pts', (330, 518, 456, 566), 100)]
