@@ -526,21 +526,26 @@ serious is the next thing to look at.
       and the trainee's pre-race card opens a race turn with no hub. Final
       runs (Should 9a2e6011, Mayano ea64c092, Gran Concert a84acfbf):
 
-      | Career | Serious flags | Fields balanced | Worked out | Not yet shown | Real gaps | Career end |
-      | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-      | Should | 9 to 0 | 684 | 104 | 20 | 0 | 6 |
-      | Mayano | 2 to 0 | 654 | 135 | 20 | 5 | 0 |
-      | Gran Concert | 9 to 0 | 682 | 92 | 20 | 14 | 6 |
+      | Career | Serious flags | Fields balanced | Worked out | Not yet shown | Balanced across unread turns | Missing | Career end |
+      | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+      | Should | 9 to 0 | 684 | 104 | 20 | 0 | 0 | 6 |
+      | Mayano | 2 to 0 | 654 | 135 | 20 | 5 | 0 | 0 |
+      | Gran Concert | 9 to 0 | 682 | 92 | 20 | 14 | 0 | 6 |
 
-      The real gaps left are the Visual row under a "23 more" badge on
-      Mayano (five transitions, the value 9 visible to the eye on every
+      The last column but one is the stretch rule (final runs Mayano
+      c328cd12, Gran Concert 200c3e10): a field no screen showed for a
+      few turns, judged by the value read before the stretch, every change
+      counted across it, and the value read after. Mayano's Visual row
+      under a "23 more" badge (39, minus a 30-point massage, plus 17, is
+      the 26 read after; the 9 in between is visible to the eye on every
       frame), Gran Concert's race day whose performance points and skill
-      points no screen showed (twelve) and its Vocal row under a "7 more"
-      badge (two). Every note the three reports still carry was checked
-      against the recording (record in .local/final-reliability-v1/
-      CLAUDE-HANDOFF.md, 2026-09-19 10:10Z): none contradicted; the
-      worked-out training gains whose card badges a frame still shows all
-      match the card.
+      points no screen showed (402 plus 8 plus 261 is the 671 read after)
+      and its Vocal row under a "7 more" badge (41 minus a 24-point lesson
+      is the 17 the next preview shows). Every note the three reports still
+      carry was checked against the recording (record in
+      .local/final-reliability-v1/CLAUDE-HANDOFF.md, 2026-09-19 10:10Z and
+      11:05Z): none contradicted; the worked-out training gains whose card
+      badges a frame still shows all match the card.
 - [ ] **Two runs of one recording can read a result card differently.**
       Gran Concert's 31:02 training read Dance +30 on the morning run and
       Visual +30 on the afternoon run of the same file; the dense rereads'
