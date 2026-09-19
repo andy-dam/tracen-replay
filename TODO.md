@@ -450,6 +450,25 @@ serious is the next thing to look at.
       was right folded into another, and the count of distinct friendship
       and hint names per career drops to the real ones.
 
+- [ ] **The hub's stat row is not read on two of three recordings.** Found
+      on 2026-09-18 when a viewer pointed at 31:20 of Should-have-been-better,
+      where the hub shows the six stats and the report has no opening for
+      that turn. The reader gates the stat parse on a colour probe of the
+      label strip, which expects blue; on recorders A and C the strip is
+      pink, so the probe fails on every hub frame, and the geometry fallback
+      then rejects most frames for a missing "Skill Pts" label read as "Sill
+      Pts", a missing header, or the wit cap merged with the grade glyph
+      ("UG/1301"), because it wants every cap although its own docstring says
+      four. Counts: Should 894 of 1,369 hub frames with the row unread, Mayano
+      802 of 1,148, Gran Concert 0 of 1,257. The openings on those two careers
+      therefore come later in the turn from other screens (lesson
+      confirmations, result cards) or, on four turns, not at all. Done: the
+      probe accepts the strip in either colour or is replaced by the geometry
+      proof, the fallback takes four caps and a near "Skill Pts", and on the
+      three fresh careers every hub frame with six readable values yields
+      them; then the turn openings on A and C are observed at the turn's
+      start like B's.
+
 ## 3. Learned readers (the neural network)
 
 The rules already decide which screen is on frame; what still fails is
