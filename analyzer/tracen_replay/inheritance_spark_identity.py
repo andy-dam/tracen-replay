@@ -159,6 +159,27 @@ def _matching_anchors(first, second, excluded_texts):
     return result
 
 
+def _shared_lines_moved(first, second, excluded_texts):
+    """True when an exact line unique to each row sits at a different height in the two rows.
+
+    Unlike an anchor, the line need not keep its box size: a line that moved
+    while it was read taller or shorter still moved.
+    """
+    first_by_text, second_by_text = {}, {}
+    for line in _lines(first):
+        if line.get('text') not in excluded_texts:
+            first_by_text.setdefault(line['text'], []).append(line)
+    for line in _lines(second):
+        if line.get('text') not in excluded_texts:
+            second_by_text.setdefault(line['text'], []).append(line)
+    for text in first_by_text.keys() & second_by_text.keys():
+        if len(first_by_text[text]) != 1 or len(second_by_text[text]) != 1:
+            continue
+        if abs(_center(second_by_text[text][0]['box']) - _center(first_by_text[text][0]['box'])) > STATIONARY_PIXELS:
+            return True
+    return False
+
+
 def _shared_anchor_texts(first, second, excluded_texts):
     """Return exact shared receipt-area text, including non-unique readings."""
     first_texts = {line.get('text') for line in _lines(first)
@@ -222,11 +243,11 @@ def _track(event, left, right, first, second, source_successors):
             continue
         compatible.append(anchor)
 
-    if stationary and anchors and all(abs(_center(a['second_box']) - _center(a['first_box'])) > STATIONARY_PIXELS
-                                      for a in anchors):
-        # Every exact shared line moved while the target stayed put: the
-        # receipt scrolled and another spark line now sits in the slot the
-        # target held. Two lines, not one identity.
+    if stationary and _shared_lines_moved(earlier['row'], later['row'], excluded):
+        # An exact shared line moved while the target stayed put: the receipt
+        # scrolled, or the bubble re-rendered with its next lines, and another
+        # spark line now sits in the slot the target held. Only a bubble whose
+        # every shared line stayed can show one line read two ways.
         return None
     # A second exact line that moves differently is evidence for another
     # receipt or a changed layout.  Do not choose the one anchor that happens
