@@ -38,6 +38,10 @@ type Config struct {
 	LearnedReader string
 	// QueueLimit bounds the number of queued jobs.
 	QueueLimit int
+	// Parallel is how many analyses run at once; less than one means one.
+	// Each analysis holds a few GB and its OCR workers' share of the CPU, so
+	// the number is set per machine.
+	Parallel int
 	// KeepWorkingData keeps the analyzer's OCR caches, crops and recovery
 	// inputs in the job directory (about 1 GB per analysis). By default only
 	// the report, the timeline, the viewer page and the log are kept.
@@ -225,11 +229,20 @@ func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
 	}
 }
 
-// Run executes queued jobs one at a time until ctx is cancelled. A job in
-// flight when ctx ends is recorded as interrupted after its process is gone.
+// Run executes queued jobs, up to Parallel at a time, until ctx is cancelled.
+// Jobs start in queue order; a job in flight when ctx ends is recorded as
+// interrupted after its process is gone.
 func (m *Manager) Run(ctx context.Context) error {
+	slots := make(chan struct{}, max(1, m.cfg.Parallel))
+	var running sync.WaitGroup
+	defer running.Wait()
 	for {
 		if ctx.Err() != nil {
+			return nil
+		}
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
 			return nil
 		}
 		job, ok, err := m.store.NextQueued(ctx)
@@ -238,6 +251,7 @@ func (m *Manager) Run(ctx context.Context) error {
 			ok = false
 		}
 		if !ok {
+			<-slots
 			select {
 			case <-ctx.Done():
 				return nil
@@ -246,15 +260,25 @@ func (m *Manager) Run(ctx context.Context) error {
 			}
 			continue
 		}
-		m.runOne(ctx, job.ID)
+		// The job is claimed (marked running) before the loop looks at the
+		// queue again, so two slots never pick the same job.
+		claimed := make(chan struct{})
+		running.Add(1)
+		go func(id string) {
+			defer running.Done()
+			defer func() { <-slots }()
+			m.runOne(ctx, id, claimed)
+		}(job.ID)
+		<-claimed
 	}
 }
 
-func (m *Manager) runOne(ctx context.Context, id string) {
+func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}) {
 	m.mu.Lock()
 	job, err := m.store.GetJob(ctx, id)
 	if err != nil || job.Status != Queued {
 		m.mu.Unlock()
+		close(claimed)
 		return
 	}
 	jobCtx, cancel := context.WithCancel(ctx)
@@ -264,11 +288,13 @@ func (m *Manager) runOne(ctx context.Context, id string) {
 	job.StartedAt = m.cfg.Clock()
 	if err := m.store.UpdateJob(ctx, job); err != nil {
 		m.mu.Unlock()
+		close(claimed)
 		cancel()
 		m.log.Error("could not mark job running", "job", id, "error", err)
 		return
 	}
 	m.mu.Unlock()
+	close(claimed)
 	m.publish(job, nil)
 	m.log.Info("job started", "job", id, "source", job.SourceName)
 

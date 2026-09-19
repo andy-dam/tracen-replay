@@ -80,7 +80,7 @@ type harness struct {
 	stopped chan struct{}
 }
 
-func newHarness(t *testing.T, queueLimit int) *harness {
+func newHarness(t *testing.T, queueLimit int, options ...func(*jobs.Config)) *harness {
 	t.Helper()
 	dir := t.TempDir()
 	recording := filepath.Join(dir, "clip.mp4")
@@ -92,7 +92,11 @@ func newHarness(t *testing.T, queueLimit int) *harness {
 		t.Fatal(err)
 	}
 	runner := &scriptedRunner{started: make(chan string, 8)}
-	manager, err := jobs.NewManager(jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 2, QueueLimit: queueLimit, Recordings: oneUpload{path: recording}}, st, runner)
+	cfg := jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 2, QueueLimit: queueLimit, Recordings: oneUpload{path: recording}}
+	for _, option := range options {
+		option(&cfg)
+	}
+	manager, err := jobs.NewManager(cfg, st, runner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,6 +266,58 @@ func TestQueueLimitAndCancelBeforeStart(t *testing.T) {
 	if _, err := h.manager.Cancel(context.Background(), first.ID); !errors.As(err, &te) {
 		t.Fatalf("cancelling a finished job must be a transition error, got %v", err)
 	}
+}
+
+func TestParallelRunsUpToTheLimitAtOnceInQueueOrder(t *testing.T) {
+	blocking := func(release chan struct{}) func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+		return func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+			select {
+			case <-release:
+			case <-ctx.Done():
+			}
+			return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
+		}
+	}
+	// Two slots: the first two jobs run together, the third waits for a slot.
+	h := newHarness(t, 4, func(c *jobs.Config) { c.Parallel = 2 })
+	release := make(chan struct{})
+	h.runner.script = blocking(release)
+	h.start()
+	var ids []string
+	for range 3 {
+		job, err := h.manager.Submit(context.Background(), "u1", "src-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, job.ID)
+	}
+	<-h.runner.started
+	<-h.runner.started
+	h.waitStatus(ids[0], jobs.Running)
+	h.waitStatus(ids[1], jobs.Running)
+	time.Sleep(150 * time.Millisecond)
+	if job, _ := h.manager.Get(context.Background(), ids[2]); job.Status != jobs.Queued {
+		t.Fatalf("the third job must wait for a slot, got %s", job.Status)
+	}
+	close(release)
+	for _, id := range ids {
+		h.waitStatus(id, jobs.Succeeded)
+	}
+	// The default is one at a time.
+	single := newHarness(t, 4)
+	hold := make(chan struct{})
+	single.runner.script = blocking(hold)
+	single.start()
+	first, _ := single.manager.Submit(context.Background(), "u1", "src-1")
+	second, _ := single.manager.Submit(context.Background(), "u1", "src-1")
+	<-single.runner.started
+	single.waitStatus(first.ID, jobs.Running)
+	time.Sleep(150 * time.Millisecond)
+	if job, _ := single.manager.Get(context.Background(), second.ID); job.Status != jobs.Queued {
+		t.Fatalf("with one slot the second job must wait, got %s", job.Status)
+	}
+	close(hold)
+	single.waitStatus(second.ID, jobs.Succeeded)
 }
 
 func TestCancelDuringRunDiscardsALateCompletion(t *testing.T) {

@@ -58,7 +58,8 @@ directory, so no user path is hardcoded):
 | `-ffmpeg` | `ffmpeg` | ffmpeg executable |
 | `-workers` | `4` | OCR worker processes per job |
 | `-dense-workers` | `0` (= workers minus one) | processes for the dense re-read passes; each stays near 2 GB |
-| `-queue` | `4` | maximum queued jobs; one job runs at a time |
+| `-queue` | `4` | maximum queued jobs, beyond those running |
+| `-parallel` | `1` | analyses run at once, in queue order; each holds about 4 GB resident (7 GB committed) and its OCR workers' share of the CPU, so two fit a 32 GB machine that is also in use, and the number is set per machine |
 | `-ocr-device` | `auto` | `auto` (DirectML, then CUDA, then CPU), `cpu`, `dml`, `cuda` |
 | `-learned-reader` | unset | an exported learned result-card reader (ONNX) passed to every analysis; an amount it read is marked ✦ in the log, and the ready check reports whether the file exists |
 | `-web` | unset | serve the browser client from this built directory instead of the embedded copy; a rebuild is picked up on the next page load without a restart |

@@ -69,8 +69,11 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
 
 ## Process model
 
-- **One analyzer job at a time.** `Manager.Run` loops over the queue and
-  starts exactly one worker process; a second submission waits in the queue.
+- **A bounded number of analyzer jobs at a time.** `Manager.Run` loops over
+  the queue with `-parallel` slots (one by default), starting a worker
+  process per slot in queue order; a job is marked running before the loop
+  reads the queue again, so two slots never take the same job, and further
+  submissions wait in the queue.
 - **Queue limit.** `Submit` counts jobs in status `queued`
   (`internal/store.CountByStatus`) and rejects a new submission with
   `QueueFullError` (HTTP 429, code `queue_full`) once the count reaches

@@ -59,6 +59,7 @@ func run() error {
 	workers := flag.Int("workers", 4, "OCR worker processes per job")
 	denseWorkers := flag.Int("dense-workers", 0, "worker processes for the dense re-read passes (0 = workers minus one); each stays near 2 GB")
 	queue := flag.Int("queue", 4, "maximum number of queued jobs")
+	parallel := flag.Int("parallel", 1, "analyses run at once; each holds a few GB of memory and its OCR workers' share of the CPU")
 	ocrDevice := flag.String("ocr-device", "auto", "OCR device for the analyzer: auto (DirectML, then CUDA, then CPU), cpu, dml or cuda")
 	learnedReader := flag.String("learned-reader", "", "exported learned result-card reader (ONNX) for the analyzer; its reads count only where they equal an unexplained difference (off when empty)")
 	webDir := flag.String("web", "", "serve the browser client from this built directory instead of the embedded copy (a rebuild is picked up without a restart)")
@@ -102,7 +103,7 @@ func run() error {
 		analyzerQuery = container.VersionQuery()
 	}
 	manager, err := jobs.NewManager(jobs.Config{DataDir: *dataDir, Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
-		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader,
+		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
 		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
 		Recordings: db, Logger: logger}, db, jobRunner)
 	if err != nil {
