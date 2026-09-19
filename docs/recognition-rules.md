@@ -219,7 +219,11 @@ grade token can arrive glued to the title when the recognizer misses the
 gap ("G1Hopeful Stakes"); a grade that ends in a digit is split from a
 title that starts with a capital letter, so both readings name the same
 race, while a letter grade (OP, EX, DEBUT) still needs its space, since
-letters glued to letters may be a word.
+letters glued to letters may be a word. The pre-race entry card's
+Attributes tab (`_race_runner_card`) is read into a runner-scoped
+observation with the runner's name; the turn ledger names its owner from
+the whole career, not from the frame (see
+[analyzer-pipeline.md](analyzer-pipeline.md), the turn ledger).
 
 ## Grand Concert lesson menu, confirmation dialog and receipts
 

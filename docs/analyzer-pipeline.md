@@ -303,6 +303,21 @@ the full rules; in short, each window gets an `action_status`
 (`one_action`, `missing_action`, `multiple_actions`), an opening state per
 channel when one was observed, and every timeline entry that falls inside it.
 
+A race day the player enters without a hub visit has no stat bar to open
+the turn on. The pre-race entry card shows the runner's five stats (not the
+skill points), and it is read as a runner-scoped observation whose owner
+one frame cannot name: the card is a selectable runner view. Across a
+career it can be named: the card shown before every race the player
+commits carries one name, where an opponent's would change. When at least
+three committed races have a card before them and every one shows the same
+name (`_trainee_runner_name`; a clipped read of the name on one frame is
+not another name), that name is the trainee's, and a race turn with no
+other opening takes the trainee's card, read the same on two frames before
+the race, as a partial opening (`trainee_race_card_before_action`). The
+accounting then compares its five fields like any other opening, so a card
+that were not the trainee's would show up as unexplained differences on
+both sides of it.
+
 The last turn closes on the last hub panel observed after its action. When
 no panel follows, the Complete Career screens close it instead
 (`closing_basis` `final_screen_observation_after_action`): every field of

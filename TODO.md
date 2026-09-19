@@ -477,15 +477,17 @@ serious is the next thing to look at.
       | Gran Concert (B) | all, unchanged | 163 to 164 | 1 to 1 | 50 to 50 | 4 to 4 |
 
       No field that adds up changed on any career. Done.
-- [ ] **A race day whose hub row never shows.** What is left of the
-      openings question after the item above: on the three careers, one
-      turn of 222 has no observed opening, Gran Concert's Junior Late Dec,
-      where the player went from an "Insufficient Fans" dialog to the race
-      list and into the race without the hub's row ever being on screen.
-      The pre-race screen shows five of the six stats in its Attributes
-      panel (no skill points). Reading that panel as a five-field opening
-      would cover it; about half a day, for one turn in 222, so not before
-      hosting.
+- [x] **A race day whose hub row never shows.** One turn of 222 on the
+      three careers (Gran Concert's Junior Late Dec) went from an
+      "Insufficient Fans" dialog to the race list and into the race with the
+      hub's row never on screen. The pre-race entry card shows the five
+      stats, and the reader already read it as a runner-scoped observation
+      whose owner one frame cannot name. Done 2026-09-19: the owner is named
+      from the whole career (one name on the card before every committed
+      race, three races at least) and the trainee's card, read the same on
+      two frames before the race, opens such a turn with its five stats.
+      Rebuilt on the fresh Gran Concert report, both transitions around
+      that turn balance on all five fields.
 - [x] **Nineteen review flags on the three fresh careers, seven rules.** On
       2026-09-19 the three fresh reports carried 19 serious flags on 14 of
       222 turns (Should 8, Mayano 2, Gran Concert 9). Each was traced to its
@@ -514,6 +516,18 @@ serious is the next thing to look at.
       second performance row, three unexplained fields (Should 29:30, Gran
       Concert 16:22 and 30:57), which needs the learned reader extended.
       FRESH-RUNS-PLACEHOLDER
+- [ ] **A performance row under a "N more" badge.** On some hub visits the
+      game floats a small "23 more" badge over one row of the performance
+      panel, and the value under it (a 7, a 9) is half covered. The reread
+      crop under the badge reads half a glyph. Seen on five visits of Mayano
+      (Composure once, Visual on four turns in a row) and two of Gran
+      Concert; each costs the field its end on one turn and its start on
+      the next, as soft "end not observed" notes. The lessons menu lists all
+      five values and already feeds the ledger; on these visits the player
+      did not open it before acting, so the row stays honestly unread. A
+      training card's row under the same badge is handled: the training
+      lists it as unread and may take the turn's difference for it. Nothing
+      more to do unless the badge can be read past.
 
 ## 3. Learned readers (the neural network)
 
