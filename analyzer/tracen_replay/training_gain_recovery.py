@@ -705,6 +705,12 @@ def _promote_accepted(readings, fresh, windows):
             awards={}
         if not gains and not awards:
             continue
+        if projected is not None and not gains:
+            # A frame that shows no stat badge is not a result card yet: the
+            # side panel's "+N" beside a row is the preview's projection until
+            # a badge shows the result. Its awards, and its outcome, wait for
+            # a frame with a badge.
+            continue
 
         # A source-result projection is never allowed to overwrite an
         # existing base timestamp.  Such rows are handled by the explicit

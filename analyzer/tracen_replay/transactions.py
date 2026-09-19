@@ -2796,7 +2796,18 @@ def training_actions(events):
         if 'result_group' in e:
             action['result_group']=deepcopy(e['result_group'])
         actions.append(action)
-    return actions
+    # One training committed twice from frames a moment apart is one commit:
+    # the result animation and its transition frames belong to one decision,
+    # and a player cannot train twice in two seconds.
+    kept=[]
+    for action in actions:
+        previous=kept[-1] if kept else None
+        if (previous is not None and previous['training_option']==action['training_option']
+                and abs(action['source_timestamp_ms']-previous['source_timestamp_ms'])<=2000):
+            previous.setdefault('repeated_commit_event_ids',[]).append(action['event_id'])
+            continue
+        kept.append(action)
+    return kept
 
 
 def outing_actions(readings,events):

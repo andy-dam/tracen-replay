@@ -534,6 +534,31 @@ class TrainingGainG08ResultProjectionTests(unittest.TestCase):
             event['performance_deltas'], {'dance': 13, 'visual': 13},
         )
 
+    def test_a_frame_with_no_stat_badge_projects_no_performance_award(self):
+        # The side panel's "+19" beside a row is the preview's projection
+        # until a badge shows the result; a reread frame with awards alone
+        # adds nothing, and marks no success.
+        base = [_result_row(1000, 'base-result.png', outcome=None, result_values={'speed': 334})]
+        window = {
+            'start_ms': 500, 'end_ms': 1500, 'owner_id': 'training-g08', 'fields': ['speed'],
+            'performance_fields': ['visual'], 'training_option': 'speed', 'source_result_projection': True,
+        }
+        envelope = dict(source_sha256='a' * 64, source_frame_sha256='b' * 64, source_frame_id='frame-900',
+                        engine_fingerprint='reader-v1', model_sha256='c' * 64)
+        badgeless = dict(_result_row(900, 'reread-result.png', outcome=None, awards={'visual': 19},
+                                     result_values={'speed': 334}), **envelope)
+        merged, _ = promote_with_metadata(copy.deepcopy(base), [badgeless], [window])
+        self.assertEqual([row['source_timestamp_ms'] for row in merged], [1000])
+        self.assertNotEqual(merged[0]['facts'].get('training_outcome'), 'success')
+        # With a badge on the frame, the award comes along.
+        badged = dict(_result_row(900, 'reread-result.png', outcome=None, gains={'speed': 20},
+                                  awards={'visual': 19}, result_values={'speed': 334}), **envelope)
+        merged, _ = promote_with_metadata(copy.deepcopy(base), [badged], [window])
+        added = next(row for row in merged if row['source_timestamp_ms'] == 900)
+        self.assertEqual(added['facts']['training_gains'], {'speed': 20})
+        self.assertEqual(added['facts']['awarded_performance_gains'], {'visual': 19})
+        self.assertEqual(added['facts']['training_outcome'], 'success')
+
     def test_one_source_result_frame_is_accepted_only_with_projection_proof(self):
         base = [_result_row(
             1000,

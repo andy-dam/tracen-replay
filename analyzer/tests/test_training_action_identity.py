@@ -31,6 +31,19 @@ class TrainingActionIdentityTests(unittest.TestCase):
             o['source_timestamp_ms'] = 2042750
         self.assertEqual(training_actions([event]), [])
 
+    def test_one_training_committed_twice_within_two_seconds_is_one_commit(self):
+        first = training(result_frames=3, names=('Shogi',))
+        again = dict(training(result_frames=3, names=('Shogi',)), id='training-0053',
+                     first_seen_ms=2043800, last_seen_ms=2043800, evidence='2043800.png')
+        actions = training_actions([first, again])
+        self.assertEqual([a['event_id'] for a in actions], ['training-0052'])
+        self.assertEqual(actions[0]['repeated_commit_event_ids'], ['training-0053'])
+        # Another option, or more than two seconds later, is a second decision.
+        other = dict(again, training_option='guts')
+        self.assertEqual(len(training_actions([first, other])), 2)
+        later = dict(again, first_seen_ms=2045000, last_seen_ms=2045000)
+        self.assertEqual(len(training_actions([first, later])), 2)
+
     def test_read_gains_and_repeated_result_frames_keep_their_bases(self):
         by_gains = training_actions([training(deltas={'wit': 12}, names=('Shogi',))])
         by_frames = training_actions([training(result_frames=3, names=('Shogi',))])
