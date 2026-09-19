@@ -2540,6 +2540,12 @@ def outcome_events(readings):
         collapse_song_variants(event,{r['evidence']:r['source_timestamp_ms'] for r in readings})
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
+    # A supporter or skill name read a glyph off on one frame folds into the
+    # name the run read many times; the same award under two spellings on one
+    # box becomes one award.
+    from .name_vocabulary import build_vocabulary,repair_event_names
+    vocabulary=build_vocabulary(readings,events=events)
+    for event in events:repair_event_names(event,vocabulary)
     events=collapse_cross_event_hint_duplicates(events,readings)
     events=collapse_cross_event_stat_duplicates(events,readings)
     from .hint_identity_quarantine import quarantine_receipt_identity_conflicts

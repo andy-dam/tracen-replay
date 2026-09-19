@@ -438,17 +438,21 @@ serious is the next thing to look at.
       names on friendship lines, one of them counted three times on one box;
       7 skill hint names, one of them a hint counted twice). Record kept
       locally in `.local/hand-check-v1/`. Done; it opens the item below.
-- [ ] **A name read a glyph off is kept as a separate entry.** The hand
-      check's only finding. Supporter names on friendship lines recur 11 to
-      31 times per run, so the run's own sightings can settle "Daivg
-      Scarlet" and "Direct r Akikawa"; skill hint names are mostly seen once
-      per run (36 of 39 in that career), so "Cprner Adept" and "Blucarole of
-      Blessings" need the game's own skill list. This is the shared,
-      vocabulary-based OCR repair the roadmap's section 5 already names, in
-      place of the per-rule edit-distance thresholds. Done: the 22 names in
-      the hand-check record fold into their real names, with no name that
-      was right folded into another, and the count of distinct friendship
-      and hint names per career drops to the real ones.
+- [x] **A name read a glyph off is kept as a separate entry.** The hand
+      check's only finding. The run's own sightings are the vocabulary:
+      supporter names from the friendship receipts, skill names from the
+      hint receipts and the skill menu's cards, which name every hinted
+      skill of that career again and again, so the game's own skill list
+      was not needed. `name_vocabulary` folds a rare spelling into the one
+      known name within two edits (one for a short name) and within three
+      of no other, never across a circle grade, never into a name read on
+      the same frame, never a name the run knows, and merges the same award
+      read under two spellings on one box. Over the seven careers' saved
+      readings this folded 34 names (Gran Concert 17: all ten supporter
+      variants and all six hint variants of the hand check; the two
+      "recreation unlocked" names and "Light He!", three letters off, are
+      left) and moved no known name. Done 2026-09-18; the roadmap's
+      section 5 item keeps the receipt grammars' own thresholds for later.
 
 - [ ] **The hub's stat row is not read on two of three recordings.** Found
       on 2026-09-18 when a viewer pointed at 31:20 of Should-have-been-better,

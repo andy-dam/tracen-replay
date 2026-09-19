@@ -85,4 +85,8 @@ are English.
 - Replace the per-rule edit-distance thresholds scattered across the
   analyzer's text-repair modules with one shared, vocabulary-based OCR
   repair, so every rule that corrects a misread name or word draws on the
-  same word list and the same matching logic.
+  same word list and the same matching logic. The first piece exists:
+  `name_vocabulary` folds supporter and skill names read a glyph off into
+  the names the run itself read many times (see
+  [analyzer-pipeline.md](analyzer-pipeline.md)); the fixed-word receipt
+  grammars still repair by their own thresholds.

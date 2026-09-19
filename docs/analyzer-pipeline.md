@@ -251,6 +251,27 @@ repeats the same receipt does not start a new event. Hint awards
 receipt time; ambiguous effect candidates (uncertain hint names, competing
 readings) are kept visible with `accepted_award: false` rather than counted. Two of those candidates are settled by corroboration across the run, the way a hint spelling only the recovery read is: a recipient spelling the run produced only on this receipt's frames, beside one spelling it produced on other receipts, joins that spelling (`name_resolution: uncorroborated_spelling_joins_recurring_recipient`), and a bare skill spelling read nowhere else, beside its circle-proven twin at the same amount, is that award with its glyph unread (`circle_glyph_unread_on_uncorroborated_base_reading`); a spelling the run read anywhere else stays a candidate, as does a spark slot whose name changed between views and the alternate spellings of an accepted spark. A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix, a bounded misread of about the same length (same subject, same digits, a couple of edits per dozen characters), or a word-by-word reading that may stop early (each word within a couple of edits, every number exactly as the receipt shows it) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
 
+**Names the run knows.** Before the cross-event collapses, every outcome's
+supporter and skill names are checked against the run's own sightings
+(`name_vocabulary`): a supporter is named on every friendship receipt that
+concerns them, a skill on its hint receipts and on the skill menu's cards.
+A name read on fewer boxes than make it known (three for a supporter, two
+for a skill) that lies within two edits of exactly one known name, one edit
+for a name of six letters or fewer, and within three of no other, is that
+name: `Daivg Scarlet` is Daiwa Scarlet, `Direct r Akikawa` is Director
+Akikawa, `Blucarole of Blessings` is Barcarole of Blessings. Distance is
+measured on the letters alone, so a dropped space or a stray mark is one
+edit. A repair never crosses a circle grade (`Corner Adept` and `Corner
+Adept ○` are two skills, and a trailing `O` is that marker), never folds a
+name into one read on the same frame as it (two names on one box are two
+names), and never touches a name the run knows. The effect keeps its read
+spelling under `alternate_name_evidence` with `name_resolution:
+vocabulary_repair`, and when the same award already sits on the box under
+the known name, the two merge, so a box read three ways on three frames is
+one award. Over seven careers this folded 30 names and moved none that was
+known; the rare spellings it leaves are those with two known names within
+reach, such as a skill the run knows in both grades.
+
 **Rest and outings.** Both spend the turn, so a recovery line alone never
 identifies either. An outing is a request followed by its receipt with no
 other action between: the request is the confirmation prompt when one was
