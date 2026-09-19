@@ -200,6 +200,23 @@ def _canonical_race_grade(value):
     return value if _RACE_GRADE_RE.fullmatch(value) else None
 
 
+# A header line that starts with a grade and a space is a grade and a title.
+# A grade that ends in a digit can also arrive glued to the title, the reader
+# having missed the gap ("G1Hopeful Stakes"); a letter grade glued to letters
+# (OPEN, EXtra) is a word, so those still need the space.
+_RACE_GRADE_PREFIX_RE = re.compile(r'^(?:(DEBUT|G[123]|OP|PRE[- ]?OP|EX)\s+|(G[123])(?=(?-i:[A-Z])))(.+)$', re.I)
+
+
+def _split_race_grade(text):
+    """The header line's grade and title, or ``(None, text)`` when it has no grade prefix."""
+    match = _RACE_GRADE_PREFIX_RE.match(text)
+    if not match:
+        return None, text
+    grade = _canonical_race_grade(match.group(1) or match.group(2))
+    title = match.group(3).strip()
+    return (grade, title) if grade is not None and title else (None, text)
+
+
 def _valid_race_result_header_line(line):
     """Validate one OCR line before the race-header geometry is consulted."""
 
@@ -249,13 +266,10 @@ def _race_result_grade_observation(lines):
         if grade is not None:
             grade_lines.append((grade, line))
             continue
-        prefixed = re.match(r'^((?:DEBUT|G[123]|OP|PRE[- ]?OP|EX))\s+(.+)$', text, re.I)
-        if prefixed:
-            grade = _canonical_race_grade(prefixed.group(1))
-            title = prefixed.group(2).strip()
-            if grade is not None and title:
-                grade_lines.append((grade, line))
-                title_lines.append((title, line))
+        grade, title = _split_race_grade(text)
+        if grade is not None:
+            grade_lines.append((grade, line))
+            title_lines.append((title, line))
             continue
         if any(char.isalpha() for char in text):
             title_lines.append((text, line))
@@ -2104,7 +2118,7 @@ def _race_runner_card(raw, lines):
     race_grade_values=[normalized(line) for line in lines if line.get('confidence',0)>=90
                        and within(line,(260,0,390,80))
                        and re.fullmatch(r'(?:G[123]|OP|EX|PRE-OP)',normalized(line),re.I)]
-    race_names=[normalized(line) for line in lines if line.get('confidence',0)>=90
+    race_names=[_split_race_grade(normalized(line))[1] for line in lines if line.get('confidence',0)>=90
                 and within(line,(430,0,760,80))
                 and any(char.isalpha() for char in normalized(line))
                 and not re.fullmatch(r'(?:G[123]|OP|EX|PRE-OP)',normalized(line),re.I)]
@@ -2898,7 +2912,7 @@ def parse(raw):
         facts['visible_item_quantities']=quantities
         m=re.search(r'Fans\s+([\d,]+)\s*\(\+([\d,]+)\)',text,re.I)
         facts.update(fans=int(m[1].replace(',','')),fans_gained=int(m[2].replace(',','')))
-        names=[re.sub(r'^(?:DEBUT|G[123]|OP|PRE-OP|EX)\s+','',l['text'],flags=re.I) for l in lines if l['confidence']>=95 and within(l,(280,425,810,456))
+        names=[_split_race_grade(l['text'])[1] for l in lines if l['confidence']>=95 and within(l,(280,425,810,456))
                and not re.fullmatch(r'DEBUT|G[123]|OP|PRE-OP|EX',l['text'],re.I)]
         places=[re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)',l['text'],re.I) for l in lines if l['confidence']>=95 and within(l,(280,160,550,355))]
         places={int(m[1]) for m in places if m}
