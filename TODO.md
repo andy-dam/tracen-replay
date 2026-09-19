@@ -597,8 +597,12 @@ serious is the next thing to look at.
       event's conflict list, so the report's own rebuild check failed on
       12-21-21 (fixed; the settlement now carries its reads itself), and
       Hishi Amazon's finale had two unpriced skill carts in one turn whose
-      cart totals summed to the drop (each now takes its own). The one gap
-      no rule covers: a
+      cart totals summed to the drop (each now takes its own), and Could's
+      12:33 card, sampled on one frame under a longer banner, had lost its
+      whole-card reread to the span rule (clamped, as the missing-gain
+      path already was). Could's rerun proved the reader fix itself: the
+      Dance +13 came from the reread, the Vocals +20 from the repaired
+      receipt. The one gap no rule covers: a
       cursor parked on a badge digit for the whole card leaves a wrong
       "observed" read (the accounting still gets the total right from the
       bars); a cursor-aware badge read would be the fix.
