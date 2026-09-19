@@ -303,6 +303,14 @@ the full rules; in short, each window gets an `action_status`
 (`one_action`, `missing_action`, `multiple_actions`), an opening state per
 channel when one was observed, and every timeline entry that falls inside it.
 
+The last turn closes on the last hub panel observed after its action. When
+no panel follows, the Complete Career screens close it instead
+(`closing_basis` `final_screen_observation_after_action`): every field of
+the channel read there, the same values on two frames, no frame of those
+screens reading them differently. The screens show the balances after
+everything the turn did, which is what a closing is; a stat they show only
+as a chart gets no closing from them.
+
 ## Causal accounting
 
 `causal_accounting.build` re-derives, from the same collections, a set of

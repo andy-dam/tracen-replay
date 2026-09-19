@@ -114,12 +114,16 @@ A field the training panel actually read is never eligible for this
 completion. See [turn-ledger.md](turn-ledger.md) for the general
 turn-difference rule this is one case of.
 
-A frame that shows no stat gain badge at all is not a result card yet. The
-side panel's "+N" beside a performance row is the preview's projection
-until a badge shows the result, and the training scene between the preview
-and the card carries that projection on screen; a reread frame with a
-performance award and no badge therefore adds nothing and marks no
-success. The same decision can also reach the ledger twice, once from the
+A training none of whose frames shows a stat gain badge or an outcome
+banner is not a result yet. The side panel's "+N" beside a performance row
+is the preview's projection until a badge shows the result, and the
+training scene between the preview and the card carries that projection on
+screen; such a training's performance awards are kept aside as a failed
+result's are (`unawarded_performance_basis`
+`no_stat_badge_or_banner_on_any_frame`). The judgement is made over the
+whole training, not frame by frame, because a real card's badges appear a
+few frames after its panel awards. A reread frame that projects an award
+with no badge on it likewise adds nothing. The same decision can also reach the ledger twice, once from the
 card's frames and once from a transition frame a moment later: two
 training commits of the same option within two seconds are one commit, the
 later one's event noted on the first under `repeated_commit_event_ids`.
@@ -269,6 +273,14 @@ once the same current/next pair has been read on two separate Concert
 Info visits and the "Concert bonuses updated!" screen follows within 20
 minutes; nothing is inferred from a song purchase alone.
 
+A performance row the detector did not find at all is reread from a fixed
+crop of the row. A lone digit reads at a lower confidence than a number of
+two or three glyphs, so that crop's one-digit reading is taken from 70
+rather than 97 (`_SINGLE_DIGIT_CROP_CONFIDENCE`), marked `below_floor`;
+the turn ledger still wants the same value on two frames before it counts.
+A row a "N more" badge sits over is cropped under the badge, which leaves
+half a glyph, and stays unread.
+
 The support-chain level is the one field prone to a `Lvl O` misread. The
 parser deliberately does not map that letter to zero; it only accepts a
 genuine digit. A separate rereading pass instead checks the same slot
@@ -327,10 +339,11 @@ outing?", both paired with "entire turn"). A Rest is proved by the
 confirmation, a repeated energy-recovery receipt within ten seconds of it,
 and the next calendar date (or the next turn-phase countdown) read within
 30 seconds of the result. A recovery receipt that the base pass caught on a
-single frame cannot be repeated, so `receipt_sampling` requests a reread
-of the second around it (reason `lone_recovery_receipt`), the same way it
-does for a receipt with conflicting readings; a recovery shown under an
-event's title belongs to that event and is not rereread for this. Lessons, the concert and skill purchases spend
+single frame cannot be repeated, so the numeric receipt pass
+(`receipt_recovery`) rereads the second around it (window reason
+`lone_recovery_receipt`) and promotes the frames that read the recovery,
+the same way it does for a receipt whose number was cut; a recovery shown
+under an event's title belongs to that event and is not reread for this. Lessons, the concert and skill purchases spend
 points rather than the turn, so when they follow the result the 30-second
 wait starts from the last of those screens instead, and they are not
 treated as competing actions; a training, race or outing screen in the
