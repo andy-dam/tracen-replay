@@ -297,7 +297,18 @@ two or three glyphs, so that crop's one-digit reading is taken from 70
 rather than 97 (`_SINGLE_DIGIT_CROP_CONFIDENCE`), marked `below_floor`;
 the turn ledger still wants the same value on two frames before it counts.
 A row a "N more" badge sits over is cropped under the badge, which leaves
-half a glyph, and stays unread.
+half a glyph, and stays unread as a value. Its award still reads beside the
+covered value: an award read alone in the band of a row a badge overlaps,
+with nothing else in the band read as a value, is that row's
+(`resolved_projected_under_badge`, basis `award_beside_badge_covered_value`)
+and counts on a result card without a current value. A merged line under the
+confidence floor whose amount is the start of the same row's projected
+component crop (`9+1` beside a crop reading 11) is that line cut short, not
+a disagreement; a confident line, or one whose amount the crop does not
+extend, still conflicts. A value followed by a bare plus (`5+`) is an award
+whose box was cut before its digits: the row is unresolved on that frame
+(`unresolved_cut_merged_panel_value`) rather than read as its value alone,
+so the training does not look as though it gave the row nothing.
 
 The support-chain level is the one field prone to a `Lvl O` misread. The
 parser deliberately does not map that letter to zero; it only accepts a

@@ -324,6 +324,26 @@ def plan(readings, events):
                     performance_fields=list(_PERFORMANCE_FIELDS), training_option=event.get('training_option'),
                     source_result_projection=True, reason='result_seen_without_any_signed_gain'))
             continue
+        # A performance row the committed card left unread (a badge over it,
+        # a merged read under the floor, the award's box cut before its
+        # digits) is owed the same bounded reread as a missing stat badge:
+        # the high-rate reader sees the award on the frames the sparse pass
+        # fell between. The card's accepted badges bind each reread frame to
+        # this result.
+        unread = event.get('performance_rows_unread')
+        unread = sorted(f for f in unread if f in _PERFORMANCE_FIELDS) if isinstance(unread, (list, tuple)) else []
+        if committed and unread and not missing:
+            accepted = sorted(f for f, n in (event.get('deltas') or {}).items()
+                              if f in _RESULT_GAIN_FIELDS and type(n) is int)
+            start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)
+            end=last_seen + _RESULT_RECOVERY_RADIUS_MS
+            if start<end and end-start<=_RESULT_RECOVERY_MAX_SPAN_MS:
+                fallback_requests.append(dict(
+                    start_ms=start, end_ms=end, owner_id=event['id'],
+                    fields=accepted or sorted(_RESULT_GAIN_FIELDS), performance_fields=unread,
+                    training_option=event.get('training_option'), source_result_projection=True,
+                    reason='performance_row_unread_on_committed_result'))
+            continue
         if not committed or not missing:
             continue
         start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)

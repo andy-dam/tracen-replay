@@ -121,7 +121,7 @@ has its own frame-rate and budget, spent across the whole run:
 
 | Module | Requested when | Rate | Budget |
 | --- | --- | --- | --- |
-| `training_gain_recovery` | a training result has conflicting gain digits, a source-bound candidate that was not accepted, a gain read on exactly one result frame, a committed result with no signed gain read at all, or a card seen only as a candidate on a frame or two with no gain read (the player skipped through it) | 60 fps | up to 96 windows and 120 s of source |
+| `training_gain_recovery` | a training result has conflicting gain digits, a source-bound candidate that was not accepted, a gain read on exactly one result frame, a committed result with no signed gain read at all, a card seen only as a candidate on a frame or two with no gain read (the player skipped through it), or a committed result whose stat badges were accepted while a performance row stayed unread (`performance_rows_unread`; reason `performance_row_unread_on_committed_result`, the accepted badges bind each reread frame to the card) | 60 fps | up to 96 windows and 120 s of source |
 | `receipt_recovery` (numeric receipt recovery) | an ordinary receipt caption names a field but its number is incomplete | 30 fps | up to 20 windows and 30 s of source |
 | `occluded_receipt_recovery` | a cursor or particle crosses a receipt line for friendship, hints, conditions, songs, or another effect | 16 fps | up to 128 windows and 240 s of source |
 | `boundary_state_recovery` | the turn ledger has no stats/performance opening for a turn, and an existing reading proves that panel was visible before the committed action, showing the turn's own date or countdown (or, in a finale race window, the phase label: the three finale races all count down from 1 and are told apart by the race advance that opened each window) | 60 fps | up to 12 windows, each padded 200 ms, totalling 6 s |
@@ -204,7 +204,12 @@ glyph, which also lets a name that wrapped onto the next line join. The
 repaired effect keeps what was read under `original_text` with
 `text_normalization: obstructed_hint_wording`. Without that geometry a damaged
 line is still blocked, and a damaged line still never asserts a receipt on its
-own.
+own. The same holds for the one fixed subject word of a stat, performance or
+energy receipt ("Yocals went up by 20." with the cursor parked over the V on
+every frame): when the overlays touch that word and no other, the line keeps
+its confidence (basis `overlay_covers_fixed_subject_word`) and the word is
+repaired only if exactly one of the fixed subjects is within one substitution
+or deletion of it, recorded as `text_normalization: obstructed_subject_word`.
 
 **Result banners and rereads.** A training's identity heading counts on
 result frames even when a level digit was not read. A result word missing
@@ -384,10 +389,12 @@ them, are:
   the surviving digits (after `by`) are a prefix of the difference and the
   caption's up/down direction agrees (`sole_number_cut_receipt_takes_turn_residual`);
 - for a positive performance difference, the turn's one training when its
-  card never read that row: a "N more" badge sat over it, or every frame
-  read it merged under the confidence floor (the training lists such rows
-  under `performance_rows_unread`); a row the card read as its current value
-  alone gave nothing and takes nothing;
+  card never read that row: a "N more" badge sat over it, every frame
+  read it merged under the confidence floor, or the award's box was cut
+  before its digits (`5+`, status `unresolved_cut_merged_panel_value`) (the
+  training lists such rows under `performance_rows_unread`, and the bounded
+  reread looks for the award first); a row the card read as its current
+  value alone gave nothing and takes nothing;
 - for a negative performance difference, the one lesson bought in the window
   whose cost was never observed (`sole_unpriced_lesson_takes_turn_residual`);
   a lesson whose cost was displayed on its confirmation dialog but never

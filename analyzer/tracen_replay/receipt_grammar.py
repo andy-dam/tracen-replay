@@ -94,6 +94,34 @@ def hint_wording(text):
     return f"{match['head']}level(s) for {match['name']}"
 
 
+_FIXED_SUBJECTS = ('Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Energy',
+                   'Dance', 'Passion', 'Vocals', 'Visuals', 'Composure')
+_READ_SUBJECTS = _FIXED_SUBJECTS + ('Vocal', 'Visual')
+
+
+def subject_receipt(text):
+    """Return a one-word receipt whose fixed subject carries one damaged glyph, or None.
+
+    "Yocals went up by 20." with the cursor over the V: the subject of a stat,
+    performance or energy receipt is one of a few fixed UI words, and within
+    one substitution or deletion exactly one of them fits. The direction, the
+    number and the punctuation come back exactly as they were read. A subject
+    that already reads as one of those words needs nothing; one that fits
+    none, or two, is left alone.
+
+    Repairing the word is only safe where something proves the damage came
+    from an obstruction rather than from the text; see
+    ``receipt_occlusion.subject_word_obstructed``.
+    """
+    match = re.fullmatch(r'(?P<subject>[A-Za-z]+) (?P<tail>went (?:up|down) by \d+[.!])', text)
+    if not match or match['subject'] in _READ_SUBJECTS:
+        return None
+    names = [name for name in _FIXED_SUBJECTS if fixed_word(match['subject'], name)]
+    if len(names) != 1:
+        return None
+    return f"{names[0]} {match['tail']}"
+
+
 def normalize(text, *, allow_boundary_repair=False):
     receipt = friendship_receipt(text)
     if receipt and receipt['boundary_repaired'] and not allow_boundary_repair:

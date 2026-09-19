@@ -36,6 +36,23 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         self.assertEqual(got[0]['fields'],['guts','power','skill_points','speed','stamina','wit'])
         # With another gain accepted, the single frame owns its own narrow reread.
         self.assertEqual(plan([result],[dict(event,deltas={'speed':1})])[0]['reason'],'single_frame_training_gain')
+    def test_a_performance_row_the_committed_card_left_unread_gets_the_bounded_reread(self):
+        # The stat badges were read and accepted; the Dance row's award was
+        # cut or merged under the floor on every sampled frame. The reread
+        # projects that row from frames the accepted badges bind to this card.
+        result=dict(row(1000,{'wit':6}),training_option='wit')
+        result['facts'].update(result_values={'wit':334,'skill_points':299},training_outcome='success')
+        event=dict(id='training',kind='training',training_option='wit',first_seen_ms=900,last_seen_ms=1400,
+                   deltas={'wit':6},conflicting_readings={},performance_rows_unread=['dance'])
+        got=plan([result],[event])
+        self.assertEqual(got,[dict(start_ms=400,end_ms=1900,owner_id='training',fields=['wit'],performance_fields=['dance'],
+                                   training_option='wit',source_result_projection=True,
+                                   reason='performance_row_unread_on_committed_result')])
+        # Every row read, no reread; no accepted badge at all, the whole-card reread as before.
+        self.assertEqual(plan([result],[dict(event,performance_rows_unread=[])]),[])
+        self.assertEqual([w['reason'] for w in plan([result],[dict(event,deltas={})])],
+                         ['committed_result_missing_signed_gain_observation'])
+
     def test_a_card_seen_only_as_a_candidate_with_no_gain_read_gets_the_bounded_reread(self):
         # The player skipped through the card: one frame, its banner unread,
         # no badge accepted. The high-rate reread sees what the sparse pass fell between.

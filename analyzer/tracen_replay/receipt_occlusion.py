@@ -104,6 +104,29 @@ def hint_wording_obstructed(line,overlays):
     return True
 
 
+def subject_word_obstructed(line,overlays):
+    """True when an obstruction on a one-word receipt covers only its subject.
+
+    "Vocals went up by 20." with the cursor parked over the V reads as
+    "Yocals went up by 20." on every frame. The direction and the number are
+    what the receipt says; the subject is one of a few fixed UI words. An
+    overlay that touches the subject and no other word can only have damaged
+    that word, which is what allows it, and nothing else, to be repaired.
+    """
+    from .receipt_grammar import subject_receipt
+    if not subject_receipt(line.get('text','')):return False
+    words=line.get('word_boxes')
+    if not isinstance(words,list) or len(words)<5 or not overlays:return False
+    if not all(isinstance(w,dict) and isinstance(w.get('box'),list) and len(w['box'])==4 for w in words):return False
+    if ' '.join(w.get('text','') for w in words)!=line.get('text'):return False
+    subject=words[0]['box']
+    def touches(overlay,box):
+        return (min(overlay[2],box[2])-max(overlay[0],box[0])>0
+                and min(overlay[3],box[3])-max(overlay[1],box[1])>0)
+    if not any(touches(overlay,subject) for overlay in overlays):return False
+    return not any(touches(overlay,w['box']) for overlay in overlays for w in words[1:])
+
+
 def recovered_leading_digit(line,alignments):
     """Padded OCR views can expose a digit missed by the tight alignment crop."""
     from .refine_receipts import consensus
@@ -520,6 +543,12 @@ def annotate(raw,pane):
             if hint_wording_obstructed(line,overlaps):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
                                      basis='overlay_covers_fixed_hint_wording',independent_frame_count=1))
+                continue
+            # Likewise an obstruction over the fixed subject word of a stat or
+            # performance receipt, its direction and number untouched.
+            if subject_word_obstructed(line,overlaps):
+                resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
+                                     basis='overlay_covers_fixed_subject_word',independent_frame_count=1))
                 continue
             animated_overlaps=[box for box in overlaps if box in particle_boxes]
             blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps,

@@ -1555,6 +1555,24 @@ def _performance_more_badge_bottom(parts, box):
     return bottom
 
 
+def _merged_amount_disagrees(raw_merged, projected_value, minimum_confidence):
+    """Whether a merged detector line's amount contradicts the projected component.
+
+    A merged line under the confidence floor whose amount is the start of the
+    component's ("9+1" beside a crop reading 11) is that line cut short, not
+    a second reading; a confident line, or one that says something else,
+    disagrees as before.
+    """
+    _value, amount, line = raw_merged
+    if amount == projected_value:
+        return False
+    try:
+        confidence = float(line.get('confidence', 0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return not (confidence < minimum_confidence and str(projected_value).startswith(str(amount)))
+
+
 def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regions=None):
     """Parse one labeled performance row without merging unrelated views.
 
@@ -1571,12 +1589,15 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
                   if _performance_panel_line_eligible(line)
                   and line.get('confidence', 0) >= minimum_confidence
                   and not any(line is badge for badge in badges)]
-    merged=[];current=[];projected=[]
+    merged=[];current=[];projected=[];cut=[]
     for line in candidates:
         text=re.sub(r'\s+', '', str(line.get('text', '')).strip())
         match=re.fullmatch(r'(\d{1,3})\+(\d{1,3})',text)
         if match:
             merged.append(dict(value=int(match[1]), amount=int(match[2]), observation=line))
+            continue
+        if re.fullmatch(r'\d{1,3}\+',text):
+            cut.append(line)
             continue
         match=re.fullmatch(_PANEL_VALUE,text)
         if match:current.append(dict(value=int(text),observation=line));continue
@@ -1663,7 +1684,7 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
         # excluded from semantic input.
         if raw_merged and (len(raw_merged) != 1
                            or raw_merged[0][0] != current_value
-                           or raw_merged[0][1] != projected_value):
+                           or _merged_amount_disagrees(raw_merged[0], projected_value, minimum_confidence)):
             evidence.update(status='unresolved_panel_value_conflict',
                             current=None, projected=None)
             return evidence
@@ -1690,7 +1711,8 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
         if raw_merged:
             if (len(raw_merged) != 1
                     or (current_values and next(iter(current_values)) != raw_merged[0][0])
-                    or (projected_values and next(iter(projected_values)) != raw_merged[0][1])):
+                    or (projected_values and _merged_amount_disagrees(
+                        raw_merged[0], next(iter(projected_values)), minimum_confidence))):
                 evidence.update(status='unresolved_panel_value_conflict', current=None,
                                 projected=None)
                 return evidence
@@ -1701,6 +1723,24 @@ def _performance_panel_field(lines, field, label_y, minimum_confidence=97, regio
     if raw_merged and localized_current and not (component_current or component_projected):
         evidence.update(status='unresolved_panel_value_shape_conflict', current=None,
                         projected=None)
+        return evidence
+
+    # A value followed by a bare plus ("5+") is the award's box cut before its
+    # digits: the row had an award this frame that was not read. The value
+    # alone would say the row gave nothing, so the row stays unresolved until
+    # a frame reads the award.
+    if cut and not merged and not projected_values:
+        evidence.update(status='unresolved_cut_merged_panel_value',current=None,projected=None)
+        return evidence
+
+    # A row under a "N more" badge shows its award beside a value the badge
+    # covers, so the award reads alone. With nothing else in the band read as
+    # a value and one amount read, it is that row's own.
+    if (not current_values and not merged and len(projected_values)==1
+            and _performance_more_badge_bottom(_performance_more_badge_parts(lines),band) is not None):
+        value,observations=next(iter(projected_values.items()))
+        evidence.update(status='resolved_projected_under_badge',basis='award_beside_badge_covered_value',
+                        current=None,projected=dict(value=value,observation=_performance_panel_record(observations[0])))
         return evidence
 
     if len(merged)==1 and not current and not projected:
@@ -1800,7 +1840,8 @@ def performance_panel_facts(lines, screen, stats, regions=None):
         if current is not None:
             points[field]=current['value']
         award=observation.get('projected')
-        if award is not None and current is not None:
+        if award is not None and (current is not None
+                                  or observation.get('status')=='resolved_projected_under_badge'):
             projected[field]=award['value']
     result={'performance_points':points}
     if screen=='training_preview':result['projected_performance_gains']=projected
@@ -2367,6 +2408,17 @@ def parse(raw):
             if (line['text'],tuple(line['box'])) not in obstructed:continue
             mended=hint_wording(line['text'])
             if mended:outcome_lines[position]=dict(line,text=mended,original_hint_wording=line['text'])
+    # The same for the fixed subject word of a stat or performance receipt
+    # the obstruction damaged ("Yocals went up by 20." under the cursor).
+    obstructed_subjects={(item.get('text'),tuple(item.get('box') or ()))
+                         for item in raw.get('resolved_receipt_occlusions') or []
+                         if isinstance(item,dict) and item.get('basis')=='overlay_covers_fixed_subject_word'}
+    if obstructed_subjects:
+        from .receipt_grammar import subject_receipt
+        for position,line in enumerate(outcome_lines):
+            if (line['text'],tuple(line['box'])) not in obstructed_subjects:continue
+            mended=subject_receipt(line['text'])
+            if mended:outcome_lines[position]=dict(line,text=mended,original_subject_word=line['text'])
     joined=[];index=0
     while index<len(outcome_lines):
         line=outcome_lines[index]
@@ -2442,6 +2494,10 @@ def parse(raw):
         if wording_line:
             effect['original_text']=wording_line['original_hint_wording']
             effect['text_normalization']='obstructed_hint_wording'
+        subject_line=next((l for l in joined if l['text']==effect['raw_text'] and l.get('original_subject_word')),None)
+        if subject_line:
+            effect['original_text']=subject_line['original_subject_word']
+            effect['text_normalization']='obstructed_subject_word'
     # Typewriter/fade frames can expose a prefix such as "... by 5" of "... by 57."
     # Numeric receipts require their visible sentence terminator in this layout,
     # except one whose number came from the gain popup: its line never had one.
