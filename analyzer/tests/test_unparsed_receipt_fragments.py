@@ -36,6 +36,20 @@ class FragmentTests(unittest.TestCase):
         ])
         self.assertEqual(got[0]['fragment_of'], 'Friendship with Light Hello is maxed out.')
 
+    def test_a_cut_line_under_another_events_title_is_not_a_fragment_of_the_receipt_before(self):
+        parsed = dict(kind='stat_change', field='skill_points', amount=100, raw_text='Skill Pts went up by 100.')
+        readings = [
+            row(1000, 'event_outcome', ocr={'neural': [line('Skill Pts went up by 100.')]}, effects=[parsed], context_title='After the Finals'),
+            row(4800, 'event_outcome', ocr={'neural': [line('Skill Pts went up by')]}, context_title='Twinkle Monthly'),
+        ]
+        got = unparsed_receipt_candidates(readings)
+        self.assertEqual([(c['raw_text'], c['status'], c['context_title']) for c in got],
+                         [('Skill Pts went up by', 'needs_review', 'Twinkle Monthly')])
+        # Under the same title, or with no title on either frame, it is the fragment it looks like.
+        for titles in (('After the Finals', 'After the Finals'), (None, 'Twinkle Monthly'), ('After the Finals', None)):
+            readings[0]['context_title'], readings[1]['context_title'] = titles
+            self.assertEqual(unparsed_receipt_candidates(readings)[0]['status'], 'ocr_fragment', titles)
+
     def test_out_of_scope_families_are_kept_but_not_reviewed(self):
         self.assertTrue(out_of_scope_family('Smart Falcon joined your cluse!'))
         self.assertTrue(out_of_scope_family('Friendship with Matikanefukukitaru went up by'))

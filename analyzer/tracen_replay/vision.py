@@ -2824,8 +2824,12 @@ def parse(raw):
         gains={}
         boundaries=(276,370,465,559,652,745,831)
         for i,field in enumerate(FIELDS):
-            candidates=[l for l in lines if l['confidence']>=97 and within(l,(boundaries[i],403,boundaries[i+1],431))]
-            matches=[re.fullmatch(r'(?:\(\s*)?\+\s*(\d+)(?:\s*\))?',l['text']) for l in candidates]
+            # A gain halved above the cap is drawn in parentheses, "(+6)", and
+            # reads a little lower than the plain "+12"; it is the game's own
+            # number for what the lesson will add.
+            candidates=[l for l in lines if within(l,(boundaries[i],403,boundaries[i+1],431))
+                        and (l['confidence']>=97 or (l['confidence']>=90 and re.fullmatch(r'\(\s*\+\s*\d+\s*\)',l['text'].strip())))]
+            matches=[re.fullmatch(r'(?:\(\s*)?\+\s*(\d+)(?:\s*\))?',l['text'].strip()) for l in candidates]
             numbers={int(m[1]) for m in matches if m}
             if len(numbers)==1:gains[field]=numbers.pop()
         confirmation_names=[l['text'].strip() for l in lines if within(l,(280,85,650,125)) and l['confidence']>=95 and any(c.isalpha() for c in l['text'])]

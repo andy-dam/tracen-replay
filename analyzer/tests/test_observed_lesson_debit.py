@@ -34,6 +34,27 @@ class ObservedLessonDebitTests(unittest.TestCase):
         self.assertEqual(got['balance_evidence'][1]['evidence'],['1500.png','1750.png'])
         self.assertEqual(rows,original)
 
+    def test_a_stat_the_dialog_projected_and_the_receipt_never_showed_is_awarded_as_worked_out(self):
+        rows,event=sequence()
+        # The dialog projected Speed +6 (halved above the cap) on both of its
+        # frames; the receipt showed the Guts line only.
+        for r in rows[2:4]:r['facts']['projected_stat_gains']={'speed':6,'guts':12,'stamina':0}
+        got=lesson_receipts(rows,[event])[0]
+        self.assertEqual(got['projected_stat_gains'],{'speed':6,'guts':12})
+        self.assertEqual(got['stat_gains_awarded_by_projection'],['speed'])
+        self.assertEqual(got['awarded_stats'],{'guts':12,'speed':6})
+        added=[e for e in event['effects'] if e.get('kind')=='stat_change']
+        self.assertEqual([(e['field'],e['amount'],e['amount_basis'],e['projection_evidence']) for e in added],
+                         [('speed',6,'lesson_confirmation_projection',['500.png','750.png'])])
+        # Field evidence is the receipt's own frame, so the award is timed at the receipt.
+        self.assertEqual(event['field_evidence']['stat_change|speed|'],['1000.png'])
+        # One frame's projection, or a projection of nothing, awards nothing.
+        rows,event=sequence()
+        rows[2]['facts']['projected_stat_gains']={'speed':6}
+        rows[3]['facts']['projected_stat_gains']={'speed':0}
+        got=lesson_receipts(rows,[event])[0]
+        self.assertEqual((got['projected_stat_gains'],got['stat_gains_awarded_by_projection'],event['deltas']),({},[],{'guts':12}))
+
     def test_the_debit_window_ends_where_the_new_balance_first_shows(self):
         rows,event=sequence()
         got=lesson_receipts(rows,[event])[0]

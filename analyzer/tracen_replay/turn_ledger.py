@@ -253,36 +253,105 @@ def _corroborated_source_state(readings, fields, channel, start_ms, action_time,
 
 _FINAL_SCREENS = frozenset({'career_completion_hub', 'career_finish_confirmation', 'career_summary'})
 _FINAL_VALUES = {'stats': 'final_attributes', 'performance': 'remaining_performance_points'}
+# A field the closing screens show under another name: the finish dialog
+# and the hub state the remaining skill points, not a final attribute.
+_FINAL_ALIASES = {('stats', 'skill_points'): 'current_skill_points'}
 
 
 def _final_screen_state(readings, fields, channel, action_time, uncertain):
     """The career's closing screens as the last turn's closing state.
 
     The Complete Career screens show the balances after everything the last
-    turn did, which is what a closing is. Every field of the channel must be
-    read there, the same values on two frames at least, and no frame of those
-    screens may read them differently; a screen that shows a stat only as a
-    chart gives no closing for that channel.
+    turn did, which is what a closing is. No one screen shows them all: the
+    trainee's details popup shows her five stats, the hub and the finish
+    dialog the skill points. So each field closes on its own, at the last
+    value read the same on two frames at least. Lone frames after that run
+    (a digit clipped while the popup closes) do not move the value when they
+    are fewer than the frames that agree, and are listed; a value a later
+    run of frames agrees on is the later state. A field the screens never
+    show as a number (a stat drawn only as a chart) gets no closing, and the
+    state names the frame behind every field it carries.
     """
     key = _FINAL_VALUES[channel]
-    seen = []
+    reads = {field: [] for field in fields}
     for index, row in enumerate(readings):
         time = row.get('source_timestamp_ms')
         if (type(time) is not int or time < action_time or row.get('screen') not in _FINAL_SCREENS
                 or uncertain(time, time) or not _proof(row.get('evidence'))):
             continue
-        values = (row.get('facts') or {}).get(key)
-        if not isinstance(values, dict) or any(type(values.get(f)) is not int for f in fields):
+        facts = row.get('facts') or {}
+        values = facts.get(key)
+        for field in fields:
+            value = values.get(field) if isinstance(values, dict) else None
+            ref = f'/gameplay_tracking/readings/{index}/facts/{key}/{field}'
+            alias = _FINAL_ALIASES.get((channel, field))
+            if type(value) is not int and alias and type(facts.get(alias)) is int:
+                value, ref = facts[alias], f'/gameplay_tracking/readings/{index}/facts/{alias}'
+            if type(value) is int:
+                reads[field].append(dict(time=time, index=index, value=value, ref=ref, row=row))
+    values, sources = {}, {}
+    for field, rows in reads.items():
+        rows.sort(key=lambda item: item['time'])
+        runs = []
+        for item in rows:
+            if runs and runs[-1][-1]['value'] == item['value']:
+                runs[-1].append(item)
+            else:
+                runs.append([item])
+        run, tail = None, []
+        for candidate in reversed(runs):
+            if len({item['time'] for item in candidate}) >= 2:
+                if len(candidate) > len(tail):
+                    run = candidate
+                break
+            tail = candidate + tail
+        if run is None:
             continue
-        seen.append((time, index, {f: values[f] for f in fields}, row))
-    if len({time for time, _, _, _ in seen}) < 2 or len({tuple(sorted(v.items())) for _, _, v, _ in seen}) != 1:
+        latest = run[-1]
+        values[field] = latest['value']
+        sources[field] = dict(source_ref=f"/gameplay_tracking/readings/{latest['index']}/facts", values_ref=latest['ref'],
+                              observed_at_ms=latest['time'], evidence=_proof(latest['row']['evidence']),
+                              supporting_source_refs=[f"/gameplay_tracking/readings/{item['index']}/facts" for item in run])
+        if tail:
+            sources[field]['later_lone_reads'] = [dict(values_ref=item['ref'], observed_at_ms=item['time'], value=item['value'])
+                                                  for item in tail]
+    if not values:
         return None
-    time, index, values, row = max(seen, key=lambda item: item[0])
-    source_ref = f'/gameplay_tracking/readings/{index}/facts'
-    return dict(source_ref=source_ref, values_ref=f'{source_ref}/{key}', observed_at_ms=time,
-                supporting_source_refs=[f'/gameplay_tracking/readings/{i}/facts' for _, i, _, _ in seen],
-                values=deepcopy(values), evidence=_proof(row['evidence']),
+    latest = max(sources.values(), key=lambda source: source['observed_at_ms'])
+    return dict(source_ref=latest['source_ref'], values_ref=latest['values_ref'].rsplit('/', 1)[0],
+                observed_at_ms=latest['observed_at_ms'],
+                supporting_source_refs=list(dict.fromkeys(ref for source in sources.values() for ref in source['supporting_source_refs'])),
+                values=values, field_sources=sources, evidence=latest['evidence'],
                 basis='final_screen_observation', exact_turn_boundary=False)
+
+
+def _closing_after_action(checkpoint, final, fields):
+    """The last turn's closing: each field's last observation after the action.
+
+    A hub panel after the action (a checkpoint) and the closing screens both
+    count; when both show a field, the later one is its closing. A closing
+    that takes every field from the one panel keeps the panel as its source;
+    one that draws on the closing screens names the frame behind each field.
+    """
+    if checkpoint is None or final is None:
+        return checkpoint or final
+    values, sources = {}, {}
+    for field in fields:
+        source = final['field_sources'].get(field)
+        if source is not None and (type(checkpoint['values'].get(field)) is not int
+                                   or source['observed_at_ms'] > checkpoint['observed_at_ms']):
+            values[field], sources[field] = final['values'][field], source
+        elif type(checkpoint['values'].get(field)) is int:
+            values[field] = checkpoint['values'][field]
+            sources[field] = dict(source_ref=checkpoint['source_ref'], values_ref=f"{checkpoint['values_ref']}/{field}",
+                                  observed_at_ms=checkpoint['observed_at_ms'], evidence=list(checkpoint['evidence']),
+                                  supporting_source_refs=[checkpoint['source_ref']])
+    if all(source['source_ref'] == checkpoint['source_ref'] for source in sources.values()):
+        return checkpoint
+    latest = max(sources.values(), key=lambda source: source['observed_at_ms'])
+    return dict(final, source_ref=latest['source_ref'], values_ref=latest['values_ref'].rsplit('/', 1)[0],
+                observed_at_ms=latest['observed_at_ms'], values=values, field_sources=sources, evidence=latest['evidence'],
+                supporting_source_refs=list(dict.fromkeys(ref for source in sources.values() for ref in source['supporting_source_refs'])))
 
 
 def _calendar_identity(row):
@@ -770,20 +839,23 @@ def build(report):
             candidates = [(i, c) for i, c in enumerate(checkpoints)
                           if action_time <= c['first_seen_ms'] <= duration
                           and not uncertain(c['first_seen_ms'], c['first_seen_ms'])]
+            panel = None
             if candidates:
                 i, checkpoint = max(candidates, key=lambda p: p[1]['first_seen_ms'])
                 source_ref = _ref(prefix, i)
-                last['states'][channel]['closing'] = dict(source_ref=source_ref,
+                panel = dict(source_ref=source_ref,
                     values_ref=f'{source_ref}/values', observed_at_ms=checkpoint['first_seen_ms'],
                     values=deepcopy(checkpoint['values']),
                     evidence=_proof(checkpoint.get('evidence')), basis='last_observed_state_after_action',
                     exact_turn_boundary=False)
-                last['states'][channel]['closing_basis'] = 'last_observed_state_not_inferred_completion'
-            elif (final := _final_screen_state(readings, fields, channel, action_time, uncertain)) is not None:
-                last['states'][channel]['closing'] = final
-                last['states'][channel]['closing_basis'] = 'final_screen_observation_after_action'
-            else:
+            closing = _closing_after_action(panel, _final_screen_state(readings, fields, channel, action_time, uncertain), fields)
+            last['states'][channel]['closing'] = closing
+            if closing is None:
                 last['states'][channel]['closing_basis'] = 'unavailable'
+            elif closing['basis'] == 'last_observed_state_after_action':
+                last['states'][channel]['closing_basis'] = 'last_observed_state_not_inferred_completion'
+            else:
+                last['states'][channel]['closing_basis'] = 'final_screen_observation_after_action'
     for turn in turns:
         actions = [e for e in timeline if e['turn_id'] == turn['id'] and e['kind'] == 'committed_action']
         if (turn.get('goal_race') and any(e.get('action_kind') == 'race' for e in actions)

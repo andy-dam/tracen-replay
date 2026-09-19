@@ -249,7 +249,7 @@ nothing recognizable in between; wrapped or wide-crop text that merely
 repeats the same receipt does not start a new event. Hint awards
 (`skill_hint_change`) get their own timeline entries with their first linked
 receipt time; ambiguous effect candidates (uncertain hint names, competing
-readings) are kept visible with `accepted_award: false` rather than counted. Two of those candidates are settled by corroboration across the run, the way a hint spelling only the recovery read is: a recipient spelling the run produced only on this receipt's frames, beside one spelling it produced on other receipts, joins that spelling (`name_resolution: uncorroborated_spelling_joins_recurring_recipient`), and a bare skill spelling read nowhere else, beside its circle-proven twin at the same amount, is that award with its glyph unread (`circle_glyph_unread_on_uncorroborated_base_reading`); so is a bare spelling whose every frame shows it at the slot where a neighbouring frame, within two seconds, shows the circle-proven twin, the two frame sets disjoint and the line boxes overlapping by at least seven tenths, since one line at one slot is one award (`same_slot_circle_glyph_unread`, the frames kept under `circle_glyph_unread_evidence`); a spelling the run read anywhere else stays a candidate, as does a spark slot whose name changed between views and the alternate spellings of an accepted spark, except a spelling that differs from the accepted one only by the circle glyph, which is that spark with its glyph unread (`same_slot_circle_glyph_unread`, the spelling kept under `circle_glyph_variants`). A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix, a bounded misread of about the same length (same subject, same digits, a couple of edits per dozen characters), or a word-by-word reading that may stop early (each word within a couple of edits, every number exactly as the receipt shows it) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
+readings) are kept visible with `accepted_award: false` rather than counted. Two of those candidates are settled by corroboration across the run, the way a hint spelling only the recovery read is: a recipient spelling the run produced only on this receipt's frames, beside one spelling it produced on other receipts, joins that spelling (`name_resolution: uncorroborated_spelling_joins_recurring_recipient`), and a bare skill spelling read nowhere else, beside its circle-proven twin at the same amount, is that award with its glyph unread (`circle_glyph_unread_on_uncorroborated_base_reading`); so is a bare spelling whose every frame shows it at the slot where a neighbouring frame, within two seconds, shows the circle-proven twin, the two frame sets disjoint and the line boxes overlapping by at least seven tenths, since one line at one slot is one award (`same_slot_circle_glyph_unread`, the frames kept under `circle_glyph_unread_evidence`); a spelling the run read anywhere else stays a candidate, as does a spark slot whose name changed between views and the alternate spellings of an accepted spark, except a spelling that differs from the accepted one only by the circle glyph, which is that spark with its glyph unread (`same_slot_circle_glyph_unread`, the spelling kept under `circle_glyph_variants`), and a spelling within the receipt-fragment bound of the accepted one (a glyph or two wrong, as when a popup floats over a letter), which is that spark misread on the frames that lost to the repeated spelling (kept under `misread_variants`). A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix, a bounded misread of about the same length (same subject, same digits, a couple of edits per dozen characters), or a word-by-word reading that may stop early (each word within a couple of edits, every number exactly as the receipt shows it) of a receipt parsed within five seconds under the same event title (when both frames show one; a cut line under the next event's title is its own receipt, not the tail of the one before), or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
 
 **Names the run knows.** Before the cross-event collapses, every outcome's
 supporter and skill names are checked against the run's own sightings
@@ -318,13 +318,18 @@ accounting then compares its five fields like any other opening, so a card
 that were not the trainee's would show up as unexplained differences on
 both sides of it.
 
-The last turn closes on the last hub panel observed after its action. When
-no panel follows, the Complete Career screens close it instead
-(`closing_basis` `final_screen_observation_after_action`): every field of
-the channel read there, the same values on two frames, no frame of those
-screens reading them differently. The screens show the balances after
-everything the turn did, which is what a closing is; a stat they show only
-as a chart gets no closing from them.
+The last turn closes on the last observation of each field after its
+action: the last hub panel, or the Complete Career screens (`closing_basis`
+`final_screen_observation_after_action`), whichever showed the field later.
+Those screens show the balances after everything the turn did, which is
+what a closing is, but no one screen shows them all: the trainee's details
+popup (`career_summary`, recognised by its title and the five stat labels)
+shows her five stats, the hub and the finish dialog the skill points. So
+each field closes on its own, at the value the last frame that read it
+shows, read the same on two frames at least, with no later frame of those
+screens reading it differently; the closing names the frame behind every
+field (`field_sources`). A field no screen shows as a number (a stat drawn
+only as a chart) gets no closing and ends the career as `career_end`.
 
 ## Causal accounting
 
@@ -411,6 +416,15 @@ with those reads and their frames, raised as a
 `worked_out_amount_contradicted_by_card` accounting issue, and listed in the
 review queue. The amount does not change: the stat bars decide it, and a read
 cut to its leading digits disagrees with nothing.
+
+When the learned reader confirms the card at the whole gain (the gain it
+read there, or the value the stat lands on) and the recognizer had read only
+that gain's leading digits, the reader completes the read: the digits stay
+counted, the reader's contribution is the rest (`learned_reader_completions`
+on the training, the contribution `completes` the read), and whatever the
+turn's difference still leaves is left open rather than folded into the
+training. A read that is not the gain's start contradicts the card, and the
+card then settles nothing.
 
 The opposite case is settled rather than flagged. A card read as two or three
 gains for one field (a digit cut by the sparkle, a glyph misread under the

@@ -17,6 +17,17 @@ def stat_changes(lines):
 
 
 class GainPopupTests(unittest.TestCase):
+    def test_a_label_that_starts_inside_the_numbers_lower_half_is_its_label(self):
+        # The tall digits' box reaches down over the name's first pixels; the
+        # name still sits under the number. Read off a real frame.
+        receipt = line('Skill Pts went up by', (315, 804, 512, 837), 96)
+        popup = line('+10', (471, 559, 633, 649), 100)
+        effects = stat_changes([receipt, popup, line('Skill Pts', (496, 636, 654, 688), 92)])
+        self.assertEqual([(e['field'], e['amount'], e['amount_basis']) for e in effects],
+                         [('skill_points', 10, 'gain_popup_on_same_frame')])
+        # A name that starts above the number's middle is not under it.
+        self.assertEqual(stat_changes([receipt, popup, line('Skill Pts', (496, 590, 654, 640), 92)]), [])
+
     def test_a_cut_number_is_read_from_the_labelled_popup(self):
         effects = stat_changes([RECEIPT, POPUP, LABEL])
         self.assertEqual(len(effects), 1)

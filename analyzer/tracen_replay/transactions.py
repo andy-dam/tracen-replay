@@ -969,7 +969,37 @@ def lesson_receipts(readings, outcomes):
                 for projected_effect in row['facts'].get('projected_effects',[]):
                     effect_key=(projected_effect['kind'],projected_effect.get('field'),projected_effect.get('amount')) if projected_effect.get('field') else (projected_effect['kind'],projected_effect['raw_text'])
                     if effect_key not in effect_keys:projected_effects.append(projected_effect);effect_keys.add(effect_key)
+            # The dialog's stat row states what the lesson will add in the
+            # game's own arithmetic (a gain halved above the cap shows as
+            # "(+6)"). When the receipt named the lesson but showed no line
+            # for a stat the dialog projected on two frames, the projection
+            # is the award: worked out from the request, not read off the
+            # receipt, and marked so on the effect.
+            projected_gains={}
+            for field in FIELDS:
+                seen={}
+                for r in group:
+                    value=(r['facts'].get('projected_stat_gains') or {}).get(field)
+                    if type(value) is int and value>0:seen.setdefault(value,set()).add(r['source_timestamp_ms'])
+                if len(seen)==1 and len(next(iter(seen.values())))>=2:projected_gains[field]=next(iter(seen))
+            awarded_by_projection=[]
+            event.setdefault('deltas',{})
+            # The award is realised at the receipt, so the stat's field
+            # evidence is the receipt's own frames (its timing); the dialog
+            # frames that projected it stay on the effect.
+            receipt_key='|'.join(str(effect.get(k) or '') for k in ('kind','field','name'))
+            receipt_frames=list((event.get('field_evidence') or {}).get(receipt_key) or [])
+            if not receipt_frames and event.get('evidence'):receipt_frames=[event['evidence']]
+            for field,gain in projected_gains.items():
+                if type(event['deltas'].get(field)) is int or any(e.get('kind')=='stat_change' and e.get('field')==field for e in event['effects']):continue
+                frames=[r['evidence'] for r in reversed(group) if (r['facts'].get('projected_stat_gains') or {}).get(field)==gain]
+                event['effects'].append(dict(kind='stat_change',field=field,amount=gain,raw_text=None,confidence=None,
+                    amount_basis='lesson_confirmation_projection',projection_evidence=frames))
+                event['deltas'][field]=gain
+                event.setdefault('field_evidence',{})[f'stat_change|{field}|']=list(receipt_frames)
+                awarded_by_projection.append(field)
             purchases.append(dict(id=f'lesson-{len(purchases)+1:04d}',kind='lesson_purchase',name=effect['name'],
+                projected_stat_gains=projected_gains,stat_gains_awarded_by_projection=awarded_by_projection,
                 source_timestamp_ms=event['first_seen_ms'],receipt_event_id=event['id'],
                 # The points leave the balance when Learn is pressed, between the
                 # request and the receipt; the accounting dates the debit there.

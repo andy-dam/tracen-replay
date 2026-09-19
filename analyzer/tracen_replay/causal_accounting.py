@@ -376,6 +376,11 @@ def _learned_gain_contradictions(event, readings, field, amount):
     return [dict(gain=gain, evidence=frames) for gain, frames in sorted(found.items())]
 
 
+def _clipped_start(read, total):
+    """True when a badge read is the leading digit(s) of the whole gain the card showed."""
+    return type(read) is int and read > 0 and str(total).startswith(str(read)) and len(str(total)) > len(str(read))
+
+
 def _value_after_training(row, contributions, event, gain):
     """A stat's value once a training's gain lands, from the turn's opening value.
 
@@ -507,8 +512,11 @@ def build(report):
                 amount = effect.get('amount')
                 if type(amount) is int:
                     effect_totals[(channel, field)] += amount
+                # A lesson's stat the receipt never showed, awarded from the
+                # dialog's projection, is worked out, not observed.
                 add(ref, parent, event, channel, field, amount, evidence,
-                    'observed_receipt', conflicts=_field_conflicts(event, channel, field))
+                    'lesson_confirmation_projection' if effect.get('amount_basis') == 'lesson_confirmation_projection' else 'observed_receipt',
+                    conflicts=_field_conflicts(event, channel, field))
             else:
                 context.append(dict(source_ref=ref, event_ref=parent, effect=deepcopy(effect),
                                     evidence=_proof(evidence), accounting_role='outside_reconciled_numeric_channels'))
@@ -645,19 +653,34 @@ def build(report):
                     fields=resource_rows, complete_event_history=False, independent_effect_verification=False))
         return out
     comparisons = checkpoint_comparisons()
+    def resolve(ref):
+        value = report
+        for token in ref.lstrip('/').split('/'):
+            token = token.replace('~1','/').replace('~0','~')
+            value = value[int(token)] if isinstance(value,list) else value[token]
+        return value
+
     def observed_state(state):
         if state is None:
             return None
-        value = report
-        for token in state['values_ref'].lstrip('/').split('/'):
-            token = token.replace('~1','/').replace('~0','~')
-            value = value[int(token)] if isinstance(value,list) else value[token]
+        summary = state['values']
+        sources = state.get('field_sources')
+        if isinstance(sources, dict) and sources:
+            # A closing read off the career's ending screens carries each
+            # field from the frame that showed it; every field is bound to
+            # its own frame, and the state carries only the fields it read.
+            if (not isinstance(summary, dict) or set(summary) != set(sources)
+                    or any(resolve(sources[field]['values_ref']) != amount for field, amount in summary.items())):
+                raise ValueError(
+                    'Turn state summary disagrees with its field sources: '
+                    f"{state['values_ref']} at {state.get('observed_at_ms')} ms; ledger {summary!r}")
+            return dict(values=dict(summary),observed_at_ms=state['observed_at_ms'],values_ref=state['values_ref'])
+        value = resolve(state['values_ref'])
         # A promoted opening endpoint keeps only the fields that were read as
         # integers on its source row, while the row itself may still carry
         # an unreadable field as ``None``.  The summary is source-bound when
         # every value it states equals the referenced row's value; it must not
         # claim a field the row does not carry.
-        summary = state['values']
         if (not isinstance(value, dict) or not isinstance(summary, dict)
                 or any(field not in value or value[field] != amount for field, amount in summary.items())):
             raise ValueError(
@@ -687,6 +710,13 @@ def build(report):
             usable = start is not None and end is not None and start < end
             if usable:
                 resource_rows = compare_fields(channel,before,after,start,end)
+                if following is None:
+                    # The closing screens showed some fields and not others:
+                    # a field they never showed ends with the career, it is
+                    # not an endpoint a later screen could still supply.
+                    for row in resource_rows:
+                        if row['status'] == 'missing_endpoint' and row['after'] is None:
+                            row['status'] = 'career_end'
             else:
                 if before is None and (first_shown[channel] is None or i < first_shown[channel]):
                     gap = 'not_yet_shown'
@@ -868,13 +898,14 @@ def build(report):
                     possible.append(('training', training_parent, training_event))
                 else:
                     mode = _clipped_badge_mode(training_event, data['readings'], read_key, field, residual)
-                    if mode is None and channel == 'stats' and _learned_gain_frames(
-                            training_event, data['readings'], field, residual,
-                            _value_after_training(row, contributions, training_event, residual)):
-                        # The recognizer read the panel without this stat, but
-                        # the learned reader saw exactly the difference as its
-                        # gain on the card, or the value it lands on: the
-                        # training owns it.
+                    panel_read = (training_event.get(read_key) or {}).get(field)
+                    if (mode is None and channel == 'stats' and (panel_read is None or _clipped_start(panel_read, residual))
+                            and _learned_gain_frames(training_event, data['readings'], field, residual,
+                                                     _value_after_training(row, contributions, training_event, residual))):
+                        # The recognizer read the panel without this stat, or
+                        # read only the start of its badge, but the learned
+                        # reader saw exactly the difference as its gain on the
+                        # card, or the value it lands on: the training owns it.
                         mode = 'learned_gain'
                     if mode:
                         possible.append(('training', training_parent, training_event, mode))
@@ -916,11 +947,19 @@ def build(report):
                 learned = (_learned_gain_frames(owner, data['readings'], field, gain, value_after)
                            if channel == 'stats' else [])
                 if learned:
-                    owner.setdefault('learned_reader_gains', {})[field] = residual
+                    amount = residual
+                    if mode != 'clipped_badge_prefix' and _clipped_start(read, gain):
+                        # The card showed the whole gain; the digits the
+                        # recognizer read are its clipped start and stay
+                        # counted, so the reader adds only the rest. What the
+                        # turn's difference still leaves stays open.
+                        amount = gain - read
+                        owner.setdefault('learned_reader_completions', {})[field] = dict(read=read, total=gain)
+                    owner.setdefault('learned_reader_gains', {})[field] = amount
                     owner.setdefault('learned_reader_frames', {})[field] = learned
                     if not _learned_gain_frames(owner, data['readings'], field, gain):
                         owner.setdefault('learned_reader_values', {})[field] = value_after
-                    add(f'{parent}/learned_reader_gains/{field}', parent, owner, channel, field, residual, learned,
+                    add(f'{parent}/learned_reader_gains/{field}', parent, owner, channel, field, amount, learned,
                         'observed_learned_training_gain')
                     if channel == 'stats':
                         _settle_conflicting_reads(owner, field, gain, 'learned_reader_on_card')
@@ -949,7 +988,7 @@ def build(report):
                         contributions[-1]['contradicted_reads'] = contradicted
                     elif channel == 'stats':
                         _settle_conflicting_reads(owner, field, gain, 'turn_difference')
-                if mode == 'clipped_badge_prefix':
+                if mode == 'clipped_badge_prefix' or field in (owner.get('learned_reader_completions') or {}):
                     # The read digits stay as observed; the completion is a
                     # second, flagged contribution on the same field, not a claim
                     # competing with it.

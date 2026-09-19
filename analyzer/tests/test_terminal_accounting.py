@@ -82,7 +82,33 @@ class TerminalAccountingTests(unittest.TestCase):
         availability = {f['field']: f for f in result['turn_transitions'][0]['endpoint_availability']}
         self.assertEqual(availability['skill_points']['terminal_observation'], 'observed')
         self.assertEqual(availability['speed']['terminal_observation'], 'not_observed')
-        self.assertEqual(result['summary']['turn_field_status_counts']['missing_endpoint'], 1)
+        # No later screen can supply the end of the career's last turn.
+        self.assertEqual(result['summary']['turn_field_status_counts']['career_end'], 1)
+
+    def test_a_closing_read_across_the_ending_screens_is_bound_field_by_field(self):
+        report = fixture()
+        five = ('speed', 'stamina', 'power', 'guts', 'wit')
+        report['gameplay_tracking']['readings'] = [
+            dict(evidence='popup.png', source_timestamp_ms=300, screen='career_summary',
+                 facts=dict(final_attributes=dict(speed=150, stamina=100, power=100, guts=100, wit=100))),
+            dict(evidence='hub.png', source_timestamp_ms=320, screen='career_completion_hub', facts=dict(current_skill_points=40))]
+        closing = report['turn_ledger']['turns'][0]['states']['stats']['closing']
+        closing.update(values=dict(speed=150, stamina=100, power=100, guts=100, wit=100, skill_points=40), observed_at_ms=320,
+                       values_ref='/gameplay_tracking/readings/1/facts',
+                       field_sources={**{f: dict(values_ref=f'/gameplay_tracking/readings/0/facts/final_attributes/{f}', observed_at_ms=300) for f in five},
+                                      'skill_points': dict(values_ref='/gameplay_tracking/readings/1/facts/current_skill_points', observed_at_ms=320)})
+        rows = {f['field']: f for f in build(report)['turn_transitions'][0]['fields']}
+        self.assertEqual((rows['speed']['after'], rows['speed']['status']), (150, 'unexplained_change'))
+        self.assertEqual((rows['stamina']['after'], rows['stamina']['status']), (100, 'balanced_observations'))
+        self.assertEqual((rows['skill_points']['after'], rows['skill_points']['status']), (40, 'unexplained_change'))
+        # A field the screens never showed ends with the career.
+        closing['values'].pop('guts'); closing['field_sources'].pop('guts')
+        rows = {f['field']: f for f in build(report)['turn_transitions'][0]['fields']}
+        self.assertEqual((rows['guts']['after'], rows['guts']['status']), (None, 'career_end'))
+        # A value that is not what its own frame shows is refused.
+        closing['values']['speed'] = 151
+        with self.assertRaises(ValueError):
+            build(report)
 
 
 if __name__ == '__main__':

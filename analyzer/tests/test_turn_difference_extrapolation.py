@@ -221,6 +221,46 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         completion = next(c for c in result['contributions'] if c['basis'] == 'observed_learned_training_gain')
         self.assertEqual(completion['completes'], '/gameplay_tracking/events/0/deltas/speed')
 
+    def landing(self, doc, **values):
+        """The banner frame as a result frame on which the learned reader read the stat land on these values."""
+        fields = {field: dict(text=f'{value}/', confidence=0.99, value=value, gain=None) for field, value in values.items()}
+        doc['gameplay_tracking']['readings'][1].update(screen='training_result', facts=dict(
+            learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=fields)))
+
+    def test_the_landing_value_completes_a_clipped_badge_and_leaves_the_rest_unexplained(self):
+        # The badge read 6 on a card that landed on 166 from 100: the training
+        # gave 66. The turn rose by 72, so the other 6 is not the training's.
+        doc = report(deltas=dict(speed=6, guts=13, skill_points=8))
+        doc['gameplay_tracking']['checkpoints'][1]['values']['speed'] = 172
+        doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['speed'] = 172
+        self.landing(doc, speed=166)
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(speed=60))
+        self.assertEqual(event['learned_reader_values'], dict(speed=166))
+        self.assertEqual(event['learned_reader_completions'], dict(speed=dict(read=6, total=66)))
+        row = turn_field(result, 'speed')
+        self.assertEqual((row['status'], row['direct_change'], row['unresolved_change']), ('unexplained_change', 66, 6))
+        completion = next(c for c in result['contributions'] if c['basis'] == 'observed_learned_training_gain')
+        self.assertEqual((completion['amount'], completion['completes']), (60, '/gameplay_tracking/events/0/deltas/speed'))
+        # A badge read that is not the start of the landing gain contradicts
+        # it: the card settles nothing and the difference stays open.
+        doc = report(deltas=dict(speed=9, guts=13, skill_points=8))
+        doc['gameplay_tracking']['checkpoints'][1]['values']['speed'] = 172
+        doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['speed'] = 172
+        self.landing(doc, speed=166)
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'speed')['status'], 'unexplained_change')
+        # With no badge read at all, the landing value is the whole gain.
+        doc = report(deltas=dict(guts=13, skill_points=8))
+        doc['gameplay_tracking']['checkpoints'][1]['values']['speed'] = 166
+        doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['speed'] = 166
+        self.landing(doc, speed=166)
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['learned_reader_gains'], dict(speed=66))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
+
     def card(self, doc, *frames, inside=True, screen='training_result'):
         """Result frames of the training's card, each with what the learned reader read per field."""
         if inside:

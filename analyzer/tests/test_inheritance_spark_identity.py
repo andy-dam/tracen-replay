@@ -77,10 +77,11 @@ class InheritanceSparkIdentityTests(unittest.TestCase):
         self.assertIn('Straightaway Recovery', names)
         self.assertNotIn('Straightaway Recover', names)
         candidates = {candidate['effect']['name']
-                      for candidate in current['ambiguous_effect_candidates']}
-        self.assertIn('Straightaway Recover', candidates)
+                      for candidate in current.get('ambiguous_effect_candidates', [])}
+        self.assertNotIn('Straightaway Recover', candidates)
         recovery = next(effect for effect in current['effects']
                         if effect.get('name') == 'Straightaway Recovery')
+        self.assertEqual(recovery['misread_variants'], ['Straightaway Recover'])
         self.assertEqual(recovery['observed_name_candidates'],
                          ['Straightaway Recovery', 'Straightaway Recover'])
         self.assertEqual(
@@ -114,6 +115,34 @@ class InheritanceSparkIdentityTests(unittest.TestCase):
         self.assertEqual(current['effects'][0]['circle_glyph_variants'], ['Alpha Corner'])
         self.assertEqual(current['effects'][0]['observed_name_candidates'], ['Alpha Corner ○', 'Alpha Corner'])
 
+    def test_a_spelling_within_the_fragment_bound_in_the_same_tracked_slot_is_the_spark_misread(self):
+        # A popup floated over one letter on one frame; the repeated spelling won.
+        first = spark('Straightaway Acceleration')
+        variant = spark('Straightaway Acceler tion')
+        rows = {
+            'a0': row(1000, 'a0', [first], target_box=(316, 900, 695, 929)),
+            'a1': row(1250, 'a1', [first]),
+            'b1': row(1500, 'b1', [variant]),
+        }
+        current = event([first, variant], {first['name']: ['a0', 'a1'], variant['name']: ['b1']})
+        resolve(current, rows)
+        self.assertEqual([effect['name'] for effect in current['effects']], ['Straightaway Acceleration'])
+        self.assertNotIn('ambiguous_effect_candidates', current)
+        self.assertEqual(current['effects'][0]['misread_variants'], ['Straightaway Acceler tion'])
+        self.assertEqual(current['effects'][0]['observed_name_candidates'], ['Straightaway Acceleration', 'Straightaway Acceler tion'])
+        # A spelling beyond the bound is another name and stays a candidate.
+        first = spark('Straightaway Acceleration')
+        variant = spark('Straightaway Recovery')
+        rows = {
+            'a0': row(1000, 'a0', [first], target_box=(316, 900, 695, 929)),
+            'a1': row(1250, 'a1', [first]),
+            'b1': row(1500, 'b1', [variant]),
+        }
+        current = event([first, variant], {first['name']: ['a0', 'a1'], variant['name']: ['b1']})
+        resolve(current, rows)
+        self.assertEqual([c['reason'] for c in current['ambiguous_effect_candidates']], ['alternate_inheritance_spark_identity'])
+        self.assertNotIn('misread_variants', current['effects'][0])
+
     def test_stationary_anchor_resolves_only_with_independent_repeated_name(self):
         first = spark('Alpha Complete')
         variant = spark('Alpha Comple')
@@ -131,9 +160,10 @@ class InheritanceSparkIdentityTests(unittest.TestCase):
                          ['Alpha Complete'])
         self.assertEqual(current['effects'][0]['observed_name_candidates'],
                          ['Alpha Complete', 'Alpha Comple'])
-        self.assertEqual({candidate['effect']['name']
-                          for candidate in current['ambiguous_effect_candidates']},
-                         {'Alpha Comple'})
+        # The cut-short spelling is the same name within the fragment bound:
+        # recorded on the winner, not raised as a candidate.
+        self.assertEqual(current['effects'][0]['misread_variants'], ['Alpha Comple'])
+        self.assertNotIn('ambiguous_effect_candidates', current)
         self.assertEqual(current['resolved_reading_conflicts'][0]['accepted_name'],
                          'Alpha Complete')
         self.assertEqual(current['resolved_reading_conflict_details'][0]['continuity']['mode'],

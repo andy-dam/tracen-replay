@@ -190,8 +190,10 @@ def gain_popup(lines, field, direction):
             if (label_confidence is None or label_confidence < 90
                     or str(label.get('text', '')).strip().casefold() not in labels):
                 continue
-            # The name sits just under the number and overlaps it sideways.
-            if not (box[3] - 10 <= label_box[1] <= box[3] + 40):
+            # The name sits just under the number and overlaps it sideways:
+            # its top starts in the number's lower half at the earliest (the
+            # tall digits' box reaches down over the name's first pixels).
+            if not (box[1] + (box[3] - box[1]) // 2 <= label_box[1] <= box[3] + 40):
                 continue
             if label_box[2] < box[0] - 40 or label_box[0] > box[2] + 40:
                 continue
@@ -446,6 +448,10 @@ def classify(text, header, result_grid=False, preview=False):
         return 'concert_confirmation'
     if 'great success' in lower and not result_grid:
         return 'concert_result_candidate'
+    if 'umamusume details' in lower and sum(bool(re.search(rf'\b{label}\b', text)) for label in ('Speed', 'Stamina', 'Power', 'Guts', 'Wit')) >= 4:
+        # The trainee's details popup at the end of the career: her five
+        # final attributes in a row under her name, then her aptitudes.
+        return 'career_summary'
     if 'complete a career playthrough' in lower:
         return 'career_summary'
     if 'finish this career playthrough' in lower:

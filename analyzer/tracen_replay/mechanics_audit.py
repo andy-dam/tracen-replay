@@ -138,19 +138,29 @@ def _words_fold(words,full_words):
     return True
 
 
+def _same_scene(entry,title):
+    """A fragment repeats a receipt of its own scene: when both frames name the event on screen, the names agree."""
+    mine=entry.get('context_title')
+    return mine is None or title is None or mine==title
+
+
 def unparsed_receipt_candidates(readings):
     """Expose plausible missed receipts without guessing their meaning or value.
 
     A line that is a fragment of a receipt parsed within a few seconds is
     kept for the record but marked ``ocr_fragment`` with the receipt it
-    repeats; it is not a missed effect and does not need a review.
+    repeats; it is not a missed effect and does not need a review. The
+    receipt must be of the same scene: a cut line under one event's title
+    is not a fragment of a receipt shown under another's, however close in
+    time (a "Skill Pts went up by" under the next event is its own receipt,
+    not the tail of the "+100" before it).
     """
     from .gameplay import effects_from_lines
     result=[];latest={};parsed=[]
     for row in readings:
         for e in row.get('effects',[]):
             full=e.get('raw_text') or e.get('original_text')
-            if isinstance(full,str) and full.strip():parsed.append((row['source_timestamp_ms'],full))
+            if isinstance(full,str) and full.strip():parsed.append((row['source_timestamp_ms'],full,row.get('context_title')))
     for row in readings:
         if row['screen'] not in ('unknown','event_outcome'):continue
         for line in row.get('ocr',{}).get('neural',[]):
@@ -160,17 +170,20 @@ def unparsed_receipt_candidates(readings):
             key=line['text'];time=row['source_timestamp_ms'];entry=latest.get(key)
             if not entry or time-entry['last_seen_ms']>750:
                 entry=dict(first_seen_ms=time,last_seen_ms=time,raw_text=key,observations=0,evidence=[],
+                           context_title=row.get('context_title'),
                            status='needs_review',scope='Possible unparsed receipt or OCR fragment; not an asserted missed effect.')
                 result.append(entry);latest[key]=entry
             entry['last_seen_ms']=time;entry['observations']+=1
             entry['evidence'].append(row['evidence'])
     for entry in result:
-        nearby=[full for time,full in parsed if entry['first_seen_ms']-_FRAGMENT_WINDOW_MS<=time<=entry['last_seen_ms']+_FRAGMENT_WINDOW_MS]
+        nearby=[full for time,full,title in parsed if entry['first_seen_ms']-_FRAGMENT_WINDOW_MS<=time<=entry['last_seen_ms']+_FRAGMENT_WINDOW_MS
+                and _same_scene(entry,title)]
         full=fragment_of(entry['raw_text'],nearby)
         if full is None:
             # A fragment of a longer unparsed line seen nearby is a fragment too.
             longer=[o['raw_text'] for o in result if o is not entry and len(o['raw_text'])>len(entry['raw_text'])
-                    and entry['first_seen_ms']-_FRAGMENT_WINDOW_MS<=o['first_seen_ms']<=entry['last_seen_ms']+_FRAGMENT_WINDOW_MS]
+                    and entry['first_seen_ms']-_FRAGMENT_WINDOW_MS<=o['first_seen_ms']<=entry['last_seen_ms']+_FRAGMENT_WINDOW_MS
+                    and _same_scene(entry,o.get('context_title'))]
             full=fragment_of(entry['raw_text'],longer)
         if full is not None:
             entry['status']='ocr_fragment';entry['fragment_of']=full

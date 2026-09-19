@@ -172,7 +172,9 @@ A stat receipt can lose its number: the game draws the number in a colour
 the recognizer drops, so the line reads "Power went up by" or "Guts went
 up by T0." While such a receipt shows, the game floats the gain over the
 scene as a tall signed popup ("+5", at least 60px high) with the stat's
-name in a line just under it, overlapping it sideways. `gameplay.gain_popup`
+name in a line just under it (its top no higher than the number's middle,
+since the tall digits' box reaches down over the name), overlapping it
+sideways. `gameplay.gain_popup`
 reads the number from that popup when exactly one popup on the frame names
 the receipt's stat with the sign the receipt states; the effect is then an
 observed amount with `amount_basis` `gain_popup_on_same_frame` and both
@@ -266,6 +268,18 @@ unresolved character after an eight-character, two-word shared prefix,
 can be retained as a variant of the same purchase; an unrelated name is
 never folded in.
 
+The confirmation dialog's stat row states what the lesson will add in the
+game's own arithmetic: "+12" under a stat, or "(+6)" when the gain is
+halved above the cap (read from 90 in that parenthesised form, since it
+reads a little lower than the plain number). The receipt's own lines are
+the award. When the receipt named the lesson but showed no line for a stat
+the dialog projected on two of its frames, the projection is the award,
+carried on the receipt event as a `stat_change` with `amount_basis`
+`lesson_confirmation_projection` and listed on the purchase under
+`stat_gains_awarded_by_projection`; the accounting counts it as worked
+out, not observed, so the browser shows it as an amount not read
+directly.
+
 ## Concert bonus panels
 
 The Concert Info dialog's "Concert Bonus Changes" block lists three
@@ -306,6 +320,14 @@ counter was assigned to a bundle with one named target and those bundles
 sum to the charge the receipt read; `purchased_skill_names` then lists
 every purchased skill. Otherwise the list is partial, and the browser says
 so as a note when the charge was read and as a warning when it was not.
+
+The final summary is the trainee's details popup at the end of the
+career, recognised by its "Umamusume Details" title with at least four of
+the five stat labels on the screen. Her five final attributes are read
+from the row under those labels, one number at confidence 97 or higher per
+stat, and close the career's last turn field by field (see the pipeline
+notes on the last turn's closing); the popup shows no skill points, which
+close on the completion hub or the finish dialog instead.
 
 The final-summary skill panel is read separately from any purchase. It
 requires the Skills, Inspiration and Career Info tabs together with at

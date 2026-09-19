@@ -318,6 +318,12 @@ def _circle_variant(left, right):
     return left != right and strip(left) == strip(right) and bool(strip(left))
 
 
+def _bounded_misread(variant, accepted):
+    """True when a losing spelling is the accepted name within the receipt-fragment bound."""
+    from .mechanics_audit import fragment_of
+    return variant != accepted and fragment_of(str(variant), [str(accepted)]) is not None
+
+
 def _append_candidate(event, effect, reason):
     field_evidence = event.get('field_evidence', {})
     key = _field(effect)
@@ -469,6 +475,14 @@ def resolve(event, rows_by_evidence):
                 # glyph: one spark, its glyph unread on some frames.
                 winner['name_resolution'] = 'same_slot_circle_glyph_unread'
                 winner.setdefault('circle_glyph_variants', []).append(effect['name'])
+                remove.add(id(effect))
+                continue
+            if _bounded_misread(effect['name'], winner['name']):
+                # The same tracked slot read with a glyph or two wrong (a
+                # popup floating over a letter): the spark, misread on the
+                # frames that lost to the repeated spelling. The same bound
+                # folds a receipt line into the receipt it repeats.
+                winner.setdefault('misread_variants', []).append(effect['name'])
                 remove.add(id(effect))
                 continue
             _append_candidate(event, effect, 'alternate_inheritance_spark_identity')

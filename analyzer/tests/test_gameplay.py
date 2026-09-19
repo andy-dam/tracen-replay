@@ -85,6 +85,9 @@ class GameplayTests(unittest.TestCase):
         self.assertEqual(classify('Landscape Portrait Girls Legend U',''),'playback_confirmation')
     def test_owned_summary_not_skill_purchase(self):
         self.assertEqual(classify('Complete a Career playthrough Professor of Curvature',''),'career_summary')
+    def test_the_trainees_details_popup_is_the_final_summary(self):
+        self.assertEqual(classify('Umamusume Details [Ashen Miracle] Oguri Cap Speed Stamina Power Guts Wit 1570 726 1045 545 1138 Track Turf Dirt',''),'career_summary')
+        self.assertEqual(classify('Umamusume Details Oguri Cap Epithet Change Skills Inspiration',''),'unknown')
     def test_skill_receipt_separate_from_selection(self):
         self.assertEqual(classify('Skills Learned','Learn'),'skill_receipt')
         self.assertEqual(classify('Obtained Skill Points 40','Learn'),'skill_selection')

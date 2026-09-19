@@ -508,19 +508,93 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertEqual((state['closing']['values'], state['closing']['observed_at_ms'], state['closing']['basis']),
                          (points, 2400, 'final_screen_observation'))
         self.assertEqual(state['closing']['values_ref'], '/gameplay_tracking/readings/7/facts/remaining_performance_points')
-        # One frame, disagreeing frames, an incomplete row, or frames before
-        # the action give no closing.
-        for readings in ([completion(2300)],
-                         [completion(2300), completion(2400, dict(points, dance=125))],
-                         [completion(2300, dict(points, dance=None)), completion(2400, dict(points, dance=None))],
-                         [completion(2000), completion(2050)]):
+        # One frame, or frames before the action, give no closing.
+        def closing_for(readings):
             source = report()
             source['gameplay_tracking']['turn_action_receipts'] = [dict(kind='rest', source_timestamp_ms=2100)]
             source['gameplay_tracking']['readings'] = sorted(source['gameplay_tracking']['readings'] + readings,
                                                              key=lambda row: row['source_timestamp_ms'])
-            state = build(source)['turns'][-1]['states']['performance']
+            return build(source)['turns'][-1]['states']['performance']
+
+        for readings in ([completion(2300)], [completion(2000), completion(2050)]):
+            state = closing_for(readings)
             self.assertIsNone(state['closing'], readings)
             self.assertEqual(state['closing_basis'], 'unavailable', readings)
+        # A field the last frame reads differently, or no frame reads, stays
+        # open while the other fields close.
+        for readings in ([completion(2300), completion(2400, dict(points, dance=125))],
+                         [completion(2300, dict(points, dance=None)), completion(2400, dict(points, dance=None))]):
+            state = closing_for(readings)
+            self.assertEqual(state['closing']['values'], {k: v for k, v in points.items() if k != 'dance'}, readings)
+            self.assertNotIn('dance', state['closing']['field_sources'], readings)
+            self.assertEqual(state['closing_basis'], 'final_screen_observation_after_action', readings)
+
+    def test_each_stat_closes_on_the_last_ending_screen_that_shows_it(self):
+        def screen(time, kind, **facts):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen=kind,
+                        stats=dict(calendar_text=None, turns_remaining_to_goal=None), facts=facts)
+
+        five = dict(speed=1570, stamina=726, power=1045, guts=545, wit=1138)
+        # The hub draws the stats as a chart and states the skill points; the
+        # trainee's details popup states the five stats; the finish dialog
+        # states the skill points left after the purchases made on the hub.
+        hub = lambda time, points: screen(time, 'career_completion_hub', current_skill_points=points,
+                                          final_attributes=dict(dict.fromkeys(five), skill_points=points))
+        popup = lambda time: screen(time, 'career_summary', final_attributes=dict(five))
+        finish = lambda time, points: screen(time, 'career_finish_confirmation', current_skill_points=points)
+        source = report(); data = source['gameplay_tracking']
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=2100)]
+        data['readings'] += [hub(2300, 2165), hub(2350, 2165), popup(2400), popup(2450), hub(2500, 10), hub(2550, 10), finish(2600, 10)]
+        state = build(source)['turns'][-1]['states']['stats']
+        self.assertEqual(state['closing_basis'], 'final_screen_observation_after_action')
+        self.assertEqual(state['closing']['values'], dict(five, skill_points=10))
+        self.assertEqual((state['closing']['observed_at_ms'], state['closing']['basis']), (2600, 'final_screen_observation'))
+        sources = state['closing']['field_sources']
+        self.assertEqual(sources['speed']['values_ref'], '/gameplay_tracking/readings/9/facts/final_attributes/speed')
+        self.assertEqual(sources['speed']['observed_at_ms'], 2450)
+        self.assertEqual(sources['skill_points']['values_ref'], '/gameplay_tracking/readings/12/facts/current_skill_points')
+        self.assertEqual(sources['skill_points']['supporting_source_refs'],
+                         ['/gameplay_tracking/readings/10/facts', '/gameplay_tracking/readings/11/facts', '/gameplay_tracking/readings/12/facts'])
+        # One lone frame after the run that agrees is not a later state: it
+        # is listed, and the value stands. Two frames that agree are.
+        data['readings'].append(hub(2650, 3))
+        state = build(source)['turns'][-1]['states']['stats']
+        self.assertEqual(state['closing']['values'], dict(five, skill_points=10))
+        self.assertEqual(state['closing']['field_sources']['skill_points']['later_lone_reads'],
+                         [dict(values_ref='/gameplay_tracking/readings/13/facts/final_attributes/skill_points', observed_at_ms=2650, value=3)])
+        self.assertEqual(state['closing']['observed_at_ms'], 2600)
+        data['readings'].append(hub(2700, 3))
+        state = build(source)['turns'][-1]['states']['stats']
+        self.assertEqual(state['closing']['values'], dict(five, skill_points=3))
+        self.assertEqual(state['closing']['observed_at_ms'], 2700)
+        # Lone frames as many as the frames that agree leave the field open.
+        data['readings'] += [hub(2750, 4), hub(2800, 5)]
+        state = build(source)['turns'][-1]['states']['stats']
+        self.assertEqual(state['closing']['values'], five)
+        self.assertNotIn('skill_points', state['closing']['field_sources'])
+
+    def test_a_panel_after_the_action_and_the_ending_screens_share_the_closing_by_time(self):
+        def popup(time):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='career_summary',
+                        stats=dict(calendar_text=None, turns_remaining_to_goal=None),
+                        facts=dict(final_attributes=dict(speed=7, stamina=7, power=7, guts=7, wit=7)))
+
+        source = report(); data = source['gameplay_tracking']
+        data['turn_action_receipts'] = [dict(kind='race', source_timestamp_ms=2100)]
+        data['readings'] += [popup(2400), popup(2450)]
+        # A panel before the popup gives the field the popup lacks.
+        data['checkpoints'] = [checkpoint('after', 2200, 5)]
+        state = build(source)['turns'][-1]['states']['stats']
+        self.assertEqual(state['closing_basis'], 'final_screen_observation_after_action')
+        self.assertEqual(state['closing']['values'], dict(speed=7, stamina=7, power=7, guts=7, wit=7, skill_points=5))
+        self.assertEqual(state['closing']['field_sources']['skill_points']['values_ref'], '/gameplay_tracking/checkpoints/0/values/skill_points')
+        self.assertEqual(state['closing']['field_sources']['speed']['values_ref'], '/gameplay_tracking/readings/7/facts/final_attributes/speed')
+        # A panel after the popup is the later observation of every field.
+        data['checkpoints'] = [checkpoint('after', 2600, 5)]
+        state = build(source)['turns'][-1]['states']['stats']
+        self.assertEqual(state['closing_basis'], 'last_observed_state_not_inferred_completion')
+        self.assertEqual((state['closing']['basis'], state['closing']['values']), ('last_observed_state_after_action', {f: 5 for f in FIELDS}))
+        self.assertNotIn('field_sources', state['closing'])
 
     def test_the_trainees_pre_race_card_opens_a_race_turn_that_had_no_hub(self):
         from tracen_replay.turn_ledger import _trainee_runner_name
