@@ -21,7 +21,21 @@ interface Item {
   serious: boolean;
 }
 
-const groups = computed(() => {
+interface Note {
+  text: string;
+  serious: boolean;
+}
+
+interface Group {
+  turn: TurnSummary;
+  notes: Note[];
+  items: Item[];
+}
+
+// Every caveat, by turn. A serious one is a number that does not add up or
+// a line the report is not sure of; the rest are things the report is
+// confident about and says anyway, so nothing is hidden.
+const groups = computed<Group[]>(() => {
   const byTurn = new Map<string, Item[]>();
   for (const e of props.entries) {
     if (!e.turn_id) continue;
@@ -33,12 +47,24 @@ const groups = computed(() => {
   }
   return props.turns
     .map((t) => {
-      const tw = turnWarnings(t);
-      const diffs = (t.differences ?? []).map((d) => `${DIFF_LABEL[d.field] ?? d.field} ${d.amount > 0 ? "+" : ""}${d.amount} ${d.worked_out ? `worked out onto the ${OWNER_WORD[d.owner ?? ""] ?? "only possible event"}` : "not covered by any event"}${d.window_start_ms != null && d.window_end_ms != null ? ` between ${clock(d.window_start_ms)} and ${clock(d.window_end_ms)}` : ""}`);
-      return { turn: t, notes: [...tw.map((x) => x.text), ...diffs], serious: tw.some((x) => x.serious) || (t.differences ?? []).some((d) => !d.worked_out), items: byTurn.get(t.id) ?? [] };
+      const notes: Note[] = turnWarnings(t).map((x) => ({ text: x.text, serious: x.serious }));
+      for (const d of t.differences ?? []) {
+        const text = `${DIFF_LABEL[d.field] ?? d.field} ${d.amount > 0 ? "+" : ""}${d.amount} ${d.worked_out ? `worked out onto the ${OWNER_WORD[d.owner ?? ""] ?? "only possible event"}` : "not covered by any event"}${d.window_start_ms != null && d.window_end_ms != null ? ` between ${clock(d.window_start_ms)} and ${clock(d.window_end_ms)}` : ""}`;
+        notes.push({ text, serious: !d.worked_out });
+      }
+      return { turn: t, notes, items: byTurn.get(t.id) ?? [] };
     })
     .filter((g) => g.notes.length || g.items.length);
 });
+
+function part(serious: boolean): Group[] {
+  return groups.value
+    .map((g) => ({ turn: g.turn, notes: g.notes.filter((n) => n.serious === serious), items: g.items.filter((it) => it.serious === serious) }))
+    .filter((g) => g.notes.length || g.items.length);
+}
+const checks = computed(() => part(true));
+const notes = computed(() => part(false));
+const noteCount = computed(() => notes.value.reduce((n, g) => n + g.notes.length + g.items.length, 0));
 
 // Entries before the first turn are the run's inheritance and starting
 // hints; the rest sit in gaps between observed windows.
@@ -46,23 +72,17 @@ const firstStart = computed(() => props.turns.find((t) => t.start_ms !== null)?.
 const beforeStart = computed(() => props.unassigned.filter((e) => firstStart.value !== null && e.first_seen_ms !== null && e.first_seen_ms < firstStart.value));
 const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value.includes(e)));
 
-const totals = computed(() => {
-  let turns = 0;
-  let entries = 0;
-  for (const g of groups.value) {
-    if (g.notes.length) turns++;
-    entries += g.items.length;
-  }
-  return { turns, entries };
-});
 </script>
 
 <template>
   <div class="pane-inner">
     <div class="pane-fixed">
       <p class="muted small" style="margin: 4px 0 6px">
-        Every caveat in the report: {{ totals.turns }} turn{{ totals.turns === 1 ? "" : "s" }} with accounting or observation gaps, {{ totals.entries }} entr{{ totals.entries === 1 ? "y" : "ies" }} the analyzer flagged, {{ unassigned.length }} outside every turn.
-        Click a line to go there.
+        <template v-if="checks.length">{{ checks.length }} turn{{ checks.length === 1 ? "" : "s" }} to check: a number that does not add up, or a line the report is not sure of.</template>
+        <template v-else>Nothing to check: every number adds up and no line is in doubt.</template>
+        <template v-if="noteCount">{{ " " }}{{ noteCount }} note{{ noteCount === 1 ? "" : "s" }} the report is confident about {{ noteCount === 1 ? "is" : "are" }} kept below, so nothing is hidden.</template>
+        <template v-if="unassigned.length">{{ " " }}{{ unassigned.length }} entr{{ unassigned.length === 1 ? "y sits" : "ies sit" }} outside every turn.</template>
+        {{ " " }}Click a line to go there.
       </p>
     </div>
     <div class="pane-scroll">
@@ -71,25 +91,45 @@ const totals = computed(() => {
         <div v-for="f in stageFailures" :key="f.stage" class="small">{{ f.stage }}: {{ f.error }}</div>
       </div>
 
-      <h3 class="pane-h" style="margin-top: 6px">By Turn</h3>
-      <p v-if="!groups.length" class="muted small">Nothing to check: every turn's accounting is balanced, every opening was observed and no entry was flagged.</p>
+      <h3 class="pane-h" style="margin-top: 6px">To Check</h3>
+      <p v-if="!checks.length" class="muted small">Nothing to check: every number adds up, every line the report kept is one it is sure of.</p>
       <ul v-else class="checklist">
-        <li v-for="g in groups" :key="g.turn.id">
+        <li v-for="g in checks" :key="g.turn.id">
           <div class="check-turn">
             <button class="linkish strong" @click="emit('select', g.turn.id)">{{ fullLabel(g.turn.label, g.turn.phase) }}</button>
             <span class="muted small">{{ clock(g.turn.start_ms) }}</span>
-            <span v-if="g.serious" class="tag pink">check</span>
+            <span class="tag pink">check</span>
             <a class="btn small" style="margin-left: auto" :href="reviewHref(g.turn.id)">Review</a>
           </div>
-          <div v-if="g.notes.length" class="small" :class="g.serious ? 'warn-text' : 'muted'">{{ g.notes.join(" · ") }}</div>
+          <div v-if="g.notes.length" class="small warn-text">{{ g.notes.map((n) => n.text).join(" · ") }}</div>
           <ul v-if="g.items.length" class="check-items">
             <li v-for="it in g.items" :key="it.entry.id">
               <button class="linkish" @click="emit('select', g.turn.id, it.entry.first_seen_ms)"><span class="tabular">{{ clock(it.entry.first_seen_ms) }}</span> {{ it.name }}</button>
-              <span class="small" :class="it.serious ? 'warn-text' : 'muted'"> — {{ it.notes.join("; ") }}</span>
+              <span class="small warn-text"> — {{ it.notes.join("; ") }}</span>
             </li>
           </ul>
         </li>
       </ul>
+
+      <details v-if="noteCount" class="notes-fold">
+        <summary><span class="pane-h">Notes</span> <span class="muted small">{{ noteCount }} · what the report is confident about and says anyway; nothing to do</span></summary>
+        <ul class="checklist">
+          <li v-for="g in notes" :key="g.turn.id">
+            <div class="check-turn">
+              <button class="linkish strong" @click="emit('select', g.turn.id)">{{ fullLabel(g.turn.label, g.turn.phase) }}</button>
+              <span class="muted small">{{ clock(g.turn.start_ms) }}</span>
+              <a class="btn small" style="margin-left: auto" :href="reviewHref(g.turn.id)">Review</a>
+            </div>
+            <div v-if="g.notes.length" class="small muted">{{ g.notes.map((n) => n.text).join(" · ") }}</div>
+            <ul v-if="g.items.length" class="check-items">
+              <li v-for="it in g.items" :key="it.entry.id">
+                <button class="linkish" @click="emit('select', g.turn.id, it.entry.first_seen_ms)"><span class="tabular">{{ clock(it.entry.first_seen_ms) }}</span> {{ it.name }}</button>
+                <span class="small muted"> — {{ it.notes.join("; ") }}</span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </details>
 
       <template v-if="beforeStart.length">
         <h3 class="pane-h">Before the Career Starts</h3>
@@ -104,3 +144,26 @@ const totals = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.notes-fold {
+  margin-top: 16px;
+}
+.notes-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.notes-fold > summary::-webkit-details-marker {
+  display: none;
+}
+.notes-fold > summary::before {
+  content: "▸";
+  opacity: 0.6;
+}
+.notes-fold[open] > summary::before {
+  content: "▾";
+}
+</style>

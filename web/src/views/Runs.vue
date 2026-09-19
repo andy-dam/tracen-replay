@@ -21,6 +21,8 @@ let timer: number | undefined;
 // ask for a look. Read once per report and kept.
 interface RunFacts {
   final: Record<string, number | null> | null;
+  // Fields whose end-of-run value was never read; `final` holds the last value read for them.
+  open: string[];
   explained: number;
   total: number;
   toCheck: number;
@@ -38,20 +40,25 @@ async function loadFacts(report: Report) {
     const explained = (counts.balanced_observations ?? 0) + (counts.balanced_with_derived_changes ?? 0);
     const toCheck = turns.filter((t) => turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out)).length;
     let final: Record<string, number | null> | null = null;
+    let open: string[] = [];
     const last = [...turns].reverse().find((t) => t.opening.stats);
     if (last) {
       final = { ...(last.opening.stats as Record<string, number | null>) };
+      open = [...STATS];
       try {
         const detail = await api.turn(report.id, last.id);
         for (const field of STATS) {
           const after = detail.turn.accounting.stats?.[field]?.after;
-          if (after !== null && after !== undefined) final[field] = after;
+          if (after !== null && after !== undefined) {
+            final[field] = after;
+            open = open.filter((f) => f !== field);
+          }
         }
       } catch {
-        // the opening of the last observed turn stands
+        // the opening of the last observed turn stands, marked as such
       }
     }
-    facts.value = { ...facts.value, [report.id]: { final, explained, total, toCheck } };
+    facts.value = { ...facts.value, [report.id]: { final, open, explained, total, toCheck } };
   } catch {
     // a report that cannot be summarized simply has no facts on the dashboard
   } finally {
@@ -223,7 +230,7 @@ function hideBroken(e: Event) {
   <div class="page-head">
     <div>
       <h1>Runs</h1>
-      <p>Upload a career recording, analyze it, open the report. One analysis runs at a time; a full career takes about 45 minutes.</p>
+      <p>Upload a career recording, analyze it, open the report. A full career takes about 30 to 45 minutes; the server runs a few at a time and queues the rest.</p>
     </div>
   </div>
   <p v-if="error" class="error">{{ error }}</p>
@@ -240,7 +247,7 @@ function hideBroken(e: Event) {
         <span class="overline" style="margin: 0">Best Run</span>
         <a class="best-name" :href="`#/reports/${encodeURIComponent(dashboard.best.report.id)}`" :title="dashboard.best.report.source_name">{{ dashboard.best.report.source_name }}</a>
       </div>
-      <StatBar :stats="dashboard.best.facts.final" compact />
+      <StatBar :stats="dashboard.best.facts.final" :open="dashboard.best.facts.open" compact />
       <div class="best-foot">{{ statTotal(dashboard.best.facts) }} across the five stats at the end of the run · {{ dashboard.best.report.turns }} turns · {{ clock(dashboard.best.report.duration_ms) }}</div>
     </div>
     <div v-else class="best"><span class="overline" style="margin: 0">Best Run</span><span class="muted small">Reading the reports…</span></div>

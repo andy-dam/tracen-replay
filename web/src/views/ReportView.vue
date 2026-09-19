@@ -27,6 +27,8 @@ const entries = ref<Entry[]>([]);
 const allEntries = ref<Entry[]>([]);
 const unassigned = ref<Entry[]>([]);
 const finalStats = ref<Record<string, number | null> | null>(null);
+// Fields whose end-of-run value was never read; the bar shows the last value read for them.
+const finalOpen = ref<string[]>([]);
 const seekMs = ref<number | null>(null);
 // A report is the reading of one analyzer. When the installed one has moved
 // on, say so and offer the run again; the recording is matched by its hash,
@@ -103,21 +105,26 @@ async function loadTurn(id: string) {
   }
 }
 
-// The end of the run: the last turn's accounted end values, falling back to
-// the last observed opening. Only what the ledger states.
+// The end of the run: the last turn's accounted end values. A field whose
+// end the ledger never read shows the last value read for it, marked as
+// such; nothing is invented.
 async function loadFinal() {
   const last = [...turns.value].reverse().find((t) => t.opening.stats);
   if (!last) return;
   try {
     const detail = await api.turn(props.reportId, last.id);
     const out: Record<string, number | null> = {};
+    const open: string[] = [];
     for (const [field, v] of Object.entries(detail.turn.opening.stats ?? {})) {
       const after = detail.turn.accounting.stats?.[field]?.after;
       out[field] = after ?? v;
+      if (after === null || after === undefined) open.push(field);
     }
     finalStats.value = out;
+    finalOpen.value = open;
   } catch {
     finalStats.value = last.opening.stats;
+    finalOpen.value = Object.keys(last.opening.stats ?? {});
   }
 }
 
@@ -242,18 +249,30 @@ const explained = computed(() => {
   return { total, ok };
 });
 
-// The timeline marks turns whose own accounting or action is in doubt; the
-// tab counts every turn that has anything to look at, including flagged entries.
+// A turn to check has a number that does not add up or a line the report
+// is not sure of. The timeline marks those turns and the tab counts them,
+// plus entries outside every turn and any stage the analysis skipped. What
+// the report is confident about and says anyway is a note, counted apart.
 const flagged = computed(() => {
   const set = new Set<string>();
-  for (const t of turns.value) if (turnWarnings(t).some((w) => w.serious)) set.add(t.id);
+  for (const t of turns.value) if (turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out)) set.add(t.id);
+  for (const e of allEntries.value) if (e.turn_id && entryWarnings(e).some((w) => w.serious)) set.add(e.turn_id);
   return set;
 });
 const checkCount = computed(() => {
-  const set = new Set<string>();
-  for (const t of turns.value) if (turnWarnings(t).length) set.add(t.id);
-  for (const e of allEntries.value) if (e.turn_id && entryWarnings(e).length) set.add(e.turn_id);
-  return set.size + (unassigned.value.length ? 1 : 0) + (summary.value?.summary.stage_failures.length ? 1 : 0);
+  const firstStart = turns.value.find((t) => t.start_ms !== null)?.start_ms ?? null;
+  const outside = unassigned.value.filter((e) => firstStart === null || e.first_seen_ms === null || e.first_seen_ms >= firstStart);
+  return flagged.value.size + (outside.length ? 1 : 0) + (summary.value?.summary.stage_failures.length ? 1 : 0);
+});
+const noteCount = computed(() => {
+  let n = 0;
+  for (const t of turns.value) n += turnWarnings(t).filter((w) => !w.serious).length + (t.differences ?? []).filter((d) => d.worked_out).length;
+  for (const e of allEntries.value) {
+    if (!e.turn_id) continue;
+    const w = entryWarnings(e);
+    if (w.length && !w.some((x) => x.serious)) n++;
+  }
+  return n;
 });
 </script>
 
@@ -269,6 +288,7 @@ const checkCount = computed(() => {
           {{ when(summary.report.created_at) }} · {{ clock(summary.source.duration_ms) }} · {{ summary.turns }} turns
           <span v-if="explained.total"> · {{ explained.ok }} of {{ explained.total }} stat changes fully explained</span>
           <span v-if="checkCount"> · <button class="linkish" @click="tab = 'check'">{{ checkCount }} thing{{ checkCount === 1 ? "" : "s" }} to check</button></span>
+          <span v-else-if="noteCount"> · <button class="linkish" @click="tab = 'check'">nothing to check, {{ noteCount }} note{{ noteCount === 1 ? "" : "s" }}</button></span>
         </p>
         <p v-if="summary.summary.stage_failures.length" class="error small">Stages skipped during analysis: {{ summary.summary.stage_failures.map((f) => f.stage).join(", ") }}.</p>
         <p v-if="analyzerBuild" class="muted small">
@@ -282,7 +302,8 @@ const checkCount = computed(() => {
       </div>
       <div class="run-final">
         <div class="run-final-label">At the End of the Run</div>
-        <StatBar :stats="finalStats" />
+        <StatBar :stats="finalStats" :open="finalOpen" />
+        <div v-if="finalOpen.length" class="muted small" style="margin-top: 6px">≈ the last value read for it; the run's end was not on a screen the report reads.</div>
       </div>
     </header>
 

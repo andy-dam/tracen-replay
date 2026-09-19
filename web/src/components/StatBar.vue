@@ -16,7 +16,20 @@ const props = defineProps<{
   verified?: string[] | null;
   // The values are carried from the previous turn's entries, not read on screen.
   carried?: boolean;
+  // Fields whose end value was never read; the value shown is the last one read for them.
+  open?: string[] | null;
 }>();
+
+function approximate(field: string): boolean {
+  return !!props.carried || !!props.open?.includes(field);
+}
+function title(field: string): string {
+  const v = value(field);
+  if (v === null) return "not observed";
+  if (props.carried) return `about ${v}, carried from the previous turn's entries`;
+  if (props.open?.includes(field)) return `${v} was the last value read for it; the run's end was not on a screen the report reads`;
+  return String(v);
+}
 
 const FIELDS = [...CORE_STATS, "skill_points"];
 
@@ -78,9 +91,9 @@ onUnmounted(() => {
   <div class="statbar" :class="{ compact }">
     <div v-for="f in FIELDS" :key="f" class="sb-cell" :class="f">
       <div class="sb-name">{{ STAT_NAMES[f] }}</div>
-      <div class="sb-body" :title="value(f) === null ? 'not observed' : carried ? `about ${value(f)}, carried from the previous turn's entries` : String(value(f))">
+      <div class="sb-body" :title="title(f)">
         <RankBadge v-if="f !== 'skill_points'" :value="value(f)" :small="compact" />
-        <span class="sb-value" :class="{ unknown: value(f) === null, carried }">{{ carried && shown[f] !== null && shown[f] !== undefined ? "≈" : "" }}{{ shown[f] ?? "?" }}</span>
+        <span class="sb-value" :class="{ unknown: value(f) === null, carried: approximate(f) }">{{ approximate(f) && shown[f] !== null && shown[f] !== undefined ? "≈" : "" }}{{ shown[f] ?? "?" }}</span>
       </div>
       <div v-if="acct(f)" class="sb-after" :class="{ warn: isWarn(f) }" :title="statusText(acct(f)!.status)">
         <span v-if="acct(f)!.after !== null">→ {{ acct(f)!.after }}<span v-if="delta(f)" class="sb-delta" :class="delta(f)! > 0 ? 'up' : 'down'"> {{ delta(f)! > 0 ? "+" : "" }}{{ delta(f) }}</span></span>
