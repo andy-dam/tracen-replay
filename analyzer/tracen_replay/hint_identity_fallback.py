@@ -297,6 +297,71 @@ def _unresolved_candidate(weak: Mapping[str, Any], strong: Mapping[str, Any],
     )
 
 
+_SAME_SLOT_OVERLAP = 0.7
+_SAME_SLOT_WINDOW_MS = 2000
+
+
+def _effect_texts(effect: Mapping[str, Any]) -> set[str]:
+    return {value for value in (effect.get("raw_text"), effect.get("original_text"))
+            if isinstance(value, str) and value}
+
+
+def _line_box(row: Any, texts: set[str]) -> list | None:
+    """The one OCR line box on ``row`` whose text is one of ``texts``."""
+    if not isinstance(row, Mapping):
+        return None
+    neural = row.get("ocr", {}).get("neural", [])
+    if not isinstance(neural, list):
+        return None
+    boxes = [line.get("box") for line in neural
+             if isinstance(line, Mapping) and line.get("text") in texts and _valid_box(line.get("box"))]
+    return list(boxes[0]) if len(boxes) == 1 else None
+
+
+def _box_overlap(left: list, right: list) -> float:
+    width = min(left[2], right[2]) - max(left[0], right[0])
+    height = min(left[3], right[3]) - max(left[1], right[1])
+    if width <= 0 or height <= 0:
+        return 0.0
+    inner = width * height
+    union = ((left[2] - left[0]) * (left[3] - left[1])
+             + (right[2] - right[0]) * (right[3] - right[1]) - inner)
+    return inner / union if union > 0 else 0.0
+
+
+def _same_slot_reads(weak: Mapping[str, Any], strong: Mapping[str, Any],
+                     weak_evidence: list[str], strong_evidence: list[str],
+                     rows_by_evidence: Mapping[str, Any]) -> list[str]:
+    """The weak frames when every weak read sits where the strong read sits nearby.
+
+    The two frame sets must be disjoint: a frame that shows both spellings
+    shows two lines. Each weak line's box must overlap the strong line's box
+    on the nearest strong frame, within two seconds, by at least seven
+    tenths; the list panel scrolls, so the nearest frame is the one compared.
+    """
+    if not weak_evidence or not strong_evidence or set(weak_evidence) & set(strong_evidence):
+        return []
+    strong_boxes = []
+    for path in strong_evidence:
+        row = rows_by_evidence.get(path)
+        box = _line_box(row, _effect_texts(strong))
+        if box is not None and _valid_timestamp(row.get("source_timestamp_ms")):
+            strong_boxes.append((row["source_timestamp_ms"], box))
+    if not strong_boxes:
+        return []
+    for path in weak_evidence:
+        row = rows_by_evidence.get(path)
+        box = _line_box(row, _effect_texts(weak))
+        if box is None or not _valid_timestamp(row.get("source_timestamp_ms")):
+            return []
+        time = row["source_timestamp_ms"]
+        nearest = min(strong_boxes, key=lambda item: abs(item[0] - time))
+        if (abs(nearest[0] - time) > _SAME_SLOT_WINDOW_MS
+                or _box_overlap(box, nearest[1]) < _SAME_SLOT_OVERLAP):
+            return []
+    return list(weak_evidence)
+
+
 def preserve_valid_circle_effect(event: Mapping[str, Any],
                                  rows_by_evidence: Mapping[str, Any], *,
                                  effect_kind: str = "skill_hint_change") -> Mapping[str, Any]:
@@ -383,7 +448,13 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
             weak_key = _field_key(weak)
             weak_evidence = list(dict.fromkeys(field_evidence.get(weak_key, [])
                                                if isinstance(field_evidence.get(weak_key), list) else []))
-            if not _already_unresolved(event, weak_key):
+            same_slot = _same_slot_reads(weak, strong, weak_evidence, strong_evidence, rows_by_evidence)
+            if same_slot:
+                # One line at one slot, read with the glyph on some frames and
+                # without it on others: one award, its glyph unread.
+                strong["name_resolution"] = "same_slot_circle_glyph_unread"
+                strong["circle_glyph_unread_evidence"] = same_slot
+            elif not _already_unresolved(event, weak_key):
                 event.setdefault("ambiguous_effect_candidates", []).append(
                     _unresolved_candidate(
                         weak, strong, weak_evidence, strong_evidence,

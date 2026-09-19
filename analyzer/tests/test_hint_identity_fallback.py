@@ -102,7 +102,53 @@ def _case(*, strong_amount=1, weak_amount=1, strong_name="Example Skill ○",
     return event, rows
 
 
+def _weak_rows(event, weak, timestamps, box=(660, 800, 720, 840)):
+    """Rows for the weak spelling's evidence, its line at ``box``."""
+    rows = {}
+    for path, timestamp in zip(event["field_evidence"]["skill_hint_change||" + weak["name"]], timestamps):
+        row = _row(timestamp, path, weak)
+        row["ocr"]["neural"][0]["box"] = list(box)
+        rows[path] = row
+    return rows
+
+
 class HintIdentityFallbackTests(unittest.TestCase):
+    def test_the_same_slot_read_with_and_without_the_glyph_is_one_award(self):
+        event, rows = _case()
+        weak = event["effects"][1]
+        rows.update(_weak_rows(event, weak, (200, 300)))
+
+        preserve_valid_circle_effect(event, rows)
+
+        self.assertEqual([(e["name"], e["amount"]) for e in event["effects"]],
+                         [("Example Skill ○", 1)])
+        self.assertNotIn("ambiguous_effect_candidates", event)
+        strong = event["effects"][0]
+        self.assertEqual(strong["name_resolution"], "same_slot_circle_glyph_unread")
+        self.assertEqual(strong["circle_glyph_unread_evidence"], ["weak-1", "weak-2"])
+
+    def test_a_weak_read_at_another_slot_or_on_a_strong_frame_stays_unresolved(self):
+        # Another slot: the weak line sits a row lower than the strong one.
+        event, rows = _case()
+        rows.update(_weak_rows(event, event["effects"][1], (200, 300), box=(660, 850, 720, 890)))
+        preserve_valid_circle_effect(event, rows)
+        self.assertEqual(len(event["ambiguous_effect_candidates"]), 1)
+        self.assertNotIn("name_resolution", event["effects"][0])
+        # A frame that shows both spellings shows two lines.
+        event, rows = _case()
+        weak = event["effects"][1]
+        event["field_evidence"]["skill_hint_change||Example Skill"] = ["strong-1", "weak-2"]
+        rows["weak-2"] = _row(300, "weak-2", weak)
+        rows["strong-1"]["effects"].append(deepcopy(weak))
+        rows["strong-1"]["ocr"]["neural"].append({"text": weak["raw_text"], "confidence": 98.7, "box": [660, 850, 720, 890]})
+        preserve_valid_circle_effect(event, rows)
+        self.assertEqual(len(event["ambiguous_effect_candidates"]), 1)
+        # Too far apart in time.
+        event, rows = _case()
+        rows.update(_weak_rows(event, event["effects"][1], (5000, 5300)))
+        preserve_valid_circle_effect(event, rows)
+        self.assertEqual(len(event["ambiguous_effect_candidates"]), 1)
+
     def test_repeated_circle_keeps_strong_and_retains_weak_as_unresolved(self):
         event, rows = _case()
         original_rows = deepcopy(rows)

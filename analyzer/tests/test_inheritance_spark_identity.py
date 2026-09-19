@@ -95,6 +95,25 @@ class InheritanceSparkIdentityTests(unittest.TestCase):
         self.assertTrue(all(detail['continuity']['mode'] == 'stationary_slot'
                             for detail in current['resolved_reading_conflict_details']))
 
+    def test_a_circle_variant_in_the_same_tracked_slot_is_one_spark(self):
+        first = spark('Alpha Corner ○')
+        variant = spark('Alpha Corner')
+        rows = {
+            'a0': row(1000, 'a0', [first], target_box=(316, 900, 695, 929)),
+            'a1': row(1250, 'a1', [first]),
+            'b1': row(1500, 'b1', [variant]),
+        }
+        current = event([first, variant], {
+            first['name']: ['a0', 'a1'], variant['name']: ['b1']})
+
+        resolve(current, rows)
+
+        self.assertEqual([effect['name'] for effect in current['effects']], ['Alpha Corner ○'])
+        self.assertNotIn('ambiguous_effect_candidates', current)
+        self.assertEqual(current['effects'][0]['name_resolution'], 'same_slot_circle_glyph_unread')
+        self.assertEqual(current['effects'][0]['circle_glyph_variants'], ['Alpha Corner'])
+        self.assertEqual(current['effects'][0]['observed_name_candidates'], ['Alpha Corner ○', 'Alpha Corner'])
+
     def test_stationary_anchor_resolves_only_with_independent_repeated_name(self):
         first = spark('Alpha Complete')
         variant = spark('Alpha Comple')

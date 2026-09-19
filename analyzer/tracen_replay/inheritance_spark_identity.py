@@ -312,6 +312,12 @@ def _support(observations, excluded_evidence=()):
     return len(timestamps), len(independent)
 
 
+def _circle_variant(left, right):
+    """Two names that differ only by the circle glyphs and the spaces around them."""
+    strip = lambda name: ''.join(ch for ch in str(name) if ch not in '○◎' and not ch.isspace()).casefold()
+    return left != right and strip(left) == strip(right) and bool(strip(left))
+
+
 def _append_candidate(event, effect, reason):
     field_evidence = event.get('field_evidence', {})
     key = _field(effect)
@@ -457,6 +463,13 @@ def resolve(event, rows_by_evidence):
                       accepted=winner['name'])
         for effect in component:
             if effect is winner:
+                continue
+            if _circle_variant(effect['name'], winner['name']):
+                # The same tracked slot read with and without the circle
+                # glyph: one spark, its glyph unread on some frames.
+                winner['name_resolution'] = 'same_slot_circle_glyph_unread'
+                winner.setdefault('circle_glyph_variants', []).append(effect['name'])
+                remove.add(id(effect))
                 continue
             _append_candidate(event, effect, 'alternate_inheritance_spark_identity')
             remove.add(id(effect))
