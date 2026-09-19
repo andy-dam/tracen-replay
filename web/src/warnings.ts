@@ -38,8 +38,8 @@ const ADVICE = {
 export function turnWarnings(t: TurnSummary): Warning[] {
   const out: Warning[] = [];
   for (const [status, n] of Object.entries(t.accounting_status_counts)) {
-    if (status === "balanced_observations" || status === "balanced_with_derived_changes") continue;
-    out.push({ text: `${n} field${n === 1 ? "" : "s"}: ${statusText(status)}`, serious: status === "unexplained_change" || status === "unresolved_attribution" });
+    if (status === "balanced_observations" || status === "balanced_with_derived_changes" || status === "balanced_across_unread_stretch") continue;
+    out.push({ text: `${n} field${n === 1 ? "" : "s"}: ${statusText(status)}`, serious: status === "unexplained_change" || status === "unresolved_attribution" || status === "unexplained_across_unread_stretch" });
   }
   if (!t.opening_observed) out.push({ text: "opening state not observed", serious: false });
   if (t.action_status === "missing_action") {

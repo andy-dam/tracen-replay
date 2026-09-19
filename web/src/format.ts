@@ -230,6 +230,8 @@ export const STATUS_TEXT: Record<string, string> = {
   missing_endpoint: "end not observed",
   not_yet_shown: "not on screen yet",
   career_end: "career over, no closing screen read for it",
+  balanced_across_unread_stretch: "balances across turns with no reading",
+  unexplained_across_unread_stretch: "unexplained across turns with no reading",
 };
 
 export function statusText(status: string): string {

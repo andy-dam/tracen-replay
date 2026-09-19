@@ -234,6 +234,8 @@ Used on both `causal_accounting` comparisons/turn_transitions and on
 | `missing_endpoint` | one of the two compared states was not observed |
 | `not_yet_shown` | the channel had not appeared yet: the turn precedes the first observation of that channel (the performance panel before the debut; turn comparisons only) |
 | `career_end` | the career's last turn, whose end no later screen shows (turn comparisons only) |
+| `balanced_across_unread_stretch` | no screen showed the field on this turn, but the value read before the stretch of such turns, the changes counted across it, and the value read after it add up; `stretch` carries that comparison (turn comparisons only) |
+| `unexplained_across_unread_stretch` | the same comparison across the stretch leaves a residual (turn comparisons only) |
 | `unordered_endpoints` | the compared turn-opening observations are not in increasing time order (turn comparisons only) |
 
 ## Ledger vocabulary

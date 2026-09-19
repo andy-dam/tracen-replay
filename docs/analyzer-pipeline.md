@@ -344,7 +344,13 @@ order instead gets `unordered_endpoints`. Two missing endpoints are not
 gaps in the reading and are named as what they are: `not_yet_shown` for a
 turn before the channel's first observation (the performance panel is not
 on the hub before the debut), and `career_end` for the last turn, whose end
-no later screen shows. `turn_transitions` also carry
+no later screen shows. A field no screen showed for a stretch of turns in
+between (a row under a "N more" badge, a race day with no hub) still has a
+value read before the stretch and one read after it: the accounting
+compares those two across the whole stretch with every change counted
+between them, and marks each turn inside it `balanced_across_unread_stretch`
+or `unexplained_across_unread_stretch`, with the comparison under `stretch`.
+The turns inside are not read; the arithmetic around them is. `turn_transitions` also carry
 `transition_kind` (`between_turn_openings` or `terminal_observation_window`)
 and per-field `endpoint_availability`, and, for the last turn, a
 `terminal_observation` naming later contributions the closing snapshot does

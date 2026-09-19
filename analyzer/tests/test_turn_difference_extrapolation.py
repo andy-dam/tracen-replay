@@ -609,13 +609,38 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual({f['status'] for t in result['turn_transitions'] if t['channel'] == 'performance' for f in t['fields']},
                          {'not_yet_shown'})
         # A next opening that was simply not observed, between two observed
-        # ones, stays a missing endpoint.
+        # ones, is judged across the stretch by the values around it.
         doc = report()
         doc['turn_ledger']['turns'].insert(1, dict(id='turn-001b', states=dict(
             stats=dict(opening=None, closing=None), performance=dict(opening=None, closing=None))))
         result = build(doc)
-        self.assertEqual(turn_field(result, 'speed')['status'], 'missing_endpoint')
-        self.assertEqual(turn_field(result, 'speed', turn='turn-001b')['status'], 'missing_endpoint')
+        self.assertEqual(turn_field(result, 'speed')['status'], 'unexplained_across_unread_stretch')
+        self.assertEqual(turn_field(result, 'speed', turn='turn-001b')['status'], 'unexplained_across_unread_stretch')
+
+    def test_a_field_unread_for_a_stretch_of_turns_is_judged_by_the_values_around_it(self):
+        # A middle turn read no stats at all. The training's gains were read on
+        # its card, and 100 plus them is the 109/113/108 read afterwards.
+        doc = report(deltas=dict(speed=9, guts=13, skill_points=8))
+        doc['turn_ledger']['turns'].insert(1, dict(id='turn-001b', states=dict(
+            stats=dict(opening=None, closing=None), performance=dict(opening=None, closing=None))))
+        result = build(doc)
+        for turn in ('turn-001', 'turn-001b'):
+            row = turn_field(result, 'speed', turn=turn)
+            self.assertEqual(row['status'], 'balanced_across_unread_stretch', turn)
+            self.assertEqual((row['stretch']['before'], row['stretch']['after'], row['stretch']['observed_change'], row['stretch']['direct_change']),
+                             (100, 109, 9, 9), turn)
+            self.assertEqual(row['stretch']['turn_ids'], ['turn-001', 'turn-001b'], turn)
+            self.assertEqual(turn_field(result, 'stamina', turn=turn)['status'], 'balanced_across_unread_stretch', turn)
+        counts = result['summary']['turn_field_status_counts']
+        self.assertEqual(counts.get('missing_endpoint', 0), 0)
+        # Without the gains read, the stretch does not add up and says so.
+        doc = report()
+        doc['turn_ledger']['turns'].insert(1, dict(id='turn-001b', states=dict(
+            stats=dict(opening=None, closing=None), performance=dict(opening=None, closing=None))))
+        result = build(doc)
+        self.assertEqual(turn_field(result, 'speed')['status'], 'unexplained_across_unread_stretch')
+        self.assertEqual(turn_field(result, 'speed')['stretch']['unresolved_change'], 9)
+        self.assertEqual(turn_field(result, 'stamina')['status'], 'balanced_across_unread_stretch')
 
     def test_a_difference_the_card_contradicts_settles_nothing(self):
         # The model read the badge as 18 while the bars say 9: a disagreement

@@ -725,6 +725,49 @@ def build(report):
                 endpoint_basis='observed_turn_openings' if following else 'last_observed_closing_state',
                 accounting_role='comparison_view_only_not_additional_changes',complete_event_history=False,
                 exact_award_times_verified=False,independent_effect_verification=False))
+      # A field no screen showed for a stretch of turns still has a value
+      # read before the stretch and one read after it. Those two, and every
+      # change counted between them, add up or do not; each turn inside the
+      # stretch is marked by that sum rather than left as a missing endpoint.
+      per_channel = {}
+      for index, transition in enumerate(turn_transitions):
+          per_channel.setdefault(transition['channel'], []).append(index)
+      for channel, fields in CHANNELS.items():
+          indexes = per_channel.get(channel, [])
+          for field in fields:
+              def field_row(k):
+                  return next(f for f in turn_transitions[indexes[k]]['fields'] if f['field'] == field)
+              k = 0
+              while k < len(indexes):
+                  if field_row(k)['status'] != 'missing_endpoint' or type(field_row(k).get('before')) is not int:
+                      k += 1
+                      continue
+                  last = k
+                  while (type(field_row(last).get('after')) is not int and last + 1 < len(indexes)
+                         and field_row(last + 1)['status'] == 'missing_endpoint'):
+                      last += 1
+                  if type(field_row(last).get('after')) is not int:
+                      k = last + 1
+                      continue
+                  before_state = observed_state(turns[k]['states'][channel].get('opening'))
+                  after_state = observed_state(turns[last + 1]['states'][channel].get('opening') if last + 1 < len(turns)
+                                               else turns[last]['states'][channel].get('closing'))
+                  start = before_state['observed_at_ms'] if before_state else None
+                  end = after_state['observed_at_ms'] if after_state else None
+                  if start is None or end is None or not start < end:
+                      k = last + 1
+                      continue
+                  span = next(f for f in compare_fields(channel, before_state, after_state, start, end) if f['field'] == field)
+                  status = ('balanced_across_unread_stretch' if span['status'] in ('balanced_observations', 'balanced_with_derived_changes')
+                            else 'unexplained_across_unread_stretch' if span['status'] == 'unexplained_change' else None)
+                  if status is not None:
+                      stretch = dict(start_ms=start, end_ms=end, turn_ids=[turn_transitions[indexes[j]]['turn_id'] for j in range(k, last + 1)],
+                                     **{key: span.get(key) for key in ('before', 'after', 'observed_change', 'direct_change',
+                                                                        'derived_or_summary_change', 'unresolved_change',
+                                                                        'contribution_refs', 'ambiguous_contributions')})
+                      for j in range(k, last + 1):
+                          field_row(j).update(status=status, stretch=deepcopy(stretch))
+                  k = last + 1
       return turn_transitions
     turn_transitions = turn_comparisons()
 
