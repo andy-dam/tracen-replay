@@ -528,9 +528,9 @@ serious is the next thing to look at.
 
       | Career | Serious flags | Fields balanced | Worked out | Not yet shown | Balanced across unread turns | Missing | Career end |
       | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-      | Should | 9 to 0 | 684 | 104 | 20 | 0 | 0 | 6 |
+      | Should | 9 to 0 | 690 | 104 | 20 | 0 | 0 | 0 |
       | Mayano | 2 to 0 | 654 | 135 | 20 | 5 | 0 | 0 |
-      | Gran Concert | 9 to 0 | 682 | 92 | 20 | 14 | 0 | 6 |
+      | Gran Concert | 9 to 0 | 687 | 93 | 20 | 14 | 0 | 0 |
 
       The last column but one is the stretch rule (final runs Mayano
       c328cd12, Gran Concert 200c3e10): a field no screen showed for a
@@ -545,7 +545,28 @@ serious is the next thing to look at.
       carry was checked against the recording (record in
       .local/final-reliability-v1/CLAUDE-HANDOFF.md, 2026-09-19 10:10Z and
       11:05Z): none contradicted; the worked-out training gains whose card
-      badges a frame still shows all match the card.
+      badges a frame still shows all match the card. Opening a report in the
+      browser on 2026-09-19 then showed the last column was hiding a gap:
+      "At the end of the run" was the last turn's opening, because the five
+      final stats sit on the "Umamusume Details" popup at career completion
+      and the classifier knew that screen only by a mission banner's words.
+      The popup is now recognised by its title and stat labels, and the last
+      turn closes field by field on the last ending screen that shows it
+      (the popup for the five stats, the hub or finish dialog for skill
+      points), each field bound to its own frame; a field no screen shows
+      stays `career_end`, and the browser marks an end value it never read
+      with ≈. Closing the last turn exposed four more general rules, each
+      checked on the frames: a gain popup's label may start inside the
+      number's lower half; a cut receipt line under one event's title is not
+      a fragment of another event's receipt; a lesson's stat the dialog
+      projected on two frames ("(+6)", halved above the cap) and the receipt
+      never showed is awarded as worked out; and a badge read as the leading
+      digit of the gain the card confirms is completed by the learned reader
+      rather than counted twice. A spark spelling within the receipt-fragment
+      bound of the repeated one (a popup over a letter) is that spark
+      misread, not a candidate. Final runs of the table above: Should
+      d00b9619, Mayano 3def268a, Gran Concert 471a5940; every field of every
+      last turn balances and the header reads 1898 of 1898 on Gran Concert.
 - [ ] **Two runs of one recording can read a result card differently.**
       Gran Concert's 31:02 training read Dance +30 on the morning run and
       Visual +30 on the afternoon run of the same file; the dense rereads'
