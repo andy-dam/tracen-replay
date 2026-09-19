@@ -294,6 +294,33 @@ def _learned_gain_frames(event, readings, field, amount, value_after=None):
     return list(dict.fromkeys(frames))
 
 
+def _complete_list_from_cart(batch, charge, data):
+    """A batch whose named cart prices add up to the turn's charge has a complete list.
+
+    The receipt's own charge was never read, so the turn's point drop stands
+    in for it. When the items the cart named cost exactly that between them,
+    every purchased skill is one of them; the charge itself stays worked out.
+    The batch's transaction row is completed the same way, since the ledger
+    shows both.
+    """
+    items = batch.get('selected_item_candidates') or []
+    if (not items or batch.get('purchased_list_complete')
+            or any(not isinstance(item, dict) or type(item.get('cost')) is not int or not item.get('name')
+                   for item in items)
+            or sum(item['cost'] for item in items) != charge):
+        return
+    names = sorted({item['name'] for item in items} | set(batch.get('visible_confirmation_names') or []))
+    completed = dict(spent_skill_points=charge, spent_skill_points_basis='turn_difference',
+                     purchased_list_complete=True, purchased_list_basis='cart_costs_match_turn_difference',
+                     purchased_skill_names=names)
+    twins = [t for t in data.get('skill_purchases') or [] if isinstance(t, dict) and t.get('id') == batch.get('id')]
+    for target in (batch, *twins):
+        target.update(completed)
+        if target.get('identity_status_basis') == 'incomplete_skill_confirmation_list':
+            for key in ('identity_status', 'identity_status_evidence', 'identity_status_basis'):
+                target.pop(key, None)
+
+
 def _settle_conflicting_reads(event, field, gain, settled_by):
     """Record that the stat bars settled a badge whose reads disagreed.
 
@@ -892,11 +919,54 @@ def build(report):
                 owner['turn_difference_basis'] = 'sole_unpriced_skill_batch_takes_turn_residual'
                 add(f'{parent}/turn_difference_cost/{field}', parent, owner, channel, field, residual,
                     owner.get('evidence'), 'turn_difference')
+                _complete_list_from_cart(owner, -residual, data)
             else:
                 owner.setdefault('turn_difference_cost', {})[field] = -residual
                 owner['turn_difference_basis'] = 'sole_unpriced_lesson_takes_turn_residual'
                 add(f'{parent}/turn_difference_cost/{field}', parent, owner, 'performance', field, residual,
                     owner.get('evidence'), 'turn_difference')
+            extrapolated += 1
+    # A turn with no next opening cannot settle a disputed badge by the stat
+    # bars. The card itself can: when the learned reader read one of the
+    # disputed gains on two of its frames, and read the value the stat lands
+    # on with that gain as the card's last value, that gain is the badge's
+    # number.
+    for transition in turn_transitions:
+        if transition['channel'] != 'stats':
+            continue
+        trainings = [a for a in actions_by_turn.get(transition['turn_id'], []) if a.get('action_kind') == 'training']
+        if len(trainings) != 1 or trainings[0].get('event_ref') not in event_refs.values():
+            continue
+        parent = trainings[0]['event_ref']
+        event = data['events'][int(parent.rsplit('/', 1)[1])]
+        reads = event.get('conflicting_readings')
+        if not isinstance(reads, dict):
+            continue
+        for row in transition['fields']:
+            field = row['field']
+            if row.get('status') != 'missing_endpoint' or not isinstance(reads.get(field), list):
+                continue
+            if any(c['event_ref'] == parent and c['channel'] == 'stats' and c['field'] == field for c in contributions):
+                continue
+            landing = []
+            for gain in sorted({g for g in reads[field] if type(g) is int and g > 0}):
+                value_after = _value_after_training(row, contributions, event, gain)
+                if value_after is None:
+                    continue
+                gain_frames = _learned_gain_frames(event, data['readings'], field, gain)
+                value_frames = [f for f in _learned_gain_frames(event, data['readings'], field, gain, value_after)
+                                if f not in gain_frames]
+                if len(gain_frames) >= 2 and value_frames:
+                    landing.append((gain, gain_frames + value_frames, value_after))
+            if len(landing) != 1:
+                continue
+            gain, frames, value_after = landing[0]
+            event.setdefault('learned_reader_gains', {})[field] = gain
+            event.setdefault('learned_reader_frames', {})[field] = frames
+            event.setdefault('learned_reader_values', {})[field] = value_after
+            add(f'{parent}/learned_reader_gains/{field}', parent, event, 'stats', field, gain, frames,
+                'observed_learned_training_gain')
+            _settle_conflicting_reads(event, field, gain, 'learned_reader_landing_value_on_card')
             extrapolated += 1
     if extrapolated:
         by_id.update({c['id']: c for c in contributions})

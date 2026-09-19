@@ -459,6 +459,30 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         # The batch is named as unpriced whether or not it took the difference.
         self.assertIn(dict(kind='unobserved_purchase_debit', source_ref=cost['event_ref']), result['issues'])
 
+    def test_a_cart_whose_named_prices_add_up_to_the_difference_completes_the_list(self):
+        cart = [dict(name='Alpha', cost=5), dict(name='Beta', cost=3)]
+        doc = report(residual_sign=-1, batches=[batch(selected_item_candidates=cart, visible_confirmation_names=['Alpha'],
+                                                      purchased_list_complete=False, identity_status='ambiguous',
+                                                      identity_status_basis='incomplete_skill_confirmation_list')])
+        doc['gameplay_tracking']['skill_purchases'] = [dict(doc['gameplay_tracking']['events'][-1])]
+        result = build(doc)
+        for record in (doc['gameplay_tracking']['events'][-1], doc['gameplay_tracking']['skill_purchases'][0]):
+            self.assertEqual((record['purchased_list_complete'], record['purchased_list_basis'], record['spent_skill_points'],
+                              record['spent_skill_points_basis'], record['purchased_skill_names']),
+                             (True, 'cart_costs_match_turn_difference', 8, 'turn_difference', ['Alpha', 'Beta']))
+            self.assertNotIn('identity_status', record)
+        cost = next(c for c in result['contributions'] if c['basis'] == 'turn_difference' and c['field'] == 'skill_points')
+        self.assertEqual(cost['amount'], -8)
+
+    def test_a_cart_short_of_the_difference_leaves_the_list_incomplete(self):
+        for cart in ([dict(name='Alpha', cost=5), dict(name='Beta', cost=2)], [dict(name='', cost=8)], []):
+            doc = report(residual_sign=-1, batches=[batch(selected_item_candidates=cart, purchased_list_complete=False)])
+            build(doc)
+            committed = doc['gameplay_tracking']['events'][-1]
+            self.assertEqual(committed['turn_difference_cost'], dict(skill_points=8))
+            self.assertFalse(committed['purchased_list_complete'])
+            self.assertIsNone(committed['spent_skill_points'])
+
     def test_two_unpriced_batches_or_a_charged_one_do_not_take_the_difference(self):
         second = dict(batch(), id='skills-2', first_seen_ms=176, last_seen_ms=178)
         # A batch whose charge was read owns that charge and nothing more; the
@@ -501,6 +525,52 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(event['learned_reader_gains'], dict(speed=9))
         self.assertEqual(event['settled_conflicting_readings'],
                          dict(speed=dict(amount=9, reads=[1, 9, 18], settled_by='learned_reader_on_card')))
+
+    def last_turn(self, doc, reads, *, gain_frames=2, landing=None):
+        """No next opening; the card's frames carry the learned reader's gain and landing reads."""
+        tracking = doc['gameplay_tracking']
+        del tracking['checkpoints'][1]
+        del tracking['performance_accounting']['checkpoints'][1]
+        del doc['turn_ledger']['turns'][1]
+        event = tracking['events'][0]
+        event['conflicting_readings'] = dict(speed=reads)
+        event['last_seen_ms'] = 156
+        rows = []
+        for index in range(gain_frames):
+            rows.append(dict(source_timestamp_ms=151 + index, evidence=f'card-{index}.png', screen='training_result',
+                             facts=dict(learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=dict(
+                                 speed=dict(text='+11', confidence=0.99, value=None, gain=11))))))
+        if landing is not None:
+            rows.append(dict(source_timestamp_ms=156, evidence='card-last.png', screen='training_result',
+                             facts=dict(learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=dict(
+                                 speed=dict(text=f'{landing}/', confidence=0.98, value=landing, gain=None))))))
+        tracking['readings'][2:2] = rows
+
+    def test_on_the_last_turn_the_landing_value_on_the_card_settles_a_disputed_badge(self):
+        # The badge was read as 1 and 11; the card's last frame shows the stat
+        # at 111, the opening 100 plus 11.
+        doc = report()
+        self.last_turn(doc, [1, 11], landing=111)
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(speed=11))
+        self.assertEqual(event['learned_reader_values'], dict(speed=111))
+        self.assertEqual(event['learned_reader_frames'], dict(speed=['card-0.png', 'card-1.png', 'card-last.png']))
+        self.assertEqual(event['settled_conflicting_readings'],
+                         dict(speed=dict(amount=11, reads=[1, 11], settled_by='learned_reader_landing_value_on_card')))
+        gain = next(c for c in result['contributions'] if c['field'] == 'speed')
+        self.assertEqual((gain['amount'], gain['basis']), (11, 'observed_learned_training_gain'))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'missing_endpoint')
+
+    def test_without_the_landing_value_or_a_repeated_gain_the_last_turn_settles_nothing(self):
+        for kwargs in (dict(landing=None), dict(landing=112), dict(landing=111, gain_frames=1)):
+            doc = report()
+            self.last_turn(doc, [1, 11], **kwargs)
+            result = build(doc)
+            event = doc['gameplay_tracking']['events'][0]
+            self.assertNotIn('settled_conflicting_readings', event, kwargs)
+            self.assertNotIn('learned_reader_gains', event, kwargs)
+            self.assertFalse([c for c in result['contributions'] if c['field'] == 'speed'], kwargs)
 
     def test_a_difference_the_card_contradicts_settles_nothing(self):
         # The model read the badge as 18 while the bars say 9: a disagreement
