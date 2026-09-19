@@ -169,6 +169,40 @@ def _corroborated_source_state(readings, fields, channel, start_ms, action_time,
     return None
 
 
+_FINAL_SCREENS = frozenset({'career_completion_hub', 'career_finish_confirmation', 'career_summary'})
+_FINAL_VALUES = {'stats': 'final_attributes', 'performance': 'remaining_performance_points'}
+
+
+def _final_screen_state(readings, fields, channel, action_time, uncertain):
+    """The career's closing screens as the last turn's closing state.
+
+    The Complete Career screens show the balances after everything the last
+    turn did, which is what a closing is. Every field of the channel must be
+    read there, the same values on two frames at least, and no frame of those
+    screens may read them differently; a screen that shows a stat only as a
+    chart gives no closing for that channel.
+    """
+    key = _FINAL_VALUES[channel]
+    seen = []
+    for index, row in enumerate(readings):
+        time = row.get('source_timestamp_ms')
+        if (type(time) is not int or time < action_time or row.get('screen') not in _FINAL_SCREENS
+                or uncertain(time, time) or not _proof(row.get('evidence'))):
+            continue
+        values = (row.get('facts') or {}).get(key)
+        if not isinstance(values, dict) or any(type(values.get(f)) is not int for f in fields):
+            continue
+        seen.append((time, index, {f: values[f] for f in fields}, row))
+    if len({time for time, _, _, _ in seen}) < 2 or len({tuple(sorted(v.items())) for _, _, v, _ in seen}) != 1:
+        return None
+    time, index, values, row = max(seen, key=lambda item: item[0])
+    source_ref = f'/gameplay_tracking/readings/{index}/facts'
+    return dict(source_ref=source_ref, values_ref=f'{source_ref}/{key}', observed_at_ms=time,
+                supporting_source_refs=[f'/gameplay_tracking/readings/{i}/facts' for _, i, _, _ in seen],
+                values=deepcopy(values), evidence=_proof(row['evidence']),
+                basis='final_screen_observation', exact_turn_boundary=False)
+
+
 def _calendar_identity(row):
     stats = row.get('stats', {})
     text = stats.get('calendar_text')
@@ -660,6 +694,9 @@ def build(report):
                     evidence=_proof(checkpoint.get('evidence')), basis='last_observed_state_after_action',
                     exact_turn_boundary=False)
                 last['states'][channel]['closing_basis'] = 'last_observed_state_not_inferred_completion'
+            elif (final := _final_screen_state(readings, fields, channel, action_time, uncertain)) is not None:
+                last['states'][channel]['closing'] = final
+                last['states'][channel]['closing_basis'] = 'final_screen_observation_after_action'
             else:
                 last['states'][channel]['closing_basis'] = 'unavailable'
     for turn in turns:

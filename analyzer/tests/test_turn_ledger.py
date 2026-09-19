@@ -490,6 +490,38 @@ class TurnLedgerTests(unittest.TestCase):
         self.assertIsNone(state['closing'])
         self.assertEqual(state['closing_basis'], 'unavailable')
 
+    def test_the_complete_career_screen_closes_the_last_turn_when_no_panel_follows_the_action(self):
+        from tracen_replay.gameplay import CURRENCIES
+        points = {field: value for field, value in zip(CURRENCIES, (124, 6, 27, 25, 12))}
+
+        def completion(time, values=points, screen='career_finish_confirmation'):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen=screen,
+                        stats=dict(calendar_text=None, turns_remaining_to_goal=None),
+                        facts=dict(remaining_performance_points=dict(values)))
+
+        source = report()
+        data = source['gameplay_tracking']
+        data['turn_action_receipts'] = [dict(kind='rest', source_timestamp_ms=2100)]
+        data['readings'] += [completion(2300), completion(2400)]
+        state = build(source)['turns'][-1]['states']['performance']
+        self.assertEqual(state['closing_basis'], 'final_screen_observation_after_action')
+        self.assertEqual((state['closing']['values'], state['closing']['observed_at_ms'], state['closing']['basis']),
+                         (points, 2400, 'final_screen_observation'))
+        self.assertEqual(state['closing']['values_ref'], '/gameplay_tracking/readings/7/facts/remaining_performance_points')
+        # One frame, disagreeing frames, an incomplete row, or frames before
+        # the action give no closing.
+        for readings in ([completion(2300)],
+                         [completion(2300), completion(2400, dict(points, dance=125))],
+                         [completion(2300, dict(points, dance=None)), completion(2400, dict(points, dance=None))],
+                         [completion(2000), completion(2050)]):
+            source = report()
+            source['gameplay_tracking']['turn_action_receipts'] = [dict(kind='rest', source_timestamp_ms=2100)]
+            source['gameplay_tracking']['readings'] = sorted(source['gameplay_tracking']['readings'] + readings,
+                                                             key=lambda row: row['source_timestamp_ms'])
+            state = build(source)['turns'][-1]['states']['performance']
+            self.assertIsNone(state['closing'], readings)
+            self.assertEqual(state['closing_basis'], 'unavailable', readings)
+
     def test_invalid_core_references_and_non_numeric_states_fail(self):
         for case in ('event_link', 'action_kind', 'time', 'duplicate_event', 'state', 'evidence_time'):
             with self.subTest(case=case):

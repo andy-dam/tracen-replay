@@ -5,7 +5,8 @@ from tests.test_neural_transactions import row
 
 class PerformancePrefixTests(unittest.TestCase):
     def rows(self,values=(17,17,1,17,17)):
-        return [row(i*25,'training_result',{'awarded_performance_gains':{'composure':v}},training_option='wit') for i,v in enumerate(values)]
+        # A card that awards performance shows its stat badge too.
+        return [row(i*25,'training_result',{'awarded_performance_gains':{'composure':v},'training_gains':{'wit':12}},training_option='wit') for i,v in enumerate(values)]
 
     def test_single_prefix_outlier_retains_evidence(self):
         event=training_events(self.rows())[0]

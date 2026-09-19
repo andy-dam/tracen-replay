@@ -1293,6 +1293,9 @@ def _performance_panel_component_candidates(regions, field, label_y,
     return candidates
 
 
+_SINGLE_DIGIT_CROP_CONFIDENCE=70
+
+
 def _performance_panel_localized_candidates(regions, field, label_y,
                                             minimum_confidence=97):
     """Read fixed-geometry current crops from a same-frame refinement."""
@@ -1320,14 +1323,24 @@ def _performance_panel_localized_candidates(regions, field, label_y,
         if observation.get('geometry_basis') not in (None,'fixed_row_panel_geometry','detected_value_line_geometry'):
             continue
         try:
-            if not within(observation,band) or float(observation.get('confidence',0))<minimum_confidence:
+            confidence=float(observation.get('confidence',0))
+            if not within(observation,band):
                 continue
         except (TypeError,ValueError):
             continue
         text=re.sub(r'\s+','',str(observation.get('text','')).strip())
         if not re.fullmatch(_PANEL_VALUE,text):
             continue
-        candidates.append(dict(value=int(text),observation=observation,region=name,component='current',localized=True))
+        # A lone digit reads at a lower confidence than a number of two or
+        # three glyphs, and the crop of a row the detector missed is the
+        # only reading of it. One digit is taken from 70; the ledger still
+        # wants the same value on two frames before it counts.
+        floor=(_SINGLE_DIGIT_CROP_CONFIDENCE if len(text)==1 and name.startswith('performance_panel_localized_current.')
+               else minimum_confidence)
+        if confidence<floor:
+            continue
+        candidates.append(dict(value=int(text),observation=observation,region=name,component='current',localized=True,
+                               below_floor=confidence<minimum_confidence))
     return candidates
 
 
@@ -2207,30 +2220,6 @@ def _race_runner_card(raw, lines):
     return read_runner_facts(card)
 
 
-def withhold_projection_without_badge(facts,screen):
-    """A result frame with no stat gain badge awards no performance gains.
-
-    The side panel's "+N" beside a performance row is the preview's
-    projection, and it stays on screen through the training scene until the
-    result card's badges appear. Without a badge, a success banner, or the
-    result card's own region proving the field, the panel proves no award;
-    the projection is kept aside, as a failed result's is.
-    """
-    if screen!='training_result' or facts.get('training_gains') or facts.get('training_outcome')=='success':
-        return
-    awards=facts.get('awarded_performance_gains') or {}
-    proven=facts.get('performance_gain_source_provenance') or {}
-    withheld={field:amount for field,amount in awards.items() if field not in proven}
-    if not withheld:
-        return
-    for field in withheld:
-        awards.pop(field)
-    if not awards:
-        facts.pop('awarded_performance_gains',None)
-    facts['unawarded_performance_projection']={**(facts.get('unawarded_performance_projection') or {}),**withheld}
-    facts['unawarded_performance_basis']='no_stat_badge_on_frame'
-
-
 def parse(raw):
     lines=raw['lines'];regions=raw['regions'];text='\n'.join(l['text'] for l in lines if l['confidence']>=90)
     header=raw['header']
@@ -2451,8 +2440,10 @@ def parse(raw):
             effect['original_text']=wording_line['original_hint_wording']
             effect['text_normalization']='obstructed_hint_wording'
     # Typewriter/fade frames can expose a prefix such as "... by 5" of "... by 57."
-    # Numeric receipts require their visible sentence terminator in this layout.
-    effects=[e for e in parsed_effects if e.get('amount') is None or re.search(r'[.!]$',e['raw_text'])]
+    # Numeric receipts require their visible sentence terminator in this layout,
+    # except one whose number came from the gain popup: its line never had one.
+    effects=[e for e in parsed_effects if e.get('amount') is None or e.get('amount_basis')=='gain_popup_on_same_frame'
+             or re.search(r'[.!]$',e['raw_text'])]
     pending_effects=[e for e in parsed_effects if e not in effects]
     if screen not in ('unknown','event_outcome'):
         effects=[];pending_effects=[]
@@ -2893,7 +2884,6 @@ def parse(raw):
             facts['performance_gain_source_conflicts'] = direct_conflicts
     if facts.get('training_outcome')=='failure' or facts.get('failure_banner'):
         facts['unawarded_performance_projection']=facts.pop('awarded_performance_gains',{})
-    withhold_projection_without_badge(facts,screen)
     if screen in ('skill_selection','skill_confirmation','skill_receipt'):
         facts.update(points_semantics='possibly_projected_remaining_points',spent_skill_points=None,item_list_complete=False)
         labels=[l for l in lines if l['text']=='Skill Points' and l['confidence']>=97]

@@ -1947,6 +1947,14 @@ def training_events(readings,states=()):
             events[-1].update(failure_evidence=[r['evidence'] for r in failures],
                              unawarded_performance_projection=dict(performance),performance_deltas={},performance_evidence={})
             for row in failures:events[-1]['unawarded_performance_projection'].update(row['facts'].get('unawarded_performance_projection',{}))
+        elif (performance and not events[-1].get('deltas') and events[-1].get('training_outcome')!='success'
+              and not any(r['facts'].get('training_gains') for r in group['rows'])):
+            # No frame of this training shows a stat badge or an outcome
+            # banner: the side panel's "+N" beside a performance row is the
+            # preview's projection, still on screen through the training
+            # scene, and awards nothing yet. Kept aside as a failed result's is.
+            events[-1].update(unawarded_performance_projection=dict(performance),performance_deltas={},performance_evidence={},
+                             unawarded_performance_basis='no_stat_badge_or_banner_on_any_frame')
         before=[s for s in states if 0<group['first_seen_ms']-s['last_seen_ms']<=5000]
         before=before[-1] if before else None
         earlier_awards=before and any(before['last_seen_ms']<r['source_timestamp_ms']<group['first_seen_ms'] and any(e['kind']=='stat_change' for e in r.get('effects',[])) for r in readings)

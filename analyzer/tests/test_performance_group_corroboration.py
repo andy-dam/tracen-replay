@@ -10,6 +10,8 @@ def _row(timestamp, evidence, *, candidate=None, amount=None, option='stamina',
     if candidate is not None:
         facts['performance_gain_candidates'] = {'visual': dict(candidate)}
     if amount is not None:
+        # A card that awards performance shows its stat badge too.
+        facts['training_gains'] = {option: 12}
         facts['awarded_performance_gains'] = {'visual': amount}
         facts['performance_panel_provenance'] = {
             'visual': {

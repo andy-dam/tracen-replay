@@ -67,6 +67,19 @@ class GainPopupTests(unittest.TestCase):
         self.assertEqual(cut_receipt_lines([line('Power went up by', (313, 600, 515, 640), 93), POPUP, LABEL], band), [])
         self.assertEqual(cut_receipt_lines([line('Power went up by', (313, 827, 515, 867), 97), POPUP, LABEL], band), [])
 
+    def test_the_reader_keeps_a_popup_effect_without_the_sentence_terminator(self):
+        from tracen_replay.vision import parse
+        raw = dict(lines=[line('Career', (156, 5, 217, 29), 100), line('Speed went up by', (311, 796, 524, 849), 97),
+                          line('+5', (497, 565, 599, 642), 97), line('Speed', (497, 637, 636, 697), 99)],
+                   regions={}, header='Career', current_grid=False, result_grid=False)
+        parsed = parse(raw)
+        self.assertEqual(parsed['screen'], 'event_outcome')
+        self.assertEqual([(e['field'], e['amount'], e.get('amount_basis')) for e in parsed['effects'] if e['kind'] == 'stat_change'],
+                         [('speed', 5, 'gain_popup_on_same_frame')])
+        # Without the popup the cut line is still only a pending prefix.
+        raw['lines'] = raw['lines'][:2]
+        self.assertEqual([e for e in parse(raw)['effects'] if e['kind'] == 'stat_change'], [])
+
     def test_skill_points_use_their_own_label(self):
         lines = [line('Skill Pts went up by', (313, 827, 515, 867), 93),
                  line('+30', (317, 444, 426, 521), 98), line('Skill Pts', (330, 518, 456, 566), 100)]

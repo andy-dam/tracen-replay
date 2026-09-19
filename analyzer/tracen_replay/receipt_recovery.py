@@ -65,6 +65,25 @@ def plan(readings, events, duration_ms):
                                               owner_ref=owners[0].get('id') if len(owners) == 1 else None,
                                               owner_start_ms=owners[0]['first_seen_ms'] if len(owners) == 1 else None,
                                               owner_end_ms=owners[0]['last_seen_ms'] if len(owners) == 1 else None)))
+    # A recovery receipt caught on one sampled frame cannot be repeated, and
+    # a rest is proved by a repeated receipt: the second around it is reread.
+    # A recovery under an event's title belongs to that event and is not.
+    for event in events:
+        if (event.get('kind') != 'outcome' or event.get('context_title')
+                or type(event.get('first_seen_ms')) is not int
+                or event['first_seen_ms'] != event.get('last_seen_ms')):
+            continue
+        recovery = next((e for e in event.get('effects', []) if e.get('kind') == 'energy_change'
+                         and type(e.get('amount')) is int and e['amount'] > 0), None)
+        if recovery is None:
+            continue
+        time = event['first_seen_ms']
+        start, end = max(0, time-500), min(duration_ms, time+500)
+        requests.append(dict(start_ms=start, end_ms=end,
+                             trigger=dict(source_timestamp_ms=time, evidence=event.get('evidence'),
+                                          kind='energy_change', field=None, raw_text=recovery.get('raw_text'),
+                                          owner_ref=event.get('id'), owner_start_ms=start, owner_end_ms=end,
+                                          reason='lone_recovery_receipt')))
     windows = []
     for request in sorted(requests, key=lambda r: (r['start_ms'], r['end_ms'])):
         if (windows and request['start_ms'] <= windows[-1]['end_ms']
@@ -73,7 +92,8 @@ def plan(readings, events, duration_ms):
             windows[-1]['triggers'].append(request['trigger'])
         else:
             windows.append(dict(start_ms=request['start_ms'], end_ms=request['end_ms'],
-                                reason='unresolved_visible_numeric_receipt', triggers=[request['trigger']]))
+                                reason=request['trigger'].get('reason', 'unresolved_visible_numeric_receipt'),
+                                triggers=[request['trigger']]))
     return windows
 
 
