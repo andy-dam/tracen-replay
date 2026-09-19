@@ -94,6 +94,89 @@ class CurrentStateLayoutTests(unittest.TestCase):
         self.assertFalse(result["current_grid"])
         self.assertEqual(result["rejections"]["applied_result_layout"], 1)
 
+    def test_a_near_miss_label_in_its_own_column_at_lower_confidence_is_the_label(self):
+        # White text on a pink or orange strip comes back as "Sil Pts",
+        # "SSpeed" or "peed" in the sixties to eighties; the column says
+        # which label it is.
+        for skill, speed in (("Sil Pts", "SSpeed"), ("Shill Pts", "peed"), ("Skill Pts", "Speed")):
+            lines = current_lines()
+            for entry in lines:
+                if entry["text"] == "Skill Pts":
+                    entry.update(text=skill, confidence=72.0)
+                if entry["text"] == "Speed":
+                    entry.update(text=speed, confidence=68.0)
+            with self.subTest(skill=skill, speed=speed):
+                result = detect_current_state_layout(lines, header="Career")
+                self.assertTrue(result["current_grid"], result["rejections"])
+                self.assertEqual(result["observed"]["stat_row_count"], 5)
+
+    def test_a_near_miss_needs_its_column_and_some_confidence(self):
+        lines = current_lines()
+        for entry in lines:
+            if entry["text"] == "Skill Pts":
+                entry.update(text="Sil Pts", confidence=55.0)
+        self.assertFalse(detect_current_state_layout(lines, header="Career")["current_grid"])
+        lines = current_lines()
+        for entry in lines:
+            if entry["text"] == "Skill Pts":
+                entry.update(text="Sil Pts", confidence=80.0, box=[600, 692, 680, 722])
+        self.assertFalse(detect_current_state_layout(lines, header="Career")["current_grid"])
+
+    def test_two_labels_read_as_one_box_are_split(self):
+        lines = [entry for entry in current_lines() if entry["text"] not in ("Stamina", "Power")]
+        lines.append(line("StaminaPower", (391, 695, 551, 721)))
+        result = detect_current_state_layout(lines, header="Career")
+        self.assertTrue(result["current_grid"], result["rejections"])
+        fields = {row["field"]: row["label"] for row in result["field_geometry"]}
+        self.assertEqual(fields["stamina"]["merged_from"], "StaminaPower")
+        self.assertLess(fields["stamina"]["box"][2], fields["power"]["box"][0] + 1)
+
+    def test_four_capped_rows_prove_the_panel_when_one_cap_is_unreadable(self):
+        # The wit cap comes back with the grade glyph stuck to it.
+        lines = current_lines()
+        for entry in lines:
+            if entry["text"] == "/1300" and entry["box"][0] > 650:
+                entry["text"] = "UG/1301"
+        result = detect_current_state_layout(lines, header="Career")
+        self.assertTrue(result["current_grid"], result["rejections"])
+        self.assertEqual(result["observed"]["capped_stat_row_count"], 4)
+        self.assertEqual(result["rejections"], {"missing_wit_cap": 1})
+        # Three capped rows do not.
+        for entry in lines:
+            if entry["text"] == "/1500":
+                entry["text"] = "UG/1500"
+        result = detect_current_state_layout(lines, header="Career")
+        self.assertFalse(result["current_grid"])
+        self.assertIn("insufficient_capped_stat_rows", result["rejections"])
+
+    def test_the_strip_probe_takes_any_theme_colour_and_no_grey(self):
+        from tracen_replay.vision import STRIP_PROBE_BOXES, STRIP_PROBE_MIN, _strip_saturation
+
+        def strip(rgb, text=None):
+            crop = np.full((19, 35, 3), rgb, dtype="uint8")
+            if text is not None:
+                crop[6:13, 8:27] = text
+            return crop
+
+        # The three strips seen so far: blue (B), pink (A), orange (C), with
+        # white label text over a third of the box.
+        for colour in ((135, 170, 218), (217, 159, 219), (241, 163, 101)):
+            with self.subTest(colour=colour):
+                self.assertGreater(_strip_saturation(strip(colour, (255, 255, 255))), STRIP_PROBE_MIN)
+        # A white panel, a grey one, a dark scene: no strip.
+        for colour in ((250, 250, 250), (128, 128, 128), (30, 40, 50)):
+            with self.subTest(colour=colour):
+                self.assertLess(_strip_saturation(strip(colour)), STRIP_PROBE_MIN)
+        self.assertEqual(len(STRIP_PROBE_BOXES), 5)
+        self.assertTrue(all(box[1] == 700 and box[3] == 719 for box in STRIP_PROBE_BOXES))
+
+    def test_a_five_digit_wit_token_is_a_glyph_on_a_value(self):
+        # The grade glyph read as a digit: "11218" for 1218. Geometry only;
+        # the fixed crop still decides the number.
+        lines = current_lines(wit_value="11218", wit_confidence=88.0)
+        result = detect_current_state_layout(lines, header="Career")
+        self.assertTrue(result["current_grid"], result["rejections"])
+
     def test_partial_or_unrelated_rows_do_not_authorize_current_state(self):
         lines = [line("Career", (156, 5, 217, 29))]
         lines.extend([

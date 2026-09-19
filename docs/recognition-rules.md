@@ -22,16 +22,27 @@ such as `(Junior|Classic|Senior) Year (Pre-Debut|(Early|Late) <Month>)` or
 identity from this screen.
 
 The six stat fields (speed, stamina, power, guts, wit, skill points) are
-read from fixed columns in the current-stat bar. A geometry detector
-requires a same-frame label, value and cap for all five stats plus a
-skill-points value before it accepts the panel; a career/training header
-is preferred but not required when the rest of the geometry is complete.
-OCR can fuse a stray letter-like glyph onto a stat's leading digit (for
-example `U1243`); the detector tolerates that shape only as row geometry,
-at a lower confidence floor, never as the number itself, which is always
-resolved from its own fixed crop. On a race day, the lower totals row can
-supply the same six values from a separate layout, at confidence 97 or
-higher, gated by an exact `Race!` control or an already-verified grid.
+read from fixed columns in the current-stat bar. A frame is tried as the
+bar when a colour probe finds a saturated strip under every label, whatever
+the colour: the strip takes the trainee's theme colour, blue on one
+recording, pink and orange on two others, and a probe that asked for blue
+lost two thirds of those recordings' hub frames. A geometry detector then
+requires a same-frame label and value for all five stats plus a skill-points
+value, and a cap on at least four of the five stats, before it accepts the
+panel; the wit cap often comes back with the grade glyph stuck to it
+(`UG/1301`). Each label is identified by its column first and its text
+second: the exact word at confidence 90, or, in its own column, a text
+within two edits of it at confidence 60, since white text on a coloured
+strip returns `Sil Pts`, `SSpeed` or `peed` in the sixties to eighties; two
+neighbouring labels read as one box (`StaminaPower`) are split at the join.
+A career/training header is preferred but not required when the rest of the
+geometry is complete. OCR can fuse a stray letter-like glyph onto a stat's
+leading digit (for example `U1243`, or `11218` when the glyph came back as a
+digit); the detector tolerates that shape only as row geometry, at a lower
+confidence floor, never as the number itself, which is always resolved from
+its own fixed crop. On a race day, the lower totals row can supply the same
+six values from a separate layout, at confidence 97 or higher, gated by an
+exact `Race!` control or an already-verified grid.
 
 The five performance-point currencies (dance, passion, vocal, visual,
 composure) are read from fixed boxes on the lesson menu and its

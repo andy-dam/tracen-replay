@@ -374,6 +374,27 @@ class CompactInputEngine:
         return getattr(self._engine, name)
 
 
+# The five boxes under the stat labels where the bar's coloured strip shows,
+# in frame coordinates, and the fraction of their pixels that must be a
+# saturated colour (not white, grey or black) for the frame to be tried as
+# the current stat bar.
+STRIP_PROBE_BOXES=tuple((x,700,x+35,719) for x in (310,410,510,610,710))
+STRIP_PROBE_MIN=.35
+
+
+def _strip_saturation(colors):
+    """The fraction of a crop's pixels that carry a colour.
+
+    A pixel counts when its channels differ by more than 40 and the brightest
+    is above 120: the strip in any theme colour passes, and the white label
+    text, a grey panel or a dark scene does not. Which colour it is does not
+    matter, and never did: the value crops read the numbers.
+    """
+    colors=colors.astype('int16')
+    spread=colors.max(axis=2)-colors.min(axis=2)
+    return float(((spread>40)&(colors.max(axis=2)>120)).mean())
+
+
 class NeuralReader:
     def __init__(self,model_dir='.local/models/rapidocr'):
         from rapidocr import RapidOCR,OCRVersion,ModelType,LangRec
@@ -596,6 +617,7 @@ class NeuralReader:
     def read(self,pane):
         if pane.size != (810,1080):
             raise ValueError('Neural OCR accepts only the gameplay crop.')
+        strip_saturation=_strip_saturation
         array=self.np.array(pane.convert('RGB'))
         # The recognizer knows where each word it read sits. Asking for that
         # costs nothing and changes no text or score; it is kept for the
@@ -620,7 +642,11 @@ class NeuralReader:
         header=' '.join(l['text'] for l in lines if within(l,(148,0,450,30)) and l['confidence']>=90)
         text='\n'.join(l['text'] for l in lines)
         grid=min(blue((x,911,x+35,934)) for x in (270,470))>.45 and header.lower().startswith('training')
-        current=min(blue((x,700,x+35,719)) for x in (310,410,510,610,710))>.35
+        # The label strip of the stat bar takes the trainee's theme colour:
+        # blue on one recording, pink and orange on two others. The probe
+        # asks only for a saturated strip under every label; the geometry
+        # proof below, and the fixed value crops it opens, decide the rest.
+        current=min(strip_saturation(crop(box)) for box in STRIP_PROBE_BOXES)>STRIP_PROBE_MIN
         result_layout = detect_training_result_layout(
             lines,
             header=header,

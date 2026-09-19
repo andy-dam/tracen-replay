@@ -51,10 +51,11 @@ _LABEL_TO_FIELD = {
     label: field for field, labels in FIELD_LABELS.items() for label in labels
 }
 _PLAIN_NUMBER_RE = re.compile(r"^\d{1,4}$")
-# Rank glyphs occasionally touch the Wit value (for example ``U1243``).  The
-# detector records this as a numeric candidate for geometry only; fixed OCR
-# crops remain responsible for deciding whether the value itself is usable.
-_RANKED_NUMBER_RE = re.compile(r"^[A-Za-z]{1,2}\d{1,5}$")
+# Rank glyphs occasionally touch the Wit value (for example ``U1243``, or
+# ``11218`` when the glyph came back as a digit; no stat has five digits).
+# The detector records this as a numeric candidate for geometry only; fixed
+# OCR crops remain responsible for deciding whether the value itself is usable.
+_RANKED_NUMBER_RE = re.compile(r"^(?:[A-Za-z]{1,2}\d{1,5}|\d{5})$")
 _CAP_RE = re.compile(r"^(?:\d{1,4}\s*)?[/VYlI]\s*\d{1,4}$", re.I)
 
 
@@ -138,16 +139,89 @@ def _header(lines: Sequence[Mapping[str, Any]], supplied: Any) -> dict[str, Any]
     return _copy(candidates[0])
 
 
+# Where each label sits on the bar (the centre of its box, in frame x). The
+# columns never move, so a label is identified by its column first and its
+# text second: on a bar whose strip colour gives the white text little
+# contrast, the recognizer returns "Sil Pts", "SSpeed" or "peed" at a
+# confidence in the sixties to eighties, and the exact spelling at 90 is
+# what most hub frames of two recordings failed on.
+LABEL_COLUMNS = {
+    "speed": 323.0, "stamina": 428.0, "power": 521.0, "guts": 618.0, "wit": 702.0, "skill_points": 794.0,
+}
+LABEL_COLUMN_TOLERANCE = 40.0
+NEAR_LABEL_MIN_CONFIDENCE = 60.0
+NEAR_LABEL_MAX_EDITS = 2
+# Two neighbouring labels the detector read as one box ("StaminaPower").
+_ADJACENT = (("speed", "stamina"), ("stamina", "power"), ("power", "guts"), ("guts", "wit"))
+
+
+def _edits(a: str, b: str) -> int:
+    """Levenshtein distance, for two short labels."""
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        for j, cb in enumerate(b, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+        previous = current
+    return previous[-1]
+
+
+def _label_field(text: str, center_x: float, confidence: float) -> str | None:
+    """The field a label line names: its exact text at 90, or in its own
+    column a text within two edits of the label at 60."""
+    exact = _LABEL_TO_FIELD.get(text)
+    if exact is not None and confidence >= 90.0:
+        return exact
+    if confidence < NEAR_LABEL_MIN_CONFIDENCE:
+        return None
+    for field, column in LABEL_COLUMNS.items():
+        if abs(center_x - column) > LABEL_COLUMN_TOLERANCE:
+            continue
+        if exact == field or any(_edits(text, label) <= NEAR_LABEL_MAX_EDITS for label in FIELD_LABELS[field]):
+            return field
+        return None
+    return None
+
+
+def _merged_labels(line: Mapping[str, Any], text: str, confidence: float) -> list[tuple[str, dict[str, Any]]]:
+    """Two adjacent labels read as one box, split at the join."""
+    if confidence < 90.0:
+        return []
+    for left, right in _ADJACENT:
+        left_label, right_label = next(iter(FIELD_LABELS[left])), next(iter(FIELD_LABELS[right]))
+        if text != left_label + right_label:
+            continue
+        box = _box(line["box"])
+        split = box[0] + (box[2] - box[0]) * len(left_label) / len(text)
+        return [(left, dict(_copy(line), text=left_label, box=[box[0], box[1], split, box[3]], merged_from=line.get("text"))),
+                (right, dict(_copy(line), text=right_label, box=[split, box[1], box[2], box[3]], merged_from=line.get("text")))]
+    return []
+
+
+def _edits(a: str, b: str) -> int:
+    """Levenshtein distance, for two short labels."""
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        for j, cb in enumerate(b, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+        previous = current
+    return previous[-1]
+
+
 def _labels(lines: Sequence[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     result = {field: [] for field in FIELDS}
     for line in lines:
         box = _box(line.get("box"))
         confidence = _confidence(line)
-        if box is None or confidence is None or confidence < 90.0:
+        if box is None or confidence is None or confidence < NEAR_LABEL_MIN_CONFIDENCE:
             continue
         if not _in_bounds(box, CURRENT_LABEL_BOUNDS):
             continue
-        field = _LABEL_TO_FIELD.get(_text(line).casefold())
+        text = _text(line).casefold()
+        for field, part in _merged_labels(line, text, confidence):
+            result[field].append(part)
+        field = _label_field(text, _center(box)[0], confidence)
         if field is not None:
             result[field].append(_copy(line))
     return result
@@ -300,8 +374,10 @@ def detect_current_state_layout(
                 previous=value,
             )
             if cap is None:
+                # The wit cap often comes back with the grade glyph stuck to
+                # it ("UG/1301"). A row without a readable cap still has its
+                # label and value; four capped rows prove the panel below.
                 rejected["rejections"][f"missing_{field}_cap"] = 1
-                continue
         rows.append({
             "field": field,
             "label": label,
@@ -315,6 +391,7 @@ def detect_current_state_layout(
         })
 
     stat_rows = [row for row in rows if row["field"] != "skill_points"]
+    capped_rows = [row for row in stat_rows if row["cap"] is not None]
     if len(rows) != len(FIELDS):
         rejected["rejections"]["incomplete_current_panel"] = 1
         rejected["observed"] = {
@@ -323,7 +400,7 @@ def detect_current_state_layout(
             "stat_row_count": len(stat_rows),
         }
         return rejected
-    if len(stat_rows) < 4:
+    if len(capped_rows) < 4:
         rejected["rejections"]["insufficient_capped_stat_rows"] = 1
         return rejected
 
@@ -352,6 +429,7 @@ def detect_current_state_layout(
             "label_count": sum(len(items) for items in labels.values()),
             "value_cap_row_count": len(rows),
             "stat_row_count": len(stat_rows),
+            "capped_stat_row_count": len(capped_rows),
             "colour_signal": current_grid is True,
         },
         "rejections": rejected["rejections"],
