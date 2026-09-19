@@ -995,8 +995,13 @@ def lesson_receipts(readings, outcomes):
             receipt_key='|'.join(str(effect.get(k) or '') for k in ('kind','field','name'))
             receipt_frames=list((event.get('field_evidence') or {}).get(receipt_key) or [])
             if not receipt_frames and event.get('evidence'):receipt_frames=[event['evidence']]
+            # The receipt's stat line can appear on frames after the named
+            # line and land in a following event; a line read for the field
+            # anywhere in the next few seconds is the award, not a projection.
+            later_lines={e.get('field') for r in readings if event['first_seen_ms']<r['source_timestamp_ms']<=event['last_seen_ms']+3000
+                         for e in r.get('effects',[]) if e.get('kind')=='stat_change' and type(e.get('amount')) is int}
             for field,gain in projected_gains.items():
-                if type(event['deltas'].get(field)) is int or any(e.get('kind')=='stat_change' and e.get('field')==field for e in event['effects']):continue
+                if type(event['deltas'].get(field)) is int or field in later_lines or any(e.get('kind')=='stat_change' and e.get('field')==field for e in event['effects']):continue
                 frames=[r['evidence'] for r in reversed(group) if (r['facts'].get('projected_stat_gains') or {}).get(field)==gain]
                 event['effects'].append(dict(kind='stat_change',field=field,amount=gain,raw_text=None,confidence=None,
                     amount_basis='lesson_confirmation_projection',projection_evidence=frames))
@@ -2903,9 +2908,13 @@ def outing_actions(readings,events):
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
         if any(r['screen'] in ('training_result','training_preview','race_result','rest_confirmation') for r in intervening):continue
-        # A titled scene is the outing's own dialogue over the hub, not a return to it.
+        # A titled scene is the outing's own dialogue over the hub, not a return
+        # to it. The hub check guards the menu-only request, which the player
+        # may have backed out of; a sampled confirmation followed by the
+        # recovery receipt with no other action between is the outing, and the
+        # game shows the hub for a moment before the outing's own scene.
         hubs=[r for r in intervening if r['screen']=='unknown' and r.get('stats',{}).get('values') and not r.get('context_title')]
-        if any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
+        if not (confirmed and recovery) and any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
                for a,b in zip(hubs,hubs[1:])):continue
         if time in used:continue
         extra=[]

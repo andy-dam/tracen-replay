@@ -23,11 +23,17 @@ class OutingTitledSceneTests(unittest.TestCase):
         actions = outing_actions(rows, [event])
         self.assertEqual([(a['kind'], a.get('name'), a['request_observed_at_ms']) for a in actions], [('outing', 'At Rainbow Cove', 1743750)])
 
-    def test_an_untitled_hub_between_still_blocks(self):
+    def test_an_untitled_hub_between_blocks_only_a_menu_request(self):
+        # The game shows the hub for a moment after the confirmation, before
+        # the outing's own scene: with the confirmation sampled, the recovery
+        # receipt that follows is the outing.
         rows = [row(1000, 'outing_confirmation'), row(2000, 'unknown', values=VALUES), row(2250, 'unknown', values=VALUES),
                 row(5000, 'event_outcome', title='At Rainbow Cove', effects=[dict(kind='energy_change', amount=45)])]
         event = dict(id='outcome-1', kind='outcome', first_seen_ms=5000, last_seen_ms=5500, context_title='At Rainbow Cove', evidence='5000.png',
                      effects=[dict(kind='energy_change', amount=45)])
+        self.assertEqual([(a['kind'], a['request_observed_at_ms']) for a in outing_actions(rows, [event])], [('outing', 1000)])
+        # A menu the player may have backed out of, with the hub seen after it, is not a request.
+        rows[0] = row(1000, 'outing_selection')
         self.assertEqual(outing_actions(rows, [event]), [])
 
 

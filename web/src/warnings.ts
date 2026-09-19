@@ -66,7 +66,8 @@ export function entryWarnings(e: Entry): Warning[] {
   if (e.reward_link_status && e.reward_link_status !== "linked_event" && e.reward_link_status !== "linked_race") out.push({ text: `reward link: ${e.reward_link_status.replaceAll("_", " ")}`, serious: true, advice: ADVICE.rewardLink });
   if (e.assignment_basis && e.assignment_basis !== "observed_within_calendar_window") out.push({ text: `assigned by ${e.assignment_basis.replaceAll("_", " ")}`, serious: false, advice: ADVICE.assignedBy });
   if (e.kind === "ambiguous_effect") out.push({ text: `ambiguous effect${typeof d.reason === "string" ? `: ${d.reason.replaceAll("_", " ")}` : ""}`, serious: true, advice: ADVICE.ambiguous });
-  if (e.kind === "unparsed_receipt") out.push({ text: "receipt could not be parsed", serious: true, advice: ADVICE.unparsed });
+  if (e.kind === "unparsed_receipt" && d.worked_out) out.push({ text: "receipt number worked out from the turn difference", serious: false, advice: ADVICE.derived });
+  else if (e.kind === "unparsed_receipt") out.push({ text: "receipt could not be parsed", serious: true, advice: ADVICE.unparsed });
   if (e.kind === "lesson_purchases") {
     if (d.cost_basis === "unresolved" && d.turn_difference_cost) out.push({ text: "lesson cost worked out from the turn difference", serious: false, advice: ADVICE.lessonDerived });
     else if (d.cost_basis === "unresolved") out.push({ text: "lesson cost unresolved", serious: true, advice: ADVICE.lessonUnresolved });

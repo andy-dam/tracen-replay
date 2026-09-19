@@ -36,6 +36,17 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         self.assertEqual(got[0]['fields'],['guts','power','skill_points','speed','stamina','wit'])
         # With another gain accepted, the single frame owns its own narrow reread.
         self.assertEqual(plan([result],[dict(event,deltas={'speed':1})])[0]['reason'],'single_frame_training_gain')
+    def test_a_card_seen_only_as_a_candidate_with_no_gain_read_gets_the_bounded_reread(self):
+        # The player skipped through the card: one frame, its banner unread,
+        # no badge accepted. The high-rate reread sees what the sparse pass fell between.
+        card=dict(row(1000,{}),screen='training_result_candidate',training_option='wit')
+        event=dict(id='training',kind='training',training_option='wit',first_seen_ms=1000,last_seen_ms=1000,deltas={},conflicting_readings={})
+        got=plan([card],[event])
+        self.assertEqual([(w['start_ms'],w['end_ms'],w['reason'],w['fields']) for w in got],
+                         [(500,1500,'result_seen_without_any_signed_gain',['guts','power','skill_points','speed','stamina','wit'])])
+        # With a gain accepted, or no card frame at all, no such reread.
+        self.assertEqual(plan([card],[dict(event,deltas={'wit':22})]),[])
+        self.assertEqual(plan([],[event]),[])
 
     def test_same_timestamp_unrequested_fields_and_other_occurrences_are_excluded(self):
         original=[row(100,{'speed':1})];before=copy.deepcopy(original)

@@ -310,6 +310,13 @@ def _complete_list_from_cart(batch, charge, data):
     The batch's transaction row is completed the same way, since the ledger
     shows both.
     """
+    twins = [t for t in data.get('skill_purchases') or [] if isinstance(t, dict) and t.get('id') == batch.get('id')]
+    if batch.get('spent_skill_points') is None and batch.get('cart_net_cost') == charge and charge > 0:
+        # The cart counter's net change and the turn's drop agree: that is
+        # the charge, worked out from two independent readings, whether or
+        # not every purchased skill was named.
+        for target in (batch, *twins):
+            target.update(spent_skill_points=charge, spent_skill_points_basis='turn_difference_matches_cart_net_cost')
     items = batch.get('selected_item_candidates') or []
     if (not items or batch.get('purchased_list_complete')
             or any(not isinstance(item, dict) or type(item.get('cost')) is not int or not item.get('name')
@@ -320,7 +327,6 @@ def _complete_list_from_cart(batch, charge, data):
     completed = dict(spent_skill_points=charge, spent_skill_points_basis='turn_difference',
                      purchased_list_complete=True, purchased_list_basis='cart_costs_match_turn_difference',
                      purchased_skill_names=names)
-    twins = [t for t in data.get('skill_purchases') or [] if isinstance(t, dict) and t.get('id') == batch.get('id')]
     for target in (batch, *twins):
         target.update(completed)
         if target.get('identity_status_basis') == 'incomplete_skill_confirmation_list':
@@ -1055,6 +1061,10 @@ def build(report):
                 owner.setdefault('turn_difference_captions', {})[field] = [
                     dict(raw_text=c.get('raw_text'), first_seen_ms=c.get('first_seen_ms'),
                          evidence=list(c.get('evidence') or [])[:1]) for c in found]
+                for c in found:
+                    # The cut line's number is now known from the turn's
+                    # difference; the line is a note, not a review item.
+                    c['worked_out'] = dict(field=field, amount=residual, event_ref=parent)
                 proof = [owner.get('evidence'), *(e for c in found for e in (c.get('evidence') or []))]
                 add(f'{parent}/{store}/{field}', parent, owner, channel, field, residual, [e for e in proof if e],
                     'turn_difference')

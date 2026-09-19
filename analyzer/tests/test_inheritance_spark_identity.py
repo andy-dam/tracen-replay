@@ -143,6 +143,23 @@ class InheritanceSparkIdentityTests(unittest.TestCase):
         self.assertEqual([c['reason'] for c in current['ambiguous_effect_candidates']], ['alternate_inheritance_spark_identity'])
         self.assertNotIn('misread_variants', current['effects'][0])
 
+    def test_a_target_that_stays_put_while_every_shared_line_moves_is_another_line(self):
+        # The receipt scrolled: the exact 'Stamina spark activated!' line moved
+        # up by two rows while the target slot now shows a different spark.
+        # Two lines, not one identity: both sparks stand, nothing is raised.
+        first = spark('Power')
+        second = spark('Speed')
+        rows = {
+            'a0': row(1000, 'a0', [first]),
+            'a1': row(1250, 'a1', [first]),
+            'b1': row(1500, 'b1', [second], anchor_box=(317, 843, 555, 870)),
+        }
+        current = event([first, second], {first['name']: ['a0', 'a1'], second['name']: ['b1']})
+        resolve(current, rows)
+        self.assertEqual([effect['name'] for effect in current['effects']], ['Power', 'Speed'])
+        self.assertNotIn('ambiguous_effect_candidates', current)
+        self.assertFalse(current['conflicting_readings'])
+
     def test_stationary_anchor_resolves_only_with_independent_repeated_name(self):
         first = spark('Alpha Complete')
         variant = spark('Alpha Comple')

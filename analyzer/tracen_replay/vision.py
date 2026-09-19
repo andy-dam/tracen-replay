@@ -204,7 +204,10 @@ def _canonical_race_grade(value):
 # A grade that ends in a digit can also arrive glued to the title, the reader
 # having missed the gap ("G1Hopeful Stakes"); a letter grade glued to letters
 # (OPEN, EXtra) is a word, so those still need the space.
-_RACE_GRADE_PREFIX_RE = re.compile(r'^(?:(DEBUT|G[123]|OP|PRE[- ]?OP|EX)\s+|(G[123])(?=(?-i:[A-Z])))(.+)$', re.I)
+# The grade badge is read glued to a capitalised title as often as spaced
+# from it ("G1Arima Kinen", "DEBUTJunior Make Debut"). A badge that is
+# itself a word's start ("OP" in "OPEN Cup") still needs its space.
+_RACE_GRADE_PREFIX_RE = re.compile(r'^(?:(DEBUT|G[123]|OP|PRE[- ]?OP|EX)\s+|(G[123]|DEBUT|EX)(?=(?-i:[A-Z])))(.+)$', re.I)
 
 
 def _split_race_grade(text):

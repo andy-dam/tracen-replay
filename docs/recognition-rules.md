@@ -218,10 +218,10 @@ confidence 97 or higher, with at least two observations no more than
 1000ms apart and no more than 10000ms before the panel; the animation
 never creates a race or supplies its rewards on its own. The header's
 grade token can arrive glued to the title when the recognizer misses the
-gap ("G1Hopeful Stakes"); a grade that ends in a digit is split from a
-title that starts with a capital letter, so both readings name the same
-race, while a letter grade (OP, EX, DEBUT) still needs its space, since
-letters glued to letters may be a word. The pre-race entry card's
+gap ("G1Hopeful Stakes", "DEBUTJunior Make Debut"); a grade that ends in
+a digit, and DEBUT or EX, is split from a title that starts with a capital
+letter, so both readings name the same race, while OP still needs its
+space, since "OP" starts words ("OPEN Cup"). The pre-race entry card's
 Attributes tab (`_race_runner_card`) is read into a runner-scoped
 observation with the runner's name; the turn ledger names its owner from
 the whole career, not from the frame (see

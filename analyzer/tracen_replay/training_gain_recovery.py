@@ -303,6 +303,27 @@ def plan(readings, events):
         # reread around this event's own result interval.  The high-rate
         # reader returns direct signed fields when they are visible, and the
         # normal promotion path remains the only place that can accept them.
+        bare = [r for r in readings
+                if isinstance(r, dict) and r.get('screen') in ('training_result', 'training_result_candidate')
+                and type(r.get('source_timestamp_ms')) is int and first_seen <= r['source_timestamp_ms'] <= last_seen
+                and isinstance(r.get('facts'), dict)]
+        if (not committed and not (event.get('deltas') or {}) and bare
+                and not any(r['facts'].get(key) is True for r in bare
+                            for key in ('preview', 'preview_overlay_proven', 'preview_modifier_proven'))
+                and not any((r.get('stats') or {}).get('training_preview') is True for r in bare)
+                and not any(r['facts'].get('training_outcome') == 'failure' for r in bare)):
+            # A card the base pass caught on a frame or two, too few to commit
+            # the result and with no signed gain read at all (the player skipped
+            # through it), is owed the same bounded reread: the high-rate reader
+            # sees the badges the sparse pass fell between.
+            start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)
+            end=last_seen + _RESULT_RECOVERY_RADIUS_MS
+            if start<end and end-start<=_RESULT_RECOVERY_MAX_SPAN_MS:
+                fallback_requests.append(dict(
+                    start_ms=start, end_ms=end, owner_id=event['id'], fields=sorted(FIELDS),
+                    performance_fields=list(_PERFORMANCE_FIELDS), training_option=event.get('training_option'),
+                    source_result_projection=True, reason='result_seen_without_any_signed_gain'))
+            continue
         if not committed or not missing:
             continue
         start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)

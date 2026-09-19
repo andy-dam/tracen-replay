@@ -222,6 +222,12 @@ def _track(event, left, right, first, second, source_successors):
             continue
         compatible.append(anchor)
 
+    if stationary and anchors and all(abs(_center(a['second_box']) - _center(a['first_box'])) > STATIONARY_PIXELS
+                                      for a in anchors):
+        # Every exact shared line moved while the target stayed put: the
+        # receipt scrolled and another spark line now sits in the slot the
+        # target held. Two lines, not one identity.
+        return None
     # A second exact line that moves differently is evidence for another
     # receipt or a changed layout.  Do not choose the one anchor that happens
     # to fit and call the slot continuous.  For an upward-moving target, a
