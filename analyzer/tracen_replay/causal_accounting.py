@@ -991,6 +991,25 @@ def build(report):
             if residual < 0 and channel == 'stats' and field == 'skill_points' and open_skill_batches:
                 for index, batch in open_skill_batches:
                     possible.append(('skill_batch', f'/gameplay_tracking/events/{index}', batch))
+            # Two or more unpriced batches in one window can still be priced
+            # when their carts' net costs add up to exactly the turn's drop:
+            # each cart counter is an independent reading of its own charge,
+            # and together they account for the difference.
+            if (residual < 0 and channel == 'stats' and field == 'skill_points' and len(open_skill_batches) >= 2
+                    and all(kind == 'skill_batch' for kind, *_ in possible)
+                    and all(type(batch.get('cart_net_cost')) is int and batch['cart_net_cost'] > 0
+                            for _, batch in open_skill_batches)
+                    and sum(batch['cart_net_cost'] for _, batch in open_skill_batches) == -residual):
+                for index, batch in open_skill_batches:
+                    parent = f'/gameplay_tracking/events/{index}'
+                    charge = batch['cart_net_cost']
+                    batch.setdefault('turn_difference_cost', {})[field] = charge
+                    batch['turn_difference_basis'] = 'unpriced_skill_batches_cart_nets_sum_to_turn_residual'
+                    add(f'{parent}/turn_difference_cost/{field}', parent, batch, channel, field, -charge,
+                        batch.get('evidence'), 'turn_difference')
+                    _complete_list_from_cart(batch, charge, data)
+                extrapolated += 1
+                continue
             if len(possible) != 1 or possible[0][0] == 'unresolved':
                 continue
             kind, parent, owner = possible[0][:3]

@@ -649,6 +649,29 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
             self.assertEqual(turn_field(result, 'skill_points')['status'], 'unexplained_change')
             self.assertFalse(any('turn_difference_cost' in e for e in doc['gameplay_tracking']['events']))
 
+    def test_two_unpriced_batches_whose_cart_nets_sum_to_the_difference_each_take_their_own(self):
+        def two_batches(first_net, second_net):
+            first = batch(cart_net_cost=first_net)
+            second = dict(batch(cart_net_cost=second_net), id='skills-2', first_seen_ms=176, last_seen_ms=178, evidence='lesson2.png')
+            doc = report(residual_sign=-1, batches=[first, second])
+            doc['gameplay_tracking']['readings'].append(dict(source_timestamp_ms=177, evidence='lesson2.png'))
+            return doc
+        doc = two_batches(5, 3)
+        result = build(doc)
+        events = doc['gameplay_tracking']['events']
+        self.assertEqual([(e['turn_difference_cost'], e['turn_difference_basis'], e['spent_skill_points']) for e in events[-2:]],
+                         [(dict(skill_points=5), 'unpriced_skill_batches_cart_nets_sum_to_turn_residual', 5),
+                          (dict(skill_points=3), 'unpriced_skill_batches_cart_nets_sum_to_turn_residual', 3)])
+        row = turn_field(result, 'skill_points')
+        self.assertEqual((row['status'], row['unresolved_change'], row['derived_or_summary_change']),
+                         ('balanced_with_derived_changes', 0, -8))
+        # Carts that do not add up to the drop, or one without a counter, decide nothing.
+        for nets in ((5, 2), (5, None)):
+            doc = two_batches(*nets)
+            result = build(doc)
+            self.assertEqual(turn_field(result, 'skill_points')['status'], 'unexplained_change')
+            self.assertFalse(any('turn_difference_cost' in e for e in doc['gameplay_tracking']['events']))
+
     def test_a_race_in_the_turn_does_not_swallow_a_negative_skill_point_difference(self):
         # A race can own a positive skill-point difference, never a charge.
         doc = report(residual_sign=-1, race=True, batches=[batch()])

@@ -471,7 +471,10 @@ them, are:
   window whose charge was never read
   (`sole_unpriced_skill_batch_takes_turn_residual`); such a batch is also
   named by an `unobserved_purchase_debit` issue whether or not it takes the
-  difference. When the items its cart named cost exactly that difference
+  difference. Two or more unpriced batches in one window each take their
+  own cart's net cost when those net costs add up to exactly the drop
+  (`unpriced_skill_batches_cart_nets_sum_to_turn_residual`): each cart
+  counter is an independent reading of its own charge. When the items its cart named cost exactly that difference
   between them, every purchased skill is one of them: the batch and its
   transaction row are marked complete (`purchased_list_basis`
   `cart_costs_match_turn_difference`, `spent_skill_points` from the
