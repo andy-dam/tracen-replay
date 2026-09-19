@@ -592,7 +592,13 @@ serious is the next thing to look at.
       that lost its first words, a cursor parked past a full stop, a skill
       list complete when its visible prices sum to the cart, a dim zero
       balance the menu reads as nothing, and a race result compared from the
-      moment its fan total settled. The one gap no rule covers: a
+      moment its fan total settled. The clean reruns then found two
+      more: the card-outranks-panel settlement had written into the
+      event's conflict list, so the report's own rebuild check failed on
+      12-21-21 (fixed; the settlement now carries its reads itself), and
+      Hishi Amazon's finale had two unpriced skill carts in one turn whose
+      cart totals summed to the drop (each now takes its own). The one gap
+      no rule covers: a
       cursor parked on a badge digit for the whole card leaves a wrong
       "observed" read (the accounting still gets the total right from the
       bars); a cursor-aware badge read would be the fix.
