@@ -154,8 +154,87 @@ def garbled_song_receipt(text):
     return title or None
 
 
-def effects_from_lines(lines):
-    """Only explicit past-tense receipts; plus signs in previews do not qualify."""
+# The same receipt with its number missing or garbled: the number is drawn in
+# a colour the recognizer drops, or comes back as letters ("T0").
+CUT_CHANGE = re.compile(r'^(Speed|Stamina|Power|Guts|Wit|Skill (?:Pts|Points)) went (up|down) by\b(.*)$', re.I)
+_GAIN_POPUP = re.compile(r'^([+-])(\d{1,3})[!.]?$')
+_POPUP_LABELS = {'skill_points': ('skill pts', 'skill points')}
+
+
+def gain_popup(lines, field, direction):
+    """The one tall signed popup on this frame whose label names ``field``.
+
+    While a receipt shows, the game floats the gain over the scene as a tall
+    "+N" with the stat's name in a line just under it. The popup counts only
+    when exactly one on the frame names this stat and its sign agrees with
+    the receipt; the amount is then read, not worked out.
+    """
+    labels = _POPUP_LABELS.get(field, (field,))
+    sign = '+' if direction == 'up' else '-'
+    found = []
+    for line in lines:
+        box = line.get('box')
+        if not isinstance(box, (list, tuple)) or len(box) != 4:
+            continue
+        confidence = confidence_percent(line.get('confidence'))
+        if confidence is None or confidence < 90:
+            continue
+        match = _GAIN_POPUP.fullmatch(re.sub(r'\s+', '', str(line.get('text', ''))))
+        if not match or match[1] != sign or box[3] - box[1] < 60:
+            continue
+        for label in lines:
+            label_box = label.get('box')
+            if label is line or not isinstance(label_box, (list, tuple)) or len(label_box) != 4:
+                continue
+            label_confidence = confidence_percent(label.get('confidence'))
+            if (label_confidence is None or label_confidence < 90
+                    or str(label.get('text', '')).strip().casefold() not in labels):
+                continue
+            # The name sits just under the number and overlaps it sideways.
+            if not (box[3] - 10 <= label_box[1] <= box[3] + 40):
+                continue
+            if label_box[2] < box[0] - 40 or label_box[0] > box[2] + 40:
+                continue
+            found.append(dict(amount=int(match[2]),
+                              popup=dict(text=line.get('text'), confidence=line.get('confidence'), box=list(box)),
+                              label=dict(text=label.get('text'), confidence=label.get('confidence'), box=list(label_box))))
+            break
+    return found[0] if len(found) == 1 else None
+
+
+def cut_receipt_lines(lines, band, low=90, high=95):
+    """Receipt-band lines under the band's confidence gate that a gain popup vouches for.
+
+    A receipt that lost its number tends to read a little under the gate.
+    When a popup on the same frame names its stat with the sign it states,
+    the line is a receipt and belongs in the band.
+    """
+    extra = []
+    for line in lines:
+        confidence = confidence_percent(line.get('confidence'))
+        box = line.get('box')
+        if (confidence is None or not (low <= confidence < high)
+                or not isinstance(box, (list, tuple)) or len(box) != 4):
+            continue
+        centre_x, centre_y = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        if not (band[0] <= centre_x <= band[2] and band[1] <= centre_y <= band[3]):
+            continue
+        m = CUT_CHANGE.fullmatch(str(line.get('text', '')).strip())
+        # A line that read a clean number is not cut; the gate stands for it.
+        if not m or re.fullmatch(r'\s*\d+(?: to new heights)?[.!]?\s*', m[3]):
+            continue
+        if gain_popup(lines, 'skill_points' if m[1].lower().startswith('skill') else m[1].lower(), m[2].lower()):
+            extra.append(line)
+    return extra
+
+
+def effects_from_lines(lines, popups=None):
+    """Only explicit past-tense receipts; plus signs in previews do not qualify.
+
+    ``popups`` is the frame's whole line list when ``lines`` is only the
+    receipt band, so a receipt that lost its number can find the gain popup
+    floating above the band.
+    """
     effects = []
     for index, line in enumerate(lines):
         confidence = confidence_percent(line.get('confidence'))
@@ -178,6 +257,16 @@ def effects_from_lines(lines):
         if m := CHANGE.fullmatch(text):
             field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
             effect = dict(kind='stat_change', field=field, amount=int(m[3]) * (1 if m[2].lower() == 'up' else -1))
+        elif m := CUT_CHANGE.fullmatch(text):
+            # The line's number is missing or not a number ("T0"); the popup
+            # over the scene shows it.
+            field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
+            popup = gain_popup(popups if popups is not None else lines, field, m[2].lower())
+            if popup:
+                effect = dict(kind='stat_change', field=field,
+                              amount=popup['amount'] * (1 if m[2].lower() == 'up' else -1),
+                              amount_basis='gain_popup_on_same_frame',
+                              gain_popup=popup['popup'], gain_popup_label=popup['label'])
         elif m := re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit|Dance|Passion|Vocals?|Visuals?|Composure) cap went up by (\d+)[.!]?',text,re.I):
             field={'vocals':'vocal','visuals':'visual'}.get(m[1].lower(),m[1].lower())
             effect=dict(kind='stat_cap_change' if field in FIELDS else 'performance_cap_change',field=field,amount=int(m[2]))

@@ -2326,6 +2326,10 @@ def parse(raw):
         if first['text'].startswith('Learned ') and not re.search(r'[.!]$',first['text']):
             following=[l for l in lines if 90<=l['confidence']<95 and 0<l['box'][1]-first['box'][1]<40 and re.fullmatch(r'Class[.!]',l['text'])]
             outcome_lines.extend(following)
+    # A receipt that lost its number often reads under the band's gate; the
+    # gain popup naming its stat on the same frame vouches for the line.
+    from .gameplay import cut_receipt_lines
+    outcome_lines.extend(l for l in cut_receipt_lines(lines,(250,770,850,1000)) if l not in outcome_lines)
     outcome_lines.sort(key=lambda l:(l['box'][1],l['box'][0]))
     from .receipt_wrapping import join as join_wrapped_friendship_receipts
     outcome_lines=join_wrapped_friendship_receipts(
@@ -2397,7 +2401,7 @@ def parse(raw):
         fixed=re.sub(r'^Friendship wh (.+? went up by \d+[.!])$',r'Friendship with \1',fixed)
         if fixed!=line['text']:
             repairs[fixed]=line['text'];joined[i]=dict(line,text=fixed)
-    parsed_effects=effects_from_lines(joined)
+    parsed_effects=effects_from_lines(joined,popups=lines)
     for effect in parsed_effects:
         symbol_line=next((l for l in joined if l['text']==effect['raw_text'] and l.get('visual_symbol_observation')),None)
         if symbol_line:
