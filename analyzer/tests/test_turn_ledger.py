@@ -522,6 +522,48 @@ class TurnLedgerTests(unittest.TestCase):
             self.assertIsNone(state['closing'], readings)
             self.assertEqual(state['closing_basis'], 'unavailable', readings)
 
+    def test_the_trainees_pre_race_card_opens_a_race_turn_that_had_no_hub(self):
+        from tracen_replay.turn_ledger import _trainee_runner_name
+
+        def card(time, name='Oguri Cap', stats=None):
+            return dict(source_timestamp_ms=time, evidence=f'{time}.png', screen='unknown',
+                        stats=dict(calendar_text=None, turns_remaining_to_goal=None),
+                        facts=dict(race_runner_attributes=dict(runner_name=name, stats=dict(
+                            stats or dict(speed=411, stamina=273, power=253, guts=227, wit=283)))))
+
+        def cards(middle_name='Oguri Cap', middle=(249_950, 249_980)):
+            return ([card(50), card(80)] + [card(t, middle_name) for t in middle]
+                    + [card(399_950), card(399_980)])
+
+        races = [dict(kind='race', source_timestamp_ms=t) for t in (100, 250_000, 400_000)]
+        # Three committed races, each with the same name on the card before it.
+        self.assertEqual(_trainee_runner_name(cards(), races), 'Oguri Cap')
+        self.assertIsNone(_trainee_runner_name(cards(), races[:2]))
+        self.assertIsNone(_trainee_runner_name(cards('Gold Ship'), races))
+        # A clipped read of the name on one frame is not another name.
+        self.assertEqual(_trainee_runner_name(cards() + [card(399_990, 'guri Cap')], races), 'Oguri Cap')
+
+        def source_with(extra):
+            source = report()
+            source['source']['duration_ms'] = 500_000
+            data = source['gameplay_tracking']
+            data['readings'] = sorted(data['readings'] + extra, key=lambda r: r['source_timestamp_ms'])
+            data['turn_action_receipts'] = list(races)
+            return source
+
+        # The second turn has no hub reading; its race card opens it with the
+        # five stats the card shows, and the first turn closes on it.
+        ledger = build(source_with(cards()))
+        state = ledger['turns'][1]['states']['stats']
+        self.assertEqual(state['opening_status'], 'partially_observed')
+        self.assertEqual((state['opening']['basis'], state['opening']['observed_at_ms']), ('trainee_race_card_before_action', 249_950))
+        self.assertEqual(state['opening']['values'], dict(speed=411, stamina=273, power=253, guts=227, wit=283))
+        self.assertEqual(state['opening']['values_ref'], '/gameplay_tracking/readings/8/facts/race_runner_attributes/stats')
+        self.assertEqual(ledger['turns'][0]['states']['stats']['closing']['basis'], 'trainee_race_card_before_action')
+        # One frame, or another runner's card, opens nothing.
+        for extra in (cards(middle=(249_950,)), cards('Gold Ship')):
+            self.assertIsNone(build(source_with(extra))['turns'][1]['states']['stats']['opening'])
+
     def test_invalid_core_references_and_non_numeric_states_fail(self):
         for case in ('event_link', 'action_kind', 'time', 'duplicate_event', 'state', 'evidence_time'):
             with self.subTest(case=case):

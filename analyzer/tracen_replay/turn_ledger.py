@@ -113,6 +113,88 @@ def _repeated_source_state(readings, fields, channel, start_ms, action_time, unc
                 exact_turn_boundary=first['time'] == start_ms)
 
 
+_RUNNER_CARD_LOOKBACK_MS = 120000
+_RUNNER_CARD_MIN_RACES = 3
+_RUNNER_CARD_FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit')
+
+
+def _runner_card(row):
+    card = (row.get('facts') or {}).get('race_runner_attributes') if isinstance(row.get('facts'), dict) else None
+    return card if isinstance(card, dict) else None
+
+
+def _trainee_runner_name(readings, actions):
+    """The one name on the pre-race runner card before every committed race.
+
+    The race entry card is a selectable runner view, so one card's name does
+    not say whose it is. Across a career it does: the trainee's card is the
+    one shown before every race the player commits, and its name does not
+    change, where an opponent's would. The name is the trainee's when at
+    least three committed races have a card before them and every one of
+    them shows the same name; a clipped read of the name is not another
+    name, and a card with no readable name is not counted.
+    """
+    races = sorted(a['source_timestamp_ms'] for a in actions
+                   if isinstance(a, dict) and a.get('kind') == 'race' and type(a.get('source_timestamp_ms')) is int)
+    if len(races) < _RUNNER_CARD_MIN_RACES:
+        return None
+    seen = []
+    for race in races:
+        names = Counter()
+        for row in readings:
+            time = row.get('source_timestamp_ms')
+            card = _runner_card(row)
+            if card is None or type(time) is not int or not race - _RUNNER_CARD_LOOKBACK_MS <= time <= race:
+                continue
+            name = card.get('runner_name')
+            if isinstance(name, str) and len(name.strip()) >= 4:
+                names[name.strip()] += 1
+        if names:
+            seen.append(names.most_common(1)[0][0])
+    if len(seen) < _RUNNER_CARD_MIN_RACES or len(set(seen)) != 1:
+        return None
+    return seen[0]
+
+
+def _runner_card_state(readings, start_ms, action_time, uncertain, trainee_name):
+    """The trainee's pre-race card, read the same on two frames, as a turn's opening.
+
+    A race day the player enters without a hub visit has no stat bar to open
+    the turn on; the card shows the same five stats before the race, and
+    skill points not at all. The card counts only under the trainee's own
+    name (see ``_trainee_runner_name``), repeated exactly on two frames.
+    """
+    groups = {}
+    for index, row in enumerate(readings):
+        time = row.get('source_timestamp_ms')
+        card = _runner_card(row)
+        if card is None or type(time) is not int or not start_ms <= time < action_time or uncertain(time, time):
+            continue
+        if not isinstance(card.get('runner_name'), str) or card['runner_name'].strip() != trainee_name:
+            continue
+        values = card.get('stats')
+        if not isinstance(values, dict) or any(type(values.get(field)) is not int for field in _RUNNER_CARD_FIELDS):
+            continue
+        evidence = _proof(row.get('evidence'))
+        if not evidence:
+            continue
+        source_ref = f'/gameplay_tracking/readings/{index}/facts/race_runner_attributes'
+        groups.setdefault(tuple(values[f] for f in _RUNNER_CARD_FIELDS), []).append(dict(
+            index=index, time=time, values={f: values[f] for f in _RUNNER_CARD_FIELDS}, evidence=evidence,
+            source_ref=source_ref, values_ref=f'{source_ref}/stats'))
+    if len(groups) != 1:
+        return None
+    observations = next(iter(groups.values()))
+    if len({item['time'] for item in observations}) < 2:
+        return None
+    observations.sort(key=lambda item: (item['time'], item['index']))
+    first = observations[0]
+    return dict(source_ref=first['source_ref'], values_ref=first['values_ref'],
+                supporting_source_refs=[item['source_ref'] for item in observations],
+                observed_at_ms=first['time'], values=first['values'], evidence=first['evidence'],
+                basis='trainee_race_card_before_action', exact_turn_boundary=False)
+
+
 def _corroborated_source_state(readings, fields, channel, start_ms, action_time, uncertain, timeline, *, partial=False):
     """Corroborate one complete source snapshot with nearby partial readings.
 
@@ -417,6 +499,7 @@ def build(report):
     turns, calendar_issues = _windows(readings, duration, action_times=[
         _time(a.get('source_timestamp_ms'), duration, 'action') for a in data.get('turn_action_receipts', [])
         if type(a.get('source_timestamp_ms')) is int])
+    trainee_name = _trainee_runner_name(readings, data.get('turn_action_receipts', []))
     timeline = []
 
     def uncertain(start, end):
@@ -649,6 +732,8 @@ def build(report):
             if source_state is None and not candidates:
                 source_state = _corroborated_source_state(readings, fields, channel, turn['start_ms'],
                                                           action_time, uncertain, timeline, partial=True)
+            if source_state is None and not candidates and channel == 'stats' and trainee_name is not None:
+                source_state = _runner_card_state(readings, turn['start_ms'], action_time, uncertain, trainee_name)
             if source_state is not None:
                 candidates.append(dict(kind='source', **source_state))
             chosen = min(candidates, key=lambda p: p['observed_at_ms']) if candidates else None
