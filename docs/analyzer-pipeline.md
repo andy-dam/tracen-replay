@@ -352,6 +352,11 @@ them, are:
 - the one outcome whose receipt named the field but lost its number, where
   the surviving digits (after `by`) are a prefix of the difference and the
   caption's up/down direction agrees (`sole_number_cut_receipt_takes_turn_residual`);
+- for a positive performance difference, the turn's one training when its
+  card never read that row: a "N more" badge sat over it, or every frame
+  read it merged under the confidence floor (the training lists such rows
+  under `performance_rows_unread`); a row the card read as its current value
+  alone gave nothing and takes nothing;
 - for a negative performance difference, the one lesson bought in the window
   whose cost was never observed (`sole_unpriced_lesson_takes_turn_residual`);
 - for a negative skill-point difference, the one skill batch committed in the
