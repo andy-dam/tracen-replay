@@ -249,7 +249,7 @@ nothing recognizable in between; wrapped or wide-crop text that merely
 repeats the same receipt does not start a new event. Hint awards
 (`skill_hint_change`) get their own timeline entries with their first linked
 receipt time; ambiguous effect candidates (uncertain hint names, competing
-readings) are kept visible with `accepted_award: false` rather than counted. Two of those candidates are settled by corroboration across the run, the way a hint spelling only the recovery read is: a recipient spelling the run produced only on this receipt's frames, beside one spelling it produced on other receipts, joins that spelling (`name_resolution: uncorroborated_spelling_joins_recurring_recipient`), and a bare skill spelling read nowhere else, beside its circle-proven twin at the same amount, is that award with its glyph unread (`circle_glyph_unread_on_uncorroborated_base_reading`); a spelling the run read anywhere else stays a candidate, as does a spark slot whose name changed between views and the alternate spellings of an accepted spark. A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix, a bounded misread of about the same length (same subject, same digits, a couple of edits per dozen characters), or a word-by-word reading that may stop early (each word within a couple of edits, every number exactly as the receipt shows it) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
+readings) are kept visible with `accepted_award: false` rather than counted. Two of those candidates are settled by corroboration across the run, the way a hint spelling only the recovery read is: a recipient spelling the run produced only on this receipt's frames, beside one spelling it produced on other receipts, joins that spelling (`name_resolution: uncorroborated_spelling_joins_recurring_recipient`), and a bare skill spelling read nowhere else, beside its circle-proven twin at the same amount, is that award with its glyph unread (`circle_glyph_unread_on_uncorroborated_base_reading`); so is a bare spelling whose every frame shows it at the slot where a neighbouring frame, within two seconds, shows the circle-proven twin, the two frame sets disjoint and the line boxes overlapping by at least seven tenths, since one line at one slot is one award (`same_slot_circle_glyph_unread`, the frames kept under `circle_glyph_unread_evidence`); a spelling the run read anywhere else stays a candidate, as does a spark slot whose name changed between views and the alternate spellings of an accepted spark, except a spelling that differs from the accepted one only by the circle glyph, which is that spark with its glyph unread (`same_slot_circle_glyph_unread`, the spelling kept under `circle_glyph_variants`). A receipt-shaped line the parser rejected is listed under `unparsed_receipt_candidates`; when it is a cut-short prefix, a bounded misread of about the same length (same subject, same digits, a couple of edits per dozen characters), or a word-by-word reading that may stop early (each word within a couple of edits, every number exactly as the receipt shows it) of a receipt parsed within five seconds, or of a longer unparsed line beside it, it is marked `ocr_fragment` with the line it repeats and is neither a timeline entry nor a review item. A rejected line from a family the ledger does not account for (friendship, a supporter joining, a supporter appearing in training) is marked `out_of_scope` and likewise kept without a timeline entry or a review item.
 
 **Names the run knows.** Before the cross-event collapses, every outcome's
 supporter and skill names are checked against the run's own sightings
@@ -346,7 +346,12 @@ them, are:
   window whose charge was never read
   (`sole_unpriced_skill_batch_takes_turn_residual`); such a batch is also
   named by an `unobserved_purchase_debit` issue whether or not it takes the
-  difference;
+  difference. When the items its cart named cost exactly that difference
+  between them, every purchased skill is one of them: the batch and its
+  transaction row are marked complete (`purchased_list_basis`
+  `cart_costs_match_turn_difference`, `spent_skill_points` from the
+  difference with `spent_skill_points_basis` `turn_difference`), while the
+  debit itself stays worked out;
 - for a positive skill-point difference in a turn that contains a race, the
   turn's one race, but only when no training with unread skill points could
   also have paid them (`sole_race_takes_skill_point_residual`). A race never
@@ -385,7 +390,14 @@ disagreement is the alarm that catches it. The timeline document then
 drops the entry's `conflicts_present` flag, provided nothing else raised it,
 and lists the other reads beside the amount as `disagreeing_reads`. On three
 fresh careers this settled 13 of the 14 flagged training cards; the one left
-sat on a turn with no observed closing state.
+sat on a turn with no observed closing state. Such a turn, the career's last,
+has no stat bars to settle by, so the card itself decides: when the learned
+reader read one of the disputed gains on two of the card's frames, and read
+the value the stat lands on with that gain (the opening plus every amount
+counted before the card plus the gain) as the card's last value, the gain is
+observed (`observed_learned_training_gain`) and the reads are settled by
+`learned_reader_landing_value_on_card`. Two reads that both land, or a gain
+read once, settle nothing.
 
 **The learned reader.** A run given `--learned-reader` runs the exported
 result-card model (`learned_reader`) on every training result frame,

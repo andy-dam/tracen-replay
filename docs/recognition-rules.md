@@ -114,6 +114,16 @@ A field the training panel actually read is never eligible for this
 completion. See [turn-ledger.md](turn-ledger.md) for the general
 turn-difference rule this is one case of.
 
+A frame that shows no stat gain badge at all is not a result card yet. The
+side panel's "+N" beside a performance row is the preview's projection
+until a badge shows the result, and the training scene between the preview
+and the card carries that projection on screen; a reread frame with a
+performance award and no badge therefore adds nothing and marks no
+success. The same decision can also reach the ledger twice, once from the
+card's frames and once from a transition frame a moment later: two
+training commits of the same option within two seconds are one commit, the
+later one's event noted on the first under `repeated_commit_event_ids`.
+
 ## Support events and dialogue choices
 
 `choice_evidence` reads dialogue-choice evidence from the isolated
@@ -154,6 +164,19 @@ when both labels are confident, complete, and clearly separated, and the
 same amount is independently corroborated by at least three repeated
 ordinary receipts within 1000ms of the animation frame.
 
+A stat receipt can lose its number: the game draws the number in a colour
+the recognizer drops, so the line reads "Power went up by" or "Guts went
+up by T0." While such a receipt shows, the game floats the gain over the
+scene as a tall signed popup ("+5", at least 60px high) with the stat's
+name in a line just under it, overlapping it sideways. `gameplay.gain_popup`
+reads the number from that popup when exactly one popup on the frame names
+the receipt's stat with the sign the receipt states; the effect is then an
+observed amount with `amount_basis` `gain_popup_on_same_frame` and both
+boxes as proof. A number read on the line itself always wins, and a line
+with no popup, two popups for the stat, or a popup for another stat stays
+unparsed. Such a line often reads a little under the receipt band's
+confidence gate of 95; one the popup vouches for joins the band from 90.
+
 ## Race results
 
 Grade, placing, fan totals, course and condition are each read from their
@@ -187,7 +210,12 @@ animation's exact, large, centered ordinal reading can date an
 already-identified race earlier than its detail panel, but only at
 confidence 97 or higher, with at least two observations no more than
 1000ms apart and no more than 10000ms before the panel; the animation
-never creates a race or supplies its rewards on its own.
+never creates a race or supplies its rewards on its own. The header's
+grade token can arrive glued to the title when the recognizer misses the
+gap ("G1Hopeful Stakes"); a grade that ends in a digit is split from a
+title that starts with a capital letter, so both readings name the same
+race, while a letter grade (OP, EX, DEBUT) still needs its space, since
+letters glued to letters may be a word.
 
 ## Grand Concert lesson menu, confirmation dialog and receipts
 
@@ -298,7 +326,11 @@ Rest and outing confirmations are recognized from their fixed dialog text
 outing?", both paired with "entire turn"). A Rest is proved by the
 confirmation, a repeated energy-recovery receipt within ten seconds of it,
 and the next calendar date (or the next turn-phase countdown) read within
-30 seconds of the result. Lessons, the concert and skill purchases spend
+30 seconds of the result. A recovery receipt that the base pass caught on a
+single frame cannot be repeated, so `receipt_sampling` requests a reread
+of the second around it (reason `lone_recovery_receipt`), the same way it
+does for a receipt with conflicting readings; a recovery shown under an
+event's title belongs to that event and is not rereread for this. Lessons, the concert and skill purchases spend
 points rather than the turn, so when they follow the result the 30-second
 wait starts from the last of those screens instead, and they are not
 treated as competing actions; a training, race or outing screen in the
