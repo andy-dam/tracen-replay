@@ -2207,6 +2207,20 @@ def _race_runner_card(raw, lines):
     return read_runner_facts(card)
 
 
+def withhold_projection_without_badge(facts,screen):
+    """A result frame with no stat gain badge awards no performance gains.
+
+    The side panel's "+N" beside a performance row is the preview's
+    projection, and it stays on screen through the training scene until the
+    result card's badges appear. Without a badge on the frame the panel
+    proves no award; the projection is kept aside, as a failed result's is.
+    """
+    if screen!='training_result' or facts.get('training_gains') or not facts.get('awarded_performance_gains'):
+        return
+    facts['unawarded_performance_projection']=facts.pop('awarded_performance_gains')
+    facts['unawarded_performance_basis']='no_stat_badge_on_frame'
+
+
 def parse(raw):
     lines=raw['lines'];regions=raw['regions'];text='\n'.join(l['text'] for l in lines if l['confidence']>=90)
     header=raw['header']
@@ -2869,6 +2883,7 @@ def parse(raw):
             facts['performance_gain_source_conflicts'] = direct_conflicts
     if facts.get('training_outcome')=='failure' or facts.get('failure_banner'):
         facts['unawarded_performance_projection']=facts.pop('awarded_performance_gains',{})
+    withhold_projection_without_badge(facts,screen)
     if screen in ('skill_selection','skill_confirmation','skill_receipt'):
         facts.update(points_semantics='possibly_projected_remaining_points',spent_skill_points=None,item_list_complete=False)
         labels=[l for l in lines if l['text']=='Skill Points' and l['confidence']>=97]
