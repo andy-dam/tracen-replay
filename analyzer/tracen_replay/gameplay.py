@@ -286,6 +286,10 @@ def effects_from_lines(lines, popups=None):
             effect=dict(kind='max_energy_change',amount=int(m[1]))
         elif m := re.fullmatch(r'(Turf|Dirt|Sprint|Mile|Medium|Long|Front Runner|Pace Chaser|Late Surger|End Closer) Aptitude went up[.!]?',text,re.I):
             effect=dict(kind='aptitude_change',name=m[1],direction='up',amount=None,rank=None)
+        elif m := re.fullmatch(r'(Turf|Dirt|Sprint|Mile|Medium|Long|Front Runner|Pace Chaser|Late Surger|End Closer) Aptitude has already been mastered[.!]?',text,re.I):
+            # The receipt an aptitude award shows when the aptitude is at its
+            # top already: a status line, like a maxed friendship.
+            effect=dict(kind='aptitude_status',name=m[1],value='mastered',amount=None)
         elif m := re.fullmatch(r'Acquired (.+?)\s*[.!]',text,re.I):
             effect=dict(kind='condition_acquired',name=m[1].strip(),mechanical_effect=None)
         elif m := re.fullmatch(r'Recovered from ([^.!?]+\S)[.!]',text,re.I):

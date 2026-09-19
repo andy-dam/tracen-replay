@@ -586,7 +586,13 @@ serious is the next thing to look at.
       ledger as the checkpoints already did, and never a negative badge
       bound), and a lesson leftover read with a digit cut. A stray-digit
       badge rule was tried and removed: by frame counts it cannot be told
-      from a cursor parked over the last digit. The one gap no rule covers: a
+      from a cursor parked over the last digit. From 20-52-07 and BAKUSHIN:
+      a song's note glyph read as a letter, a title missing a glyph on its
+      fading frame, a whole number outvoting every cut read of it, a caption
+      that lost its first words, a cursor parked past a full stop, a skill
+      list complete when its visible prices sum to the cart, a dim zero
+      balance the menu reads as nothing, and a race result compared from the
+      moment its fan total settled. The one gap no rule covers: a
       cursor parked on a badge digit for the whole card leaves a wrong
       "observed" read (the accounting still gets the total right from the
       bars); a cursor-aware badge read would be the fix.

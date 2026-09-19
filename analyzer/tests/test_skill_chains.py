@@ -41,9 +41,17 @@ class SkillChainTests(unittest.TestCase):
         rows,states=self.sequence()
         missing=[r for r in rows if r['source_timestamp_ms']!=2250]
         self.assertTrue(all(b['spent_skill_points'] is None for b in skill_transactions(missing,states)))
-        # With no charge read, the cart proves nothing about the list.
-        self.assertTrue(all(b['purchased_list_complete'] is False and b['purchased_skill_names'] is None
-                            and b['purchased_list_basis']=='confirmation_list_may_scroll' for b in skill_transactions(missing,states)))
+        # With no charge read, the cart's bundles prove nothing about the
+        # list; the cart's own net cost still does when the visible names
+        # price exactly that, since a name that scrolled off would have
+        # raised it.
+        first,second=skill_transactions(missing,states)
+        self.assertEqual((first['purchased_list_complete'],first['purchased_list_basis'],first['purchased_skill_names']),
+                         (True,'visible_names_cost_the_cart_net',['First']))
+        # The second cart's net cost was never its own (no final counter), so its name does not price it.
+        self.assertEqual((second['purchased_list_complete'],second['purchased_list_basis']),(False,'confirmation_list_may_scroll'))
+        short=[dict(r,facts=dict(r['facts'],visible_skill_names=['First','Second'])) if r['screen']=='skill_confirmation' and r['source_timestamp_ms']==1250 else r for r in missing]
+        self.assertEqual(skill_transactions(short,states)[0]['purchased_list_basis'],'confirmation_list_may_scroll')
         states[-1]['values']['skill_points']=699
         self.assertTrue(all(b['spent_skill_points'] is None for b in skill_transactions(rows,states)))
 

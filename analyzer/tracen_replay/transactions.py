@@ -294,9 +294,20 @@ def _purchased_list(transaction):
     assigned=(type(spent) is int and sum(b['net_cost'] for b in bundles)==spent
               and not transaction.get('unassigned_cart_changes'))
     names=transaction.get('visible_confirmation_names') or []
-    transaction.update(purchased_list_complete=assigned,
-        purchased_list_basis='cart_bundles_account_for_the_whole_charge' if assigned else 'confirmation_list_may_scroll',
-        purchased_skill_names=sorted(set(names)|{b['target_name'] for b in bundles}) if assigned else None)
+    # The cart's net cost is what the purchase charged. When the names the
+    # confirmation showed each have a price and those prices sum to exactly
+    # that, nothing scrolled off the list: the visible names are the whole
+    # purchase.
+    priced={c['name']:c['cost'] for c in transaction.get('selected_item_candidates') or []
+            if isinstance(c,dict) and c.get('basis')=='visible_confirmation_and_price'
+            and isinstance(c.get('name'),str) and type(c.get('cost')) is int}
+    net=transaction.get('cart_net_cost')
+    by_cost=(not assigned and bool(names) and type(net) is int and net>0
+             and all(n in priced for n in names) and sum(priced[n] for n in names)==net)
+    transaction.update(purchased_list_complete=assigned or by_cost,
+        purchased_list_basis=('cart_bundles_account_for_the_whole_charge' if assigned else
+                              'visible_names_cost_the_cart_net' if by_cost else 'confirmation_list_may_scroll'),
+        purchased_skill_names=sorted(set(names)|{b['target_name'] for b in bundles}) if assigned else sorted(set(names)) if by_cost else None)
     if assigned and transaction.get('identity_status_basis')=='incomplete_skill_confirmation_list':
         for key in ('identity_status','identity_status_evidence','identity_status_basis'):transaction.pop(key,None)
 
@@ -690,9 +701,15 @@ def _cut_read_of(read,whole):
 def observed_lesson_debit(readings, event, group, before_rows, after_rows, name):
     """Recover a debit from repeated actual balances, without filling projections."""
     if len(before_rows)<2 or len(after_rows)<2:return None
+    # A balance at zero is drawn dim and the menu reads nothing there; when
+    # the request dialog projected that currency as zero on every frame it
+    # showed, the empty slot on both menus is that zero.
+    projected_zero={k for k in CURRENCIES
+                    if group and all(isinstance(r['facts'].get('projected_performance_points',{}),dict)
+                                     and r['facts']['projected_performance_points'].get(k)==0 for r in group)}
     def complete(r):
         values=r['facts'].get('performance_points',{})
-        return all(type(values.get(k)) is int and values[k]>=0 for k in CURRENCIES)
+        return all((type(values.get(k)) is int and values[k]>=0) or (values.get(k) is None and k in projected_zero) for k in CURRENCIES)
     def pair(rows):
         # The cursor can hide one counter on a frame; the repeated balance is
         # the nearest pair of complete, equal frames within half a second.
@@ -705,7 +722,7 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
     if before is None or after is None:return None
     def repeated_balance(rows):
         values=rows[0]['facts']['performance_points']
-        return {k:values[k] for k in CURRENCIES}
+        return {k:(0 if values.get(k) is None and k in projected_zero else values[k]) for k in CURRENCIES}
     initial,final=repeated_balance(before),repeated_balance(after)
     if initial is None or final is None:return None
     # The run's repeated projection must agree with the observed balance; a
@@ -2575,14 +2592,13 @@ def outcome_events(readings):
             conflicts=[c for c in event['conflicting_readings'] if c['field']==key]
             if not conflicts or any(c['reason']!='changing_effect_value' for c in conflicts):continue
             amounts=Counter(e.get('amount') for _,_,e in observations)
-            # A dense reread samples one moment several times: a cut read
-            # whose frames lie within a quarter second is one sighting.
-            moments={}
-            for t,_,e in observations:
-                lo,hi=moments.get(e.get('amount'),(t,t));moments[e.get('amount')]=(min(lo,t),max(hi,t))
-            def one_moment(other):
-                lo,hi=moments[other];return hi-lo<=250
-            winners=[v for v,n in amounts.items() if type(v) is int and n>=2 and all(other==v or (type(other) is int and one_moment(other) and (str(v).startswith(str(other)) or str(v).endswith(str(other)))) for other,count in amounts.items())]
+            # A number read whole on two frames or more outvotes every read
+            # that is it cut short (a leading or trailing digit under the
+            # cursor or a particle), however many frames the cut read lasted:
+            # a parked cursor keeps a cut read on frame after frame, while
+            # nothing on a receipt line adds a digit to a number followed by
+            # its full stop. Any other disagreement stays a conflict.
+            winners=[v for v,n in amounts.items() if type(v) is int and n>=2 and all(other==v or (type(other) is int and other!=v and (str(v).startswith(str(other)) or str(v).endswith(str(other)))) for other,count in amounts.items())]
             if len(winners)!=1:continue
             matches=[o for o in observations if o[2].get('amount')==winners[0]]
             event['effects'][key]=matches[-1][2];event['field_evidence'][key]=[o[1] for o in matches]

@@ -373,7 +373,10 @@ only a receipt candidate (`unparsed_receipt_candidates`) when it starts with
 a capital, as every receipt sentence does; a line of dialogue that happens
 to contain a keyword ("learned the reason for her state") is not. A cut
 "Energy recovered by." beside a frame whose centered "+N Energy" popup was
-read as the effect is a fragment of that popup's sentence. A separate channel,
+read as the effect is a fragment of that popup's sentence. An aptitude award
+the trainee already holds shows "X Aptitude has already been mastered."; it
+parses as a status line (`aptitude_status`, value `mastered`), like a maxed
+friendship. A separate channel,
 `energy_popup.py`, reads the centered "+N Energy" popup that can remain
 visible while the lower receipt is covered by an animation effect; it
 requires confidence 97 or higher for both the amount and the exact

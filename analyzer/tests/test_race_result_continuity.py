@@ -108,6 +108,35 @@ class RaceResultContinuityTests(unittest.TestCase):
         self.assertEqual([r['source_timestamp_ms'] for r in proof['field_observations']['race_name']],
                          [1500, 1750, 2500, 2750])
 
+    def test_a_fan_total_counting_up_before_it_settled_is_the_settled_panel(self):
+        # The first frames of the panel show the total on its way up; the
+        # return after the dialog shows the settled total.
+        rows = [result(0), result(250)] + [dict(row, source_timestamp_ms=row['source_timestamp_ms'] + 500,
+                                                evidence=f"{row['source_timestamp_ms'] + 500}.png") for row in sequence()]
+        rows[0]['facts']['fans'] = 11000
+        rows[1]['facts']['fans'] = 11800
+        found = races(rows)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]['fans'], 12000)
+        # A total that keeps changing on the return is another reading, not a settled panel.
+        rows = sequence()
+        rows[-1]['facts']['fans'] = 13000
+        self.assertEqual(len(races(rows)), 3)
+
+    def test_the_course_may_stand_on_one_witness_on_the_returned_panel(self):
+        rows = sequence()
+        rows[-1]['facts']['course'] = None
+        self.assertEqual(len(races(rows)), 1)
+        # Read once but differently, or not at all, it does not.
+        rows = sequence()
+        rows[-1]['facts']['course'] = None
+        rows[-2]['facts']['course'] = dict(rows[-2]['facts']['course'], venue='Different')
+        self.assertEqual(len(races(rows)), 2)
+        rows = sequence()
+        for row in rows[-2:]:
+            row['facts']['course'] = None
+        self.assertEqual(len(races(rows)), 2)
+
     def test_one_sided_course_condition_is_not_confirmed(self):
         rows = sequence()
         for row in rows[:2]:

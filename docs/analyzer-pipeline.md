@@ -166,12 +166,20 @@ verified. A lesson priced from the repeated balances before its request and
 after its receipt tolerates a leftover the dialog read with a digit cut
 ("11" of 111 under the cursor on frame after frame): a read that is the
 observed balance with its leading or trailing digits hidden is that balance
-cut short, not a disagreement with it.
+cut short, not a disagreement with it. A currency the menu reads as nothing
+on both sides of the purchase, which the request dialog projected as zero on
+every frame it showed, is the dim zero the game draws for an empty balance.
+When the names a skill confirmation showed each carry a price and those
+prices sum to exactly the cart's net cost, nothing scrolled off the list: the
+visible names are the whole purchase (`visible_names_cost_the_cart_net`).
 
 **Receipts and captions.** A story caption read whole, and read again with
 its tail cut off (at a word, or inside its last word with at most three
 glyphs missing) or with one or two misread letters, is one outcome, not
-two: outcome grouping stays open across an unreadable frame for up to 500 ms
+two (a caption's tail alone, "Challenge" beside "Ready for a Challenge", is
+not: only the wrapped-title candidate and a shared receipt continue a
+title, so that receipt counts twice on purpose rather than a lone tail
+merging two events): outcome grouping stays open across an unreadable frame for up to 500 ms
 and matches captions by a fuzzy same-caption check rather than exact text. A
 frame with no receipt and no pending caption only closes the current outcome
 when it carries real narrative content, a different context title, or an
@@ -197,10 +205,15 @@ was corrupted by an on-screen cursor (`"Speed went uply 30."`,
 `"Learnd te ong ..."`) are repaired by anchored template or bounded edit
 distance against the known phrase; the subject and the amount are never
 changed, and a missing amount is not repaired. A number read whole on two
-or more frames outvotes a cut read of it ("by 2." beside "by 20.") that
-lasted one moment: a dense reread samples one moment several times, so the
-single outlier is every frame of it within a quarter second, however many;
-the same holds when an animated card and its receipt disagree.
+or more frames outvotes every read of it cut short ("by 2." or "by 0."
+beside "by 20."), however many frames the cut read lasted: a parked cursor
+keeps a cut read on frame after frame, while nothing on a receipt line adds
+a digit to a number followed by its full stop; a read that is not the whole
+number cut short still disputes it. When an animated card and its receipt
+disagree, the receipt's single outlier is one moment's frames (within a
+quarter second, however many), since a dense reread samples one moment
+several times. An obstruction past a sentence's full stop touches nothing,
+and the line keeps its confidence (basis `overlay_beyond_sentence_end`).
 
 A hint receipt says its number and its skill name in words of their own, with
 fixed wording between them, and the recognizer reports where each word it read
@@ -255,7 +268,11 @@ conflicting fan readings. A falling total, a different gain, or a pause of
 more than a second starts a new race, with one narrow exception: a panel read
 again within ten seconds, with the same race name, settled total and gain,
 after frames the classifier could not read, is the same panel returning after
-a dialog, because a fan total cannot repeat after another race. Placing,
+a dialog, because a fan total cannot repeat after another race. The return is
+compared against the panel from the moment its total settled, not against
+the counting frames before; and the course line, the most fragile read of
+the header, may stand on one witness on the returned panel when it equals
+the course the panel showed on two before the dialog. Placing,
 course, fans and item rewards are tracked separately from character stats;
 scrolling item lists are only summarized from stable visible snapshots, never
 summed while animating.
@@ -298,7 +315,13 @@ known; the rare spellings it leaves are those with two known names within
 reach, such as a skill the run knows in both grades. A song receipt's
 closing quote read as a stray glyph after the name, on fewer frames than
 the name was read whole ("Present March D" beside four "Present March"), is
-that name. Inheritance sparks settle three more ways: two supported
+that name. The note glyph the game prints after a title, read as a letter on
+however many frames ("Hoppity Sunny Days D" on nine frames beside "Hoppity
+Sunny Days ♪" on two), is the glyph; a spelling missing a character or two
+of a title read whole on three frames or more, read on one frame at the
+fading start or end of the receipt, is that title (on two frames it is an
+alternative and stays); and each fold's frames count for the title when the
+next spelling is compared. Inheritance sparks settle three more ways: two supported
 spellings that differ only in punctuation ("TS Climax Scenario" and "T'S
 Climax Scenario") are one name, the spelling read on more frames standing
 (the longer when they tie, the other kept under `punctuation_variants`); a

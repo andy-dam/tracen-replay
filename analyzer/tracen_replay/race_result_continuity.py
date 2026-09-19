@@ -130,6 +130,61 @@ def _support_is_repeated(observations):
     return len(times) >= 2 and len(evidence) >= 2
 
 
+def _settled(observations, key=lambda item: item['value']):
+    """The trailing run of one value, when the earlier values were the fan counter on its way up to it.
+
+    The result panel's fan total counts up over its first frames; the
+    settled total is the panel's, and the frames before it are not another
+    identity. Anything that is not a counter rolling up to the last value
+    leaves the observations as they are.
+    """
+    ordered = sorted((item for item in observations if _time(item) is not None), key=_time)
+    if not ordered:
+        return observations
+    final = key(ordered[-1])
+    run = []
+    for item in reversed(ordered):
+        if key(item) != final:
+            break
+        run.append(item)
+    earlier = ordered[:len(ordered) - len(run)]
+    if not earlier:
+        return observations
+
+    def rolling(value):
+        if isinstance(value, tuple) and isinstance(final, tuple) and len(value) == len(final):
+            return all(x == y or (type(x) is int and type(y) is int and x < y) for x, y in zip(value, final))
+        return type(value) is int and type(final) is int and value < final
+    return list(reversed(run)) if all(rolling(key(item)) for item in earlier) else observations
+
+
+def _settled_rows(rows):
+    """The result rows from the moment the fan counter settled, when it counted up before."""
+    def anchors(row):
+        facts = row.get('facts', {}) if isinstance(row, dict) else {}
+        if not isinstance(facts, dict) or not all(_valid_scalar(field, facts.get(field)) for field in ANCHOR_FIELDS):
+            return None
+        return tuple(facts[field] for field in ANCHOR_FIELDS)
+    observations = [dict(source_timestamp_ms=_time(row), value=anchors(row), row=row)
+                    for row in rows if _time(row) is not None and anchors(row) is not None]
+    settled = _settled(observations)
+    if settled is observations or not settled:
+        return rows
+    start = min(item['source_timestamp_ms'] for item in settled)
+    return [row for row in rows if _time(row) is not None and _time(row) >= start]
+
+
+def _repeated_value(observations):
+    """The one value a repeated set of observations agrees on, or None."""
+    if not _support_is_repeated(observations):
+        return None
+    values = []
+    for item in observations:
+        if item['value'] not in values:
+            values.append(item['value'])
+    return values[0] if len(values) == 1 else None
+
+
 def _anchor_support(rows):
     observations = []
     for row in rows:
@@ -285,6 +340,10 @@ def _bridge(previous, following, readings):
     following_rows = _latest_panel_rows(following)
     if not isinstance(previous_rows, list) or not isinstance(following_rows, list):
         return None
+    # The fan total counts up over the panel's first frames; the panel's
+    # identity is the settled total, so the frames before it settled are
+    # not another panel to compare the return against.
+    previous_rows = _settled_rows(previous_rows)
     if not all(_continuous_panel(side, readings) for side in (previous_rows, following_rows)):
         return None
     if _anchor_support(previous_rows) is None or _anchor_support(following_rows) is None:
@@ -292,11 +351,19 @@ def _bridge(previous, following, readings):
     # A field must be independently repeated on both sides.  This keeps a
     # single lucky OCR frame after playback from supplying an identity field;
     # fields split across several frames are still supported when each side
-    # has two source witnesses.
-    if any(not _support_is_repeated(_field_observations(side, field))
-           for side in (previous_rows, following_rows)
-           for field in IDENTITY_FIELDS):
-        return None
+    # has two source witnesses. The course line, the most fragile read of
+    # the header, may stand on one witness on the returned panel when it
+    # equals the course the panel before showed on two.
+    for side in (previous_rows, following_rows):
+        for field in IDENTITY_FIELDS:
+            observations = _field_observations(side, field)
+            if _support_is_repeated(observations):
+                continue
+            if (side is following_rows and field == 'course' and observations
+                    and all(item['value'] == previous_course for item in observations
+                            for previous_course in [_repeated_value(_field_observations(previous_rows, 'course'))])):
+                continue
+            return None
     proof = _identity_proof(previous_rows + following_rows)
     if proof is None:
         return None

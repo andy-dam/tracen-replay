@@ -1666,23 +1666,49 @@ def collapse_song_variants(event,timestamps):
     removed=[]
     def times(effect):
         return sorted({timestamps[p] for p in event['field_evidence'].get('song_learned||'+effect['name'],[]) if p in timestamps})
-    for weak in songs:
-        observed=times(weak)
-        if not observed:continue
-        candidates=[]
-        for strong in songs:
-            complete=times(strong);a=strong['name'];b=weak['name']
-            if len(complete)<3 or strong is weak:continue
-            # One frame missing a character of the repeated name.
-            if (len(observed)==1 and complete[0]<=observed[0]<=complete[-1]+250
-                    and len(a)==len(b)+1 and any(a[:i]+a[i+1:]==b for i in range(len(a)))):candidates.append(strong)
-            # The closing quote read as a stray glyph after the name on fewer
-            # frames than the name was read whole ('Present March D').
-            elif (len(observed)<len(complete) and b.startswith(a) and 1<=len(b)-len(a)<=2
-                    and len(b[len(a):].strip())==1):candidates.append(strong)
-        if len(candidates)!=1:continue
-        target=candidates[0]
-        target.setdefault('observed_name_candidates',[target['name']]).append(weak['name'])
-        target['name_resolution']='repeated_complete_name_with_one_overlapping_or_adjacent_missing_character_observation'
-        removed.append(weak)
+    def missing_chars(a,b):
+        """Whether ``b`` is ``a`` with one or two characters dropped."""
+        if not 1<=len(a)-len(b)<=2:return False
+        i=j=0
+        while i<len(a) and j<len(b):
+            if a[i]==b[j]:j+=1
+            i+=1
+        return j==len(b)
+    def note_misread(a,b):
+        """Whether ``b`` is ``a`` with its note glyph read as one other glyph."""
+        return a.endswith('♪') and len(b)>=len(a) and b[:len(a)-1]==a[:-1] and len(b[len(a)-1:].strip())==1 and '♪' not in b
+    # The note-glyph folds first, since they need no frame count and the
+    # frames they fold in count for the song when the weaker spellings are
+    # compared next.
+    for glyph_pass in (True,False):
+        for weak in sorted(songs,key=lambda e:len(times(e))):
+            observed=times(weak)
+            if not observed or weak in removed:continue
+            candidates=[]
+            for strong in songs:
+                if strong is weak or strong in removed:continue
+                complete=times(strong);a=strong['name'];b=weak['name']
+                # The note glyph the game prints after a song title, read as a
+                # letter on however many frames: the glyph is the proof.
+                if glyph_pass:
+                    if len(complete)>=1 and note_misread(a,b):candidates.append(strong)
+                    continue
+                if len(complete)<3:continue
+                # One frame missing a character or two of the repeated name
+                # (the fading first or last frame of the receipt); a spelling
+                # repeated on two frames is an alternative, not a fade.
+                if (len(observed)==1 and complete[0]-250<=observed[0]<=complete[-1]+250
+                        and missing_chars(a,b)):candidates.append(strong)
+                # The closing quote read as a stray glyph after the name on fewer
+                # frames than the name was read whole ('Present March D').
+                elif (len(observed)<len(complete) and b.startswith(a) and 1<=len(b)-len(a)<=2
+                        and len(b[len(a):].strip())==1):candidates.append(strong)
+            if len(candidates)!=1:continue
+            target=candidates[0]
+            target.setdefault('observed_name_candidates',[target['name']]).append(weak['name'])
+            target['name_resolution']='repeated_complete_name_with_one_overlapping_or_adjacent_missing_character_observation'
+            # The folded spelling's frames are this song's frames.
+            key='song_learned||'+target['name'];proofs=event['field_evidence'].setdefault(key,[])
+            proofs.extend(p for p in event['field_evidence'].get('song_learned||'+weak['name'],[]) if p not in proofs)
+            removed.append(weak)
     event['effects']=[e for e in event['effects'] if e not in removed]

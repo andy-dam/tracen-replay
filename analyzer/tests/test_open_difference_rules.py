@@ -22,6 +22,8 @@ class SplitCaptionTests(unittest.TestCase):
         # The cut can fall inside the caption's last word.
         self.assertTrue(_same_caption('After the NHK Mile C.: A Sharp Turn! Nowhe', 'After the NHK Mile C.: A Sharp Turn! Nowhere.'))
         self.assertFalse(_same_caption('The Correlation between Sleep', 'The Correlation between Sleeping Habits'))
+        # A caption's tail alone is not the caption: the receipt's continuity decides that (test_title_continuity).
+        self.assertFalse(_same_caption('Ready for a Challenge', 'Challenge'))
         self.assertFalse(_same_caption('Incline', 'Incline Run'))
 
     def test_a_race_name_read_a_glyph_off_on_one_frame_is_the_name_the_others_read(self):

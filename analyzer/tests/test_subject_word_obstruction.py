@@ -48,6 +48,19 @@ class SubjectWordObstructionTests(unittest.TestCase):
         # Word boxes that do not spell the line are not a reading of it.
         self.assertFalse(subject_word_obstructed(receipt_line(text='Yocals went up by 2.'), [CURSOR]))
 
+    def test_an_obstruction_past_the_full_stop_touches_nothing(self):
+        from tracen_replay.receipt_occlusion import overlay_beyond_sentence_end
+        words = [('Wit', [322, 818, 353, 855]), ('went', [360, 818, 410, 855]), ('up', [410, 817, 435, 855]),
+                 ('by', [441, 817, 466, 854]), ('10.', [472, 817, 503, 854])]
+        whole = receipt_line(words)
+        self.assertTrue(overlay_beyond_sentence_end(whole, [[507, 821, 524, 843]]))
+        # Inside the sentence, even between words, a digit may hide under it.
+        self.assertFalse(overlay_beyond_sentence_end(whole, [[467, 821, 471, 843]]))
+        self.assertFalse(overlay_beyond_sentence_end(whole, [[490, 821, 524, 843]]))
+        # A line without its full stop may have lost its end under the cursor.
+        cut = receipt_line([w for w in words[:-1]] + [('10', [472, 817, 500, 854])])
+        self.assertFalse(overlay_beyond_sentence_end(cut, [[507, 821, 524, 843]]))
+
     def test_a_proven_obstruction_lets_the_subject_be_repaired(self):
         source = raw([receipt_line()],
                      resolved_receipt_occlusions=[dict(text=receipt_line()['text'], box=[314, 857, 530, 883],

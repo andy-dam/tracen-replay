@@ -18,10 +18,15 @@ class OutlierMomentTests(unittest.TestCase):
         event, = outcome_events(readings)
         self.assertEqual([(e['field'], e['amount']) for e in event['effects']], [('visual', 20)])
         self.assertEqual(event['resolved_reading_conflicts'][0]['basis'], 'repeated_complete_digits_with_single_truncated_outlier')
-        # The same cut read spread over more than a moment still disputes the number.
-        readings[-1] = row(2000, 'event_outcome', effects=[cut])
+        # A cut read the cursor kept on frame after frame is still the number cut short.
+        readings += [row(t, 'event_outcome', effects=[cut]) for t in (1750, 2000, 2250, 2500)]
         event, = outcome_events(readings)
-        self.assertEqual([c['reason'] for c in event['conflicting_readings']], ['changing_effect_value'] * 2)
+        self.assertEqual([(e['field'], e['amount']) for e in event['effects']], [('visual', 20)])
+        # A different number that is not the whole one cut short disputes it.
+        other = dict(cut, amount=25, raw_text='Visuals went up by 25.')
+        readings = readings[:3] + [row(1517, 'event_outcome', effects=[other])]
+        event, = outcome_events(readings)
+        self.assertEqual([c['reason'] for c in event['conflicting_readings']], ['changing_effect_value'])
 
 
 class NegativeBoundTests(unittest.TestCase):

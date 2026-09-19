@@ -105,6 +105,24 @@ def hint_wording_obstructed(line,overlays):
     return True
 
 
+def overlay_beyond_sentence_end(line,overlays):
+    """True when every obstruction sits past the line's closing punctuation.
+
+    A cursor parked just after "Wit went up by 10." touches no glyph: the
+    sentence ends with its full stop, read, and nothing of the receipt can
+    hide beyond it. An obstruction inside the sentence, even between two
+    words, may cover a digit the recognizer never saw, so only the space
+    past the terminator is clear.
+    """
+    words=line.get('word_boxes')
+    if not isinstance(words,list) or not words or not overlays:return False
+    if not all(isinstance(w,dict) and isinstance(w.get('box'),list) and len(w['box'])==4 for w in words):return False
+    if ' '.join(w.get('text','') for w in words)!=line.get('text'):return False
+    last=words[-1]
+    if not str(last.get('text','')).endswith(('.','!')):return False
+    return all(overlay[0]>=last['box'][2] for overlay in overlays)
+
+
 def subject_word_obstructed(line,overlays):
     """True when an obstruction on a one-word receipt covers only its subject.
 
@@ -547,6 +565,11 @@ def annotate(raw,pane):
             if hint_wording_obstructed(line,overlaps):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
                                      basis='overlay_covers_fixed_hint_wording',independent_frame_count=1))
+                continue
+            # An obstruction past the sentence's full stop touches nothing.
+            if overlay_beyond_sentence_end(line,overlaps):
+                resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
+                                     basis='overlay_beyond_sentence_end',independent_frame_count=1))
                 continue
             # Likewise an obstruction over the fixed subject word of a stat or
             # performance receipt, its direction and number untouched.

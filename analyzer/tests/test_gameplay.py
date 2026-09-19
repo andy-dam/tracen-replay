@@ -32,6 +32,9 @@ class GameplayTests(unittest.TestCase):
     def test_previews_modifiers_and_caps_are_not_stat_awards(self):
         for text in ['Speed +12','Training Power Gain +1','Friendship Training Effectiveness +5%', 'Skill Pts 160','Speed went up by 5 maybe.']:
             self.assertEqual(effects_from_lines([line(text)]),[])
+    def test_an_aptitude_already_mastered_is_a_status_line(self):
+        effect,=effects_from_lines([line('Medium Aptitude has already been mastered.')])
+        self.assertEqual((effect['kind'],effect['name'],effect['value']),('aptitude_status','Medium','mastered'))
     def test_a_change_of_nothing_is_a_number_with_its_leading_digit_hidden(self):
         # The game never reports "went up by 0": the cursor over the 2 of 20.
         for text in ['Visuals went up by 0.','Speed went up by 0.','Skill Pts went down by 0.']:
