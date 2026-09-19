@@ -244,7 +244,13 @@ Skill screens are classified from fixed phrases: a confirmation screen
 from "learn the above skills", and a receipt screen from "skills learned"
 or "trainee learned new skills". A receipt records that a batch was
 acquired; it does not by itself name every purchased skill or give its
-exact cost at the moment of recognition.
+exact cost at the moment of recognition. The confirmation list scrolls, so
+the names read off it never prove the whole purchase. The cart does: a
+batch's `purchased_list_complete` is true when every change of the cart
+counter was assigned to a bundle with one named target and those bundles
+sum to the charge the receipt read; `purchased_skill_names` then lists
+every purchased skill. Otherwise the list is partial, and the browser says
+so as a note when the charge was read and as a warning when it was not.
 
 The final-summary skill panel is read separately from any purchase. It
 requires the Skills, Inspiration and Career Info tabs together with at

@@ -29,6 +29,10 @@ class SkillChainTests(unittest.TestCase):
         self.assertEqual([[x['target_name'] for x in b['committed_cart_bundles']] for b in batches],[['First'],['Second']])
         self.assertEqual([s['name'] for s in batches[1]['selected_item_candidates']],['Second'])
         self.assertTrue(all(b['bundle_charge_assignment_complete'] for b in batches))
+        # Every cart change assigned to a named bundle, summing to the charge:
+        # the purchased list is complete and names every skill.
+        self.assertEqual([(b['purchased_list_complete'],b['purchased_skill_names'],b['purchased_list_basis']) for b in batches],
+                         [(True,['First'],'cart_bundles_account_for_the_whole_charge'),(True,['Second'],'cart_bundles_account_for_the_whole_charge')])
         self.assertTrue(all(b['cost_basis']=='receipt_cart_chain_between_observed_balances' for b in batches))
         self.assertFalse(batches[0]['joint_charge_verification']['intermediate_balances_independently_observed'])
         self.assertEqual(batches[1]['committed_cart_bundles'][0]['selected_variant'],'single_circle')
@@ -37,6 +41,9 @@ class SkillChainTests(unittest.TestCase):
         rows,states=self.sequence()
         missing=[r for r in rows if r['source_timestamp_ms']!=2250]
         self.assertTrue(all(b['spent_skill_points'] is None for b in skill_transactions(missing,states)))
+        # With no charge read, the cart proves nothing about the list.
+        self.assertTrue(all(b['purchased_list_complete'] is False and b['purchased_skill_names'] is None
+                            and b['purchased_list_basis']=='confirmation_list_may_scroll' for b in skill_transactions(missing,states)))
         states[-1]['values']['skill_points']=699
         self.assertTrue(all(b['spent_skill_points'] is None for b in skill_transactions(rows,states)))
 

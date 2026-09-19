@@ -410,6 +410,22 @@ serious is the next thing to look at.
       down from 17 to 6 (one unreadable receipt, one ambiguous effect, three
       cut skill lists, one window with no action seen).
 
+- [x] **Every skill purchase is flagged "purchased skill list incomplete".**
+      Another constant: the batch builder set `purchased_list_complete` to
+      false for every batch, because the confirmation list scrolls and the
+      names read off it never prove the whole purchase. The cart does. A
+      batch is now complete when every change of the cart counter was
+      assigned to a bundle with one named target and those bundles sum to
+      the charge the receipt read or the chain between observed balances
+      worked out; `purchased_skill_names` then lists every purchased skill,
+      and the completeness is worked out again after the chain fills in a
+      charge. A partial list with a read charge is a note in the browser
+      (the totals are right, some names were not seen); only a partial list
+      with no charge read stays a warning. Over the seven careers' saved
+      readings: 15 batches, 6 complete, 5 notes, 4 warnings, all four on
+      recorder A's careers where the charge itself was never on screen.
+      Done 2026-09-18.
+
 ## 3. Learned readers (the neural network)
 
 The rules already decide which screen is on frame; what still fails is

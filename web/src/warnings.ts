@@ -28,7 +28,8 @@ const ADVICE = {
   lessonDerived: "The lesson's price was worked out from surrounding evidence rather than read from the balance. If the card in the recording shows a different price, correct the amounts.",
   balanceAfter: "The balance after this purchase was never on screen, so the price could not be confirmed against it. If a later menu visit shows the balance, compare it and correct the amounts if needed.",
   songName: "The song's name was read two different ways. Nothing changes in the totals; add a note with the right title if you want it recorded.",
-  skillList: "The list of purchased skills was cut off, so some skills or their point costs may be missing. Seek to the skill screen and add any purchase the report lacks as a missed event.",
+  skillList: "The list of purchased skills was cut off and the points charged were not read, so some skills or their point costs may be missing. Seek to the skill screen and add any purchase the report lacks as a missed event.",
+  skillNames: "The points charged were read, so the totals are right; the list of purchased skills scrolled and only some names were seen. Nothing to do unless you want the missing names on record.",
   failed: "The training failed, so its displayed gains were not applied. Nothing to do unless the stat bar shows they were.",
   settledReads: "The badge was read as more than one number while the card animated, and the stat bars before and after the turn settle it at the amount shown, which the card showed too. Nothing to do; seek to the card if you want to see it.",
   derived: "This amount was not read from a badge; the report worked it out from other observations. Seek to the result screen: if the badge shows a different number, type that number in; if it matches, mark it Reviewed.",
@@ -72,7 +73,10 @@ export function entryWarnings(e: Entry): Warning[] {
     if (d.after_balance_observed === false) out.push({ text: "balance after the purchase not observed", serious: false, advice: ADVICE.balanceAfter });
   }
   if (e.kind === "song_acquisitions" && d.name_conflicted) out.push({ text: "song name conflicted", serious: true, advice: ADVICE.songName });
-  if ((e.kind === "skill_purchases" || e.kind === "skill_purchase_batch") && d.purchased_list_complete === false) out.push({ text: "purchased skill list incomplete", serious: true, advice: ADVICE.skillList });
+  if ((e.kind === "skill_purchases" || e.kind === "skill_purchase_batch") && d.purchased_list_complete === false) {
+    if (d.spent_skill_points === null || d.spent_skill_points === undefined) out.push({ text: "purchased skill list incomplete", serious: true, advice: ADVICE.skillList });
+    else out.push({ text: "purchased skills partly named", serious: false, advice: ADVICE.skillNames });
+  }
   if (e.kind === "training" && d.training_outcome === "failure") out.push({ text: "training failed", serious: false, advice: ADVICE.failed });
   const derived: string[] = [];
   const settled: string[] = [];
@@ -97,6 +101,7 @@ export const FLAG_GUIDE: { text: string; serious: boolean; advice: string }[] = 
   { text: "lesson cost unresolved", serious: true, advice: ADVICE.lessonUnresolved },
   { text: "song name conflicted", serious: true, advice: ADVICE.songName },
   { text: "purchased skill list incomplete", serious: true, advice: ADVICE.skillList },
+  { text: "purchased skills partly named", serious: false, advice: ADVICE.skillNames },
   { text: "amount not read directly", serious: false, advice: ADVICE.derived },
   { text: "badge settled by the stat bars", serious: false, advice: ADVICE.settledReads },
   { text: "not an accepted award", serious: false, advice: ADVICE.notAccepted },

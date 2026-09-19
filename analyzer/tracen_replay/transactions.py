@@ -272,6 +272,30 @@ def _partial_price_provenance(readings,confirmation,span,before,allowed_names):
     return result
 
 
+def _purchased_list(transaction):
+    """Whether the cart names every purchased skill, from the batch's own fields.
+
+    The confirmation list scrolls, so the names read off it never prove the
+    whole purchase. The cart does: when every change of the cart counter was
+    assigned to a bundle with one named target and those bundles sum to the
+    charge the receipt read (or the chain between observed balances worked
+    out), every purchased skill is named by a bundle, and the list is
+    complete; ``purchased_skill_names`` then holds the bundle targets with
+    the names the confirmation showed. An identity marked ambiguous only for
+    the scrolling list is cleared with it.
+    """
+    spent=transaction.get('spent_skill_points')
+    bundles=transaction.get('committed_cart_bundles') or []
+    assigned=(type(spent) is int and sum(b['net_cost'] for b in bundles)==spent
+              and not transaction.get('unassigned_cart_changes'))
+    names=transaction.get('visible_confirmation_names') or []
+    transaction.update(purchased_list_complete=assigned,
+        purchased_list_basis='cart_bundles_account_for_the_whole_charge' if assigned else 'confirmation_list_may_scroll',
+        purchased_skill_names=sorted(set(names)|{b['target_name'] for b in bundles}) if assigned else None)
+    if assigned and transaction.get('identity_status_basis')=='incomplete_skill_confirmation_list':
+        for key in ('identity_status','identity_status_evidence','identity_status_basis'):transaction.pop(key,None)
+
+
 def _attach_skill_batch_metadata(transaction,readings,confirmation,span,before):
     """Attach source-bound metadata that the receipt transaction already owns."""
     names=transaction.get('visible_confirmation_names',[])
@@ -482,8 +506,13 @@ def skill_transactions(readings,states):
                               for role,state in (('before',before),('after',after)) if state],
             evidence=[s['evidence'] for s in (before,confirmation,span,after) if s]+counter_proofs,
             cost_basis=basis))
+        _purchased_list(transactions[-1])
         _attach_skill_batch_metadata(transactions[-1],readings,confirmation,span,before)
-    return reconcile_skill_chains(transactions,readings,spans)
+    transactions=reconcile_skill_chains(transactions,readings,spans)
+    # The chain can fill in a charge the receipt did not read; the list's
+    # completeness follows the charge, so it is worked out again.
+    for transaction in transactions:_purchased_list(transaction)
+    return transactions
 
 
 def partial_song_name(requested,received):

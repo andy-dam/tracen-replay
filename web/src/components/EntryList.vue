@@ -145,9 +145,10 @@ function description(e: Entry): string {
       break;
     case "skill_purchases":
     case "skill_purchase_batch": {
-      const names = Array.isArray(d.visible_confirmation_names) ? (d.visible_confirmation_names as string[]) : [];
+      const names = Array.isArray(d.purchased_skill_names) ? (d.purchased_skill_names as string[])
+        : Array.isArray(d.visible_confirmation_names) ? (d.visible_confirmation_names as string[]) : [];
       if (names.length) parts.push(names.join(", "));
-      if (d.purchased_list_complete === false) parts.push("list incomplete");
+      if (d.purchased_list_complete === false) parts.push(names.length ? "more names not seen" : "names not seen");
       break;
     }
     case "unparsed_receipt":
