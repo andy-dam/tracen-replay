@@ -269,6 +269,22 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         build(doc)
         self.assertNotIn('settled_conflicting_readings', doc['gameplay_tracking']['events'][0])
 
+    def test_the_accounting_rebuilt_from_its_own_report_is_the_same_accounting(self):
+        # The card-outranks-panel settlement must not write into the event's
+        # conflict list: the report contract rebuilds the accounting from
+        # the stored records and expects the same result.
+        doc = report(deltas=dict(speed=9, guts=13, skill_points=8, wit=8))
+        doc['gameplay_tracking']['checkpoints'][1]['values']['wit'] = 132
+        doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['wit'] = 132
+        self.learned(doc, wit=32)
+        doc['gameplay_tracking']['readings'].append(dict(source_timestamp_ms=150, evidence='card2.png', screen='training_result', facts=dict(
+            learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=dict(wit=dict(text='+32', confidence=0.99, value=None, gain=32))))))
+        first = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['settled_conflicting_readings']['wit'], dict(amount=32, reads=[8, 32], settled_by='learned_reader_on_card'))
+        self.assertNotIn('wit', event.get('conflicting_readings') or {})
+        self.assertEqual(build(doc), first)
+
     def test_a_performance_row_read_two_ways_is_settled_by_the_turn_difference(self):
         doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(dance=25, composure=32))
         event = doc['gameplay_tracking']['events'][0]

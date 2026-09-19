@@ -334,7 +334,7 @@ def _complete_list_from_cart(batch, charge, data):
                 target.pop(key, None)
 
 
-def _settle_conflicting_reads(event, field, gain, settled_by):
+def _settle_conflicting_reads(event, field, gain, settled_by, reads=None):
     """Record that the stat bars settled a badge whose reads disagreed.
 
     A training whose card was read as two or three gains for one field (a
@@ -351,17 +351,22 @@ def _settle_conflicting_reads(event, field, gain, settled_by):
     """
     # A stat's disputed reads sit under conflicting_readings, a performance
     # row's under performance_reading_conflicts; the bars settle both alike.
-    reads = event.get('conflicting_readings') if field in FIELDS else event.get('performance_reading_conflicts')
-    if not isinstance(reads, dict) or not isinstance(reads.get(field), list):
-        return
-    settled = dict(amount=gain, reads=sorted(set(reads[field])), settled_by=settled_by)
-    if gain not in reads[field]:
+    # A panel read the card outranks is passed in as the disputed reads: the
+    # accounting never writes it into the event's own conflict list, so the
+    # report rebuilt from its records projects the same accounting again.
+    if reads is None:
+        source = event.get('conflicting_readings') if field in FIELDS else event.get('performance_reading_conflicts')
+        if not isinstance(source, dict) or not isinstance(source.get(field), list):
+            return
+        reads = source[field]
+    settled = dict(amount=gain, reads=sorted(set(reads)), settled_by=settled_by)
+    if gain not in reads:
         # The cursor or a sparkle over the badge's last digit leaves a read cut
         # to its leading digits ("3" of 36) on frame after frame. When the
         # learned reader read the whole number on the card, that cut read is
         # the same number, not a disagreement; a bare turn difference gets
         # no such allowance.
-        cut = [read for read in reads[field] if type(read) is int and 0 < read < gain
+        cut = [read for read in reads if type(read) is int and 0 < read < gain
                and str(gain).startswith(str(read))]
         if not cut or not str(settled_by).startswith('learned_reader'):
             return
@@ -1002,13 +1007,14 @@ def build(report):
                            if channel == 'stats' else [])
                 if learned:
                     amount = residual
+                    disputed = None
                     if mode == 'card_read_outranks_panel':
-                        # The panel's number joins the card's as a disputed
-                        # read the card settled; the reader adds the rest.
-                        disputed = owner.setdefault('conflicting_readings', {}).setdefault(field, [])
-                        for value in (read, gain):
-                            if value not in disputed:
-                                disputed.append(value)
+                        # The panel's number and the card's are the disputed
+                        # reads the card settled; the reader adds the rest.
+                        # They are recorded on the settlement, not written
+                        # into the event's conflict list, so a rebuild from
+                        # the report sees the same event this pass saw.
+                        disputed = [read, gain]
                         owner.setdefault('learned_reader_completions', {})[field] = dict(read=read, total=gain, card_outranks_panel_read=True)
                     elif mode != 'clipped_badge_prefix' and _clipped_start(read, gain):
                         # The card showed the whole gain; the digits the
@@ -1024,7 +1030,7 @@ def build(report):
                     add(f'{parent}/learned_reader_gains/{field}', parent, owner, channel, field, amount, learned,
                         'observed_learned_training_gain')
                     if channel == 'stats':
-                        _settle_conflicting_reads(owner, field, gain, 'learned_reader_on_card')
+                        _settle_conflicting_reads(owner, field, gain, 'learned_reader_on_card', reads=disputed)
                 else:
                     owner.setdefault(store, {})[field] = residual
                     owner['turn_difference_basis'] = ('sole_training_takes_turn_residual' if mode is None else

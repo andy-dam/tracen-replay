@@ -528,8 +528,10 @@ same way. A badge the
 recognizer read as one number while the learned reader read the card at
 another on two frames or more (the gain, or the value the stat lands on),
 the bars agreeing with the card, is settled at the card's number too: the
-panel's read joins the card's under `conflicting_readings`, the reader adds
-the rest, and the entry shows the amount with the panel's read beside it. It does not hold when the
+panel's read and the card's are the settlement's `reads` (never written
+into the event's own `conflicting_readings`, so the accounting rebuilt from
+the report is the same accounting), the reader adds the rest, and the entry
+shows the amount with the panel's read beside it. It does not hold when the
 learned reader read the card as another gain: that disagreement stays
 raised even if the text reader's reads include the worked-out amount,
 because a text read that happens to equal a difference some other error
