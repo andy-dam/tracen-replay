@@ -240,7 +240,8 @@ class BoundaryStateRecoveryTests(unittest.TestCase):
 
         accounting = build(report)
 
-        self.assertTrue(all(field['status'] == 'missing_endpoint'
+        # The one turn is the last: its end is the career's end, not a gap.
+        self.assertTrue(all(field['status'] == 'career_end'
                             for transition in accounting['turn_transitions']
                             for field in transition['fields']))
         self.assertTrue(all(transition['after_state_ref'] is None

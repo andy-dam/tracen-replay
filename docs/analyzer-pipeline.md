@@ -317,7 +317,11 @@ directly observed), `unexplained_change` (a nonzero residual remains),
 `unresolved_attribution` (a contribution is ambiguous, unobserved, or
 conflicted), or `missing_endpoint` (one side of the comparison was never
 observed). A turn transition whose two endpoints exist but are out of time
-order instead gets `unordered_endpoints`. `turn_transitions` also carry
+order instead gets `unordered_endpoints`. Two missing endpoints are not
+gaps in the reading and are named as what they are: `not_yet_shown` for a
+turn before the channel's first observation (the performance panel is not
+on the hub before the debut), and `career_end` for the last turn, whose end
+no later screen shows. `turn_transitions` also carry
 `transition_kind` (`between_turn_openings` or `terminal_observation_window`)
 and per-field `endpoint_availability`, and, for the last turn, a
 `terminal_observation` naming later contributions the closing snapshot does

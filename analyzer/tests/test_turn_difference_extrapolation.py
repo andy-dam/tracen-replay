@@ -560,7 +560,7 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
                          dict(speed=dict(amount=11, reads=[1, 11], settled_by='learned_reader_landing_value_on_card')))
         gain = next(c for c in result['contributions'] if c['field'] == 'speed')
         self.assertEqual((gain['amount'], gain['basis']), (11, 'observed_learned_training_gain'))
-        self.assertEqual(turn_field(result, 'speed')['status'], 'missing_endpoint')
+        self.assertEqual(turn_field(result, 'speed')['status'], 'career_end')
 
     def test_without_the_landing_value_or_a_repeated_gain_the_last_turn_settles_nothing(self):
         for kwargs in (dict(landing=None), dict(landing=112), dict(landing=111, gain_frames=1)):
@@ -571,6 +571,34 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
             self.assertNotIn('settled_conflicting_readings', event, kwargs)
             self.assertNotIn('learned_reader_gains', event, kwargs)
             self.assertFalse([c for c in result['contributions'] if c['field'] == 'speed'], kwargs)
+
+    def test_a_channel_not_yet_shown_and_the_career_end_are_named_not_missing(self):
+        # The performance panel first appears on the second turn: the first
+        # turn's performance fields were not yet shown. The last turn's stats
+        # have no next opening: the career ended.
+        doc = report()
+        doc['turn_ledger']['turns'][0]['states']['performance']['opening'] = None
+        result = build(doc)
+        self.assertEqual(turn_field(result, 'dance', channel='performance')['status'], 'not_yet_shown')
+        self.assertEqual(turn_field(result, 'speed', turn='turn-002')['status'], 'career_end')
+        self.assertEqual(turn_field(result, 'dance', turn='turn-002', channel='performance')['status'], 'career_end')
+        counts = result['summary']['turn_field_status_counts']
+        self.assertEqual((counts['not_yet_shown'], counts['career_end'], counts.get('missing_endpoint', 0)), (5, 11, 0))
+        # A channel never shown at all is not yet shown on every turn.
+        doc = report()
+        for turn in doc['turn_ledger']['turns']:
+            turn['states']['performance']['opening'] = None
+        result = build(doc)
+        self.assertEqual({f['status'] for t in result['turn_transitions'] if t['channel'] == 'performance' for f in t['fields']},
+                         {'not_yet_shown'})
+        # A next opening that was simply not observed, between two observed
+        # ones, stays a missing endpoint.
+        doc = report()
+        doc['turn_ledger']['turns'].insert(1, dict(id='turn-001b', states=dict(
+            stats=dict(opening=None, closing=None), performance=dict(opening=None, closing=None))))
+        result = build(doc)
+        self.assertEqual(turn_field(result, 'speed')['status'], 'missing_endpoint')
+        self.assertEqual(turn_field(result, 'speed', turn='turn-001b')['status'], 'missing_endpoint')
 
     def test_a_difference_the_card_contradicts_settles_nothing(self):
         # The model read the badge as 18 while the bars say 9: a disagreement

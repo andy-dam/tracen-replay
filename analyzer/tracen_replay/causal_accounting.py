@@ -663,6 +663,13 @@ def build(report):
         return dict(values=value,observed_at_ms=state['observed_at_ms'],values_ref=state['values_ref'])
 
     turns = report.get('turn_ledger',{}).get('turns',[])
+    # The turn on which each channel was first observed. The performance
+    # panel is not on the hub before the debut, and the career's last turn
+    # has no next turn: neither is a gap in the reading, and each gets a
+    # status of its own rather than a missing endpoint.
+    first_shown = {channel: next((index for index, turn in enumerate(turns)
+                                  if observed_state(turn['states'][channel].get('opening')) is not None), None)
+                   for channel in CHANNELS}
     def turn_comparisons():
       turn_transitions = []
       for i, turn in enumerate(turns):
@@ -677,10 +684,16 @@ def build(report):
             if usable:
                 resource_rows = compare_fields(channel,before,after,start,end)
             else:
+                if before is None and (first_shown[channel] is None or i < first_shown[channel]):
+                    gap = 'not_yet_shown'
+                elif after is None and following is None:
+                    gap = 'career_end'
+                else:
+                    gap = 'missing_endpoint' if before is None or after is None else 'unordered_endpoints'
                 resource_rows = [dict(field=field,before=before['values'].get(field) if before else None,
                     after=after['values'].get(field) if after else None,observed_change=None,direct_change=None,
                     derived_or_summary_change=None,unresolved_change=None,contribution_refs=[],ambiguous_contributions=[],
-                    status='missing_endpoint' if before is None or after is None else 'unordered_endpoints') for field in fields]
+                    status=gap) for field in fields]
             cause_refs = [f'/gameplay_tracking/events/{index}' for index,event in enumerate(data['events'])
                           if usable and event['last_seen_ms']>start and event['first_seen_ms']<=end]
             # Applicability is separate from the historical arithmetic status.
@@ -944,7 +957,7 @@ def build(report):
             continue
         for row in transition['fields']:
             field = row['field']
-            if row.get('status') != 'missing_endpoint' or not isinstance(reads.get(field), list):
+            if row.get('status') not in ('missing_endpoint', 'career_end') or not isinstance(reads.get(field), list):
                 continue
             if any(c['event_ref'] == parent and c['channel'] == 'stats' and c['field'] == field for c in contributions):
                 continue

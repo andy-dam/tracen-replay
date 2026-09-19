@@ -60,9 +60,10 @@ reread window selection or its OCR is judged only on a fresh run.
 - Lesson purchases and their prices.
 - Songs, races, skill purchases and concerts.
 - Dialogue choices.
-- The accounting's field counts across its five statuses:
+- The accounting's field counts across its statuses:
   `balanced_observations`, `balanced_with_derived_changes`,
-  `unexplained_change`, `unresolved_attribution`, `missing_endpoint`.
+  `unexplained_change`, `unresolved_attribution`, `missing_endpoint`,
+  `not_yet_shown`, `career_end`.
 - The turn ledger's action status per turn (`one_action`, `missing_action`,
   `multiple_actions`).
 

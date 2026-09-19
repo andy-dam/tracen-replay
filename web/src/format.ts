@@ -228,6 +228,8 @@ export const STATUS_TEXT: Record<string, string> = {
   unresolved_attribution: "not fully attributed",
   unobserved_boundary: "boundary not observed",
   missing_endpoint: "end not observed",
+  not_yet_shown: "not shown before the debut",
+  career_end: "career over, no later screen shows it",
 };
 
 export function statusText(status: string): string {

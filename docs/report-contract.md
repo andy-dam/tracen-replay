@@ -232,6 +232,8 @@ Used on both `causal_accounting` comparisons/turn_transitions and on
 | `unexplained_change` | a residual remains after every accepted contribution |
 | `unresolved_attribution` | a candidate contribution is ambiguous (conflicting, untimed, or itself conflicted) |
 | `missing_endpoint` | one of the two compared states was not observed |
+| `not_yet_shown` | the channel had not appeared yet: the turn precedes the first observation of that channel (the performance panel before the debut; turn comparisons only) |
+| `career_end` | the career's last turn, whose end no later screen shows (turn comparisons only) |
 | `unordered_endpoints` | the compared turn-opening observations are not in increasing time order (turn comparisons only) |
 
 ## Ledger vocabulary

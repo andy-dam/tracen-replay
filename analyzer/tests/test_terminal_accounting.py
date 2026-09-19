@@ -48,7 +48,7 @@ class TerminalAccountingTests(unittest.TestCase):
         for state in report['turn_ledger']['turns'][0]['states'].values():
             state['closing'] = None
         result = build(report)
-        self.assertEqual(result['summary']['turn_field_status_counts'], {'missing_endpoint': 11})
+        self.assertEqual(result['summary']['turn_field_status_counts'], {'career_end': 11})
         for transition in result['turn_transitions']:
             self.assertIsNone(transition['terminal_observation'])
             for field in transition['endpoint_availability']:
@@ -65,7 +65,7 @@ class TerminalAccountingTests(unittest.TestCase):
             state['closing'] = None
         report['turn_ledger']['turns'].append(following)
         result = build(report)
-        self.assertEqual(result['summary']['turn_field_status_counts'], {'missing_endpoint': 22})
+        self.assertEqual(result['summary']['turn_field_status_counts'], {'missing_endpoint': 11, 'career_end': 11})
         for transition in result['turn_transitions'][:2]:
             self.assertEqual(transition['transition_kind'], 'between_turn_openings')
             for field in transition['endpoint_availability']:

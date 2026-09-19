@@ -311,7 +311,7 @@ class CausalAccountingTests(unittest.TestCase):
         self.assertEqual(transition['fields'][0]['contribution_refs'],field(result)['contribution_refs'])
         self.assertEqual(transition['cause_refs'],['/gameplay_tracking/events/0'])
         self.assertEqual(len(result['contributions']),1)
-        self.assertTrue(all(f['status']=='missing_endpoint' for f in result['turn_transitions'][-1]['fields']))
+        self.assertTrue(all(f['status']=='career_end' for f in result['turn_transitions'][-1]['fields']))
         report['turn_ledger']['turns'][0]['states']['stats']['opening']['values']=dict(speed=999)
         with self.assertRaises(ValueError):build(report)
 
