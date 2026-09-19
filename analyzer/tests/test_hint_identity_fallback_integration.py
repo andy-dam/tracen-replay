@@ -19,18 +19,30 @@ class HintIdentityFallbackIntegrationTests(unittest.TestCase):
         self.assertNotIn('Example Skill',names)
         strong=next(effect for effect in event['effects'] if effect['name']=='Example Skill ○')
         self.assertEqual(strong['visual_symbol_observation'],mapping['strong-2']['effects'][0]['visual_symbol_observation'])
-        # The bare spelling was read on no other receipt of the run, so it is
-        # this award with its glyph unread: it joins as evidence rather than
-        # staying a candidate.
+        # The bare spelling sits at the circle-proven line's own slot on the
+        # frames around it: one line at one slot is one award, its glyph
+        # unread, and the spelling joins as evidence rather than staying a
+        # candidate.
         self.assertEqual(event['ambiguous_effect_candidates'],[])
         self.assertIn(dict(name='Example Skill',evidence=['weak-before','weak-after']),strong['alternate_name_evidence'])
-        self.assertEqual(strong['name_resolution'],'circle_glyph_unread_on_uncorroborated_base_reading')
+        # The damaged spelling on the frame between joins later by the
+        # recovered-spelling rule, which then names the resolution.
+        self.assertIn(strong['name_resolution'],('same_slot_circle_glyph_unread','uncorroborated_recovered_spelling'))
         self.assertEqual(rows,original)
-        # Read elsewhere in the run as well, the bare spelling may be an award
-        # of its own and stays the unresolved candidate the fallback made.
+        # The slot decides even when the run read the bare spelling elsewhere:
+        # a slot holds one line, whatever another box showed.
         elsewhere=[_row(9000,'elsewhere',_weak_effect())]
         for row in elsewhere:row.update(stats={},facts={})
         event=outcome_events(rows+elsewhere)[0]
+        self.assertEqual(event['ambiguous_effect_candidates'],[])
+        self.assertEqual([e['name'] for e in event['effects']],['Example Skill ○'])
+        # At another slot the bare spelling stays the unresolved candidate the
+        # fallback made, and read elsewhere too it may be an award of its own.
+        shifted=deepcopy(rows)
+        for row in shifted:
+            if row['evidence'] in ('weak-before','weak-after'):
+                row['ocr']['neural'][0]['box']=[660,850,720,890]
+        event=outcome_events(shifted+elsewhere)[0]
         candidate=event['ambiguous_effect_candidates'][0]
         self.assertEqual(candidate['evidence'],['weak-before','weak-after'])
         self.assertFalse(candidate['continuity_proven'])
@@ -54,8 +66,11 @@ class HintIdentityFallbackIntegrationTests(unittest.TestCase):
         for row in rows:row.update(stats={},facts={})
         event=outcome_events(rows)[0]
         self.assertEqual([e['name'] for e in event['effects']],['Example Skill ○'])
-        candidates=event['ambiguous_effect_candidates']
-        self.assertTrue(any(c['effect']['name']=='Example Skill O' and c['evidence']==['letter-o'] for c in candidates))
+        # The letter O sits at the proven line's slot too: the glyph read as
+        # a letter, one award, the spelling kept as evidence.
+        self.assertEqual(event['ambiguous_effect_candidates'],[])
+        strong=event['effects'][0]
+        self.assertIn(dict(name='Example Skill O',evidence=['letter-o']),strong['alternate_name_evidence'])
 
     def test_insufficient_repeat_preserves_pixel_observation_as_unresolved(self):
         _,mapping=_case(proof_count=1)

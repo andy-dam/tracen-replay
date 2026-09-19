@@ -451,9 +451,11 @@ def preserve_valid_circle_effect(event: Mapping[str, Any],
             same_slot = _same_slot_reads(weak, strong, weak_evidence, strong_evidence, rows_by_evidence)
             if same_slot:
                 # One line at one slot, read with the glyph on some frames and
-                # without it on others: one award, its glyph unread.
+                # without it on others: one award, its glyph unread. The bare
+                # spelling stays beside the award as evidence, not a candidate.
                 strong["name_resolution"] = "same_slot_circle_glyph_unread"
-                strong["circle_glyph_unread_evidence"] = same_slot
+                strong.setdefault("alternate_name_evidence", []).append(dict(name=weak["name"], evidence=same_slot))
+                event.setdefault("ambiguous_effect_candidates", [])
             elif not _already_unresolved(event, weak_key):
                 event.setdefault("ambiguous_effect_candidates", []).append(
                     _unresolved_candidate(

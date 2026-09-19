@@ -122,10 +122,10 @@ class HintIdentityFallbackTests(unittest.TestCase):
 
         self.assertEqual([(e["name"], e["amount"]) for e in event["effects"]],
                          [("Example Skill ○", 1)])
-        self.assertNotIn("ambiguous_effect_candidates", event)
+        self.assertEqual(event["ambiguous_effect_candidates"], [])
         strong = event["effects"][0]
         self.assertEqual(strong["name_resolution"], "same_slot_circle_glyph_unread")
-        self.assertEqual(strong["circle_glyph_unread_evidence"], ["weak-1", "weak-2"])
+        self.assertEqual(strong["alternate_name_evidence"], [dict(name="Example Skill", evidence=["weak-1", "weak-2"])])
 
     def test_a_weak_read_at_another_slot_or_on_a_strong_frame_stays_unresolved(self):
         # Another slot: the weak line sits a row lower than the strong one.
