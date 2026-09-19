@@ -17,6 +17,16 @@ class TrainingBadgeGateTests(unittest.TestCase):
         self.assertEqual(facts['awarded_performance_gains'], {'visual': 19})
         self.assertNotIn('unawarded_performance_projection', facts)
 
+    def test_a_success_banner_or_the_result_regions_own_proof_lets_the_award_stand(self):
+        facts = dict(training_gains={}, training_outcome='success', awarded_performance_gains={'visual': 13})
+        withhold_projection_without_badge(facts, 'training_result')
+        self.assertEqual(facts['awarded_performance_gains'], {'visual': 13})
+        facts = dict(training_gains={}, awarded_performance_gains={'visual': 13, 'dance': 7},
+                     performance_gain_source_provenance={'visual': dict(basis='same_frame_dedicated_result_performance_region')})
+        withhold_projection_without_badge(facts, 'training_result')
+        self.assertEqual(facts['awarded_performance_gains'], {'visual': 13})
+        self.assertEqual(facts['unawarded_performance_projection'], {'dance': 7})
+
     def test_other_screens_and_frames_without_awards_are_untouched(self):
         for facts, screen in ((dict(training_gains={}, awarded_performance_gains={'visual': 19}), 'training_preview'),
                               (dict(training_gains={}), 'training_result'),

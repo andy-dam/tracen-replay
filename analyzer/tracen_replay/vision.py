@@ -2212,12 +2212,22 @@ def withhold_projection_without_badge(facts,screen):
 
     The side panel's "+N" beside a performance row is the preview's
     projection, and it stays on screen through the training scene until the
-    result card's badges appear. Without a badge on the frame the panel
-    proves no award; the projection is kept aside, as a failed result's is.
+    result card's badges appear. Without a badge, a success banner, or the
+    result card's own region proving the field, the panel proves no award;
+    the projection is kept aside, as a failed result's is.
     """
-    if screen!='training_result' or facts.get('training_gains') or not facts.get('awarded_performance_gains'):
+    if screen!='training_result' or facts.get('training_gains') or facts.get('training_outcome')=='success':
         return
-    facts['unawarded_performance_projection']=facts.pop('awarded_performance_gains')
+    awards=facts.get('awarded_performance_gains') or {}
+    proven=facts.get('performance_gain_source_provenance') or {}
+    withheld={field:amount for field,amount in awards.items() if field not in proven}
+    if not withheld:
+        return
+    for field in withheld:
+        awards.pop(field)
+    if not awards:
+        facts.pop('awarded_performance_gains',None)
+    facts['unawarded_performance_projection']={**(facts.get('unawarded_performance_projection') or {}),**withheld}
     facts['unawarded_performance_basis']='no_stat_badge_on_frame'
 
 
