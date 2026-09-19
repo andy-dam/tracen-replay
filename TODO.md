@@ -515,7 +515,39 @@ serious is the next thing to look at.
       no longer calls either a missing endpoint. Left: the training cards'
       second performance row, three unexplained fields (Should 29:30, Gran
       Concert 16:22 and 30:57), which needs the learned reader extended.
-      FRESH-RUNS-PLACEHOLDER
+      Proving runs on 2026-09-19 needed three more rules found on the way:
+      the badge rule judges the whole training, not a frame (the per-frame
+      version dropped real awards read before the badges appeared); the
+      receipt line's own number outranks the popup's (a "+5!" read as "+51");
+      and the popup number keeps its receipt without the sentence terminator
+      the line never had. Also on the way: a lone digit reread of a panel
+      row is taken from 70, the Complete Career screen closes the last turn,
+      a performance row the card never read may take the turn's difference,
+      and the trainee's pre-race card opens a race turn with no hub. Final
+      runs (Should 9a2e6011, Mayano ea64c092, Gran Concert a84acfbf):
+
+      | Career | Serious flags | Fields balanced | Worked out | Not yet shown | Real gaps | Career end |
+      | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+      | Should | 9 to 0 | 684 | 104 | 20 | 0 | 6 |
+      | Mayano | 2 to 0 | 654 | 135 | 20 | 5 | 0 |
+      | Gran Concert | 9 to 0 | 682 | 92 | 20 | 14 | 6 |
+
+      The real gaps left are the Visual row under a "23 more" badge on
+      Mayano (five transitions, the value 9 visible to the eye on every
+      frame), Gran Concert's race day whose performance points and skill
+      points no screen showed (twelve) and its Vocal row under a "7 more"
+      badge (two). Every note the three reports still carry was checked
+      against the recording (record in .local/final-reliability-v1/
+      CLAUDE-HANDOFF.md, 2026-09-19 10:10Z): none contradicted; the
+      worked-out training gains whose card badges a frame still shows all
+      match the card.
+- [ ] **Two runs of one recording can read a result card differently.**
+      Gran Concert's 31:02 training read Dance +30 on the morning run and
+      Visual +30 on the afternoon run of the same file; the dense rereads'
+      promotions are not the same run to run. Not investigated. The
+      accounting caught both as unexplained fields, so nothing wrong was
+      counted, but a report should not depend on the run. Start from the
+      recovery pass's frame selection and the OCR engine's own variance.
 - [ ] **A performance row under a "N more" badge.** On some hub visits the
       game floats a small "23 more" badge over one row of the performance
       panel, and the value under it (a 7, a 9) is half covered. The reread
