@@ -20,7 +20,9 @@ class AnimatedStatTests(unittest.TestCase):
         got=candidates(self.lines(),'event_outcome',stat=True)
         rows=[row(t,'event_outcome',{'animated_stat_candidates':got}) for t in (0,25,50)]
         key='stat_change|skill_points|'
-        for extra,accepted in (([],True),([(75,'e.png',{'amount':51})],False)):
+        # A second sighting of the outlier a moment later (past a quarter
+        # second) is a repeated display, not the same moment sampled twice.
+        for extra,accepted in (([],True),([(400,'e.png',{'amount':51})],False)):
             event=dict(first_seen_ms=0,last_seen_ms=100,effects={key:{'amount':51}},field_evidence={},
                        conflicting_readings=[{'field':key,'reason':'changing_effect_value'}])
             receipts={key:[(t,str(t)+'.png',{'amount':57}) for t in (0,25,50)]+[(10,'outlier.png',{'amount':51})]+extra}
