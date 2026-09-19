@@ -81,6 +81,14 @@ from the run's own report.
 
 ### Human verification
 
+One career has been checked by eye, category by category, against frames
+cut from its recording (opening stat rows, training cards, outcome boxes,
+races), with the report's values printed beside the pixels. The method is a
+script over the report and the recording; the record of the first such
+check is kept with the local evidence. It found the numbers right wherever
+a person could see them and the misses in names read a glyph or two off,
+which the accounting cannot see.
+
 The review layer lets a viewer correct a turn's action and its entries and
 add missed events. Corrections are stored per viewer, separately from the
 report, and on every read the service checks them against the turn's

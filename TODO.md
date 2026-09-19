@@ -426,6 +426,30 @@ serious is the next thing to look at.
       recorder A's careers where the charge itself was never on screen.
       Done 2026-09-18.
 
+- [x] **A hand-checked career.** Gran Concert B's fresh report (74 turns)
+      checked by eye against frames cut from the recording on 2026-09-18:
+      73 opening stat rows, 62 training cards, 281 outcome boxes, 12 races.
+      Numbers: nothing wrong found. Every readable opening matched all six
+      values (three frames were transitions), every card's badges or settled
+      after-values matched the entry, every visible receipt number was
+      parsed to that number, all 12 races right name and placing. Names: 22
+      wrong, every one a name read a glyph or two off and kept as its own
+      entry beside the name the run read correctly many times (15 supporter
+      names on friendship lines, one of them counted three times on one box;
+      7 skill hint names, one of them a hint counted twice). Record kept
+      locally in `.local/hand-check-v1/`. Done; it opens the item below.
+- [ ] **A name read a glyph off is kept as a separate entry.** The hand
+      check's only finding. Supporter names on friendship lines recur 11 to
+      31 times per run, so the run's own sightings can settle "Daivg
+      Scarlet" and "Direct r Akikawa"; skill hint names are mostly seen once
+      per run (36 of 39 in that career), so "Cprner Adept" and "Blucarole of
+      Blessings" need the game's own skill list. This is the shared,
+      vocabulary-based OCR repair the roadmap's section 5 already names, in
+      place of the per-rule edit-distance thresholds. Done: the 22 names in
+      the hand-check record fold into their real names, with no name that
+      was right folded into another, and the count of distinct friendship
+      and hint names per career drops to the real ones.
+
 ## 3. Learned readers (the neural network)
 
 The rules already decide which screen is on frame; what still fails is
