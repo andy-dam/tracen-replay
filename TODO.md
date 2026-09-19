@@ -567,6 +567,20 @@ serious is the next thing to look at.
       misread, not a candidate. Final runs of the table above: Should
       d00b9619, Mayano 3def268a, Gran Concert 471a5940; every field of every
       last turn balances and the header reads 1898 of 1898 on Gran Concert.
+      The batch of all fourteen recordings (2026-09-19, two at a time) then
+      gave, per report, rules rather than fixes: a result card's award cut
+      before its digits, hidden under a "N more" badge or merged under the
+      floor is reread (b30734a; the user asked why the "known reader limit"
+      was not being fixed, and it was a prioritisation, not a limit); a
+      receipt subject word under a parked cursor is repaired; a caption cut
+      inside its last word, a preview run measured across another card, a
+      card on screen longer than the reread span, a "went up by 0" line, a
+      lower-case dialogue line, a cut energy receipt beside its popup, two
+      damaged spellings of one known supporter, and a cursor-cut badge the
+      learned reader read whole (9fd516d). The one gap no rule covers: a
+      cursor parked on a badge digit for the whole card leaves a wrong
+      "observed" read (the accounting still gets the total right from the
+      bars); a cursor-aware badge read would be the fix.
 - [ ] **Two runs of one recording can read a result card differently.**
       Gran Concert's 31:02 training read Dance +30 on the morning run and
       Visual +30 on the afternoon run of the same file; the dense rereads'
