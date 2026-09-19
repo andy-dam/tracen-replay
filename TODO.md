@@ -454,24 +454,38 @@ serious is the next thing to look at.
       left) and moved no known name. Done 2026-09-18; the roadmap's
       section 5 item keeps the receipt grammars' own thresholds for later.
 
-- [ ] **The hub's stat row is not read on two of three recordings.** Found
-      on 2026-09-18 when a viewer pointed at 31:20 of Should-have-been-better,
-      where the hub shows the six stats and the report has no opening for
-      that turn. The reader gates the stat parse on a colour probe of the
-      label strip, which expects blue; on recorders A and C the strip is
-      pink, so the probe fails on every hub frame, and the geometry fallback
-      then rejects most frames for a missing "Skill Pts" label read as "Sill
-      Pts", a missing header, or the wit cap merged with the grade glyph
-      ("UG/1301"), because it wants every cap although its own docstring says
-      four. Counts: Should 894 of 1,369 hub frames with the row unread, Mayano
-      802 of 1,148, Gran Concert 0 of 1,257. The openings on those two careers
-      therefore come later in the turn from other screens (lesson
-      confirmations, result cards) or, on four turns, not at all. Done: the
-      probe accepts the strip in either colour or is replaced by the geometry
-      proof, the fallback takes four caps and a near "Skill Pts", and on the
-      three fresh careers every hub frame with six readable values yields
-      them; then the turn openings on A and C are observed at the turn's
-      start like B's.
+- [x] **The hub's stat row is not read on two of three recordings.** Found
+      when a viewer pointed at 31:20 of Should-have-been-better, where the
+      hub shows the six stats and the report had no opening for the turn.
+      The reader gated the stat parse on a colour probe of the label strip
+      that expected blue; the strip takes the trainee's theme colour, blue
+      on recorder B, pink on A and orange on C, so on A and C the probe
+      failed on every hub frame, and the geometry fallback behind it
+      rejected most of them for labels read below 90 ("Sil Pts", "SSpeed",
+      "peed") and a wit cap merged with its grade glyph. Measured over every
+      sampled frame of the three careers before choosing: adding pink to
+      the probe recovered A and nothing of C; a colour-agnostic saturation
+      probe recovered every hub frame of all three. Chosen: the agnostic
+      probe, plus a geometry proof that finds labels by column with a near
+      miss at 60, splits two labels read as one box, and takes four capped
+      rows. Fresh analyses on 2026-09-18 (same day, all three careers):
+
+      | Career | Hub frames read | Checkpoints | Turns without an opening | Missing endpoints | Review turns |
+      | --- | ---: | ---: | ---: | ---: | ---: |
+      | Should (A) | 483 of 1,472 to all | 109 to 165 | 4 to 0 | 56 to 26 | 6 to 3 |
+      | Mayano (C) | 348 of 1,171 to all | 97 to 153 | 0 to 0 | 42 to 38 | 4 to 1 |
+      | Gran Concert (B) | all, unchanged | 163 to 164 | 1 to 1 | 50 to 50 | 4 to 4 |
+
+      No field that adds up changed on any career. Done.
+- [ ] **A race day whose hub row never shows.** What is left of the
+      openings question after the item above: on the three careers, one
+      turn of 222 has no observed opening, Gran Concert's Junior Late Dec,
+      where the player went from an "Insufficient Fans" dialog to the race
+      list and into the race without the hub's row ever being on screen.
+      The pre-race screen shows five of the six stats in its Attributes
+      panel (no skill points). Reading that panel as a five-field opening
+      would cover it; about half a day, for one turn in 222, so not before
+      hosting.
 
 ## 3. Learned readers (the neural network)
 
