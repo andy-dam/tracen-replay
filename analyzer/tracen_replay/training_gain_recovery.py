@@ -317,8 +317,10 @@ def plan(readings, events):
             # through it), is owed the same bounded reread: the high-rate reader
             # sees the badges the sparse pass fell between.
             start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)
-            end=last_seen + _RESULT_RECOVERY_RADIUS_MS
-            if start<end and end-start<=_RESULT_RECOVERY_MAX_SPAN_MS:
+            # A card seen for one frame under a banner that lasted longer is
+            # reread from its first moments too, rather than not at all.
+            end=min(last_seen + _RESULT_RECOVERY_RADIUS_MS, start + _RESULT_RECOVERY_MAX_SPAN_MS)
+            if start<end:
                 fallback_requests.append(dict(
                     start_ms=start, end_ms=end, owner_id=event['id'], fields=sorted(FIELDS),
                     performance_fields=list(_PERFORMANCE_FIELDS), training_option=event.get('training_option'),

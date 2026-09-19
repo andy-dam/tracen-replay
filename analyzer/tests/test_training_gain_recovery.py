@@ -71,6 +71,8 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         # With a gain accepted, or no card frame at all, no such reread.
         self.assertEqual(plan([card],[dict(event,deltas={'wit':22})]),[])
         self.assertEqual(plan([],[event]),[])
+        # An event that outlasts the span (its banner stayed up) is reread from its first moments.
+        self.assertEqual([(w['start_ms'],w['end_ms']) for w in plan([card],[dict(event,last_seen_ms=2200)])],[(500,2000)])
 
     def test_same_timestamp_unrequested_fields_and_other_occurrences_are_excluded(self):
         original=[row(100,{'speed':1})];before=copy.deepcopy(original)
