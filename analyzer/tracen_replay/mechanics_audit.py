@@ -12,7 +12,11 @@ _SUPPORTER_PREFIX=re.compile(r'^.+? joined your\b',re.I)
 def plausible_receipt_line(line):
     """Recognize receipt-shaped uncertainty, without accepting an effect."""
     from .vision import within
+    # A receipt is a sentence of its own and starts with a capital; a line of
+    # dialogue that happens to contain a keyword ("learned the reason for
+    # her state") does not.
     return (line['confidence']>=95 and within(line,(250,770,850,1000))
+            and str(line['text'])[:1].isupper()
             and bool(_RECEIPT_PREFIX.match(line['text']) or _SUPPORTER_PREFIX.match(line['text'])))
 
 
@@ -161,6 +165,11 @@ def unparsed_receipt_candidates(readings):
         for e in row.get('effects',[]):
             full=e.get('raw_text') or e.get('original_text')
             if isinstance(full,str) and full.strip():parsed.append((row['source_timestamp_ms'],full,row.get('context_title')))
+            # An energy recovery read from its centered popup stands for the
+            # receipt sentence the cursor covered below it.
+            if (e.get('kind')=='energy_change' and e.get('observation_basis')=='visible_energy_recovery_popup'
+                    and type(e.get('amount')) is int and e['amount']>0):
+                parsed.append((row['source_timestamp_ms'],f"Energy recovered by {e['amount']}.",row.get('context_title')))
     for row in readings:
         if row['screen'] not in ('unknown','event_outcome'):continue
         for line in row.get('ocr',{}).get('neural',[]):

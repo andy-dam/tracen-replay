@@ -110,6 +110,18 @@ class PreviewConfirmedGainTests(unittest.TestCase):
         readings = [home(52000, BEFORE), preview(54750, 'speed', PREVIEW), preview(55000, 'speed', PREVIEW), result(55750, dict(guts=143), outcome='success'), result(56000, dict(guts=143))]
         self.assertEqual(preview_confirmed_gains(readings, self.group(readings[-2:]), {}), {})
 
+    def test_a_snapshot_before_another_result_card_does_not_confirm_a_later_preview(self):
+        # The menu shown again after a card, with the same option previewed:
+        # the difference from before that card is the card's, not the run's.
+        after = dict(speed=214, stamina=74, power=231, guts=143, wit=182, skill_points=129)
+        readings = [home(40000, BEFORE), result(45000, dict(skill_points=None), outcome='success'),
+                    preview(54750, 'speed', PREVIEW), preview(55000, 'speed', PREVIEW), home(58000, after)]
+        group = dict(option='speed', first_seen_ms=54750, last_seen_ms=55000, rows=[], preview_rows=readings[2:4])
+        self.assertEqual(preview_confirmed_gains(readings, group, {}), {})
+        # A snapshot taken after that card is the one the run is measured from.
+        readings.insert(2, home(47000, BEFORE))
+        self.assertEqual({f: p['value'] for f, p in preview_confirmed_gains(readings, group, {}).items()}, PREVIEW)
+
     def test_fields_already_observed_are_left_alone_and_must_agree(self):
         after = dict(stamina=74, power=231, guts=143, wit=182, skill_points=129)
         rows = [result(55750, after, outcome='success'), result(56000, after)]

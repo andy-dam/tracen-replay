@@ -141,7 +141,10 @@ class RecordingCoverageTests(unittest.TestCase):
             self.assertEqual(outing_actions(rows[:4]+[row(6000,screen)]+rows[4:],[event]),[])
         hub=row(3000);hub['stats']['values']={'speed':100}
         second=dict(hub,source_timestamp_ms=3250,evidence='3250.png')
-        self.assertEqual(outing_actions(rows[:4]+[hub,second]+rows[4:],[event]),[])
+        # The game shows the hub for a moment between the confirmation and the
+        # outing's scene; with the confirmation sampled, the scene following
+        # within moments and the next date after it, that is the outing.
+        self.assertEqual(len(outing_actions(rows[:4]+[hub,second]+rows[4:],[event])),1)
         rows[-1]['stats']['calendar_text']='Senior Year Late Feb'
         self.assertEqual(outing_actions(rows,[event]),[])
 

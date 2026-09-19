@@ -36,6 +36,13 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         self.assertEqual(got[0]['fields'],['guts','power','skill_points','speed','stamina','wit'])
         # With another gain accepted, the single frame owns its own narrow reread.
         self.assertEqual(plan([result],[dict(event,deltas={'speed':1})])[0]['reason'],'single_frame_training_gain')
+    def test_a_card_left_on_screen_longer_than_the_span_is_reread_from_its_first_frames(self):
+        result=dict(row(1000,{}),training_option='speed')
+        result['facts'].update(result_values={'speed':334},training_outcome='success')
+        event=dict(id='training',kind='training',training_option='speed',first_seen_ms=900,last_seen_ms=2400,deltas={},conflicting_readings={})
+        self.assertEqual([(w['start_ms'],w['end_ms'],w['reason']) for w in plan([result],[event])],
+                         [(400,1900,'committed_result_missing_signed_gain_observation')])
+
     def test_a_performance_row_the_committed_card_left_unread_gets_the_bounded_reread(self):
         # The stat badges were read and accepted; the Dance row's award was
         # cut or merged under the floor on every sampled frame. The reread

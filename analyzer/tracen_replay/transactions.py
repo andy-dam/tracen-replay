@@ -2395,8 +2395,11 @@ def _same_caption(left,right):
     if _same_title(left,right):return True
     a=' '.join(str(left).split());b=' '.join(str(right).split())
     short,full=sorted((a,b),key=len)
+    # The cut can also fall inside the last word ('A Sharp Turn! Nowhe'
+    # beside '... Nowhere.'): a long caption missing at most three glyphs
+    # at its end is the same caption.
     if (len(short)>=_CAPTION_PREFIX_MIN and full.startswith(short)
-            and full[len(short):len(short)+1] in (' ',':',',',';','!','?','.')):return True
+            and (full[len(short):len(short)+1] in (' ',':',',',';','!','?','.') or len(full)-len(short)<=3)):return True
     # One or two misread letters inside a long caption ('Effciency' beside
     # 'Efficiency') are the same caption; short names get no such allowance.
     from .gameplay import _edit_distance
@@ -2631,7 +2634,7 @@ def outcome_events(readings):
         quarantine_receipt_identity_conflicts(event, rows_by_evidence, effect_kind='skill_hint_change')
         # A candidate the run corroborates nowhere else joins the reading it
         # damaged; the rest stay candidates for the reader to decide.
-        collapse_uncorroborated_recipient_variants(event,name_sightings)
+        collapse_uncorroborated_recipient_variants(event,name_sightings,vocabulary)
         collapse_uncorroborated_circle_base_variants(event,name_sightings)
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
@@ -2894,7 +2897,11 @@ def outing_actions(readings,events):
         recovery=any(e['kind']=='energy_change' and e['amount']>0 for e in event['effects'])
         companions={e['name'] for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')}
         mood=any(e['kind']=='mood_change' and e.get('direction')=='up' for e in event['effects'])
-        if not recovery and not (mood and len(companions)==1):continue
+        # A scenario outing awards what its own titled scene says (a group
+        # outing's stat gains) rather than energy or a companion's mood; the
+        # turn transition observed after the scene is its proof below.
+        titled=bool(str(event.get('context_title') or '').strip()) and bool(event['effects'])
+        if not recovery and not (mood and len(companions)==1) and not titled:continue
         requests=[r for r in readings if r['screen']=='outing_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
         # The confirmation is a dialog dismissed with one more click, and at
         # four frames a second it can fall between two samples. The Recreation
@@ -2914,13 +2921,16 @@ def outing_actions(readings,events):
         # recovery receipt with no other action between is the outing, and the
         # game shows the hub for a moment before the outing's own scene.
         hubs=[r for r in intervening if r['screen']=='unknown' and r.get('stats',{}).get('values') and not r.get('context_title')]
-        if not (confirmed and recovery) and any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
-               for a,b in zip(hubs,hubs[1:])):continue
-        if time in used:continue
         extra=[]
         if not recovery:
             extra=outing_turn_evidence(readings,event,request)
             if not extra:continue
+        # An outing without a recovery receipt is proven the same way once its
+        # confirmation was sampled: by its scene following within moments and
+        # the next date after it (``outing_turn_evidence``).
+        if not (confirmed and (recovery or extra)) and any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
+               for a,b in zip(hubs,hubs[1:])):continue
+        if time in used:continue
         used.add(time)
         action=dict(kind='outing',source_timestamp_ms=event['first_seen_ms'],event_id=event['id'],
                             companion=companions.pop() if len(companions)==1 else None,
@@ -2952,8 +2962,10 @@ def outing_turn_evidence(readings,event,request):
     if len({r['source_timestamp_ms'] for r in confirmations})<2:return []
     narrative=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms'] and r.get('context_title')==title]
     if len({r['source_timestamp_ms'] for r in narrative})<2 or narrative[0]['source_timestamp_ms']-time>3000:return []
-    current={date_key(r.get('stats',{}).get('calendar_text')) for r in narrative}
-    if len(current)!=1 or None in current:return []
+    # The scene fades the calendar on some of its frames; the frames that
+    # show it must agree on one date.
+    current={date_key(r.get('stats',{}).get('calendar_text')) for r in narrative}-{None}
+    if len(current)!=1:return []
     current=current.pop()
     after=[r for r in readings if event['last_seen_ms']<r['source_timestamp_ms']<=event['last_seen_ms']+5000]
     next_rows=[]

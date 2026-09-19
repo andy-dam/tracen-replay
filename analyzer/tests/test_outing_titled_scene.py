@@ -23,6 +23,29 @@ class OutingTitledSceneTests(unittest.TestCase):
         actions = outing_actions(rows, [event])
         self.assertEqual([(a['kind'], a.get('name'), a['request_observed_at_ms']) for a in actions], [('outing', 'At Rainbow Cove', 1743750)])
 
+    def test_a_scenario_outing_awarding_stats_is_proven_by_its_scene_and_the_next_date(self):
+        # The confirmation sampled, the hub for a moment, then "Tycho's
+        # Radiance" awarding guts and no energy, then the next date.
+        def dated(r, text):
+            r['stats']['calendar_text'] = text
+            return r
+        award = [dict(kind='stat_change', field='guts', amount=13)]
+        rows = [row(988000, 'outing_confirmation'), row(988250, 'outing_confirmation'), row(988750, 'outing_selection'),
+                dated(row(989000, 'unknown', values=VALUES), 'Classic Year Early Sep'),
+                dated(row(989250, 'unknown', values=VALUES), 'Classic Year Early Sep'),
+                dated(row(990250, 'unknown', title="Tycho's Radiance"), 'Classic Year Early Sep'),
+                row(991250, 'unknown', title="Tycho's Radiance"),
+                dated(row(993250, 'event_outcome', title="Tycho's Radiance", effects=award), 'Classic Year Early Sep'),
+                dated(row(995000, 'unknown', values=VALUES), 'Classic Year Late Sep'),
+                dated(row(995250, 'unknown', values=VALUES), 'Classic Year Late Sep')]
+        event = dict(id='outcome-1', kind='outcome', first_seen_ms=993250, last_seen_ms=994750, context_title="Tycho's Radiance",
+                     evidence='993250.png', effects=list(award))
+        self.assertEqual([(a['kind'], a.get('name'), a['basis']) for a in outing_actions(rows, [event])],
+                         [('outing', "Tycho's Radiance", 'outing_request_support_event_and_observed_next_date')])
+        # Without the next date after the scene, or with only the menu sampled, nothing.
+        self.assertEqual(outing_actions(rows[:-2], [event]), [])
+        self.assertEqual(outing_actions([row(988000, 'outing_selection')] + rows[2:], [event]), [])
+
     def test_an_untitled_hub_between_blocks_only_a_menu_request(self):
         # The game shows the hub for a moment after the confirmation, before
         # the outing's own scene: with the confirmation sampled, the recovery

@@ -52,6 +52,33 @@ class RecipientVariantTests(unittest.TestCase):
             collapse_uncorroborated_recipient_variants(event, sightings)
             self.assertEqual(event, before)
 
+    def test_spellings_the_run_knows_nowhere_but_a_glyph_from_one_known_name_are_that_name(self):
+        # The cursor crossed a different letter on each frame: "Agies" and
+        # "Aghes" Tachyon, beside a run full of "Agnes Tachyon".
+        event = recipient_event()
+        for candidate, name in zip(event['ambiguous_effect_candidates'], ('Agies Tachyon', 'Aghes Tachyon')):
+            candidate['effect']['name'] = name
+        sightings = Counter({('friendship_change', 'Agnes Tachyon'): 11, ('friendship_change', 'Agies Tachyon'): 1,
+                             ('friendship_change', 'Aghes Tachyon'): 1})
+        vocabulary = {'supporter': Counter({'Agnes Tachyon': 11, 'Agies Tachyon': 1, 'Aghes Tachyon': 1}), 'skill': Counter(), 'together': {}}
+        collapse_uncorroborated_recipient_variants(event, sightings, vocabulary)
+        self.assertEqual(event['ambiguous_effect_candidates'], [])
+        self.assertEqual([(e['name'], e['amount'], e['name_resolution']) for e in event['effects']],
+                         [('Agnes Tachyon', 5, 'disputed_spellings_repaired_to_known_recipient')])
+        self.assertEqual([a['name'] for a in event['effects'][0]['alternate_name_evidence']], ['Agies Tachyon', 'Aghes Tachyon'])
+        self.assertEqual(event['field_evidence']['friendship_change||Agnes Tachyon'], ['a.png', 'b.png', 'c.png'])
+        # Without the run's vocabulary, or with a spelling no known name is near, the slot stays undecided.
+        event = recipient_event()
+        for candidate, name in zip(event['ambiguous_effect_candidates'], ('Agies Tachyon', 'Aghes Tachyon')):
+            candidate['effect']['name'] = name
+        before = copy.deepcopy(event)
+        collapse_uncorroborated_recipient_variants(event, sightings)
+        self.assertEqual(event, before)
+        event['ambiguous_effect_candidates'][1]['effect']['name'] = 'Someone Else'
+        before = copy.deepcopy(event)
+        collapse_uncorroborated_recipient_variants(event, sightings, vocabulary)
+        self.assertEqual(event, before)
+
     def test_candidates_of_another_amount_are_a_separate_slot(self):
         event = recipient_event()
         event['ambiguous_effect_candidates'][1]['effect']['amount'] = 7

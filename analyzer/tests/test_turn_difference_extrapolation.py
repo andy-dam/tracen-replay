@@ -249,6 +249,26 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
         self.assertEqual(turn_field(result, 'wit')['status'], 'unexplained_change')
 
+    def test_a_learned_read_of_the_whole_number_settles_reads_cut_to_its_leading_digits(self):
+        # The cursor sat on the badge's last digit: the card read 3, 8 and 86
+        # for a speed gain the learned reader read as 36 and the bars rose by.
+        def disputed():
+            doc = report(deltas=dict(guts=13, skill_points=8))
+            doc['gameplay_tracking']['checkpoints'][1]['values']['speed'] = 136
+            doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['speed'] = 136
+            doc['gameplay_tracking']['events'][0]['conflicting_readings'] = {'speed': [3, 8, 86]}
+            return doc
+        doc = disputed()
+        self.learned(doc, speed=36)
+        result = build(doc)
+        self.assertEqual(doc['gameplay_tracking']['events'][0]['settled_conflicting_readings']['speed'],
+                         dict(amount=36, reads=[3, 8, 86], settled_by='learned_reader_on_card', completes_read=3))
+        self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
+        # The bare turn difference gets no such allowance.
+        doc = disputed()
+        build(doc)
+        self.assertNotIn('settled_conflicting_readings', doc['gameplay_tracking']['events'][0])
+
     def test_a_performance_row_read_two_ways_is_settled_by_the_turn_difference(self):
         doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(dance=25, composure=32))
         event = doc['gameplay_tracking']['events'][0]

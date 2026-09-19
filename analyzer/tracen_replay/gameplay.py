@@ -258,7 +258,10 @@ def effects_from_lines(lines, popups=None):
         effect = None
         if m := CHANGE.fullmatch(text):
             field = 'skill_points' if m[1].lower().startswith('skill') else m[1].lower()
-            effect = dict(kind='stat_change', field=field, amount=int(m[3]) * (1 if m[2].lower() == 'up' else -1))
+            # The game never reports a change of nothing: "went up by 0." is
+            # a number whose leading digit something hid, not a receipt.
+            effect = None if int(m[3]) == 0 else dict(
+                kind='stat_change', field=field, amount=int(m[3]) * (1 if m[2].lower() == 'up' else -1))
         elif m := CUT_CHANGE.fullmatch(text):
             # The line's number is missing or not a number ("T0"); the popup
             # over the scene shows it.
@@ -323,7 +326,8 @@ def effects_from_lines(lines, popups=None):
             effect = dict(kind='skill_hint_change', name=name, amount=int(m[1]))
         elif m := re.fullmatch(r'(Dance|Passion|Vocals?|Visuals?|Composure) went (up|down) by (\d+)[.!]?', text, re.I):
             field = {'vocals':'vocal','visuals':'visual'}.get(m[1].lower(),m[1].lower())
-            effect = dict(kind='performance_change', field=field, amount=int(m[3])*(1 if m[2].lower()=='up' else -1))
+            effect = None if int(m[3]) == 0 else dict(
+                kind='performance_change', field=field, amount=int(m[3])*(1 if m[2].lower()=='up' else -1))
         elif m := re.fullmatch(r'Learned the song ["“](.+?)["”][.!]?', text, re.I):
             effect = dict(kind='song_learned', name=m[1].strip(), acquisition='unknown', cost=None)
         elif confidence >= 90 and (title := garbled_song_receipt(text)):

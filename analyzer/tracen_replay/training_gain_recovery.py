@@ -347,8 +347,11 @@ def plan(readings, events):
         if not committed or not missing:
             continue
         start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)
-        end=last_seen + _RESULT_RECOVERY_RADIUS_MS
-        if not start<end or end-start>_RESULT_RECOVERY_MAX_SPAN_MS:
+        # A card the player left on screen longer than the span allows is
+        # reread from its first frames, where the badges appear, rather
+        # than not at all.
+        end=min(last_seen + _RESULT_RECOVERY_RADIUS_MS, start + _RESULT_RECOVERY_MAX_SPAN_MS)
+        if not start<end:
             continue
         fallback_requests.append(dict(
             start_ms=start,

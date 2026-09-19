@@ -352,10 +352,21 @@ def _settle_conflicting_reads(event, field, gain, settled_by):
     # A stat's disputed reads sit under conflicting_readings, a performance
     # row's under performance_reading_conflicts; the bars settle both alike.
     reads = event.get('conflicting_readings') if field in FIELDS else event.get('performance_reading_conflicts')
-    if not isinstance(reads, dict) or not isinstance(reads.get(field), list) or gain not in reads[field]:
+    if not isinstance(reads, dict) or not isinstance(reads.get(field), list):
         return
-    event.setdefault('settled_conflicting_readings', {})[field] = dict(
-        amount=gain, reads=sorted(set(reads[field])), settled_by=settled_by)
+    settled = dict(amount=gain, reads=sorted(set(reads[field])), settled_by=settled_by)
+    if gain not in reads[field]:
+        # The cursor or a sparkle over the badge's last digit leaves a read cut
+        # to its leading digits ("3" of 36) on frame after frame. When the
+        # learned reader read the whole number on the card, that cut read is
+        # the same number, not a disagreement; a bare turn difference gets
+        # no such allowance.
+        cut = [read for read in reads[field] if type(read) is int and 0 < read < gain
+               and str(gain).startswith(str(read))]
+        if not cut or not str(settled_by).startswith('learned_reader'):
+            return
+        settled['completes_read'] = max(cut)
+    event.setdefault('settled_conflicting_readings', {})[field] = settled
 
 
 def _learned_gain_contradictions(event, readings, field, amount):

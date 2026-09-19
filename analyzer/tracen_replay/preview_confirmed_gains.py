@@ -260,6 +260,20 @@ def _intervening_effects(rows, channel='stats'):
     return totals
 
 
+def _after_last_result(snapshots, candidates, rows):
+    """The snapshots taken after the last result card among ``candidates``.
+
+    A difference measured across another training's result card is that
+    training's, not this one's: the menu shown again after a card, with the
+    same option previewed, must not read the card's gains a second time.
+    """
+    results = [_time(r) for r in candidates if r.get('screen') == 'training_result' and r not in rows]
+    if not results:
+        return list(snapshots)
+    last = max(results)
+    return [r for r in snapshots if _time(r) > last]
+
+
 def result_total_gains(readings, group, deltas, channel='stats'):
     """Return ``{field: proof}`` for gains read as the result panel's totals minus the prior snapshot.
 
@@ -280,6 +294,7 @@ def result_total_gains(readings, group, deltas, channel='stats'):
     times = [_time(r) for r in ordered]
     before_rows = [r for r in ordered[bisect_left(times, first - SNAPSHOT_LOOKBACK_MS):bisect_left(times, first)]
                    if r.get('screen') != 'training_result' and r not in rows and _full_snapshot(r, channel)]
+    before_rows = _after_last_result(before_rows, ordered[bisect_left(times, first - SNAPSHOT_LOOKBACK_MS):bisect_left(times, first)], rows)
     if not before_rows:
         return {}
     before_row = before_rows[-1]
@@ -406,6 +421,7 @@ def preview_confirmed_gains(readings, group, deltas, channel='stats'):
             return ordered
         return ordered[bisect_left(times, lo):bisect_right(times, hi)]
     before_rows = [r for r in rows_within(first - SNAPSHOT_LOOKBACK_MS, _time(preview_rows[0])) if first - SNAPSHOT_LOOKBACK_MS <= _time(r) < _time(preview_rows[0]) and _full_snapshot(r, channel)]
+    before_rows = _after_last_result(before_rows, rows_within(first - SNAPSHOT_LOOKBACK_MS, _time(preview_rows[0])), rows)
     if not before_rows:
         return {}
     before_row = before_rows[-1]

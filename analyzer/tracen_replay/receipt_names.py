@@ -1373,7 +1373,7 @@ def _drop_conflicts(event, fields, reasons):
         if not (item.get('field') in fields and item.get('reason') in reasons)]
 
 
-def collapse_uncorroborated_recipient_variants(event, name_sightings):
+def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary=None):
     """Fold a recipient spelling the run produced only here into the one it knows.
 
     Adjacent views of one receipt slot can disagree on the recipient's name
@@ -1406,16 +1406,40 @@ def collapse_uncorroborated_recipient_variants(event, name_sightings):
     folded = []
     for members in groups.values():
         recurring = [candidate for candidate in members if elsewhere(candidate) > 0]
-        if len(members) < 2 or len(recurring) != 1:
+        if len(members) < 2:
             continue
-        target = recurring[0]
+        known = None
+        if len(recurring) == 1:
+            target = recurring[0]
+            resolution = 'uncorroborated_spelling_joins_recurring_recipient'
+        elif not recurring and vocabulary is not None:
+            # No spelling recurs, but each is a glyph or two from one name the
+            # run knows well ("Agies Tachyon" and "Aghes Tachyon" beside many
+            # "Agnes Tachyon"): the cursor crossed a different letter on each
+            # frame, and the damaged spellings are that recipient.
+            from .name_vocabulary import _group, repair
+            repaired = set()
+            for candidate in members:
+                name = candidate['effect'].get('name')
+                repaired.add(repair(name, vocabulary.get('supporter') or {}, 'supporter',
+                                    (vocabulary.get('together') or {}).get(name, ()))
+                             if _group(candidate['effect']) == 'supporter' else None)
+            if len(repaired) != 1 or None in repaired:
+                continue
+            known = repaired.pop()
+            target = members[0]
+            resolution = 'disputed_spellings_repaired_to_known_recipient'
+        else:
+            continue
         effect = deepcopy(target['effect'])
-        effect['name_resolution'] = 'uncorroborated_spelling_joins_recurring_recipient'
+        if known is not None:
+            effect['name'] = known
+        effect['name_resolution'] = resolution
         key = str(effect.get('kind')) + '||' + str(effect.get('name') or '')
         proofs = event.setdefault('field_evidence', {}).setdefault(key, [])
         proofs.extend(proof for proof in _candidate_frames(target) if proof not in proofs)
         for other in members:
-            if other is target:
+            if other is target and known is None:
                 continue
             effect.setdefault('alternate_name_evidence', []).append(dict(
                 name=other['effect'].get('name'), evidence=_candidate_frames(other)))

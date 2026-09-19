@@ -19,6 +19,9 @@ class SplitCaptionTests(unittest.TestCase):
         self.assertTrue(_same_caption('After the Mainichi Okan: Onward, to Light', 'After the Mainichi Okan: Onward, to'))
         self.assertTrue(_same_caption('After the Tenno Sho (Autumn): Beyond', 'After the Tenno Sho (Autumn): Beyond Limits'))
         self.assertTrue(_same_caption('The Correlation between Sleep and Effciency', 'The Correlation between Sleep and Efficiency'))
+        # The cut can fall inside the caption's last word.
+        self.assertTrue(_same_caption('After the NHK Mile C.: A Sharp Turn! Nowhe', 'After the NHK Mile C.: A Sharp Turn! Nowhere.'))
+        self.assertFalse(_same_caption('The Correlation between Sleep', 'The Correlation between Sleeping Habits'))
         self.assertFalse(_same_caption('Incline', 'Incline Run'))
         self.assertFalse(_same_caption('After the Mainichi Okan: Onward, to Light', 'After the Tenno Sho (Autumn): Beyond'))
         self.assertFalse(_same_caption('Party Time', 'Party Times'))

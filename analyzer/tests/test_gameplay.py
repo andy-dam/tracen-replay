@@ -32,6 +32,11 @@ class GameplayTests(unittest.TestCase):
     def test_previews_modifiers_and_caps_are_not_stat_awards(self):
         for text in ['Speed +12','Training Power Gain +1','Friendship Training Effectiveness +5%', 'Skill Pts 160','Speed went up by 5 maybe.']:
             self.assertEqual(effects_from_lines([line(text)]),[])
+    def test_a_change_of_nothing_is_a_number_with_its_leading_digit_hidden(self):
+        # The game never reports "went up by 0": the cursor over the 2 of 20.
+        for text in ['Visuals went up by 0.','Speed went up by 0.','Skill Pts went down by 0.']:
+            self.assertEqual(effects_from_lines([line(text)]),[])
+        self.assertEqual(effects_from_lines([line('Visuals went up by 20.')])[0]['amount'],20)
     def test_energy_song_and_hype_are_separate_resources(self):
         effects=effects_from_lines([line('Energy recovered by 50.'),line('Learned the song "Make Debut!".'),line('Hype Level went up.')])
         self.assertEqual([e['kind'] for e in effects],['energy_change','song_learned','hype_increased'])

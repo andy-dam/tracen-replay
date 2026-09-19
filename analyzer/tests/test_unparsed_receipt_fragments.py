@@ -20,6 +20,21 @@ class FragmentTests(unittest.TestCase):
         self.assertIsNone(fragment_of('Guts went up by 3.', ['Wit went up by 3.']))
         self.assertIsNone(fragment_of('Learned', ['Learned the song "Hoppity Sunny Days".']))
 
+    def test_dialogue_with_a_receipt_keyword_is_not_a_candidate(self):
+        # A receipt is a sentence of its own and starts with a capital.
+        readings = [receipt_row(1000, "learned the reason for Matikanefukukitaru's state"),
+                    receipt_row(1250, 'energy that she normally does...'),
+                    receipt_row(60000, 'Learned Makeup Advanced')]
+        self.assertEqual([c['raw_text'] for c in unparsed_receipt_candidates(readings)], ['Learned Makeup Advanced'])
+
+    def test_a_receipt_cut_beside_its_popup_is_a_fragment_of_the_popup_reading(self):
+        # The cursor over the number: "Energy recovered by." on one frame, and
+        # on the next the centered "+10 Energy" popup read as the effect.
+        popup = dict(kind='energy_change', amount=10, raw_text='+10 Energy', observation_basis='visible_energy_recovery_popup')
+        readings = [receipt_row(126500, 'Energy recovered by.'), receipt_row(126750, '+10', [popup])]
+        candidate, = unparsed_receipt_candidates(readings)
+        self.assertEqual((candidate['raw_text'], candidate['status']), ('Energy recovered by.', 'ocr_fragment'))
+
     def test_candidates_beside_a_parsed_receipt_are_marked_not_reviewed(self):
         parsed = dict(kind='friendship_status', name='Light Hello', raw_text='Friendship with Light Hello is maxed out.')
         readings = [

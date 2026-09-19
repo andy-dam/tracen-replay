@@ -365,7 +365,15 @@ Ordinary energy, mood and friendship effects come from the same fixed
 receipt grammar as every other stat-change line ("Energy recovered by
 N.", "Friendship with X went up by N.", "Friendship with X is maxed
 out.", and so on), each requiring confidence 60 or higher (90 or higher
-before a fixed-phrase repair is attempted). A separate channel,
+before a fixed-phrase repair is attempted). The game never reports a change
+of nothing, so a stat or performance line reading "went up by 0" is a number
+whose leading digit the cursor hid, not a receipt: it parses to no effect
+and, beside the frames that read the whole number, is a fragment. A line is
+only a receipt candidate (`unparsed_receipt_candidates`) when it starts with
+a capital, as every receipt sentence does; a line of dialogue that happens
+to contain a keyword ("learned the reason for her state") is not. A cut
+"Energy recovered by." beside a frame whose centered "+N Energy" popup was
+read as the effect is a fragment of that popup's sentence. A separate channel,
 `energy_popup.py`, reads the centered "+N Energy" popup that can remain
 visible while the lower receipt is covered by an animation effect; it
 requires confidence 97 or higher for both the amount and the exact
