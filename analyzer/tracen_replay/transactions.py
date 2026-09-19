@@ -1934,6 +1934,21 @@ def training_events(readings,states=()):
                 performance_proofs[field]=applied+[e for e in proof['evidence'] if e not in applied]
                 if field not in derived:derived.append(field)
             events[-1]['preview_confirmed_performance_gains']=performance_confirmed
+        # A row the card never read (a badge over it, or a merged read under
+        # the confidence floor on every frame) is unknown, not zero: the
+        # accounting may let this training own that field's turn residual.
+        # A row read as its current value alone was read, and gave nothing.
+        provenances=[r['facts'].get('performance_panel_provenance') for r in group['rows']
+                     if is_committed_training_result_row(r) and isinstance(r['facts'].get('performance_panel_provenance'),dict)
+                     and r['facts']['performance_panel_provenance']]
+        unread=[]
+        if provenances:
+            for field in CURRENCIES:
+                if field in performance:continue
+                statuses={(p.get(field) or {}).get('status') for p in provenances}
+                if all(s is None or str(s).startswith('unresolved') for s in statuses):
+                    unread.append(field)
+        events[-1]['performance_rows_unread']=unread
         events[-1].update(performance_deltas=performance,performance_evidence=performance_proofs,
                          action_identity_evidence=[r['evidence'] for r in group['rows']
                              if group['option'] is not None and r.get('training_option')==group['option']],

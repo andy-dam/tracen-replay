@@ -249,6 +249,10 @@ def _training_can_own(event, read_key, field):
         return False
     if not read:
         return True
+    # A performance row the card never read (a badge over it, a merged read
+    # under the floor) is unknown, unlike a row read as its current value.
+    if read_key == 'performance_deltas' and field in (event.get('performance_rows_unread') or ()):
+        return True
     conflicts = event.get('conflicting_readings') or {}
     names = set(conflicts) if isinstance(conflicts, dict) else {c.get('field') for c in conflicts if isinstance(c, dict)}
     return field in names or field in (event.get('gain_conflicts') or {})

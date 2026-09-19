@@ -27,6 +27,31 @@ class TrainingWithoutBadgeTests(unittest.TestCase):
         event = training_events(rows)[0]
         self.assertEqual(event['performance_deltas'], {'visual': 19})
 
+    def test_rows_the_card_never_read_are_named_unread_and_may_own_the_turn_residual(self):
+        from tracen_replay.causal_accounting import _training_can_own
+
+        def provenance(**statuses):
+            return {field: dict(field=field, status=status) for field, status in statuses.items()}
+        rows = [_result_row(1000, 'card-1.png', option='wit', gains={'wit': 20}, awards={'dance': 30}),
+                _result_row(1250, 'card-2.png', option='wit', gains={'wit': 20}, awards={'dance': 30})]
+        rows[0]['facts']['performance_panel_provenance'] = provenance(
+            dance='resolved_merged_panel_value', passion='resolved_current_panel_value',
+            vocal='resolved_current_panel_value', visual='unresolved_low_confidence_merged_panel_value')
+        rows[1]['facts']['performance_panel_provenance'] = provenance(
+            dance='resolved_merged_panel_value', passion='resolved_current_panel_value',
+            vocal='resolved_current_panel_value', composure='resolved_current_panel_value')
+        event = training_events(rows)[0]
+        # Visual was unresolved on one frame and absent on the other; composure
+        # was read as its current value on one frame, so it gave nothing.
+        self.assertEqual(event['performance_rows_unread'], ['visual'])
+        self.assertTrue(_training_can_own(event, 'performance_deltas', 'visual'))
+        self.assertFalse(_training_can_own(event, 'performance_deltas', 'composure'))
+        self.assertFalse(_training_can_own(event, 'performance_deltas', 'dance'))
+        # Frames with no panel reading at all name nothing unread.
+        for row in rows:
+            row['facts'].pop('performance_panel_provenance')
+        self.assertEqual(training_events(rows)[0]['performance_rows_unread'], [])
+
     def test_a_lone_digit_reread_of_a_missed_row_is_taken_from_seventy(self):
         def region(name, text, confidence):
             return {name: dict(text=text, confidence=confidence, box=[190, 520, 260, 560],

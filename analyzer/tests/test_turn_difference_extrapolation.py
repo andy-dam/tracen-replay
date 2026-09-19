@@ -97,6 +97,23 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(doc['gameplay_tracking']['events'][0]['turn_difference_gains'], dict(speed=9, guts=13, skill_points=8))
         self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
 
+    def test_a_performance_row_the_card_never_read_lets_the_training_take_the_difference(self):
+        # The card showed Dance +30 and its Visual row sat under a badge; the
+        # panel moved Visual by 30 over the turn.
+        doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(visual=50, dance=50))
+        event = doc['gameplay_tracking']['events'][0]
+        event.update(performance_deltas=dict(dance=30), performance_evidence=dict(dance=['banner.png']), performance_rows_unread=['visual'])
+        result = build(doc)
+        self.assertEqual(event['turn_difference_performance_gains'], dict(visual=30))
+        self.assertEqual(turn_field(result, 'visual', channel='performance')['status'], 'balanced_with_derived_changes')
+        self.assertEqual(turn_field(result, 'dance', channel='performance')['status'], 'balanced_observations')
+        # A row the card read as unchanged does not take it.
+        doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(visual=50, dance=50))
+        doc['gameplay_tracking']['events'][0].update(performance_deltas=dict(dance=30), performance_evidence=dict(dance=['banner.png']),
+                                                     performance_rows_unread=[])
+        result = build(doc)
+        self.assertEqual(turn_field(result, 'visual', channel='performance')['status'], 'unexplained_change')
+
     def test_a_field_the_training_read_is_not_extrapolated(self):
         doc = report(deltas=dict(guts=10))
         result = build(doc)
