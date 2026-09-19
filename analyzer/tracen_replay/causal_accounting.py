@@ -253,6 +253,9 @@ def _training_can_own(event, read_key, field):
     # under the floor) is unknown, unlike a row read as its current value.
     if read_key == 'performance_deltas' and field in (event.get('performance_rows_unread') or ()):
         return True
+    # A performance row read two ways is unknown too, the way a disputed stat badge is.
+    if read_key == 'performance_deltas' and field in (event.get('performance_reading_conflicts') or {}):
+        return True
     conflicts = event.get('conflicting_readings') or {}
     names = set(conflicts) if isinstance(conflicts, dict) else {c.get('field') for c in conflicts if isinstance(c, dict)}
     return field in names or field in (event.get('gain_conflicts') or {})
@@ -340,7 +343,9 @@ def _settle_conflicting_reads(event, field, gain, settled_by):
     happens to equal a difference some other error corrupted is how a wrong
     number would slip through, and the model's disagreement is the alarm.
     """
-    reads = event.get('conflicting_readings')
+    # A stat's disputed reads sit under conflicting_readings, a performance
+    # row's under performance_reading_conflicts; the bars settle both alike.
+    reads = event.get('conflicting_readings') if field in FIELDS else event.get('performance_reading_conflicts')
     if not isinstance(reads, dict) or not isinstance(reads.get(field), list) or gain not in reads[field]:
         return
     event.setdefault('settled_conflicting_readings', {})[field] = dict(
@@ -907,6 +912,15 @@ def build(report):
                         # reader saw exactly the difference as its gain on the
                         # card, or the value it lands on: the training owns it.
                         mode = 'learned_gain'
+                    if (mode is None and channel == 'stats' and type(panel_read) is int and panel_read > 0 and residual > 0
+                            and len(_learned_gain_frames(training_event, data['readings'], field, residual + panel_read,
+                                                         _value_after_training(row, contributions, training_event, residual + panel_read))) >= 2):
+                        # The recognizer read one number off the badge; the
+                        # learned reader read the card at another on two
+                        # frames or more (the gain, or the value the stat
+                        # lands on), and the bars agree with the card: the
+                        # card decides, and the panel's read stays beside it.
+                        mode = 'card_read_outranks_panel'
                     if mode:
                         possible.append(('training', training_parent, training_event, mode))
             # The one outcome whose receipt named the field but lost its number.
@@ -942,13 +956,21 @@ def build(report):
                 # difference, plus any leading digits the recognizer read), or
                 # the value the stat lands on with it, the amount is observed,
                 # not worked out.
-                gain = residual + (read if mode == 'clipped_badge_prefix' else 0)
+                gain = residual + (read if mode in ('clipped_badge_prefix', 'card_read_outranks_panel') else 0)
                 value_after = _value_after_training(row, contributions, owner, gain)
                 learned = (_learned_gain_frames(owner, data['readings'], field, gain, value_after)
                            if channel == 'stats' else [])
                 if learned:
                     amount = residual
-                    if mode != 'clipped_badge_prefix' and _clipped_start(read, gain):
+                    if mode == 'card_read_outranks_panel':
+                        # The panel's number joins the card's as a disputed
+                        # read the card settled; the reader adds the rest.
+                        disputed = owner.setdefault('conflicting_readings', {}).setdefault(field, [])
+                        for value in (read, gain):
+                            if value not in disputed:
+                                disputed.append(value)
+                        owner.setdefault('learned_reader_completions', {})[field] = dict(read=read, total=gain, card_outranks_panel_read=True)
+                    elif mode != 'clipped_badge_prefix' and _clipped_start(read, gain):
                         # The card showed the whole gain; the digits the
                         # recognizer read are its clipped start and stay
                         # counted, so the reader adds only the rest. What the
@@ -986,7 +1008,7 @@ def build(report):
                         # On the contribution too, so a reviewer sees the card's
                         # own number beside the one worked out for it.
                         contributions[-1]['contradicted_reads'] = contradicted
-                    elif channel == 'stats':
+                    else:
                         _settle_conflicting_reads(owner, field, gain, 'turn_difference')
                 if mode == 'clipped_badge_prefix' or field in (owner.get('learned_reader_completions') or {}):
                     # The read digits stay as observed; the completion is a

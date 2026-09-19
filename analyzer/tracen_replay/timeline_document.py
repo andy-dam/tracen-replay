@@ -112,17 +112,28 @@ def _settled_conflicts(entry, record, changes):
     acquisition conflict, a worked-out amount the card contradicts) or a
     field the bars did not settle keeps the flag, and this returns None.
     """
-    reads = record.get('conflicting_readings') if isinstance(record, dict) else None
-    if record is None or record.get('kind') != 'training' or not isinstance(reads, dict) or not reads:
+    from .reconcile import FIELDS
+    if record is None or record.get('kind') != 'training':
         return None
-    if (record.get('ambiguous_effect_candidates') or record.get('performance_reading_conflicts')
-            or record.get('contradicted_turn_difference') or entry.get('acquisition_conflicts')):
+    # A stat's disputed reads sit under conflicting_readings, a performance
+    # row's under performance_reading_conflicts; both settle the same way.
+    reads = {}
+    for key in ('conflicting_readings', 'performance_reading_conflicts'):
+        found = record.get(key)
+        if isinstance(found, dict):
+            reads.update(found)
+        elif found:
+            return None
+    if not reads:
+        return None
+    if (record.get('ambiguous_effect_candidates') or record.get('contradicted_turn_difference')
+            or entry.get('acquisition_conflicts')):
         return None
     settled = record.get('settled_conflicting_readings') or {}
-    stats = changes.get('stats') or {}
     out = {}
     for field, values in reads.items():
-        settlement, change = settled.get(field), stats.get(field)
+        settlement = settled.get(field)
+        change = (changes.get('stats' if field in FIELDS else 'performance') or {}).get(field)
         if (not isinstance(settlement, dict) or not isinstance(change, dict)
                 or type(settlement.get('amount')) is not int or change.get('amount') != settlement['amount']):
             return None
@@ -248,9 +259,10 @@ def build(report):
             # The card's reads disagreed and the stat bars settled the field at
             # one of them: shown beside the amount, not as a conflict.
             item['conflicts_present'] = False
+            from .reconcile import FIELDS
             for field, others in settled.items():
                 if others:
-                    changes['stats'][field]['disagreeing_reads'] = others
+                    changes['stats' if field in FIELDS else 'performance'][field]['disagreeing_reads'] = others
         if changes:
             item['changes'] = changes
         if isinstance(record, dict):

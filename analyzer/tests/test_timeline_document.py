@@ -79,6 +79,32 @@ class TimelineDocumentTests(unittest.TestCase):
             self.assertGreater(size, 0)
             self.assertTrue((Path(tmp) / 'timeline.json').is_file())
 
+    def test_a_disputed_performance_row_settled_by_the_bars_is_no_longer_a_conflict(self):
+        # The card's Composure row was read as 1 and 12; the turn difference
+        # settled it at 12, so the entry carries the amount with the other
+        # read beside it and is not flagged.
+        report = _report()
+        ref = '/gameplay_tracking/events/0'
+        events = report['gameplay_tracking'].setdefault('events', [])
+        if not events:
+            events.append({})
+        events[0].update(kind='training', performance_reading_conflicts={'composure': [1, 12]},
+                         settled_conflicting_readings={'composure': dict(amount=12, reads=[1, 12], settled_by='turn_difference')})
+        report['turn_ledger']['timeline'] = [
+            dict(id='entry-result', kind='training', source_ref=ref, first_seen_ms=100, last_seen_ms=100,
+                 assignment_basis='observed_within_calendar_window', conflicts_present=True)]
+        report['causal_accounting'] = dict(report.get('causal_accounting') or {}, contributions=[
+            dict(id=f'{ref}/turn_difference_performance_gains/composure', event_ref=ref, channel='performance',
+                 field='composure', amount=12, basis='turn_difference')])
+        entry = build(report)['entries'][0]
+        self.assertFalse(entry.get('conflicts_present'))
+        change = entry['changes']['performance']['composure']
+        self.assertEqual((change['amount'], change['disagreeing_reads']), (12, [1]))
+        # Unsettled, the row keeps the flag.
+        events[0].pop('settled_conflicting_readings')
+        entry = build(report)['entries'][0]
+        self.assertTrue(entry.get('conflicts_present'))
+
     def test_a_disputed_badge_settled_by_the_stat_bars_is_no_longer_a_conflict(self):
         # The card was read as +1, +12 and +18 for speed; the accounting settled
         # it at 12, one of those reads, so the entry carries the amount with the

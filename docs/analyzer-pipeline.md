@@ -433,7 +433,13 @@ glow, beside the number the badge settles on) carries them as
 for that field, confirmed on the card by the learned reader or standing on
 its own, is one of those very reads, the accounting records
 `settled_conflicting_readings` on the training (the amount, the reads, and
-`learned_reader_on_card` or `turn_difference`). It does not hold when the
+`learned_reader_on_card` or `turn_difference`). A performance row read two
+ways (`performance_reading_conflicts`) settles the same way. A badge the
+recognizer read as one number while the learned reader read the card at
+another on two frames or more (the gain, or the value the stat lands on),
+the bars agreeing with the card, is settled at the card's number too: the
+panel's read joins the card's under `conflicting_readings`, the reader adds
+the rest, and the entry shows the amount with the panel's read beside it. It does not hold when the
 learned reader read the card as another gain: that disagreement stays
 raised even if the text reader's reads include the worked-out amount,
 because a text read that happens to equal a difference some other error

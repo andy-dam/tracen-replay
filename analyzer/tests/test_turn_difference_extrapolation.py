@@ -221,6 +221,51 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         completion = next(c for c in result['contributions'] if c['basis'] == 'observed_learned_training_gain')
         self.assertEqual(completion['completes'], '/gameplay_tracking/events/0/deltas/speed')
 
+    def test_the_card_read_on_two_frames_outranks_a_panel_read_the_bars_contradict(self):
+        # The panel read Wit +8; the learned reader read +32 on two card frames
+        # and the turn rose by 32: the card decides, the panel's read stays
+        # beside it as a settled disputed read.
+        def card(doc):
+            doc['gameplay_tracking']['checkpoints'][1]['values']['wit'] = 132
+            doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['wit'] = 132
+            self.learned(doc, wit=32)
+        doc = report(deltas=dict(speed=9, guts=13, skill_points=8, wit=8))
+        card(doc)
+        doc['gameplay_tracking']['readings'].append(dict(source_timestamp_ms=150, evidence='card2.png', screen='training_result', facts=dict(
+            learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=dict(wit=dict(text='+32', confidence=0.99, value=None, gain=32))))))
+        result = build(doc)
+        event = doc['gameplay_tracking']['events'][0]
+        self.assertEqual(event['learned_reader_gains'], dict(wit=24))
+        self.assertEqual(event['learned_reader_completions']['wit'], dict(read=8, total=32, card_outranks_panel_read=True))
+        self.assertEqual(event['settled_conflicting_readings']['wit'], dict(amount=32, reads=[8, 32], settled_by='learned_reader_on_card'))
+        row = turn_field(result, 'wit')
+        self.assertEqual((row['status'], row['direct_change'], row['unresolved_change']), ('balanced_observations', 32, 0))
+        completion = next(c for c in result['contributions'] if c['field'] == 'wit' and c['basis'] == 'observed_learned_training_gain')
+        self.assertEqual((completion['amount'], completion['completes']), (24, '/gameplay_tracking/events/0/deltas/wit'))
+        # One card frame is not enough to overrule the panel.
+        doc = report(deltas=dict(speed=9, guts=13, skill_points=8, wit=8))
+        card(doc)
+        result = build(doc)
+        self.assertNotIn('learned_reader_gains', doc['gameplay_tracking']['events'][0])
+        self.assertEqual(turn_field(result, 'wit')['status'], 'unexplained_change')
+
+    def test_a_performance_row_read_two_ways_is_settled_by_the_turn_difference(self):
+        doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(dance=25, composure=32))
+        event = doc['gameplay_tracking']['events'][0]
+        event.update(performance_deltas=dict(dance=5), performance_evidence=dict(dance=['banner.png']),
+                     performance_reading_conflicts={'composure': [1, 12]})
+        result = build(doc)
+        self.assertEqual(event['turn_difference_performance_gains'], dict(composure=12))
+        self.assertEqual(event['settled_conflicting_readings']['composure'], dict(amount=12, reads=[1, 12], settled_by='turn_difference'))
+        self.assertEqual(turn_field(result, 'composure', channel='performance')['status'], 'balanced_with_derived_changes')
+        # A difference that is none of the reads settles nothing.
+        doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(dance=25, composure=35))
+        event = doc['gameplay_tracking']['events'][0]
+        event.update(performance_deltas=dict(dance=5), performance_evidence=dict(dance=['banner.png']),
+                     performance_reading_conflicts={'composure': [1, 12]})
+        build(doc)
+        self.assertNotIn('settled_conflicting_readings', event)
+
     def landing(self, doc, **values):
         """The banner frame as a result frame on which the learned reader read the stat land on these values."""
         fields = {field: dict(text=f'{value}/', confidence=0.99, value=value, gain=None) for field, value in values.items()}
