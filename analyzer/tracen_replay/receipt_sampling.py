@@ -167,6 +167,33 @@ def _unresolved_hint_symbol(event: dict[str, Any]) -> bool:
     return False
 
 
+def _lone_recovery_receipt(event: dict[str, Any]) -> bool:
+    """An energy-recovery receipt observed on only one sampled frame.
+
+    The event's own span already says how many base frames fed it: a second
+    frame on the same receipt would have pushed last_seen_ms past
+    first_seen_ms. A one-frame recovery receipt cannot pass the repeated-
+    observation check that rest reconstruction requires, so it is requested
+    for a reread the same way any other unresolved receipt is.
+    """
+    if event.get('kind') != 'outcome':
+        return False
+    # A rest's receipt is a bare toast. A recovery shown under an event's
+    # title belongs to that event, whose turn already has its action.
+    if event.get('context_title'):
+        return False
+    first = event.get('first_seen_ms')
+    last = event.get('last_seen_ms', first)
+    if type(first) is not int or type(last) is not int or first != last:
+        return False
+    effects = event.get('effects', [])
+    if not isinstance(effects, list):
+        return False
+    return any(isinstance(effect, dict) and effect.get('kind') == 'energy_change'
+               and type(effect.get('amount')) is int and effect['amount'] > 0
+               for effect in effects)
+
+
 def _extract_targets(report: dict[str, Any], duration: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     data = report.get('gameplay_tracking', {})
     if not isinstance(data, dict):
@@ -248,6 +275,8 @@ def _extract_targets(report: dict[str, Any], duration: int) -> tuple[list[dict[s
             kinds.append(('conflicting_receipt_readings', 'source event retained conflicting receipt readings'))
         if _unresolved_hint_symbol(event):
             kinds.append(('unresolved_hint_symbol', 'source receipt retained competing visual-symbol identities'))
+        if _lone_recovery_receipt(event):
+            kinds.append(('lone_recovery_receipt', 'recovery receipt observed on one sampled frame'))
         bounds = _range(event, 'event', duration)
         for kind, reason in kinds:
             if _optional_marker(event):

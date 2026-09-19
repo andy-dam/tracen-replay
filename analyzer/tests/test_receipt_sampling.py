@@ -204,6 +204,51 @@ class ReceiptSamplingTests(unittest.TestCase):
         self.assertEqual(plan['targets'][0]['reason'],
                          'source event retained conflicting receipt readings')
 
+    def test_lone_recovery_receipt_becomes_a_reread_target(self):
+        # Only one sampled frame (first_seen_ms == last_seen_ms) shows this
+        # energy recovery, so rest reconstruction cannot see it repeated.
+        data = report(events=[dict(kind='outcome', first_seen_ms=5_000, last_seen_ms=5_000,
+                                   evidence='receipt.png',
+                                   effects=[dict(kind='energy_change', amount=40,
+                                                raw_text='Energy recovered by 40.')])])
+        plan = self.make_plan(data)
+        self.assertEqual([t['kind'] for t in plan['targets']], ['lone_recovery_receipt'])
+        target = plan['targets'][0]
+        self.assertEqual(target['reason'], 'recovery receipt observed on one sampled frame')
+        self.assertEqual(target['anchor_start_ms'], 5_000)
+        self.assertEqual(target['anchor_end_ms'], 5_001)
+        self.assertEqual(len(plan['windows']), 1)
+        window = plan['windows'][0]
+        # Default pad_ms (500) on each side of the one-frame anchor gives a
+        # window about one second wide, centred on the sampled frame.
+        self.assertEqual(window['start_ms'], 4_500)
+        self.assertEqual(window['end_ms'], 5_501)
+
+    def test_recovery_receipt_seen_on_two_frames_is_not_a_target(self):
+        data = report(events=[dict(kind='outcome', first_seen_ms=5_000, last_seen_ms=5_250,
+                                   evidence='receipt.png',
+                                   effects=[dict(kind='energy_change', amount=40,
+                                                raw_text='Energy recovered by 40.')])])
+        plan = self.make_plan(data)
+        self.assertEqual(plan['targets'], [])
+        self.assertEqual(plan['windows'], [])
+
+    def test_a_recovery_under_an_event_title_is_not_a_lone_recovery_target(self):
+        data = report(events=[dict(kind='outcome', first_seen_ms=5_000, last_seen_ms=5_000,
+                                   evidence='receipt.png', context_title='A Day at the Beach',
+                                   effects=[dict(kind='energy_change', amount=10,
+                                                raw_text='Energy recovered by 10.')])])
+        plan = self.make_plan(data)
+        self.assertEqual(plan['targets'], [])
+
+    def test_outcome_without_energy_change_is_not_a_lone_recovery_target(self):
+        data = report(events=[dict(kind='outcome', first_seen_ms=5_000, last_seen_ms=5_000,
+                                   evidence='receipt.png',
+                                   effects=[dict(kind='mood_change', direction='up')])])
+        plan = self.make_plan(data)
+        self.assertEqual(plan['targets'], [])
+        self.assertEqual(plan['windows'], [])
+
     def test_training_conflicts_are_deferred_from_receipt_sampling(self):
         data = report(events=[dict(id='training-1', kind='training', first_seen_ms=2_000,
                                    last_seen_ms=2_100, evidence=['training.png'],
