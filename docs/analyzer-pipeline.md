@@ -162,7 +162,11 @@ item never creates multiple purchases by itself. When several purchases share
 one before/after checkpoint pair, each still needs its own confirmation,
 receipt and repeated final projected counter, and the last counter must match
 the observed settled balance, or the group is left as projected rather than
-verified.
+verified. A lesson priced from the repeated balances before its request and
+after its receipt tolerates a leftover the dialog read with a digit cut
+("11" of 111 under the cursor on frame after frame): a read that is the
+observed balance with its leading or trailing digits hidden is that balance
+cut short, not a disagreement with it.
 
 **Receipts and captions.** A story caption read whole, and read again with
 its tail cut off (at a word, or inside its last word with at most three
@@ -192,7 +196,11 @@ stray-letter misreading of the same title. Receipt lines whose fixed wording
 was corrupted by an on-screen cursor (`"Speed went uply 30."`,
 `"Learnd te ong ..."`) are repaired by anchored template or bounded edit
 distance against the known phrase; the subject and the amount are never
-changed, and a missing amount is not repaired.
+changed, and a missing amount is not repaired. A number read whole on two
+or more frames outvotes a cut read of it ("by 2." beside "by 20.") that
+lasted one moment: a dense reread samples one moment several times, so the
+single outlier is every frame of it within a quarter second, however many;
+the same holds when an animated card and its receipt disagree.
 
 A hint receipt says its number and its skill name in words of their own, with
 fixed wording between them, and the recognizer reports where each word it read
@@ -210,7 +218,12 @@ energy receipt ("Yocals went up by 20." with the cursor parked over the V on
 every frame): when the overlays touch that word and no other, the line keeps
 its confidence (basis `overlay_covers_fixed_subject_word`) and the word is
 repaired only if exactly one of the fixed subjects is within one substitution
-or deletion of it, recorded as `text_normalization: obstructed_subject_word`.
+or deletion of it (two edits for a subject of seven letters or more, the
+cursor covering about two letters: "Slumina" is Stamina), recorded as
+`text_normalization: obstructed_subject_word`. The cursor is found on the
+bubble even when parked over a word: the letters under and beside it take a
+share of its surroundings, so a third of them white is enough
+(`CURSOR_WHITE_SURROUND`).
 
 **Result banners and rereads.** A training's identity heading counts on
 result frames even when a level digit was not read. A result word missing
@@ -226,7 +239,13 @@ or `repeated_training_name` (only the card's own name was read, on two
 distinct frames). A gain read on exactly one result frame that the event did
 not accept, or a committed result with no signed gain read at all, requests
 the bounded `training_gain_recovery` reread described above rather than
-letting the accounting work the amount out from a state difference.
+letting the accounting work the amount out from a state difference. A digit
+added for a moment ("301" beside nine frames of "+30") and a digit hidden
+for many frames ("3" of 36 under a parked cursor) look alike by frame
+counts, so neither is decided by counts: the reads stay a conflict for the
+learned reader and the stat bars to settle. A panel that fell across a
+training (876 read as 58, a lost leading digit) bounds no badge: a bound
+below zero is the panel's error and contradicts nothing.
 
 **Races.** Consecutive `race_result` frames with the same fan total and fan
 gain form one race group; a fan total still counting up across the first few
@@ -276,7 +295,21 @@ vocabulary_repair`, and when the same award already sits on the box under
 the known name, the two merge, so a box read three ways on three frames is
 one award. Over seven careers this folded 30 names and moved none that was
 known; the rare spellings it leaves are those with two known names within
-reach, such as a skill the run knows in both grades.
+reach, such as a skill the run knows in both grades. A song receipt's
+closing quote read as a stray glyph after the name, on fewer frames than
+the name was read whole ("Present March D" beside four "Present March"), is
+that name. Inheritance sparks settle three more ways: two supported
+spellings that differ only in punctuation ("TS Climax Scenario" and "T'S
+Climax Scenario") are one name, the spelling read on more frames standing
+(the longer when they tie, the other kept under `punctuation_variants`); a
+slot read once with and once without its circle glyph is the circled
+spelling, since the glyph is only ever dropped; and a stat or aptitude
+spark within one glyph of exactly one fixed name ("Speud") is that name
+(`fixed_spark_name_repaired`), whatever the frame counts, since those are
+fixed UI words rather than skills the run may not know. A race name read a
+glyph off on fewer frames than the others read it ("Queen Elizabeth IIl
+Cup" beside six "Queen Elizabeth II Cup") is the name the others read, kept
+under `race_name_variants`.
 
 **Rest and outings.** Both spend the turn, so a recovery line alone never
 identifies either. An outing is a request followed by its receipt with no

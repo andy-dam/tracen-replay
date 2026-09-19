@@ -25,6 +25,10 @@ class SubjectWordObstructionTests(unittest.TestCase):
         self.assertEqual(subject_receipt('Yocals went up by 20.'), 'Vocals went up by 20.')
         self.assertEqual(subject_receipt('Nocals went down by 5!'), 'Vocals went down by 5!')
         self.assertEqual(subject_receipt('Composre went up by 8.'), 'Composure went up by 8.')
+        # The cursor covers about two letters of a long word.
+        self.assertEqual(subject_receipt('Slumina went up by 5.'), 'Stamina went up by 5.')
+        self.assertEqual(subject_receipt('Slsmina went up by 5.'), 'Stamina went up by 5.')
+        self.assertIsNone(subject_receipt('Gvtz went up by 5.'))
         # A subject that already reads as a field needs nothing; one damaged
         # past a glyph, or a sentence of another shape, is left alone.
         for text in ('Vocals went up by 20.', 'Vocal went up by 20.', 'Yocls went up by 20.',

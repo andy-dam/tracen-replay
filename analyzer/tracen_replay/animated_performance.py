@@ -3,6 +3,9 @@ import re
 
 
 LABELS={'Dance':'dance','Passion':'passion','Vocals':'vocal','Visuals':'visual','Composure':'composure'}
+# One moment of the base sampling: an outlier read on dense frames this
+# close together is one sighting, not several.
+_OUTLIER_MOMENT_MS=250
 STAT_LABELS={'Speed':'speed','Stamina':'stamina','Power':'power','Guts':'guts','Wit':'wit','Skill Pts':'skill_points'}
 
 
@@ -144,7 +147,10 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
                            and all(c.get('reason')=='changing_effect_value' for c in conflicts))
         matching={t for t,_,e in observed if e.get('amount')==candidate['amount']}
         others={t for t,_,e in observed if e.get('amount')!=candidate['amount']}
-        display_agreement=(stat and len(matching)>=3 and max(matching)-min(matching)>=50 and len(others)==1
+        # A dense reread samples one moment several times, so the single
+        # outlier is one moment's frames: a read within a quarter second.
+        display_agreement=(stat and len(matching)>=3 and max(matching)-min(matching)>=50
+                           and bool(others) and max(others)-min(others)<=_OUTLIER_MOMENT_MS
                            and all(c.get('reason')=='changing_effect_value' for c in conflicts))
         if (prefix_resolution or display_agreement) and (conflicts or prior and prior['amount']!=candidate['amount']):
             event.setdefault('resolved_reading_conflicts',[]).append(dict(field=key,observed_amounts=sorted(amounts),

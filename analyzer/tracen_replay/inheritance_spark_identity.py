@@ -345,6 +345,12 @@ def _circle_variant(left, right):
     return left != right and strip(left) == strip(right) and bool(strip(left))
 
 
+def _punctuation_variant(left, right):
+    """Two names that differ only in punctuation and spaces."""
+    strip = lambda name: ''.join(ch for ch in str(name) if ch.isalnum()).casefold()
+    return left != right and strip(left) == strip(right) and bool(strip(left))
+
+
 def _bounded_misread(variant, accepted):
     """True when a losing spelling is the accepted name within the receipt-fragment bound."""
     from .mechanics_audit import fragment_of
@@ -473,6 +479,22 @@ def resolve(event, rows_by_evidence):
         # a string-shape preference.
         winners = [effect for effect in component
                    if supports[id(effect)][0] >= 2 and supports[id(effect)][1] >= 1]
+        if len(winners) > 1 and all(_punctuation_variant(winners[0]['name'], other['name']) for other in winners[1:]):
+            # Two supported spellings that differ only in punctuation ("TS
+            # Climax Scenario" and "T'S Climax Scenario") are one name read
+            # two ways; the spelling read on more frames stands, the longer
+            # one when they tie.
+            winners.sort(key=lambda effect: (-supports[id(effect)][0], -len(effect['name'])))
+            for other in winners[1:]:
+                winners[0].setdefault('punctuation_variants', []).append(other['name'])
+            winners = winners[:1]
+        if len(winners) != 1 and all(_circle_variant(component[0]['name'], other['name']) for other in component[1:]):
+            # One slot read with and without its circle glyph, neither
+            # spelling repeated: the glyph is only ever dropped, never added,
+            # so the spelling that shows it is the spark.
+            circled = [effect for effect in component if any(ch in '○◎' for ch in str(effect['name']))]
+            if len(circled) == 1:
+                winners = circled
         if len(winners) != 1:
             for left, right, relation in edges:
                 _conflict(event, left, right, relation,
@@ -504,6 +526,9 @@ def resolve(event, rows_by_evidence):
                 winner.setdefault('circle_glyph_variants', []).append(effect['name'])
                 remove.add(id(effect))
                 continue
+            if effect['name'] in winner.get('punctuation_variants', []):
+                remove.add(id(effect))
+                continue
             if _bounded_misread(effect['name'], winner['name']):
                 # The same tracked slot read with a glyph or two wrong (a
                 # popup floating over a letter): the spark, misread on the
@@ -525,3 +550,49 @@ def resolve(event, rows_by_evidence):
     if remove:
         event['effects'] = [effect for effect in event.get('effects', [])
                             if id(effect) not in remove]
+    _repair_fixed_spark_names(event)
+
+
+_FIXED_SPARK_NAMES = ('Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Turf', 'Dirt', 'Sprint', 'Mile',
+                      'Medium', 'Long', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer')
+
+
+def _fixed_spark_name(name):
+    """The fixed stat or aptitude spark name one glyph from this spelling, or None."""
+    from .receipt_grammar import fixed_word
+    if not isinstance(name, str) or name in _FIXED_SPARK_NAMES:
+        return None
+    matches = [fixed for fixed in _FIXED_SPARK_NAMES if fixed_word(name, fixed)]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _repair_fixed_spark_names(event):
+    """A stat or aptitude spark read a glyph off ("Speud") is that fixed name.
+
+    Repetition decides between spellings of a skill the run may not know,
+    but the stat and aptitude sparks are fixed UI words: a spelling within
+    one glyph of exactly one of them is that word however many frames read
+    it, the read spelling kept beside it.
+    """
+    for effect in event.get('effects', []):
+        if not isinstance(effect, dict) or effect.get('kind') != 'inheritance_spark':
+            continue
+        fixed = _fixed_spark_name(effect.get('name'))
+        if fixed is None:
+            continue
+        candidates = effect.setdefault('observed_name_candidates', [effect['name']])
+        if effect['name'] not in candidates:
+            candidates.insert(0, effect['name'])
+        key, fixed_key = _field(effect), 'inheritance_spark||' + fixed
+        evidence = event.get('field_evidence')
+        if isinstance(evidence, dict) and key in evidence and fixed_key not in evidence:
+            evidence[fixed_key] = evidence.pop(key)
+        effect['name'] = fixed
+        effect['name_resolution'] = 'fixed_spark_name_repaired'
+        # A candidate that read the fixed name outright was this spark.
+        candidates_list = event.get('ambiguous_effect_candidates')
+        if isinstance(candidates_list, list):
+            event['ambiguous_effect_candidates'] = [
+                c for c in candidates_list
+                if not (isinstance(c, dict) and isinstance(c.get('effect'), dict)
+                        and c['effect'].get('kind') == 'inheritance_spark' and c['effect'].get('name') == fixed)]

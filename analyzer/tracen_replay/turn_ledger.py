@@ -195,6 +195,31 @@ def _runner_card_state(readings, start_ms, action_time, uncertain, trainee_name)
                 basis='trainee_race_card_before_action', exact_turn_boundary=False)
 
 
+def _transient_against_checkpoints(state, checkpoints):
+    """Whether a repeated raw state contradicts the checkpoints on both sides of it.
+
+    The same test the checkpoint builder applies between neighbours: a field
+    far from the checkpoint before and the checkpoint after, while those two
+    agree within a plausible step, is a misread the frames repeated.
+    """
+    from .reconcile import TRANSIENT_STEP
+    time = state.get('observed_at_ms')
+    if type(time) is not int:
+        return False
+    before = [c for c in checkpoints if type(c.get('last_seen_ms')) is int and c['last_seen_ms'] < time]
+    after = [c for c in checkpoints if type(c.get('first_seen_ms')) is int and c['first_seen_ms'] > time]
+    if not before or not after:
+        return False
+    previous, following = before[-1]['values'], after[0]['values']
+    for field, value in (state.get('values') or {}).items():
+        a, c = previous.get(field), following.get(field)
+        if not all(type(v) is int for v in (a, value, c)):
+            continue
+        if abs(value - a) > TRANSIENT_STEP and abs(value - c) > TRANSIENT_STEP and abs(c - a) <= TRANSIENT_STEP:
+            return True
+    return False
+
+
 def _corroborated_source_state(readings, fields, channel, start_ms, action_time, uncertain, timeline, *, partial=False):
     """Corroborate one complete source snapshot with nearby partial readings.
 
@@ -795,6 +820,11 @@ def build(report):
                                                        observed_at_ms=time, evidence=proof))
             source_state = _repeated_source_state(readings, fields, channel, turn['start_ms'],
                                                   action_time, uncertain)
+            if source_state is not None and channel == 'stats' and _transient_against_checkpoints(source_state, checkpoints):
+                # The frames repeated a cut value (876 read as 76 under the
+                # cursor) that the checkpoints on both sides contradict; the
+                # checkpoint builder dropped it, and so does the ledger.
+                source_state = None
             if source_state is None and not candidates:
                 source_state = _corroborated_source_state(readings, fields, channel, turn['start_ms'],
                                                           action_time, uncertain, timeline)

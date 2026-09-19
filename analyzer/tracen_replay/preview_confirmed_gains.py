@@ -355,6 +355,11 @@ def badge_contradictions(readings, group, deltas, channel='stats'):
         if field not in after or type(before.get(field)) is not int or type(amount) is not int:
             continue
         allowed = after[field] - before[field] - receipts.get(field, 0)
+        # A stat never falls across a training: a bound below zero means the
+        # panel after it was read wrong (a lost leading digit), and a wrong
+        # panel contradicts no badge.
+        if allowed < 0:
+            continue
         if amount > allowed:
             out[field] = dict(badge=amount, allowed=allowed, before=dict(source_timestamp_ms=_time(before_row), value=before[field], evidence=before_row.get('evidence')),
                               after=dict(source_timestamp_ms=_time(after_row), value=after[field], evidence=after_row.get('evidence')),

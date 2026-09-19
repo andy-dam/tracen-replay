@@ -681,6 +681,12 @@ def first_debited_frame_ms(after_rows, matched):
     return min(earlier, default=matched['source_timestamp_ms'])
 
 
+def _cut_read_of(read,whole):
+    """Whether a number read is the whole number with its leading or trailing digits hidden."""
+    if type(read) is not int or type(whole) is not int or read==whole or read<0:return False
+    return str(whole).startswith(str(read)) or str(whole).endswith(str(read))
+
+
 def observed_lesson_debit(readings, event, group, before_rows, after_rows, name):
     """Recover a debit from repeated actual balances, without filling projections."""
     if len(before_rows)<2 or len(after_rows)<2:return None
@@ -712,7 +718,11 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
         if v is not None and (type(v) is not int or v!=final[k]):return None
     for r in group:
         for k,v in r['facts'].get('projected_performance_points',{}).items():
-            if k in CURRENCIES and v is not None and projected.get(k) is None and (type(v) is not int or v!=final[k]):return None
+            # A leftover read with a digit cut ("11" of 111 under the cursor
+            # on frame after frame) is the observed balance cut short, not
+            # a disagreement with it.
+            if k in CURRENCIES and v is not None and projected.get(k) is None and (
+                    type(v) is not int or (v!=final[k] and not _cut_read_of(v,final[k]))):return None
     acquired=[e for e in event['effects'] if e['kind'] in ('named_acquisition','song_learned')]
     exact=[e for e in acquired if e.get('name')==name]
     variants=[e for e in acquired if e.get('name')!=name]
@@ -1817,6 +1827,11 @@ def training_events(readings,states=()):
                                 occluded['accepted_amount'],complete,
                                 basis='training_gain_occluded_prefix_recovered')
                             prefix_resolutions[field]=occluded
+                        # A digit added for a moment ("301" beside "+30") and
+                        # a digit hidden for many frames ("3" of 36 under a
+                        # parked cursor) look alike by frame counts; the reads
+                        # stay a conflict for the learned reader and the stat
+                        # bars to settle.
                         else:conflicts[field]=sorted(values)
         evidence=next(iter(proofs.values()),[group['rows'][0]['evidence']])[0]
         events.append(dict(id=f'training-{len(events)+1:04d}',kind='training',training_option=group['option'],
@@ -2376,6 +2391,22 @@ def _banner_only_training_events(readings,events):
     return found
 
 
+def _race_name_variants(observations):
+    """The race name read on most frames, and the spellings a glyph off it, or None.
+
+    Every other spelling must be within one edit of it and read on fewer
+    frames than it; two spellings read as often as each other, or one that
+    differs by more, leave the conflict as it is.
+    """
+    from collections import Counter
+    from .gameplay import _edit_distance
+    counts=Counter(str(value) for value in observations if isinstance(value,str))
+    if len(counts)<2:return None
+    (name,best),*rest=counts.most_common()
+    if any(count>=best or _edit_distance(name,other)>1 for other,count in rest):return None
+    return name,[other for other,_ in rest]
+
+
 def _same_title(left,right):
     """One receipt title read with and without stray whitespace is one title."""
     return ' '.join(str(left).split())==' '.join(str(right).split())
@@ -2544,7 +2575,14 @@ def outcome_events(readings):
             conflicts=[c for c in event['conflicting_readings'] if c['field']==key]
             if not conflicts or any(c['reason']!='changing_effect_value' for c in conflicts):continue
             amounts=Counter(e.get('amount') for _,_,e in observations)
-            winners=[v for v,n in amounts.items() if type(v) is int and n>=2 and all(other==v or (type(other) is int and count==1 and (str(v).startswith(str(other)) or str(v).endswith(str(other)))) for other,count in amounts.items())]
+            # A dense reread samples one moment several times: a cut read
+            # whose frames lie within a quarter second is one sighting.
+            moments={}
+            for t,_,e in observations:
+                lo,hi=moments.get(e.get('amount'),(t,t));moments[e.get('amount')]=(min(lo,t),max(hi,t))
+            def one_moment(other):
+                lo,hi=moments[other];return hi-lo<=250
+            winners=[v for v,n in amounts.items() if type(v) is int and n>=2 and all(other==v or (type(other) is int and one_moment(other) and (str(v).startswith(str(other)) or str(v).endswith(str(other)))) for other,count in amounts.items())]
             if len(winners)!=1:continue
             matches=[o for o in observations if o[2].get('amount')==winners[0]]
             event['effects'][key]=matches[-1][2];event['field_evidence'][key]=[o[1] for o in matches]
@@ -3127,6 +3165,13 @@ def races(readings,reward_observations=()):
             unique=[]
             for value in observations:
                 if value not in unique:unique.append(value)
+            if field=='race_name' and len(unique)>1:
+                # The header read a glyph off on one frame ('Queen Elizabeth
+                # IIl Cup' beside six 'Queen Elizabeth II Cup') is the name
+                # the other frames read: one edit, and read on fewer frames.
+                variants=_race_name_variants(observations)
+                if variants is not None:
+                    unique=[variants[0]];group['race_name_variants']=variants[1]
             fields[field]=unique[0] if len(unique)==1 and not invalid_grade else None
             if field=='fans' and len(unique)>1:
                 settled=_settled_fan_total(rows)

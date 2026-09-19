@@ -150,6 +150,18 @@ class ReceiptOcclusionTests(unittest.TestCase):
         ImageDraw.Draw(pane).rectangle((300,850,450,890),fill=(100,190,60))
         self.assertEqual(overlay_boxes(pane),[])
 
+    def test_a_cursor_parked_over_a_word_is_still_found(self):
+        # Letters under and beside the cursor take a share of its surroundings
+        # (0.37 to 0.46 white measured over "Stamina"); a third is enough.
+        source,pane=self.sample()
+        ImageDraw.Draw(pane).rectangle((354,850,361,883),fill=(60,40,30))
+        ImageDraw.Draw(pane).rectangle((376,850,383,883),fill=(60,40,30))
+        self.assertEqual(len(overlay_boxes(pane)),1)
+        # Green in a dark field is not the cursor on the bubble.
+        ImageDraw.Draw(pane).rectangle((354,850,383,859),fill=(60,40,30))
+        ImageDraw.Draw(pane).rectangle((354,874,383,883),fill=(60,40,30))
+        self.assertEqual(overlay_boxes(pane),[])
+
     def test_changed_pixels_and_wrong_crop_are_rejected(self):
         source,pane=self.sample();pane.putpixel((0,0),(0,0,0))
         with self.assertRaises(ValueError):annotate(source,pane)

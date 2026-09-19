@@ -116,10 +116,24 @@ def subject_receipt(text):
     match = re.fullmatch(r'(?P<subject>[A-Za-z]+) (?P<tail>went (?:up|down) by \d+[.!])', text)
     if not match or match['subject'] in _READ_SUBJECTS:
         return None
-    names = [name for name in _FIXED_SUBJECTS if fixed_word(match['subject'], name)]
+    names = [name for name in _FIXED_SUBJECTS if _subject_within_reach(match['subject'], name)]
     if len(names) != 1:
         return None
     return f"{names[0]} {match['tail']}"
+
+
+def _subject_within_reach(observed, expected):
+    """One damaged glyph in a short subject, two in a word of seven letters or more.
+
+    The cursor covers about two letters of a word ("Slumina" for Stamina);
+    the fixed subjects are far enough apart that two edits still name one.
+    """
+    if fixed_word(observed, expected):
+        return True
+    if len(expected) < 7 or abs(len(observed) - len(expected)) > 1:
+        return False
+    from .gameplay import _edit_distance
+    return _edit_distance(observed, expected) <= 2
 
 
 def normalize(text, *, allow_boundary_repair=False):

@@ -23,6 +23,14 @@ class SplitCaptionTests(unittest.TestCase):
         self.assertTrue(_same_caption('After the NHK Mile C.: A Sharp Turn! Nowhe', 'After the NHK Mile C.: A Sharp Turn! Nowhere.'))
         self.assertFalse(_same_caption('The Correlation between Sleep', 'The Correlation between Sleeping Habits'))
         self.assertFalse(_same_caption('Incline', 'Incline Run'))
+
+    def test_a_race_name_read_a_glyph_off_on_one_frame_is_the_name_the_others_read(self):
+        from tracen_replay.transactions import _race_name_variants
+        reads = ['Queen Elizabeth IIl Cup'] + ['Queen Elizabeth II Cup'] * 6
+        self.assertEqual(_race_name_variants(reads), ('Queen Elizabeth II Cup', ['Queen Elizabeth IIl Cup']))
+        # Read as often as each other, or more than a glyph apart, the conflict stands.
+        self.assertIsNone(_race_name_variants(['Queen Elizabeth IIl Cup', 'Queen Elizabeth II Cup']))
+        self.assertIsNone(_race_name_variants(['Queen Elizabeth Cup'] + ['Queen Elizabeth II Cup'] * 6))
         self.assertFalse(_same_caption('After the Mainichi Okan: Onward, to Light', 'After the Tenno Sho (Autumn): Beyond'))
         self.assertFalse(_same_caption('Party Time', 'Party Times'))
 

@@ -577,7 +577,16 @@ serious is the next thing to look at.
       card on screen longer than the reread span, a "went up by 0" line, a
       lower-case dialogue line, a cut energy receipt beside its popup, two
       damaged spellings of one known supporter, and a cursor-cut badge the
-      learned reader read whole (9fd516d). The one gap no rule covers: a
+      learned reader read whole (9fd516d); then, from Daiwa Scarlet and
+      Still getting the hang of this: a race name or a spark spelling read
+      a glyph off, a song's closing quote read as a glyph, an outlier that
+      lasted one moment of a dense reread, the cursor parked over a receipt
+      word (found at a third white around it, two edits allowed on a long
+      subject), a hub value with a lost leading digit (rejected by the
+      ledger as the checkpoints already did, and never a negative badge
+      bound), and a lesson leftover read with a digit cut. A stray-digit
+      badge rule was tried and removed: by frame counts it cannot be told
+      from a cursor parked over the last digit. The one gap no rule covers: a
       cursor parked on a badge digit for the whole card leaves a wrong
       "observed" read (the accounting still gets the total right from the
       bars); a cursor-aware badge read would be the fix.

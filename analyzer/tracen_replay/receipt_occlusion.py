@@ -14,6 +14,7 @@ import re
 # beyond the fill. The source glyph-band check below prevents padding near a
 # neighboring baseline from erasing a readable receipt.
 CURSOR_OUTLINE_PADDING = 3
+CURSOR_WHITE_SURROUND = .3
 MIN_GLYPH_OVERLAP_PX = 3
 GLYPH_ROW_MIN_PIXELS = 8
 GLYPH_ROW_DENSITY = .08
@@ -319,7 +320,10 @@ def overlay_boxes(pane):
         if not (20<=len(component)<=180 and 5<=right-left<=20 and 8<=bottom-top<=26):continue
         neighborhood=pixels[max(770,top-10):min(1000,bottom+10),max(0,left-10):min(810,right+10)]
         white=(neighborhood.min(axis=2)>190)&(neighborhood.max(axis=2)-neighborhood.min(axis=2)<55)
-        if float(white.mean())<.5:continue
+        # The cursor sits on the white receipt bubble; parked over a word,
+        # the letters under and beside it take a share of its surroundings
+        # (0.37 to 0.46 measured over "Stamina"), so a third is enough.
+        if float(white.mean())<CURSOR_WHITE_SURROUND:continue
         padding=CURSOR_OUTLINE_PADDING
         boxes.append([left+148-padding,top-padding,right+148+padding,bottom+padding])
     return boxes

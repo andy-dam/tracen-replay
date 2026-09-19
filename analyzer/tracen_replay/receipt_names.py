@@ -1668,12 +1668,18 @@ def collapse_song_variants(event,timestamps):
         return sorted({timestamps[p] for p in event['field_evidence'].get('song_learned||'+effect['name'],[]) if p in timestamps})
     for weak in songs:
         observed=times(weak)
-        if len(observed)!=1:continue
+        if not observed:continue
         candidates=[]
         for strong in songs:
             complete=times(strong);a=strong['name'];b=weak['name']
-            if len(complete)<3 or not complete[0]<=observed[0]<=complete[-1]+250:continue
-            if len(a)==len(b)+1 and any(a[:i]+a[i+1:]==b for i in range(len(a))):candidates.append(strong)
+            if len(complete)<3 or strong is weak:continue
+            # One frame missing a character of the repeated name.
+            if (len(observed)==1 and complete[0]<=observed[0]<=complete[-1]+250
+                    and len(a)==len(b)+1 and any(a[:i]+a[i+1:]==b for i in range(len(a)))):candidates.append(strong)
+            # The closing quote read as a stray glyph after the name on fewer
+            # frames than the name was read whole ('Present March D').
+            elif (len(observed)<len(complete) and b.startswith(a) and 1<=len(b)-len(a)<=2
+                    and len(b[len(a):].strip())==1):candidates.append(strong)
         if len(candidates)!=1:continue
         target=candidates[0]
         target.setdefault('observed_name_candidates',[target['name']]).append(weak['name'])
