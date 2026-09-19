@@ -68,7 +68,8 @@ export function entryWarnings(e: Entry): Warning[] {
   if (e.kind === "ambiguous_effect") out.push({ text: `ambiguous effect${typeof d.reason === "string" ? `: ${d.reason.replaceAll("_", " ")}` : ""}`, serious: true, advice: ADVICE.ambiguous });
   if (e.kind === "unparsed_receipt") out.push({ text: "receipt could not be parsed", serious: true, advice: ADVICE.unparsed });
   if (e.kind === "lesson_purchases") {
-    if (d.cost_basis === "unresolved") out.push({ text: "lesson cost unresolved", serious: true, advice: ADVICE.lessonUnresolved });
+    if (d.cost_basis === "unresolved" && d.turn_difference_cost) out.push({ text: "lesson cost worked out from the turn difference", serious: false, advice: ADVICE.lessonDerived });
+    else if (d.cost_basis === "unresolved") out.push({ text: "lesson cost unresolved", serious: true, advice: ADVICE.lessonUnresolved });
     else if (typeof d.cost_basis === "string" && !d.cost_basis.startsWith("observed")) out.push({ text: `lesson cost ${d.cost_basis.replaceAll("_", " ")}`, serious: false, advice: ADVICE.lessonDerived });
     if (d.after_balance_observed === false) out.push({ text: "balance after the purchase not observed", serious: false, advice: ADVICE.balanceAfter });
   }

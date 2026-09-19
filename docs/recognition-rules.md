@@ -327,7 +327,11 @@ the five stat labels on the screen. Her five final attributes are read
 from the row under those labels, one number at confidence 97 or higher per
 stat, and close the career's last turn field by field (see the pipeline
 notes on the last turn's closing); the popup shows no skill points, which
-close on the completion hub or the finish dialog instead.
+close on the completion hub or the finish dialog instead. The completion
+hub's "Skill Pts" counter is static text, so a value read the same on two
+consecutive frames is a balance the skill purchases made there can be
+charged against (`repeated_completion_hub_skill_points`), the way every
+reading needs two frames.
 
 The final-summary skill panel is read separately from any purchase. It
 requires the Skills, Inspiration and Career Info tabs together with at

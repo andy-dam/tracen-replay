@@ -600,15 +600,20 @@ def build(report):
             c['conflicts_present'] = True
     assigned = set()
     def compare_fields(channel, before, after, start, end, *, assign=False):
+        # A closing read off several ending screens ends each field where
+        # that field was last read; a change after a field's own last
+        # reading is not in its comparison.
+        field_ends = after.get('field_times') or {}
         accepted, uncertain = [], []
         for c in contributions:
             if c['channel'] != channel:
                 continue
             first, last = c['observation_start_ms'], c['observation_end_ms']
-            if not (last > start and first <= end):
+            field_end = field_ends.get(c['field'], end)
+            if not (last > start and first <= field_end):
                 continue
             reasons = []
-            if not start < first <= last <= end:
+            if not start < first <= last <= field_end:
                 reasons.append('crosses_observed_endpoint')
             if c['timing_basis'] != 'field_observations':
                 reasons.append('missing_field_timing')
@@ -632,10 +637,26 @@ def build(report):
             derived = sum(c['amount'] for c in parts if c['basis'] not in _OBSERVED_BASES)
             residual = observed - direct - derived if observed is not None else None
             ambiguous = [x for x in uncertain if by_id[x['contribution_ref']]['field'] == field]
+            # A lesson's displayed cost that the turn's own difference confirms
+            # to the point is that cost: the bars decide, as they do for a
+            # badge. Any other doubt on the field keeps it unresolved.
+            projected = [x for x in ambiguous if x['reasons'] == ['no_observed_resource_change']
+                         and by_id[x['contribution_ref']]['basis'] == 'projected_debit'
+                         and type(by_id[x['contribution_ref']]['amount']) is int]
+            if (residual is not None and projected and len(projected) == len(ambiguous)
+                    and sum(by_id[x['contribution_ref']]['amount'] for x in projected) == residual):
+                for x in projected:
+                    c = by_id[x['contribution_ref']]
+                    c['basis'] = 'projected_debit_confirmed_by_turn_difference'
+                    parts.append(c)
+                    derived += c['amount']
+                residual, ambiguous = 0, []
+            confirmed = [c['id'] for c in parts if c['basis'] == 'projected_debit_confirmed_by_turn_difference']
             resource_rows.append(dict(field=field, before=left, after=right, observed_change=observed,
                 direct_change=direct, derived_or_summary_change=derived,
                 unresolved_change=residual, contribution_refs=[c['id'] for c in parts],
                 ambiguous_contributions=ambiguous,
+                **({'projected_debits_confirmed_by_turn_difference': confirmed} if confirmed else {}),
                 status='missing_endpoint' if observed is None else 'unresolved_attribution' if ambiguous else
                        'unexplained_change' if residual else 'balanced_with_derived_changes' if any(c['basis'] not in _OBSERVED_BASES for c in parts) else 'balanced_observations'))
         return resource_rows
@@ -679,7 +700,9 @@ def build(report):
                 raise ValueError(
                     'Turn state summary disagrees with its field sources: '
                     f"{state['values_ref']} at {state.get('observed_at_ms')} ms; ledger {summary!r}")
-            return dict(values=dict(summary),observed_at_ms=state['observed_at_ms'],values_ref=state['values_ref'])
+            return dict(values=dict(summary),observed_at_ms=state['observed_at_ms'],values_ref=state['values_ref'],
+                        field_times={field: source['observed_at_ms'] for field, source in sources.items()
+                                     if type(source.get('observed_at_ms')) is int})
         value = resolve(state['values_ref'])
         # A promoted opening endpoint keeps only the fields that were read as
         # integers on its source row, while the row itself may still carry

@@ -523,6 +523,22 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(doc['gameplay_tracking']['events'][0]['turn_difference_gains']['speed'], 7)
         self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_with_derived_changes')
 
+    def test_a_displayed_lesson_cost_the_turn_difference_confirms_is_that_cost(self):
+        # The dialog projected Vocal 20 -> 4 and the menu was not seen again
+        # before the next action; the turn's own difference is exactly -16.
+        lesson = dict(id='lesson-1', kind='lesson', name='Vocal Training', source_timestamp_ms=170, receipt_event_id='outcome-1',
+                      performance_cost=dict(vocal=16), cost_basis='displayed_request', evidence='lesson.png')
+        doc = report(lessons=[lesson], performance_after=dict(vocal=4), outcome=True)
+        result = build(doc)
+        row = turn_field(result, 'vocal', channel='performance')
+        self.assertEqual((row['status'], row['derived_or_summary_change'], row['ambiguous_contributions']),
+                         ('balanced_with_derived_changes', -16, []))
+        self.assertEqual(row['projected_debits_confirmed_by_turn_difference'], ['/gameplay_tracking/lesson_purchases/0/performance_cost/vocal'])
+        self.assertEqual(next(c for c in result['contributions'] if c['field'] == 'vocal')['basis'], 'projected_debit_confirmed_by_turn_difference')
+        # A difference the displayed cost does not explain to the point keeps the doubt.
+        doc = report(lessons=[lesson], performance_after=dict(vocal=6), outcome=True)
+        self.assertEqual(turn_field(build(doc), 'vocal', channel='performance')['status'], 'unresolved_attribution')
+
     def test_the_one_lesson_without_an_observed_cost_takes_a_negative_performance_difference(self):
         lesson = dict(id='lesson-1', kind='lesson', name='Audience Involvement', source_timestamp_ms=170, receipt_event_id=None,
                       performance_cost=None, cost_basis='unresolved', evidence='lesson.png')

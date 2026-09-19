@@ -41,10 +41,15 @@ def _normalized_race_grade(value):
 
 
 def skill_point_states(readings,states):
-    """A visible completion-hub SP counter need not expose all five attributes."""
+    """A visible completion-hub SP counter need not expose all five attributes.
+
+    The counter is static text (no count-up), so the value read the same on
+    two consecutive frames is the balance, the standard every reading meets;
+    a hub the player leaves within half a second still shows it.
+    """
     result=list(states);group=[]
     def finish():
-        if len({r['source_timestamp_ms'] for r in group})<3:return
+        if len({r['source_timestamp_ms'] for r in group})<2:return
         result.append(dict(id=f'skill-points-{group[0]["source_timestamp_ms"]}',
                            first_seen_ms=group[0]['source_timestamp_ms'],
                            last_seen_ms=group[-1]['source_timestamp_ms'],

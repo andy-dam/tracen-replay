@@ -328,8 +328,10 @@ shows her five stats, the hub and the finish dialog the skill points. So
 each field closes on its own, at the value the last frame that read it
 shows, read the same on two frames at least, with no later frame of those
 screens reading it differently; the closing names the frame behind every
-field (`field_sources`). A field no screen shows as a number (a stat drawn
-only as a chart) gets no closing and ends the career as `career_end`.
+field (`field_sources`), and each field's comparison ends where that field
+was last read, so a receipt after a field's own last reading is not counted
+against it. A field no screen shows as a number (a stat drawn only as a
+chart) gets no closing and ends the career as `career_end`.
 
 ## Causal accounting
 
@@ -385,6 +387,12 @@ them, are:
   alone gave nothing and takes nothing;
 - for a negative performance difference, the one lesson bought in the window
   whose cost was never observed (`sole_unpriced_lesson_takes_turn_residual`);
+  a lesson whose cost was displayed on its confirmation dialog but never
+  confirmed by a later balance (`projected_debit`) is confirmed instead by
+  the turn's own difference when that difference is exactly the displayed
+  cost (`projected_debit_confirmed_by_turn_difference`, listed on the row
+  under `projected_debits_confirmed_by_turn_difference`); any other doubt on
+  the field keeps it unresolved;
 - for a negative skill-point difference, the one skill batch committed in the
   window whose charge was never read
   (`sole_unpriced_skill_batch_takes_turn_residual`); such a batch is also

@@ -85,6 +85,32 @@ class TerminalAccountingTests(unittest.TestCase):
         # No later screen can supply the end of the career's last turn.
         self.assertEqual(result['summary']['turn_field_status_counts']['career_end'], 1)
 
+    def test_a_field_closed_before_the_state_does_not_count_changes_after_its_own_reading(self):
+        # Skill points were last read on the hub at 300; the five stats on the
+        # popup at 400. A receipt at 350 raised both: it is in the stats'
+        # comparison and not in the skill points', which were read before it.
+        report = fixture()
+        data = report['gameplay_tracking']
+        five = ('speed', 'stamina', 'power', 'guts', 'wit')
+        data['readings'] = [
+            dict(evidence='hub.png', source_timestamp_ms=300, screen='career_completion_hub', facts=dict(current_skill_points=100)),
+            dict(evidence='late.png', source_timestamp_ms=350),
+            dict(evidence='popup.png', source_timestamp_ms=400, screen='career_summary',
+                 facts=dict(final_attributes=dict(speed=100, stamina=106, power=100, guts=100, wit=100)))]
+        data['events'] = [dict(id='late', kind='outcome', first_seen_ms=350, last_seen_ms=350, evidence=['late.png'],
+                               deltas={'stamina': 6, 'skill_points': 5},
+                               effects=[dict(kind='stat_change', field='stamina', amount=6), dict(kind='stat_change', field='skill_points', amount=5)],
+                               field_evidence={'stat_change|stamina|': ['late.png'], 'stat_change|skill_points|': ['late.png']})]
+        closing = report['turn_ledger']['turns'][0]['states']['stats']['closing']
+        closing.update(values=dict(speed=100, stamina=106, power=100, guts=100, wit=100, skill_points=100), observed_at_ms=400,
+                       values_ref='/gameplay_tracking/readings/2/facts/final_attributes',
+                       field_sources={**{f: dict(values_ref=f'/gameplay_tracking/readings/2/facts/final_attributes/{f}', observed_at_ms=400) for f in five},
+                                      'skill_points': dict(values_ref='/gameplay_tracking/readings/0/facts/current_skill_points', observed_at_ms=300)})
+        rows = {f['field']: f for f in build(report)['turn_transitions'][0]['fields']}
+        self.assertEqual((rows['stamina']['status'], rows['stamina']['direct_change']), ('balanced_observations', 6))
+        self.assertEqual((rows['skill_points']['status'], rows['skill_points']['direct_change'], rows['skill_points']['after']),
+                         ('balanced_observations', 0, 100))
+
     def test_a_closing_read_across_the_ending_screens_is_bound_field_by_field(self):
         report = fixture()
         five = ('speed', 'stamina', 'power', 'guts', 'wit')

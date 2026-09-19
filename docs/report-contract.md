@@ -199,9 +199,11 @@ strings and carry the value through either way.
 `Change`: `amount` (int or null), `basis` (str, optional: `observed_receipt`,
 `observed_training_gain`, `observed_learned_training_gain`,
 `committed_skill_debit`, `state_derived`, `state_constrained`,
-`projected_debit`, `summary_only`, `lesson_confirmation_projection` (a
-lesson's stat the receipt never showed, awarded from the confirmation
-dialog's projection; worked out, not observed), or `turn_difference`),
+`projected_debit`, `projected_debit_confirmed_by_turn_difference` (a
+displayed lesson cost the turn's own difference confirmed to the point),
+`summary_only`, `lesson_confirmation_projection` (a lesson's stat the
+receipt never showed, awarded from the confirmation dialog's projection;
+worked out, not observed), or `turn_difference`),
 `read_amount` (int, optional: the digits actually read when a clipped badge
 was completed by a `turn_difference`; `amount` is then the completed value),
 `contradicted_by` (array of int, optional: the gains a reader saw on the

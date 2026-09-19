@@ -25,6 +25,8 @@ class RecordingRegressions(unittest.TestCase):
         self.assertTrue(all(len(e['evidence'])==3 and e['basis']=='repeated_completion_hub_skill_points'
                             for e in batch['balance_evidence']))
         self.assertFalse(batch['purchased_list_complete'])
+        # The counter is static text: two consecutive frames agreeing are the balance.
+        self.assertEqual(skill_transactions(before[:2]+purchase+after,[])[0]['spent_skill_points'],1234)
         # Projected menu counters are not interchangeable with actual hub SP.
         projected=[dict(r,screen='skill_selection') for r in before+after]
         self.assertIsNone(skill_transactions(projected[:3]+purchase+projected[3:],[])[0]['spent_skill_points'])
