@@ -486,6 +486,34 @@ serious is the next thing to look at.
       panel (no skill points). Reading that panel as a five-field opening
       would cover it; about half a day, for one turn in 222, so not before
       hosting.
+- [x] **Nineteen review flags on the three fresh careers, seven rules.** On
+      2026-09-19 the three fresh reports carried 19 serious flags on 14 of
+      222 turns (Should 8, Mayano 2, Gran Concert 9). Each was traced to its
+      cause on the recording, and each cause got a rule written for the
+      screen pattern, not the case: (1) a stat receipt that lost its number
+      ("Power went up by", "Guts went up by T0.") takes it from the gain
+      popup that names its stat on the same frame (`gameplay.gain_popup`;
+      three unparsed receipts and the three unexplained fields they left);
+      (2) one line at one slot, read with its circle glyph on some frames and
+      without it on others, is one award (`hint_identity_fallback`
+      `_same_slot_reads`, and the spark identity's circle variants; four
+      flags, each shown twice); (3) a race grade glued to its name splits
+      (`vision._split_race_grade`; one); (4) a skill cart whose named prices
+      add up to the turn's point drop is a complete list
+      (`causal_accounting._complete_list_from_cart`; two); (5) a training
+      frame with no stat badge awards nothing, and one training committed
+      twice within two seconds is one commit (`training_gain_recovery`,
+      `transactions.training_actions`; two); (6) on the last turn a disputed
+      badge settles on the landing value the learned reader read on the card
+      (`learned_reader_landing_value_on_card`; one); (7) a rest receipt
+      sampled on one frame is reread so the rest can be reconstructed
+      (`receipt_sampling`, `lone_recovery_receipt`; one). Named rather than
+      fixed: the performance fields before the panel first appears are
+      `not_yet_shown` and the last turn's end is `career_end`, so the client
+      no longer calls either a missing endpoint. Left: the training cards'
+      second performance row, three unexplained fields (Should 29:30, Gran
+      Concert 16:22 and 30:57), which needs the learned reader extended.
+      FRESH-RUNS-PLACEHOLDER
 
 ## 3. Learned readers (the neural network)
 
@@ -684,3 +712,34 @@ hosting choice.
       beyond one machine, an object store for uploads and job outputs, a
       queue that outlives one process, and GPU workers that are addressed
       rather than spawned. No provider is chosen yet.
+
+## 7. Desktop version
+
+After hosting. The application already is a local app: one binary that
+serves the client, keeps its SQLite file, and starts the analyzer as a
+subprocess, with the OCR device picked from the machine (DirectML on any
+DirectX 12 card on Windows, CUDA on Linux, CPU otherwise). A downloadable
+version gives people their own GPU's speed (about 35 minutes per career on
+an RTX 5060 Ti against hours on the hosted CPU job) and keeps their footage
+and reports on their own machine. The hosted service stays the zero-install
+way in and the cloud learning project; the two share the service, the
+client and the analyzer.
+
+- [ ] **A Windows bundle.** Embeddable Python with the pinned wheels
+      (`docker/constraints.txt` is the list; no PyTorch at run time), the
+      OCR models, ffmpeg, the ONNX reader and the binary, as one zip or
+      installer near a gigabyte, with the data directory under the user's
+      AppData. Tested on a clean machine, not this one.
+- [ ] **A first-run check in the client.** Which OCR device the analyzer
+      found and the time a career will take on it, so a laptop without a
+      usable GPU knows what it is in for before uploading. `/readyz`
+      already reports the checks; the device and a time estimate are the
+      additions.
+- [ ] **A privacy page.** What stays on the machine (everything), what the
+      app never sends (anything), and how to export a report to share it.
+- [ ] **Signing and updates.** An unsigned installer draws a Windows
+      warning; signing is a cost and a process, fine to start without. An
+      update check against the release page is enough to begin with.
+- [ ] **Linux with the CUDA wheel, then perhaps Mac.** The Dockerfile's
+      `OCR_RUNTIME=cuda` build argument is the Linux path. Apple silicon
+      would need another runtime provider and is untested; last, or never.
