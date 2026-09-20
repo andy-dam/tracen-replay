@@ -25,6 +25,24 @@ analyzer runs from the working tree, so an analyzer commit takes effect on
 the next analysis without a restart. In a deployment that stops being true:
 the analyzer is inside the image, so a deploy is the only way to change it.
 
+## Branches
+
+Two long-lived branches, since 2026-09-20:
+
+- **`main`** is what is deployed. It is protected on GitHub: changes arrive
+  only by pull request, every CI job must pass on the pull request's head
+  (the six checks above), history is linear, nobody force-pushes or
+  deletes it, and the rules bind administrators too. No review approval
+  is required, so one person can merge their own pull request once CI is
+  green.
+- **`develop`** is where work lands day to day, directly or from short
+  feature branches. CI runs on every push to it. When `develop` is ready
+  to ship, a pull request from `develop` to `main` is the deploy.
+
+A hotfix goes to `develop` first and rides the next pull request, unless
+`main` is on fire, in which case a branch off `main` is fixed, merged by
+pull request, and merged back into `develop`.
+
 ## The shape of a deployment
 
 Three things move together:
