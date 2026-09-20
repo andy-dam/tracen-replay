@@ -378,7 +378,7 @@ Still to do, none of it blocking a first deployment:
 Deployed on 2026-09-20: resource group `tracen` in North Central US,
 storage account `tracen25rbwzu2mj4vo`, PostgreSQL
 `tracen-pg.postgres.database.azure.com`, the API and client at
-https://tracen-api.blackfield-de9295ce.northcentralus.azurecontainerapps.io
+https://tracen-replay.bluebay-878de3c5.northcentralus.azurecontainerapps.io
 (items 1 to 3 and 6 below are done; the Oracle worker, the GitHub
 deploy secrets and a domain are not).
 
