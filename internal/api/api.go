@@ -125,6 +125,11 @@ type Config struct {
 	// reports are read from it, and a recording plays from a URL it signs
 	// (or from its own file when it is a local directory).
 	Objects objectstore.Store
+	// RemoteOrigins are origins the browser must be allowed to reach
+	// besides this service: the object store's, for direct uploads and for
+	// playback by signed URL. They are added to the page's content
+	// security policy (connect-src and media-src).
+	RemoteOrigins []string
 	// ArtifactsDir holds the analyses' run directories. A deleted report's
 	// evidence is removed from disk only when it lies under it; an imported
 	// report's files stay where they were found.
@@ -288,7 +293,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMisdirectedRequest, "bad_host", "this service only answers for its configured host")
 		return
 	}
-	securityHeaders(w, r)
+	s.securityHeaders(w, r)
 	origin := r.Header.Get("Origin")
 	if origin != "" && s.crossOriginAllowed(origin) {
 		h := w.Header()
@@ -325,14 +330,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // service, styles may also be inline (the client sets them on elements),
 // and nothing may embed the page. API responses carry the same headers; a
 // JSON document is not a page, so the policy costs nothing there.
-func securityHeaders(w http.ResponseWriter, r *http.Request) {
+func (s *Server) securityHeaders(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("X-Frame-Options", "DENY")
 	h.Set("Referrer-Policy", "same-origin")
 	if !strings.HasPrefix(r.URL.Path, "/api/") {
+		remote := ""
+		for _, origin := range s.cfg.RemoteOrigins {
+			remote += " " + origin
+		}
 		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "+
-			"img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			"img-src 'self' data: blob:; media-src 'self' blob:"+remote+"; connect-src 'self'"+remote+"; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 	}
 }
 

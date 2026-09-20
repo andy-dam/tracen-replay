@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { api, ApiError, type User } from "../api";
+import { api, ApiError, hosted, type User } from "../api";
 
 const props = defineProps<{ initialMode?: "signin" | "create" }>();
 const emit = defineEmits<{ "signed-in": [user: User] }>();
@@ -38,7 +38,7 @@ async function submit() {
       <p v-if="error" class="error small">{{ error }}</p>
       <button class="btn primary" type="submit" :disabled="busy">{{ mode === "signin" ? "Sign In" : "Create Account" }}</button>
       <p class="muted small" style="margin-top: 14px">
-        {{ mode === "create" ? "Passwords need at least 8 characters. Accounts live on this machine only." : "New here? Create an account to upload a recording." }}
+        {{ mode === "create" ? (hosted ? "Passwords need at least 8 characters." : "Passwords need at least 8 characters. Accounts live on this machine only.") : "New here? Create an account to upload a recording." }}
       </p>
     </form>
   </div>

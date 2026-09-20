@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { User } from "../api";
+import { hosted, type User } from "../api";
 
 // The front page. Short copy, frames from a real recording next to what the
 // report makes of them, and the way in: the sign-in screen.
@@ -16,7 +16,7 @@ defineProps<{ user: User | null }>();
         <a v-else class="btn primary big" href="#/signup">Get Started</a>
         <a class="btn big" href="#tour">See What You Get</a>
       </div>
-      <p class="muted small" style="margin-top: 14px">Runs on this computer. Nothing leaves it.</p>
+      <p class="muted small" style="margin-top: 14px">{{ hosted ? "Your recording is analyzed on the service's own worker; the original is kept for 90 days for a re-analysis." : "Runs on this computer. Nothing leaves it." }}</p>
     </div>
     <div class="hero-shot">
       <img :src="'/shots/game-home.jpg'" alt="A training turn in the recording: the stat bar and the log panel" />
@@ -83,7 +83,7 @@ defineProps<{ user: User | null }>();
     <h2>Three Steps</h2>
     <ol class="steps">
       <li><b>Record</b> the career at 1080p with the log panel open.</li>
-      <li><b>Upload</b> the file. A full career is about 1 GB and takes about 45 minutes to analyze.</li>
+      <li><b>Upload</b> the file. A full career is about 1 GB.</li>
       <li><b>Read</b> the report, with the recording beside it.</li>
     </ol>
   </section>
@@ -97,7 +97,7 @@ defineProps<{ user: User | null }>();
     <template v-else>
       <div class="start-copy">
         <h2>Get Started</h2>
-        <p class="muted">Create an account on this machine, upload a recording, and open the report when it lands.</p>
+        <p class="muted">{{ hosted ? "Create an account, upload a recording, and open the report when it lands." : "Create an account on this machine, upload a recording, and open the report when it lands." }}</p>
       </div>
       <div class="start-card">
         <a class="btn primary big" href="#/signup">Create an Account</a>
