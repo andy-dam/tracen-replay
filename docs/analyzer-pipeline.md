@@ -615,7 +615,13 @@ dim zero; any other low-confidence reading is left unknown rather than
 guessed. Establishing a repeated fact (an opening state from readings, a
 race panel, a purchase's settled balance) generally requires at least two
 distinct source timestamps that agree; a singleton reading is not a
-checkpoint. When frames disagree, the disagreement is kept as a conflict
+checkpoint. A hub value the checkpoints on both sides contradict while they
+agree with each other (876 read as 76 under the cursor on every frame of a
+turn, between 828 and 879) is a cut read, not a state: the checkpoint
+builder drops such a group, and none of the ledger's opening fallbacks (the
+repeated raw state, the corroborated snapshot, the single-frame projection)
+may open the turn with it; the turn opens on its other fields or not at
+all, and the accounting spans the field across it. When frames disagree, the disagreement is kept as a conflict
 (`conflicting_readings`, `conflicts_present`, `name_conflicted`,
 `ambiguous_contributions`) rather than resolved by preference, and a
 conflicted field cannot be assigned as a turn-difference owner. Outside the

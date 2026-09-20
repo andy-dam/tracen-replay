@@ -825,12 +825,15 @@ def build(report):
                 # cursor) that the checkpoints on both sides contradict; the
                 # checkpoint builder dropped it, and so does the ledger.
                 source_state = None
-            if source_state is None and not candidates:
+            for partial in (False, True):
+                if source_state is not None or candidates:
+                    break
                 source_state = _corroborated_source_state(readings, fields, channel, turn['start_ms'],
-                                                          action_time, uncertain, timeline)
-            if source_state is None and not candidates:
-                source_state = _corroborated_source_state(readings, fields, channel, turn['start_ms'],
-                                                          action_time, uncertain, timeline, partial=True)
+                                                          action_time, uncertain, timeline, partial=partial)
+                # The corroborated snapshot can be the same cut value the
+                # neighbouring frames repeated; it is rejected the same way.
+                if source_state is not None and channel == 'stats' and _transient_against_checkpoints(source_state, checkpoints):
+                    source_state = None
             if source_state is None and not candidates and channel == 'stats' and trainee_name is not None:
                 source_state = _runner_card_state(readings, turn['start_ms'], action_time, uncertain, trainee_name)
             if source_state is not None:
@@ -921,8 +924,17 @@ def build(report):
     # causal accounting rebuild exactly the same source-backed ledger.
     from .boundary_state_recovery import promote_existing_endpoints, apply_opening_endpoint_projections
     projections = promote_existing_endpoints(dict(report, turn_ledger=result), readings)
+    # A single frame can carry the same cut value the repeated and the
+    # corroborated states were refused for (876 read as 76 under the cursor,
+    # the checkpoints on both sides agreeing at 828 and 879); it opens no turn.
+    transient = [p for p in projections if isinstance(p, dict) and p.get('channel') == 'stats'
+                 and isinstance(p.get('opening_state'), dict)
+                 and _transient_against_checkpoints(p['opening_state'], data['checkpoints'])]
+    projections = [p for p in projections if p not in transient]
     result, accepted, rejected = apply_opening_endpoint_projections(
         result, projections, source_sha256=report['source']['sha256'])
+    rejected = rejected + [dict(owner_turn_id=p.get('owner_turn_id'), channel='stats',
+                                reason='transient_against_checkpoints') for p in transient]
     if accepted or rejected:
         result['opening_endpoint_projection'] = dict(accepted=accepted, rejected=rejected)
     return result
