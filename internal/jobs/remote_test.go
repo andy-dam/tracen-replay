@@ -315,3 +315,34 @@ func TestFollowPublishesRecordChanges(t *testing.T) {
 		t.Fatal("no terminal event")
 	}
 }
+
+// A worker that exits when idle runs what is queued and then returns on
+// its own once the queue has stayed empty.
+func TestWorkExitsWhenIdle(t *testing.T) {
+	h := newRemoteHarness(t)
+	h.runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+		return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
+	}
+	idle, err := jobs.NewManager(jobs.Config{Python: "python", WorkDir: t.TempDir(), Workers: 1, QueueLimit: 4, Recordings: h.upload,
+		Queue: h.queue, Objects: h.objects, Scratch: h.scratch, Poll: 20 * time.Millisecond, ExitWhenIdle: true}, h.store, h.runner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, err := h.api.Submit(context.Background(), "u1", "src-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- idle.Work(context.Background()) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the worker did not exit on an empty queue")
+	}
+	if got, _ := h.api.Get(context.Background(), job.ID); got.Status != jobs.Succeeded {
+		t.Fatalf("the queued job ran first: %+v", got)
+	}
+}

@@ -356,7 +356,14 @@ Still to do, none of it blocking a first deployment:
   `TRACEN_TEST_AZURE_STORAGE=<connection string> go test
   ./internal/objectstore ./internal/queue` when the store or queue code
   changes.
-- The overflow Container Apps job (section 2) and its own budget check.
+- The Container Apps job is in the Bicep (`tracen-analysis`, 4 vCPU /
+  8 GiB, one execution per waiting message, `-exit-when-idle`), added on
+  2026-09-20 when the Oracle A1 shape stayed out of capacity; the
+  monthly fence (`-monthly-total`, 8 by default) is its budget check.
+  A career there costs about $1.50 beyond the free grant of 3 to 4 a
+  month. An Oracle worker, when it exists, takes from the same queue and
+  usually wins the race (it polls every 3 seconds; the job scaler every
+  30).
 - The recording page saying until when the original can be analyzed
   again (90 days from upload), and a re-analysis refused up front after
   that instead of failing as `source_unavailable`.

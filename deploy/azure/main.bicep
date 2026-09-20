@@ -1,9 +1,10 @@
 // The Azure side of the hosted service, in one resource group: the storage
 // account (originals, kept copies, analysis files, frames, and the analysis
 // queue), the PostgreSQL server, the Container Apps environment with the
-// API, and the Static Web App for the client. The workers that run analyses
-// are not here: they pull from the queue from Oracle (deploy/oracle) or, when
-// the monthly compute budget allows, from a Container Apps job added later.
+// API and the analysis job the queue starts, and, with a domain, the Static
+// Web App for the client. A worker on Oracle (deploy/oracle) can take from
+// the same queue for free; the job is what runs analyses without it, fenced
+// by the monthly budget.
 //
 // Deploy with deploy/azure/deploy.sh; see docs/deployment.md, section 6.
 
@@ -39,9 +40,12 @@ param workerAddresses array = []
 @description('Networks of the ingress in front of the API, whose X-Forwarded-For names the client (-trusted-proxy). Set after the first deploy from the peer address the API logs.')
 param trustedProxies string = ''
 
-@description('Analyses everyone together may start in 24 hours (what the free worker finishes) and in 30 days (the fence on the credit).')
+@description('Analyses everyone together may start in 24 hours and in 30 days. The month is the fence on the credit: a career on the job costs about $1.50 beyond the free grant.')
 param dailyTotal int = 4
-param monthlyTotal int = 100
+param monthlyTotal int = 8
+
+@description('OCR worker processes of one analysis on the job (4 vCPU, 8 GiB): two, or one if the job runs out of memory.')
+param jobWorkers int = 2
 
 var storageName = toLower('${name}${uniqueString(resourceGroup().id)}')
 var containers = ['originals', 'kept', 'jobs', 'frames']
@@ -289,6 +293,79 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       }
     }
   }
+}
+
+// ---- the analysis job: one execution per waiting message, 4 vCPU / 8 GiB ----
+
+resource analysisJob 'Microsoft.App/jobs@2024-03-01' = {
+  name: '${name}-analysis'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: { '${identity.id}': {} }
+  }
+  properties: {
+    environmentId: environment.id
+    configuration: {
+      triggerType: 'Event'
+      replicaTimeout: 6 * 3600
+      replicaRetryLimit: 0
+      eventTriggerConfig: {
+        replicaCompletionCount: 1
+        parallelism: 1
+        scale: {
+          minExecutions: 0
+          maxExecutions: 1
+          pollingInterval: 30
+          rules: [
+            {
+              name: 'analyses-waiting'
+              type: 'azure-queue'
+              metadata: { queueName: 'analyses', queueLength: '1', accountName: storage.name }
+              auth: [{ secretRef: 'storage-connection', triggerParameter: 'connection' }]
+            }
+          ]
+        }
+      }
+      secrets: [
+        { name: 'database-url', value: databaseURL }
+        { name: 'storage-connection', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${az.environment().suffixes.storage}' }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'worker'
+          image: apiImage
+          command: ['/usr/local/bin/tracen']
+          args: [
+            'worker'
+            '-python', '/usr/local/bin/python'
+            '-workdir', '/opt/tracen/analyzer'
+            '-model-dir', '/opt/tracen/models'
+            '-database', 'postgres'
+            '-object-store', 'azure'
+            '-shared-queue', 'azure'
+            '-scratch', '/tmp/tracen-scratch'
+            '-workers', string(jobWorkers)
+            '-dense-workers', '1'
+            '-ocr-device', 'cpu'
+            '-parallel', '1'
+            '-max-analysis', '5h'
+            '-copy-threads', '2'
+            '-exit-when-idle'
+          ]
+          resources: { cpu: json('4'), memory: '8Gi' }
+          env: [
+            { name: 'TRACEN_STORAGE_ACCOUNT', value: storage.name }
+            { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
+            { name: 'TRACEN_DATABASE_URL', secretRef: 'database-url' }
+          ]
+        }
+      ]
+    }
+  }
+  dependsOn: [roleAssignments]
 }
 
 // ---- the client, only when it has its own domain ----
