@@ -76,7 +76,14 @@ func newRemoteHarness(t *testing.T) *remoteHarness {
 	runner := &scriptedRunner{started: make(chan string, 8)}
 	scratch := filepath.Join(dir, "scratch")
 	worker, err := jobs.NewManager(jobs.Config{Python: "python", WorkDir: dir, Workers: 1, QueueLimit: 4, Recordings: recordings,
-		Queue: q, Objects: objects, Scratch: scratch, Poll: 20 * time.Millisecond}, st, runner)
+		Queue: q, Objects: objects, Scratch: scratch, Poll: 20 * time.Millisecond,
+		KeepCopy: func(ctx context.Context, src, dst string) error {
+			data, err := os.ReadFile(src)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(dst, append([]byte("720p:"), data...), 0o644)
+		}}, st, runner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +147,7 @@ func TestRemoteJobRunsFromTheQueueAndUploadsItsOutputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if report.ReportPath != job.OutputDir+"/report.json" || report.TimelinePath != job.OutputDir+"/timeline.json" ||
-		report.EvidenceRoot != job.OutputDir || report.SourcePath != "originals/u1/src-1.mp4" {
+		report.EvidenceRoot != job.OutputDir {
 		t.Fatalf("report keys: %+v", report)
 	}
 	for _, key := range []string{report.ReportPath, report.TimelinePath, job.LogPath} {
@@ -160,9 +167,22 @@ func TestRemoteJobRunsFromTheQueueAndUploadsItsOutputs(t *testing.T) {
 	if h.queue.Len() != 0 {
 		t.Fatalf("message not deleted: %d left", h.queue.Len())
 	}
-	// The recording learned its hash from the analysis.
+	// The recording learned its hash from the analysis and got its playback
+	// copy; the report plays from the copy.
 	if h.upload.updated == nil || h.upload.updated.SHA256 != done.Result.SourceSHA256 || h.upload.updated.SHA256 == "" {
 		t.Fatalf("recording after the analysis: %+v", h.upload.updated)
+	}
+	if h.upload.updated.KeptPath != "kept/u1/src-1.mp4" || report.SourcePath != "kept/u1/src-1.mp4" {
+		t.Fatalf("kept copy: recording %+v report source %s", h.upload.updated, report.SourcePath)
+	}
+	kept, _ := h.objects.Open(context.Background(), "kept/u1/src-1.mp4")
+	copied, _ := io.ReadAll(kept)
+	kept.Close()
+	if string(copied) != "720p:clip" {
+		t.Fatalf("kept copy content: %q", copied)
+	}
+	if done.Stage != "ocr" {
+		t.Fatalf("the final stage is the analyzer's last, got %q", done.Stage)
 	}
 }
 

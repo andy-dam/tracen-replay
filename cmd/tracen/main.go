@@ -86,6 +86,7 @@ func run() error {
 	maxActive := flag.Int("max-active-per-user", 1, "analyses one user may have queued or running at once; 0 for no limit")
 	dailyPerUser := flag.Int("daily-per-user", 3, "analyses one user may start in 24 hours; 0 for no limit")
 	dailyTotal := flag.Int("daily-total", 24, "analyses everyone together may start in 24 hours; 0 for no limit")
+	monthlyTotal := flag.Int("monthly-total", 0, "analyses everyone together may start in 30 days, the budget's last fence; 0 for no limit")
 	maxAnalysis := flag.Duration("max-analysis", 4*time.Hour, "longest one analysis may run before it is stopped as timed_out; 0 for no limit")
 	keepWorkingData := flag.Bool("keep-working-data", false, "keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); by default only the report, timeline, viewer page and log are kept")
 	workerImage := flag.String("worker-image", "", "run each analysis as a container of this worker image (the Dockerfile's worker stage) instead of as a child process; -python, -workdir and -model-dir are then unused")
@@ -138,7 +139,7 @@ func run() error {
 	manager, err := jobs.NewManager(jobs.Config{DataDir: *dataDir, Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
 		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
-		MaxActivePerUser: *maxActive, DailyPerUser: *dailyPerUser, DailyTotal: *dailyTotal, MaxDuration: *maxAnalysis,
+		MaxActivePerUser: *maxActive, DailyPerUser: *dailyPerUser, DailyTotal: *dailyTotal, MonthlyTotal: *monthlyTotal, MaxDuration: *maxAnalysis,
 		Recordings: db, Queue: analysisQueue, Objects: objects, Logger: logger}, db, jobRunner)
 	if err != nil {
 		return err

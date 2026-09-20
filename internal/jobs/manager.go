@@ -49,6 +49,10 @@ type Config struct {
 	// its budget.
 	DailyPerUser int
 	DailyTotal   int
+	// MonthlyTotal bounds the analyses everyone together starts in any 30
+	// days; zero leaves it off. It is the budget's last fence: what the
+	// daily bound lets through on a busy month.
+	MonthlyTotal int
 	// MaxDuration bounds one analysis's wall-clock time; zero leaves it
 	// off. A worker that runs past it is stopped and the job fails as
 	// timed_out.
@@ -72,6 +76,11 @@ type Config struct {
 	Queue   queue.Queue
 	Objects objectstore.Store
 	Scratch string
+	// KeepCopy, when set in the shared-queue mode, encodes the playback
+	// copy of a recording (source to destination file) after a completed
+	// analysis; the copy is stored under kept/ and the report and the
+	// recording play from it. nil keeps no copy.
+	KeepCopy func(ctx context.Context, src, dst string) error
 	// Poll is how often, in the shared-queue mode, a worker looks at an
 	// empty queue and for a cancellation request, and the API process
 	// re-reads the active jobs; zero means a few seconds.
@@ -272,6 +281,16 @@ func (m *Manager) withinLimits(ctx context.Context, userID string) error {
 		if n >= m.cfg.DailyTotal {
 			return &LimitError{Code: "daily_limit", Limit: m.cfg.DailyTotal,
 				Message: "the service has started as many analyses as it runs in a day; try again tomorrow"}
+		}
+	}
+	if m.cfg.MonthlyTotal > 0 {
+		n, err := m.store.CountJobsSince(ctx, "", m.cfg.Clock().Add(-30*24*time.Hour))
+		if err != nil {
+			return err
+		}
+		if n >= m.cfg.MonthlyTotal {
+			return &LimitError{Code: "monthly_limit", Limit: m.cfg.MonthlyTotal,
+				Message: "the service has started as many analyses as it runs in a month; try again in a few days"}
 		}
 	}
 	return nil
@@ -484,6 +503,13 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		if err := m.putFile(context.WithoutCancel(ctx), job.LogPath, place.log, "text/plain; charset=utf-8"); err != nil {
 			m.log.Warn("worker log not uploaded", "job", id, "error", err)
 		}
+		// The playback copy is made here, outside the lock the outcome is
+		// recorded under: an encode takes a while.
+		if runErr == nil && jobCtx.Err() == nil && m.cfg.KeepCopy != nil {
+			if result, err := worker.Interpret(exitCode, stdout); err == nil && result.Completed() {
+				place.kept = m.keepCopy(jobCtx, job, place)
+			}
+		}
 	}
 
 	m.finish(ctx, id, func(j *Job) {
@@ -556,6 +582,9 @@ func (m *Manager) conclude(j *Job, exitCode int, stdout []byte, place placement)
 		}
 		report.ReportPath, report.TimelinePath = keys[artifacts.ReportPath], keys[artifacts.TimelinePath]
 		report.EvidenceRoot = j.OutputDir
+		if place.kept != "" {
+			report.SourcePath = place.kept
+		}
 		if report.ReportPath == "" || report.TimelinePath == "" {
 			j.Status = Failed
 			j.Error = &Failure{Code: "upload_failed", Message: "the report or the timeline lies outside the run directory"}
@@ -572,7 +601,7 @@ func (m *Manager) conclude(j *Job, exitCode int, stdout []byte, place placement)
 	j.ReportID = report.ID
 	j.Result = &result
 	j.StageFailure = result.StageFailures
-	m.learned(j, result.SourceSHA256)
+	m.learned(j, result.SourceSHA256, place.kept)
 	if result.Status == worker.StatusCompletedWithStageFailures {
 		j.Status = CompletedWithStageFailures
 	} else {

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/runner"
 )
@@ -34,6 +35,9 @@ func runWorker(args []string) error {
 	learnedReader := fs.String("learned-reader", "", "exported learned result-card reader (ONNX); off when empty")
 	maxAnalysis := fs.Duration("max-analysis", 4*time.Hour, "longest one analysis may run before it is stopped as timed_out; 0 for no limit")
 	keepWorkingData := fs.Bool("keep-working-data", false, "upload the analyzer's OCR caches, crops and recovery inputs with the report (about 1 GB per analysis)")
+	keepCopy := fs.Bool("keep-copy", true, "after a completed analysis, encode a 720p playback copy of the recording and store it under kept/; the report and the recording then play from it")
+	ffmpeg := fs.String("ffmpeg", "ffmpeg", "ffmpeg executable for the playback copy")
+	copyThreads := fs.Int("copy-threads", 0, "threads for the playback copy's encoder; 0 lets ffmpeg decide")
 	storage := addStorageFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -59,10 +63,14 @@ func runWorker(args []string) error {
 	if err != nil {
 		return err
 	}
-	manager, err := jobs.NewManager(jobs.Config{Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
+	cfg := jobs.Config{Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
 		QueueLimit: 1, KeepWorkingData: *keepWorkingData, MaxDuration: *maxAnalysis,
-		Recordings: db, Queue: q, Objects: objects, Scratch: *scratch, Logger: logger}, db, runner.Exec{Logger: logger})
+		Recordings: db, Queue: q, Objects: objects, Scratch: *scratch, Logger: logger}
+	if *keepCopy {
+		cfg.KeepCopy = artifacts.Copy{FFmpeg: *ffmpeg, Threads: *copyThreads}.Encode
+	}
+	manager, err := jobs.NewManager(cfg, db, runner.Exec{Logger: logger})
 	if err != nil {
 		return err
 	}
