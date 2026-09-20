@@ -8,6 +8,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -106,10 +107,32 @@ type Config struct {
 	// Strict. Lax suits a client on another port or subdomain of the same
 	// site; None (which needs HTTPS) a client on another site.
 	CookieSameSite http.SameSite
+	// Registration says who may create an account: "open" (anyone who
+	// reaches the service), "invite" (anyone holding one of InviteCodes) or
+	// "closed" (nobody; accounts are made some other way). Empty means open,
+	// which suits one machine; a hosted service should hand out invites.
+	Registration string
+	// InviteCodes are the codes an "invite" registration accepts. A code is
+	// not consumed by use: it is a door key for the people it was given to,
+	// and it is rotated by changing the flag.
+	InviteCodes []string
+	// TrustedProxies are the networks of reverse proxies in front of the
+	// service. A request from one of them names its client in the last
+	// X-Forwarded-For hop that no trusted proxy added; every other request
+	// is its own client. Empty trusts no proxy, so sign-in and registration
+	// limits are counted per connecting address.
+	TrustedProxies []*net.IPNet
 	// Static serves the browser client at "/"; nil serves a placeholder.
 	Static http.Handler
 	Logger *slog.Logger
 }
+
+// Registration modes.
+const (
+	RegistrationOpen   = "open"
+	RegistrationInvite = "invite"
+	RegistrationClosed = "closed"
+)
 
 // Server is the HTTP handler.
 type Server struct {
@@ -117,6 +140,9 @@ type Server struct {
 	mux  *http.ServeMux
 	log  *slog.Logger
 	docs *docCache
+	// registrations bounds account creation per client address: a script
+	// cannot fill the user table, and a leaked invite code is worth little.
+	registrations *auth.Limiter
 }
 
 const sessionCookie = "tracen_session"
@@ -133,9 +159,22 @@ func New(cfg Config) *Server {
 	if cfg.UploadLimit <= 0 {
 		cfg.UploadLimit = 16 << 30
 	}
-	s := &Server{cfg: cfg, mux: http.NewServeMux(), log: cfg.Logger, docs: newDocCache(8)}
+	if cfg.Registration == "" {
+		cfg.Registration = RegistrationOpen
+	}
+	s := &Server{cfg: cfg, mux: http.NewServeMux(), log: cfg.Logger, docs: newDocCache(8),
+		registrations: auth.NewLimiter(5, time.Hour)}
 	s.routes()
 	return s
+}
+
+// ValidRegistration reports whether mode names a registration policy.
+func ValidRegistration(mode string) bool {
+	switch mode {
+	case "", RegistrationOpen, RegistrationInvite, RegistrationClosed:
+		return true
+	}
+	return false
 }
 
 func (s *Server) routes() {
@@ -195,6 +234,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMisdirectedRequest, "bad_host", "this service only answers for its configured host")
 		return
 	}
+	securityHeaders(w, r)
 	origin := r.Header.Get("Origin")
 	if origin != "" && s.crossOriginAllowed(origin) {
 		h := w.Header()
@@ -223,6 +263,23 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(context.WithValue(r.Context(), userKey, user))
 	}
 	s.mux.ServeHTTP(w, r)
+}
+
+// securityHeaders keeps the browser from guessing content types, framing
+// the client, or leaking the URL, and pins the client's page to its own
+// origin: scripts, styles, images, media and API calls come from this
+// service, styles may also be inline (the client sets them on elements),
+// and nothing may embed the page. API responses carry the same headers; a
+// JSON document is not a page, so the policy costs nothing there.
+func securityHeaders(w http.ResponseWriter, r *http.Request) {
+	h := w.Header()
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("X-Frame-Options", "DENY")
+	h.Set("Referrer-Policy", "same-origin")
+	if !strings.HasPrefix(r.URL.Path, "/api/") {
+		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "+
+			"img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+	}
 }
 
 // currentUser resolves the session cookie; without an auth service every
@@ -346,13 +403,27 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	if s.noAuth(w) {
 		return
 	}
+	if s.cfg.Registration == RegistrationClosed {
+		writeError(w, http.StatusForbidden, "registration_closed", "this service does not take new accounts")
+		return
+	}
 	var body struct {
 		Email       string `json:"email"`
 		Password    string `json:"password"`
 		DisplayName string `json:"display_name"`
+		Invite      string `json:"invite"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "a JSON body with email, password and display_name is required")
+		return
+	}
+	address := s.clientAddress(r)
+	if !s.registrations.Allow(address) {
+		writeError(w, http.StatusTooManyRequests, "too_many_attempts", "too many accounts from this address; wait an hour")
+		return
+	}
+	if s.cfg.Registration == RegistrationInvite && !s.inviteAccepted(body.Invite) {
+		writeError(w, http.StatusForbidden, "invite_required", "registration needs a valid invite code")
 		return
 	}
 	user, err := s.cfg.Auth.Register(r.Context(), body.Email, body.Password, body.DisplayName)
@@ -360,7 +431,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		authError(w, err)
 		return
 	}
-	_, token, err := s.cfg.Auth.Login(r.Context(), user.Email, body.Password, clientAddress(r))
+	_, token, err := s.cfg.Auth.Login(r.Context(), user.Email, body.Password, address)
 	if err != nil {
 		authError(w, err)
 		return
@@ -381,13 +452,29 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "a JSON body with email and password is required")
 		return
 	}
-	user, token, err := s.cfg.Auth.Login(r.Context(), body.Email, body.Password, clientAddress(r))
+	user, token, err := s.cfg.Auth.Login(r.Context(), body.Email, body.Password, s.clientAddress(r))
 	if err != nil {
 		authError(w, err)
 		return
 	}
 	s.setSession(w, r, token)
 	writeJSON(w, http.StatusOK, map[string]any{"user": user})
+}
+
+// inviteAccepted compares a code against the configured invites in
+// constant time per code, so a wrong code takes as long as a right one.
+func (s *Server) inviteAccepted(code string) bool {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return false
+	}
+	accepted := false
+	for _, known := range s.cfg.InviteCodes {
+		if subtle.ConstantTimeCompare([]byte(known), []byte(code)) == 1 {
+			accepted = true
+		}
+	}
+	return accepted
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
@@ -413,11 +500,47 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": user})
 }
 
-func clientAddress(r *http.Request) string {
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host
+// clientAddress is the address the sign-in and registration limits count:
+// the connecting address, or, when that is a trusted proxy, the client the
+// proxy chain forwarded. The X-Forwarded-For header is walked from its end,
+// past every trusted proxy, to the first address none of them vouches for;
+// a header the client itself sent is behind the proxy's own entry and never
+// reaches the front of that walk.
+func (s *Server) clientAddress(r *http.Request) string {
+	remote := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(remote); err == nil {
+		remote = host
 	}
-	return r.RemoteAddr
+	if len(s.cfg.TrustedProxies) == 0 || !s.trustedProxy(remote) {
+		return remote
+	}
+	var hops []string
+	for _, value := range r.Header.Values("X-Forwarded-For") {
+		for _, hop := range strings.Split(value, ",") {
+			if hop = strings.TrimSpace(hop); hop != "" {
+				hops = append(hops, hop)
+			}
+		}
+	}
+	for i := len(hops) - 1; i >= 0; i-- {
+		if !s.trustedProxy(hops[i]) {
+			return hops[i]
+		}
+	}
+	return remote
+}
+
+func (s *Server) trustedProxy(address string) bool {
+	ip := net.ParseIP(strings.Trim(address, "[]"))
+	if ip == nil {
+		return false
+	}
+	for _, network := range s.cfg.TrustedProxies {
+		if network != nil && network.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // ---- uploads ----
@@ -1011,7 +1134,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	enc.Encode(v)
 }
 
+// writeError answers with one error object. A server-side failure is logged
+// with its detail and answered with a fixed sentence: the detail names
+// files, directories and store internals that are the operator's to read,
+// not the client's.
 func writeError(w http.ResponseWriter, status int, code, message string) {
+	if status >= 500 {
+		slog.Default().Error("request failed", "status", status, "code", code, "detail", message)
+		message = "the service hit an internal error; try again later"
+	}
 	writeJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": message}})
 }
 

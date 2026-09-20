@@ -66,6 +66,10 @@ func run() error {
 	apiOnly := flag.Bool("api-only", false, "serve the API only; the browser client is hosted elsewhere and named with -allowed-origin")
 	allowedOrigins := flag.String("allowed-origin", "", "comma-separated client origins served from elsewhere that may call the API with credentials, e.g. http://localhost:5173")
 	cookieSameSite := flag.String("cookie-samesite", "strict", "session cookie SameSite: strict (client served here), lax (client on another port or subdomain of the same site), none (another site; needs HTTPS)")
+	allowedHosts := flag.String("allowed-host", "", "comma-separated host names this service answers for besides localhost and the -addr host, e.g. tracen.example.com")
+	trustedProxies := flag.String("trusted-proxy", "", "comma-separated networks (CIDR) of reverse proxies in front of the service; their X-Forwarded-For names the client for the sign-in and registration limits")
+	registration := flag.String("registration", "open", "who may create an account: open, invite (a code from -invite-code) or closed")
+	inviteCodes := flag.String("invite-code", "", "comma-separated invite codes accepted with -registration invite")
 	keepWorkingData := flag.Bool("keep-working-data", false, "keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); by default only the report, timeline, viewer page and log are kept")
 	workerImage := flag.String("worker-image", "", "run each analysis as a container of this worker image (the Dockerfile's worker stage) instead of as a child process; -python, -workdir and -model-dir are then unused")
 	dockerCLI := flag.String("docker", "docker", "docker command line client, used with -worker-image")
@@ -184,6 +188,34 @@ func run() error {
 	if sameSite == 0 {
 		return fmt.Errorf("bad -cookie-samesite %q: strict, lax or none", *cookieSameSite)
 	}
+	hosts := []string{"localhost", "127.0.0.1", "::1", host}
+	for _, h := range strings.Split(*allowedHosts, ",") {
+		if h = strings.TrimSpace(h); h != "" {
+			hosts = append(hosts, h)
+		}
+	}
+	var proxies []*net.IPNet
+	for _, cidr := range strings.Split(*trustedProxies, ",") {
+		if cidr = strings.TrimSpace(cidr); cidr != "" {
+			_, network, err := net.ParseCIDR(cidr)
+			if err != nil {
+				return fmt.Errorf("bad -trusted-proxy %q: %w", cidr, err)
+			}
+			proxies = append(proxies, network)
+		}
+	}
+	var invites []string
+	for _, code := range strings.Split(*inviteCodes, ",") {
+		if code = strings.TrimSpace(code); code != "" {
+			invites = append(invites, code)
+		}
+	}
+	if !api.ValidRegistration(*registration) {
+		return fmt.Errorf("bad -registration %q: open, invite or closed", *registration)
+	}
+	if *registration == api.RegistrationInvite && len(invites) == 0 {
+		return fmt.Errorf("-registration invite needs at least one -invite-code")
+	}
 	// The analyzer names itself, so a report can say whether the analyzer that
 	// made it is still the one installed. Asked on first use, not at startup:
 	// serving must not wait on an interpreter or a container, and a missing
@@ -193,8 +225,13 @@ func run() error {
 		Analyzer:     analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
-		AllowedHosts: []string{"localhost", "127.0.0.1", "::1", host}, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static})
-	server := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+		AllowedHosts: hosts, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static,
+		TrustedProxies: proxies, Registration: *registration, InviteCodes: invites})
+	// No read or write deadline on the whole request: an upload of a few
+	// gigabytes over a slow link and a job's event stream are both long by
+	// design. Headers must arrive promptly, idle keep-alive connections are
+	// closed, and headers are bounded.
+	server := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 64 << 10}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.ListenAndServe() }()
 	logger.Info("tracen listening", "addr", "http://"+*addr, "data", *dataDir)

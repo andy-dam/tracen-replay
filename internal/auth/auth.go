@@ -102,13 +102,13 @@ type Service struct {
 	store   Store
 	clock   func() time.Time
 	ttl     time.Duration
-	limiter *limiter
+	limiter *Limiter
 }
 
 // New builds a service with 30-day sessions and a sign-in limiter of ten
 // attempts per address per five minutes.
 func New(store Store) *Service {
-	return &Service{store: store, clock: time.Now, ttl: 30 * 24 * time.Hour, limiter: newLimiter(10, 5*time.Minute)}
+	return &Service{store: store, clock: time.Now, ttl: 30 * 24 * time.Hour, limiter: NewLimiter(10, 5*time.Minute)}
 }
 
 // SetClock replaces the clock (tests).
@@ -161,7 +161,7 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 // Login checks the credentials and returns the user with a new session
 // token. The token is shown to the browser once; only its hash is stored.
 func (s *Service) Login(ctx context.Context, email, password, address string) (User, string, error) {
-	if !s.limiter.allow(address) {
+	if !s.limiter.Allow(address) {
 		return User{}, "", ErrTooManyAttempts
 	}
 	email = NormalizeEmail(email)
@@ -182,7 +182,7 @@ func (s *Service) Login(ctx context.Context, email, password, address string) (U
 	if err != nil {
 		return User{}, "", err
 	}
-	s.limiter.reset(address)
+	s.limiter.Reset(address)
 	return user, token, nil
 }
 
@@ -240,8 +240,11 @@ func randomHex(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// limiter allows a bounded number of attempts per key inside a window.
-type limiter struct {
+// Limiter allows a bounded number of attempts per key inside a sliding
+// window: sign-ins per address, registrations per address, frame requests
+// per user. Keys that fall silent are forgotten as they are next seen, so
+// the map holds only what the window covers.
+type Limiter struct {
 	mu       sync.Mutex
 	limit    int
 	window   time.Duration
@@ -249,11 +252,20 @@ type limiter struct {
 	attempts map[string][]time.Time
 }
 
-func newLimiter(limit int, window time.Duration) *limiter {
-	return &limiter{limit: limit, window: window, clock: time.Now, attempts: map[string][]time.Time{}}
+// NewLimiter allows limit attempts per key in every window.
+func NewLimiter(limit int, window time.Duration) *Limiter {
+	return &Limiter{limit: limit, window: window, clock: time.Now, attempts: map[string][]time.Time{}}
 }
 
-func (l *limiter) allow(key string) bool {
+// SetClock replaces the clock (tests).
+func (l *Limiter) SetClock(clock func() time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.clock = clock
+}
+
+// Allow records an attempt for key and reports whether it is within the limit.
+func (l *Limiter) Allow(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.clock()
@@ -271,7 +283,8 @@ func (l *limiter) allow(key string) bool {
 	return true
 }
 
-func (l *limiter) reset(key string) {
+// Reset forgets a key's attempts (a successful sign-in).
+func (l *Limiter) Reset(key string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.attempts, key)
