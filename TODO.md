@@ -840,6 +840,16 @@ hosting choice.
 
 ## 6. Hosting
 
+- [x] **Abuse and limits before hosting** (2026-09-20). Registration modes
+      with invite codes and a per-address registration limit, trusted
+      proxies for the client address, allowed hosts, security headers and a
+      content security policy, generic 5xx messages, an ffprobe gate on every
+      upload, per-user and total upload quotas, one active analysis per user
+      with daily budgets per user and for the service, a wall-clock bound
+      per analysis, a frame-extraction throttle, an hourly sweep (upload
+      retention, expired sessions, frame cache) and resource bounds on the
+      worker container. The numbers and their reasoning are in
+      [docs/deployment.md](docs/deployment.md) under "Abuse and limits".
 - [ ] The four changes in [docs/deployment.md](docs/deployment.md): accounts
       beyond one machine, an object store for uploads and job outputs, a
       queue that outlives one process, and GPU workers that are addressed

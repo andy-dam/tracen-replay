@@ -71,6 +71,59 @@ runs elsewhere is the last item below.
 How a commit would become a running deployment — the image tag, the registry,
 the revision and the rollback — is in [ci-cd.md](ci-cd.md).
 
+## Abuse and limits
+
+A hosted service is asked for two things it is not asked for on one
+machine: to refuse what a stranger can do to it, and to spend no more than
+its owner can afford for a year. Both are in the service today, as flags
+whose defaults are set for a small hosted deployment; one machine used by its
+owner turns the budgets off ([local-app.md](local-app.md) lists every flag).
+
+What a stranger cannot do:
+
+- **Create accounts at will.** `-registration invite` takes accounts only
+  from people holding a code (`-invite-code`, compared in constant time);
+  `closed` takes none. Whatever the mode, one address makes at most five
+  accounts an hour, and sign-ins stay limited to ten attempts per address
+  per five minutes. Behind a reverse proxy the client is the address the
+  proxy forwarded (`-trusted-proxy`), so one proxy does not make everyone
+  one address.
+- **Reach another user's data.** Every recording, job and report is looked
+  up under the signed-in user; another user's id is "not found". The client
+  never names a path; every file the service opens is confined under its
+  own directory. A 5xx tells the client one fixed sentence and the log the
+  detail.
+- **Fill the disk.** One upload is at most 3 GB; a user keeps at most five
+  uploads and 8 GB; all uploads together at most 100 GB, past which uploads
+  are refused as temporary; uploads are probed with ffprobe before they are
+  recorded and refused when they are not a video, longer than three hours,
+  larger than 4096x2304 or faster than 120 frames a second; uploads older
+  than 14 days that nothing is analyzing are deleted by the hourly sweep
+  (their reports stay); the extracted-frame cache is pruned to 2 GB; expired
+  sessions are dropped.
+- **Burn the workers.** A user has one analysis queued or running at a time
+  and starts at most three a day; the service starts at most 24 a day; an
+  analysis is stopped after four hours; frame extractions are at most 120 a
+  minute per user and two at once; a worker container has 14 GB, 512
+  processes and no network.
+- **Talk the service into something.** Only the configured hosts are
+  answered (`-allowed-host`); a cross-origin request that could change
+  state is refused unless its origin is an allowed client; the session
+  cookie is HttpOnly, SameSite and, over HTTPS, Secure; every response says
+  what it is and refuses framing, and the client's page is pinned to its own
+  origin by a content security policy; headers are read within ten seconds
+  and bounded at 64 KiB, idle connections closed after two minutes, JSON
+  bodies bounded at a few KiB.
+
+Why these numbers. The analyses are the whole cost: one takes about an hour
+of the GPU machine, two run at once, so 24 a day is half the machine's day
+and leaves it usable, and three a day per user is a full career's worth of
+retries. Five uploads of a career (about 1.5 GB each) is a week of play kept
+for review; 14 days of retention with 100 GB of room holds more than the
+daily budget can fill. The web tier itself serves static files and small
+JSON, so its cost does not move with these numbers; what they bound is the
+machine that analyzes and the disk it writes.
+
 ## What would have to change
 
 - **A host name the service answers for.** The API accepts `localhost`,

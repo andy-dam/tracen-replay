@@ -71,6 +71,31 @@ directory, so no user path is hardcoded):
 | `-docker` | `docker` | the docker command line client, with `-worker-image` |
 | `-worker-gpus` | unset | `docker run --gpus` value for the worker container, e.g. `all` |
 | `-worker-user` | unset | `docker run --user` value for the worker container, e.g. `1000:1000` |
+| `-worker-memory` | `14g` | `docker run --memory` for the worker container; empty for no bound |
+| `-worker-cpus` | unset | `docker run --cpus` for the worker container |
+| `-worker-pids` | `512` | `docker run --pids-limit` for the worker container; 0 for no bound |
+| `-worker-network` | `none` | `docker run --network` for the worker container; the analyzer needs none |
+| `-allowed-host` | unset | comma-separated host names the service answers for besides localhost and the `-addr` host |
+| `-trusted-proxy` | unset | comma-separated networks (CIDR) of reverse proxies whose `X-Forwarded-For` names the client for the sign-in and registration limits |
+| `-registration` | `open` | who may create an account: `open`, `invite` (a code from `-invite-code`) or `closed` |
+| `-invite-code` | unset | comma-separated invite codes accepted with `-registration invite` |
+| `-ffprobe` | `ffprobe` | ffprobe executable; every upload is probed and refused when it is not a video or is over the limits below |
+| `-upload-limit-gb` | `3` | largest upload accepted |
+| `-max-recordings` | `5` | uploads one user may keep at once; 0 for no limit |
+| `-max-recording-gb` | `8` | space one user's uploads may take together; 0 for no limit |
+| `-max-storage-gb` | `100` | space all uploads may take together; further uploads are refused as temporary (`storage_full`); 0 for no limit |
+| `-max-duration` | `3h` | longest recording accepted; 0 for no limit |
+| `-max-active-per-user` | `1` | analyses one user may have queued or running at once; 0 for no limit |
+| `-daily-per-user` | `3` | analyses one user may start in 24 hours; 0 for no limit |
+| `-daily-total` | `24` | analyses everyone together may start in 24 hours; 0 for no limit |
+| `-max-analysis` | `4h` | longest one analysis may run before it is stopped as `timed_out`; 0 for no limit |
+| `-recording-retention` | `336h` (14 days) | uploads older than this that no analysis is using are deleted on the hourly sweep; their reports stay; 0 keeps uploads forever |
+| `-frame-cache-gb` | `2` | space the extracted-frame cache may take, oldest frames going first; 0 for no bound |
+
+The limits default to what a small hosted service can carry for a year (see
+[deployment.md](deployment.md)). One machine used by its owner turns them
+off: `-max-recordings 0 -max-recording-gb 0 -daily-per-user 0 -daily-total 0
+-recording-retention 0`.
 
 Example with everything explicit, as a configuration you can keep in a script:
 
@@ -379,8 +404,16 @@ message next to the control that caused it.
 | the recording is gone | `recording_unavailable` | frames cannot be extracted and the video panel falls back to frames; the report itself still loads |
 | the credentials are wrong or the session expired | `bad_credentials`, `unauthenticated` (HTTP 401) | sign in again; after repeated failures the address is held off for a while (`too_many_attempts`, HTTP 429) |
 | the email is already registered | `email_taken` (HTTP 409) | sign in with it instead |
-| the upload is not a video or is too large | `unsupported_recording`, `upload_too_large` (HTTP 413) | the accepted extensions and the size limit are stated in the message |
+| the upload is not a video or is too large | `unsupported_recording`, `upload_too_large` (HTTP 413) | the accepted extensions and the size limit are stated in the message; ffprobe found no video stream, or the recording is longer, larger or faster than the service analyzes |
 | the upload is being analyzed | `recording_in_use` (HTTP 409) | cancel or wait for the analysis before deleting it |
+| the account keeps as many uploads, or as many bytes, as it may | `quota_exceeded` (HTTP 403) | delete a recording first (its reports stay) |
+| the service is out of upload space | `storage_full` (HTTP 503) | try again later; the operator raises `-max-storage-gb` or the sweep frees space |
+| registration is closed or needs an invite | `registration_closed`, `invite_required` (HTTP 403) | ask the operator for an invite code |
+| too many accounts from one address | `too_many_attempts` (HTTP 429) | wait an hour |
+| the account already has an analysis queued or running | `too_many_jobs` (HTTP 429) | wait for it to finish |
+| the account, or the service, has started its day's analyses | `daily_limit` (HTTP 429) | try again tomorrow |
+| the analysis ran past its bound | job status `failed` with `timed_out` | the recording is longer than the service is set for; the operator raises `-max-analysis` |
+| too many frame requests | `too_many_requests` (HTTP 429) | slow down for a minute |
 | no frame at that time | `frame_unavailable` | ffmpeg could not decode a frame there |
 
 ## Limits
@@ -397,3 +430,8 @@ message next to the control that caused it.
 - Accounts are a convenience for one machine shared by a few people, not a
   security boundary: the server listens on loopback only, and anyone with
   access to the data directory can read every recording and report.
+- By default a user keeps five uploads and 8 GB, starts three analyses a
+  day (one at a time) and the service starts 24 a day; an upload is at most
+  3 GB and three hours long; uploads are deleted 14 days after they were
+  made once nothing is analyzing them, and their reports stay. Each bound
+  is a flag (see the table above) and 0 turns it off.
