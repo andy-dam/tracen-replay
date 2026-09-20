@@ -43,9 +43,9 @@ param workerAddresses array = []
 @description('Networks of the ingress in front of the API, whose X-Forwarded-For names the client (-trusted-proxy). Set after the first deploy from the peer address the API logs.')
 param trustedProxies string = ''
 
-@description('Analyses everyone together may start in 24 hours and in 30 days. The month is the fence on the credit: a career on the job costs about $1.50 beyond the free grant.')
-param dailyTotal int = 4
-param monthlyTotal int = 8
+@description('Analyses everyone together may start in 24 hours and in 30 days. The month is the fence on the credit: a career on the job takes about seven hours and costs about $3 beyond the free grant, which covers about two a month.')
+param dailyTotal int = 2
+param monthlyTotal int = 3
 
 @description('OCR worker processes of one analysis on the job (4 vCPU, 8 GiB): two, or one if the job runs out of memory.')
 param jobWorkers int = 2
@@ -298,7 +298,7 @@ resource analysisJob 'Microsoft.App/jobs@2024-03-01' = {
     workloadProfileName: 'Consumption'
     configuration: {
       triggerType: 'Event'
-      replicaTimeout: 6 * 3600
+      replicaTimeout: 10 * 3600
       replicaRetryLimit: 0
       eventTriggerConfig: {
         replicaCompletionCount: 1
@@ -341,7 +341,7 @@ resource analysisJob 'Microsoft.App/jobs@2024-03-01' = {
             '-dense-workers', '1'
             '-ocr-device', 'cpu'
             '-parallel', '1'
-            '-max-analysis', '5h'
+            '-max-analysis', '9h'
             '-copy-threads', '2'
             '-exit-when-idle'
           ]
