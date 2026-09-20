@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hosted } from "../api";
 // What this application is, in a page: the parts, what the analyzer reads,
 // where the data lives, and where the details are.
 </script>
@@ -45,7 +46,7 @@
     <section class="guide-section">
       <div class="overline">Privacy</div>
       <h2>Local by Design</h2>
-      <p class="muted">Recordings, reports and accounts live in the data folder on this machine and the service listens on this machine only. Nothing is uploaded anywhere. See the <a href="#/guide">Guide</a> for recording tips and how reviewing works.</p>
+      <p class="muted">{{ hosted ? "Recordings are analyzed on the service's worker; originals are kept for 90 days so a report can be made again, and the playback copy stays with its report." : "Recordings, reports and accounts live in the data folder on this machine and the service listens on this machine only. Nothing is uploaded anywhere." }} See the <a href="#/guide">Guide</a> for recording tips and how reviewing works.</p>
     </section>
   </div>
 </template>

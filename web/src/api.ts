@@ -257,6 +257,8 @@ export interface TurnDetail {
 // otherwise every call, stream and media URL is prefixed and sent with
 // credentials, and the service must list this client's origin.
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
+/** Whether this is the hosted service rather than the application running on the viewer's own machine. */
+export const hosted = typeof location !== "undefined" && !["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 export const crossOrigin = API_BASE ? "use-credentials" : undefined;
 const url = (path: string) => API_BASE + path;
 

@@ -68,6 +68,10 @@ func NewAzureWithCredential(serviceURL string, credential azcore.TokenCredential
 	return &Azure{client: client, serviceURL: strings.TrimRight(serviceURL, "/"), created: map[string]bool{}}, nil
 }
 
+// ServiceURL is the account's blob endpoint ("https://<account>.blob.core.windows.net"):
+// the origin a browser talks to when it uploads or plays by a signed URL.
+func (a *Azure) ServiceURL() string { return a.serviceURL }
+
 func connectionValue(connectionString, name string) string {
 	for _, part := range strings.Split(connectionString, ";") {
 		if k, v, ok := strings.Cut(part, "="); ok && strings.EqualFold(strings.TrimSpace(k), name) {

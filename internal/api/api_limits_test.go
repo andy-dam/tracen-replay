@@ -130,6 +130,13 @@ func TestSecurityHeaders(t *testing.T) {
 			t.Fatalf("%s: %q", header, got)
 		}
 	}
+	remote := New(Config{Jobs: &fakeJobs{jobs: map[string]jobs.Job{}, hub: jobs.NewHub()}, Reports: fakeReports{reports: map[string]jobs.Report{}},
+		RemoteOrigins: []string{"https://acct.blob.core.windows.net"}})
+	remotePage := httptest.NewRecorder()
+	remote.ServeHTTP(remotePage, httptest.NewRequest("GET", "http://localhost/", nil))
+	if csp := remotePage.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "connect-src 'self' https://acct.blob.core.windows.net") || !strings.Contains(csp, "media-src 'self' blob: https://acct.blob.core.windows.net") {
+		t.Fatalf("the policy must name the object store's origin: %s", csp)
+	}
 	if csp := page.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'self'") || !strings.Contains(csp, "frame-ancestors 'none'") {
 		t.Fatalf("page CSP: %q", csp)
 	}

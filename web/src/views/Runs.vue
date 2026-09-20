@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { api, ApiError, crossOrigin, type Job, type Recording, type Report } from "../api";
+import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
 import { turnWarnings } from "../warnings";
 import RankBadge from "../components/RankBadge.vue";
@@ -230,7 +230,7 @@ function hideBroken(e: Event) {
   <div class="page-head">
     <div>
       <h1>Runs</h1>
-      <p>Upload a career recording, analyze it, open the report. A full career takes about 30 to 45 minutes; the server runs a few at a time and queues the rest.</p>
+      <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "The server runs a few analyses at a time and queues the rest." }}</p>
     </div>
   </div>
   <p v-if="error" class="error">{{ error }}</p>

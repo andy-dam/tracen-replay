@@ -24,6 +24,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/maintenance"
+	"github.com/andy-dam/tracen-replay/internal/objectstore"
 	"github.com/andy-dam/tracen-replay/internal/runner"
 	"github.com/andy-dam/tracen-replay/internal/webassets"
 )
@@ -278,10 +279,17 @@ func run() error {
 	frames := artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames"), Gate: artifacts.NewGate(2), MaxCacheBytes: *frameCache << 30}
 	sweeper := maintenance.Sweeper{Store: db, RecordingsDir: recordingsDir, Objects: objects, RecordingRetention: *recordingRetention, Frames: frames, Logger: logger}
 	go sweeper.Run(ctx)
+	// The browser uploads to the object store and plays from it by signed
+	// URL, so the page's security policy must name that origin.
+	var remoteOrigins []string
+	if azure, ok := objects.(*objectstore.Azure); ok {
+		remoteOrigins = []string{azure.ServiceURL()}
+	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
-		Objects:      objects,
-		Analyzer:     analyzer.Version,
-		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
+		Objects:       objects,
+		RemoteOrigins: remoteOrigins,
+		Analyzer:      analyzer.Version,
+		ArtifactsDir:  filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       frames,
 		AllowedHosts: hosts, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static,
 		TrustedProxies: proxies, Registration: *registration, InviteCodes: invites,
