@@ -71,6 +71,13 @@ type Job struct {
 	StageFailure []worker.StageFailure `json:"stage_failures,omitempty"`
 	ReportID     string                `json:"report_id,omitempty"`
 	Result       *worker.Result        `json:"result,omitempty"`
+	// CancelRequested asks the worker process that runs the job, which may
+	// be another machine, to stop it; the API sets it and the worker
+	// answers by cancelling. HeartbeatAt is when that worker last touched
+	// the record; a running job whose heartbeat is stale was left by a
+	// worker that died.
+	CancelRequested bool      `json:"cancel_requested,omitempty"`
+	HeartbeatAt     time.Time `json:"heartbeat_at,omitzero"`
 }
 
 // Report is a validated, immutable analyzer output: produced by a job or
@@ -103,6 +110,8 @@ type Store interface {
 	ListJobs(ctx context.Context) ([]Job, error)
 	ListJobsForUser(ctx context.Context, userID string) ([]Job, error)
 	NextQueued(ctx context.Context) (Job, bool, error)
+	// ListActiveJobs returns the queued and running jobs, oldest first.
+	ListActiveJobs(ctx context.Context) ([]Job, error)
 	CountByStatus(ctx context.Context, status Status) (int, error)
 	// CountActiveForUser counts a user's queued and running jobs.
 	CountActiveForUser(ctx context.Context, userID string) (int, error)

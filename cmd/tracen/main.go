@@ -37,6 +37,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "worker" {
+		if err := runWorker(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "tracen worker:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "tracen:", err)
 		os.Exit(1)
@@ -92,9 +99,14 @@ func run() error {
 	workerNetwork := flag.String("worker-network", "none", "docker run --network for the worker container; the analyzer needs none")
 	recordingRetention := flag.Duration("recording-retention", 14*24*time.Hour, "uploads older than this that no analysis is using are deleted (their reports stay); 0 keeps uploads forever")
 	frameCache := flag.Int64("frame-cache-gb", 2, "space the extracted-frame cache may take, in GB, the oldest frames going first; 0 for no bound")
+	storage := addStorageFlags(flag.CommandLine)
 	flag.Parse()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
+	objects, analysisQueue, err := storage.open(context.Background())
+	if err != nil {
+		return err
+	}
 
 	if err := os.MkdirAll(*dataDir, 0o755); err != nil {
 		return err
@@ -128,7 +140,7 @@ func run() error {
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
 		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
 		MaxActivePerUser: *maxActive, DailyPerUser: *dailyPerUser, DailyTotal: *dailyTotal, MaxDuration: *maxAnalysis,
-		Recordings: db, Logger: logger}, db, jobRunner)
+		Recordings: db, Queue: analysisQueue, Objects: objects, Logger: logger}, db, jobRunner)
 	if err != nil {
 		return err
 	}
@@ -150,9 +162,15 @@ func run() error {
 			logger.Warn("worker containers of a previous run could not be checked", "error", err)
 		}
 	}
+	// With a shared queue the analyses run in worker processes; this
+	// process only follows their records for the event streams.
 	loopDone := make(chan struct{})
 	go func() {
-		manager.Run(ctx)
+		if analysisQueue != nil {
+			manager.Follow(ctx)
+		} else {
+			manager.Run(ctx)
+		}
 		close(loopDone)
 	}()
 
@@ -162,7 +180,18 @@ func run() error {
 	}
 	ready := func() []api.Check {
 		var checks []api.Check
-		if container != nil {
+		if analysisQueue != nil {
+			checks = []api.Check{
+				check("ffmpeg", *ffmpeg, func() error { _, err := exec.LookPath(*ffmpeg); return err }),
+				check("object-store", *storage.objectStore, func() error {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_, err := objects.List(ctx, "originals/")
+					return err
+				}),
+				{Name: "queue", OK: true, Note: *storage.queue + " " + *storage.queueName + " (analyses run in tracen worker processes)"},
+			}
+		} else if container != nil {
 			checks = []api.Check{
 				check("docker", *dockerCLI, func() error { _, err := exec.LookPath(*dockerCLI); return err }),
 				check("ffmpeg", *ffmpeg, func() error { _, err := exec.LookPath(*ffmpeg); return err }),
@@ -185,6 +214,9 @@ func run() error {
 			}
 		}
 		checks = append(checks, check("ffprobe", *ffprobe, func() error { _, err := exec.LookPath(*ffprobe); return err }))
+		if analysisQueue != nil {
+			return checks
+		}
 		checks = append(checks, api.Check{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"})
 		if *learnedReader != "" {
 			checks = append(checks, check("learned-reader", *learnedReader, func() error { _, err := os.Stat(*learnedReader); return err }))
@@ -244,9 +276,10 @@ func run() error {
 	// Two frame extractions at once: a viewer scrubbing gets prompt frames,
 	// a crowd cannot fork ffmpeg without bound.
 	frames := artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames"), Gate: artifacts.NewGate(2), MaxCacheBytes: *frameCache << 30}
-	sweeper := maintenance.Sweeper{Store: db, RecordingsDir: recordingsDir, RecordingRetention: *recordingRetention, Frames: frames, Logger: logger}
+	sweeper := maintenance.Sweeper{Store: db, RecordingsDir: recordingsDir, Objects: objects, RecordingRetention: *recordingRetention, Frames: frames, Logger: logger}
 	go sweeper.Run(ctx)
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
+		Objects:      objects,
 		Analyzer:     analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       frames,

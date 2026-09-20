@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -149,14 +150,45 @@ func (s *Server) uploadRecording(w http.ResponseWriter, r *http.Request) {
 		}
 		recording := jobs.Recording{ID: id, UserID: user.ID, Name: name, Path: path, Size: size,
 			SHA256: hex.EncodeToString(digest.Sum(nil)), CreatedAt: time.Now()}
-		if err := s.cfg.Recordings.CreateRecording(r.Context(), recording); err != nil {
+		if s.cfg.Objects != nil {
+			// The upload's home is the object store; the file here was only
+			// for the probe.
+			key := "originals/" + owner + "/" + id + ext
+			if err := s.putObject(r.Context(), key, path, videoType(path)); err != nil {
+				os.Remove(path)
+				s.log.Error("upload not stored", "user", user.ID, "key", key, "error", err)
+				writeError(w, http.StatusInternalServerError, "upload_failed", "the recording could not be stored")
+				return
+			}
 			os.Remove(path)
+			recording.Path = key
+		}
+		if err := s.cfg.Recordings.CreateRecording(r.Context(), recording); err != nil {
+			if s.cfg.Objects != nil {
+				s.cfg.Objects.Delete(r.Context(), recording.Path)
+			} else {
+				os.Remove(path)
+			}
 			writeError(w, http.StatusInternalServerError, "store_error", err.Error())
 			return
 		}
 		writeJSON(w, http.StatusCreated, recording)
 		return
 	}
+}
+
+// putObject stores a file under key.
+func (s *Server) putObject(ctx context.Context, key, path, contentType string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	return s.cfg.Objects.Put(ctx, key, file, info.Size(), contentType)
 }
 
 // gigabytes says a byte count the way people read it.

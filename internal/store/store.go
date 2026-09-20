@@ -101,6 +101,10 @@ var migrations = []string{
 		updated_at TEXT NOT NULL,
 		PRIMARY KEY (report_id, turn_id, user_id)
 	);`,
+	// A worker on another machine: the API asks for a cancellation through
+	// the record, and the worker's heartbeat says it is still alive.
+	`ALTER TABLE jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT;`,
 }
 
 // Open opens or creates the database file and applies migrations.
@@ -193,6 +197,13 @@ func marshal(v any) any {
 	return string(data)
 }
 
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func nullable(s string) any {
 	if s == "" {
 		return nil
@@ -203,18 +214,20 @@ func nullable(s string) any {
 // ---- jobs ----
 
 const jobColumns = `id, source_id, source_path, source_name, status, created_at, started_at, finished_at, output_dir, log_path, pid,
-	stage, stage_at, ocr_processed, ocr_total, error_json, stage_failures_json, report_id, result_json, user_id`
+	stage, stage_at, ocr_processed, ocr_total, error_json, stage_failures_json, report_id, result_json, user_id, cancel_requested, heartbeat_at`
 
 func scanJob(row interface{ Scan(...any) error }) (jobs.Job, error) {
 	var j jobs.Job
 	var status string
-	var created, started, finished, logPath, stage, stageAt, errJSON, failuresJSON, reportID, resultJSON, userID sql.NullString
+	var created, started, finished, logPath, stage, stageAt, errJSON, failuresJSON, reportID, resultJSON, userID, heartbeat sql.NullString
+	var cancelRequested int
 	if err := row.Scan(&j.ID, &j.SourceID, &j.SourcePath, &j.SourceName, &status, &created, &started, &finished, &j.OutputDir, &logPath, &j.PID,
-		&stage, &stageAt, &j.OCRProcessed, &j.OCRTotal, &errJSON, &failuresJSON, &reportID, &resultJSON, &userID); err != nil {
+		&stage, &stageAt, &j.OCRProcessed, &j.OCRTotal, &errJSON, &failuresJSON, &reportID, &resultJSON, &userID, &cancelRequested, &heartbeat); err != nil {
 		return jobs.Job{}, err
 	}
 	j.Status = jobs.Status(status)
 	j.CreatedAt, j.StartedAt, j.FinishedAt = parseStamp(created), parseStamp(started), parseStamp(finished)
+	j.CancelRequested, j.HeartbeatAt = cancelRequested != 0, parseStamp(heartbeat)
 	j.LogPath, j.Stage, j.ReportID, j.UserID = logPath.String, stage.String, reportID.String, userID.String
 	j.StageAt = parseStamp(stageAt)
 	if errJSON.Valid {
@@ -237,19 +250,20 @@ func scanJob(row interface{ Scan(...any) error }) (jobs.Job, error) {
 
 // CreateJob inserts a new job record.
 func (s *Store) CreateJob(ctx context.Context, j jobs.Job) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO jobs (`+jobColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO jobs (`+jobColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		j.ID, j.SourceID, j.SourcePath, j.SourceName, string(j.Status), stamp(j.CreatedAt), stamp(j.StartedAt), stamp(j.FinishedAt),
 		j.OutputDir, nullable(j.LogPath), j.PID, nullable(j.Stage), stamp(j.StageAt), j.OCRProcessed, j.OCRTotal,
-		marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result), nullable(j.UserID))
+		marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result), nullable(j.UserID), boolInt(j.CancelRequested), stamp(j.HeartbeatAt))
 	return err
 }
 
 // UpdateJob rewrites every mutable column of an existing job.
 func (s *Store) UpdateJob(ctx context.Context, j jobs.Job) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE jobs SET status=?, started_at=?, finished_at=?, log_path=?, pid=?, stage=?, stage_at=?,
-		ocr_processed=?, ocr_total=?, error_json=?, stage_failures_json=?, report_id=?, result_json=? WHERE id=?`,
+		ocr_processed=?, ocr_total=?, error_json=?, stage_failures_json=?, report_id=?, result_json=?, cancel_requested=?, heartbeat_at=? WHERE id=?`,
 		string(j.Status), stamp(j.StartedAt), stamp(j.FinishedAt), nullable(j.LogPath), j.PID, nullable(j.Stage), stamp(j.StageAt),
-		j.OCRProcessed, j.OCRTotal, marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result), j.ID)
+		j.OCRProcessed, j.OCRTotal, marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result),
+		boolInt(j.CancelRequested), stamp(j.HeartbeatAt), j.ID)
 	if err != nil {
 		return err
 	}
@@ -305,6 +319,11 @@ func (s *Store) NextQueued(ctx context.Context) (jobs.Job, bool, error) {
 		return jobs.Job{}, false, err
 	}
 	return j, true, nil
+}
+
+// ListActiveJobs returns the queued and running jobs, oldest first.
+func (s *Store) ListActiveJobs(ctx context.Context) ([]jobs.Job, error) {
+	return s.queryJobs(ctx, `SELECT `+jobColumns+` FROM jobs WHERE status IN (?, ?) ORDER BY created_at, id`, string(jobs.Queued), string(jobs.Running))
 }
 
 // CountByStatus counts jobs in one state.
