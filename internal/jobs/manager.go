@@ -38,6 +38,19 @@ type Config struct {
 	LearnedReader string
 	// QueueLimit bounds the number of queued jobs.
 	QueueLimit int
+	// MaxActivePerUser bounds one user's queued plus running jobs; zero
+	// leaves it off. One keeps a single user from filling the queue.
+	MaxActivePerUser int
+	// DailyPerUser and DailyTotal bound the analyses started in any 24
+	// hours by one user and by everyone; zero leaves each off. Analyses
+	// are the service's whole cost, so these are what keep a year within
+	// its budget.
+	DailyPerUser int
+	DailyTotal   int
+	// MaxDuration bounds one analysis's wall-clock time; zero leaves it
+	// off. A worker that runs past it is stopped and the job fails as
+	// timed_out.
+	MaxDuration time.Duration
 	// Parallel is how many analyses run at once; less than one means one.
 	// Each analysis holds a few GB and its OCR workers' share of the CPU, so
 	// the number is set per machine.
@@ -61,6 +74,17 @@ type QueueFullError struct{ Limit int }
 func (e *QueueFullError) Error() string {
 	return fmt.Sprintf("queue is full (%d queued jobs)", e.Limit)
 }
+
+// LimitError is returned by Submit when a per-user or daily bound is
+// reached. Code is the API's error code: too_many_jobs for the active
+// bound, daily_limit for the day's.
+type LimitError struct {
+	Code    string
+	Limit   int
+	Message string
+}
+
+func (e *LimitError) Error() string { return e.Message }
 
 // TransitionError is returned when a request does not apply to the job's
 // current state, for example cancelling a finished job.
@@ -159,6 +183,9 @@ func (m *Manager) Submit(ctx context.Context, userID, sourceID string) (Job, err
 	if queued >= m.cfg.QueueLimit {
 		return Job{}, &QueueFullError{Limit: m.cfg.QueueLimit}
 	}
+	if err := m.withinLimits(ctx, userID); err != nil {
+		return Job{}, err
+	}
 	id := m.cfg.NewID()
 	dir := filepath.Join(m.cfg.DataDir, "jobs", id)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -175,6 +202,44 @@ func (m *Manager) Submit(ctx context.Context, userID, sourceID string) (Job, err
 	default:
 	}
 	return job, nil
+}
+
+// withinLimits refuses a submission that would pass the user's active
+// bound or the day's budgets. Called with m.mu held, so two submissions
+// cannot both slip under a bound.
+func (m *Manager) withinLimits(ctx context.Context, userID string) error {
+	if m.cfg.MaxActivePerUser > 0 {
+		active, err := m.store.CountActiveForUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if active >= m.cfg.MaxActivePerUser {
+			return &LimitError{Code: "too_many_jobs", Limit: m.cfg.MaxActivePerUser,
+				Message: fmt.Sprintf("you already have %d analysis queued or running; wait for it to finish", active)}
+		}
+	}
+	since := m.cfg.Clock().Add(-24 * time.Hour)
+	if m.cfg.DailyPerUser > 0 {
+		n, err := m.store.CountJobsSince(ctx, userID, since)
+		if err != nil {
+			return err
+		}
+		if n >= m.cfg.DailyPerUser {
+			return &LimitError{Code: "daily_limit", Limit: m.cfg.DailyPerUser,
+				Message: fmt.Sprintf("you have started %d analyses in the last 24 hours, the most this service allows; try again tomorrow", n)}
+		}
+	}
+	if m.cfg.DailyTotal > 0 {
+		n, err := m.store.CountJobsSince(ctx, "", since)
+		if err != nil {
+			return err
+		}
+		if n >= m.cfg.DailyTotal {
+			return &LimitError{Code: "daily_limit", Limit: m.cfg.DailyTotal,
+				Message: "the service has started as many analyses as it runs in a day; try again tomorrow"}
+		}
+	}
+	return nil
 }
 
 // resolve finds the recording behind a source id among the user's own
@@ -282,6 +347,9 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		return
 	}
 	jobCtx, cancel := context.WithCancel(ctx)
+	if m.cfg.MaxDuration > 0 {
+		jobCtx, cancel = context.WithTimeout(ctx, m.cfg.MaxDuration)
+	}
 	done := make(chan struct{})
 	m.cancels[id], m.done[id] = cancel, done
 	job.Status = Running
@@ -355,6 +423,9 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	m.finish(ctx, id, func(j *Job) {
 		applyProgress(j)
 		switch {
+		case errors.Is(jobCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil:
+			j.Status = Failed
+			j.Error = &Failure{Code: "timed_out", Message: fmt.Sprintf("the analysis ran longer than %s and was stopped", m.cfg.MaxDuration)}
 		case jobCtx.Err() != nil && ctx.Err() == nil:
 			j.Status = Cancelled
 			j.Error = &Failure{Code: "cancelled", Message: "cancelled while the analysis was running; the worker process tree was stopped"}

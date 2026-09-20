@@ -104,6 +104,12 @@ type Store interface {
 	ListJobsForUser(ctx context.Context, userID string) ([]Job, error)
 	NextQueued(ctx context.Context) (Job, bool, error)
 	CountByStatus(ctx context.Context, status Status) (int, error)
+	// CountActiveForUser counts a user's queued and running jobs.
+	CountActiveForUser(ctx context.Context, userID string) (int, error)
+	// CountJobsSince counts jobs created at or after since, for one user or
+	// ("") everyone, leaving out jobs cancelled before they started: those
+	// cost nothing and must not spend the day's budget.
+	CountJobsSince(ctx context.Context, userID string, since time.Time) (int, error)
 	MarkInterrupted(ctx context.Context, at time.Time) ([]Job, error)
 	CreateReport(ctx context.Context, report Report) error
 	GetReport(ctx context.Context, id string) (Report, error)

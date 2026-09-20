@@ -743,10 +743,13 @@ func (s *Server) submitJob(w http.ResponseWriter, r *http.Request) {
 	job, err := s.cfg.Jobs.Submit(r.Context(), userFrom(r).ID, body.SourceID)
 	if err != nil {
 		var full *jobs.QueueFullError
+		var limit *jobs.LimitError
 		var nf *jobs.NotFoundError
 		switch {
 		case errors.As(err, &full):
 			writeError(w, http.StatusTooManyRequests, "queue_full", err.Error())
+		case errors.As(err, &limit):
+			writeError(w, http.StatusTooManyRequests, limit.Code, limit.Message)
 		case errors.As(err, &nf):
 			writeError(w, http.StatusNotFound, "unknown_source", err.Error())
 		default:

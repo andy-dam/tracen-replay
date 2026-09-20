@@ -314,6 +314,22 @@ func (s *Store) CountByStatus(ctx context.Context, status jobs.Status) (int, err
 	return n, err
 }
 
+// CountActiveForUser counts a user's queued and running jobs.
+func (s *Store) CountActiveForUser(ctx context.Context, userID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE user_id=? AND status IN (?, ?)`, userID, string(jobs.Queued), string(jobs.Running)).Scan(&n)
+	return n, err
+}
+
+// CountJobsSince counts jobs created at or after since, for one user or
+// everyone, leaving out jobs cancelled before they started.
+func (s *Store) CountJobsSince(ctx context.Context, userID string, since time.Time) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE (?='' OR user_id=?) AND created_at>=? AND NOT (status=? AND started_at IS NULL)`,
+		userID, userID, stamp(since), string(jobs.Cancelled)).Scan(&n)
+	return n, err
+}
+
 // MarkInterrupted moves every running job to interrupted (used at startup,
 // when no worker of this process can still be alive) and returns them.
 func (s *Store) MarkInterrupted(ctx context.Context, at time.Time) ([]jobs.Job, error) {
