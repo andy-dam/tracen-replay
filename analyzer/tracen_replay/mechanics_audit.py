@@ -107,6 +107,16 @@ def fragment_of(text,parsed):
         other=_receipt_key(full)
         if other==key:return full
         if len(key)<len(other) and other.startswith(key):return full
+        # A number with a digit hidden under the cursor ("by0." for "by 20.",
+        # "by 2." for "by 20."): the words around it read the same, and the
+        # digits it shows are the receipt's own digits in their order with
+        # some missing. "by 2." for "by 12." is that too; "by 3." for "by 20."
+        # is another number.
+        other_digits=''.join(re.findall(r'\d+',other))
+        if (digits and len(digits)<len(other_digits) and key.split(' ',1)[0]==other.split(' ',1)[0]
+                and ' '.join(re.sub(r'\d+','',key).split())==' '.join(re.sub(r'\d+','',other).split())
+                and _digits_in_order(digits,other_digits)):
+            return full
         # A variant must keep the receipt's subject and every number it shows;
         # "Guts went up by 3" is not a misread "Wit went up by 3", and a
         # different amount is a different receipt.
@@ -119,6 +129,16 @@ def fragment_of(text,parsed):
         # for another and a real award goes missing.
         if _words_fold(key.split(' '),other.split(' ')):return full
     return None
+
+
+def _digits_in_order(shown,whole):
+    """True when every digit shown appears in the whole number, in that order."""
+    position=0
+    for digit in shown:
+        position=whole.find(digit,position)
+        if position<0:return False
+        position+=1
+    return True
 
 
 def _words_fold(words,full_words):

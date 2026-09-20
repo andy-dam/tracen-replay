@@ -20,6 +20,18 @@ class FragmentTests(unittest.TestCase):
         self.assertIsNone(fragment_of('Guts went up by 3.', ['Wit went up by 3.']))
         self.assertIsNone(fragment_of('Learned', ['Learned the song "Hoppity Sunny Days".']))
 
+    def test_a_number_with_a_digit_hidden_under_the_cursor_is_a_fragment(self):
+        full = 'Visuals went up by 20.'
+        # The cursor over the 2 leaves "by0." on two frames beside "by 20." on the rest.
+        self.assertEqual(fragment_of('Visuals went up by0.', [full]), full)
+        self.assertEqual(fragment_of('Visuals went up by 2.', [full]), full)
+        self.assertEqual(fragment_of('Skill Pts went up by 1.', ['Skill Pts went up by 112.']), 'Skill Pts went up by 112.')
+        # Another number, another subject, or other words are not that.
+        self.assertIsNone(fragment_of('Visuals went up by 3.', [full]))
+        self.assertIsNone(fragment_of('Visuals went up by 02.', [full]))
+        self.assertIsNone(fragment_of('Vocals went up by 2.', [full]))
+        self.assertIsNone(fragment_of('Visuals went down by 2.', [full]))
+
     def test_dialogue_with_a_receipt_keyword_is_not_a_candidate(self):
         # A receipt is a sentence of its own and starts with a capital.
         readings = [receipt_row(1000, "learned the reason for Matikanefukukitaru's state"),
