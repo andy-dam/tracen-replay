@@ -189,10 +189,15 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   }
 }
 
+// A workload-profiles environment: the default ("express") kind cannot
+// run jobs. The Consumption profile bills per second like before.
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: '${name}-env'
+  name: '${name}-apps'
   location: location
   properties: {
+    workloadProfiles: [
+      { name: 'Consumption', workloadProfileType: 'Consumption' }
+    ]
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
@@ -237,6 +242,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
   }
   properties: {
     managedEnvironmentId: environment.id
+    workloadProfileName: 'Consumption'
     configuration: {
       ingress: {
         external: true
@@ -306,6 +312,7 @@ resource analysisJob 'Microsoft.App/jobs@2024-03-01' = {
   }
   properties: {
     environmentId: environment.id
+    workloadProfileName: 'Consumption'
     configuration: {
       triggerType: 'Event'
       replicaTimeout: 6 * 3600
