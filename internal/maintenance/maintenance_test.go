@@ -4,12 +4,14 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
+	"github.com/andy-dam/tracen-replay/internal/objectstore"
 	"github.com/andy-dam/tracen-replay/internal/store"
 )
 
@@ -93,5 +95,47 @@ func TestSweepKeepsWhatIsInUseAndRecent(t *testing.T) {
 	add("ancient", 400*24*time.Hour)
 	if summary, _ := forever.Sweep(ctx); summary.RecordingsDeleted != 0 {
 		t.Fatal("retention off must delete nothing")
+	}
+}
+
+// With an object store, uploads nobody completed are removed after a day;
+// what a record names, and what is fresh, stays.
+func TestSweepRemovesOrphanedUploads(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	objects, err := objectstore.NewLocal(filepath.Join(dir, "objects"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	now := time.Now()
+	if err := st.CreateUser(ctx, auth.User{ID: "u1", Email: "u1@example.com", DisplayName: "U", CreatedAt: now}, "hash"); err != nil {
+		t.Fatal(err)
+	}
+	put := func(key string, age time.Duration) {
+		if err := objects.Put(ctx, key, strings.NewReader("video"), 5, "video/mp4"); err != nil {
+			t.Fatal(err)
+		}
+		path, _ := objects.Path(key)
+		os.Chtimes(path, now.Add(-age), now.Add(-age))
+	}
+	put("originals/u1/named.mp4", 3*24*time.Hour)
+	put("originals/u1/orphan.mp4", 2*24*time.Hour)
+	put("originals/u1/fresh.mp4", time.Hour)
+	if err := st.CreateRecording(ctx, jobs.Recording{ID: "named", UserID: "u1", Name: "named.mp4", Path: "originals/u1/named.mp4", Size: 5, CreatedAt: now.Add(-3 * 24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	sweeper := Sweeper{Store: st, Objects: objects, Clock: func() time.Time { return now }}
+	summary, err := sweeper.Sweep(ctx)
+	if err != nil || summary.OrphansDeleted != 1 {
+		t.Fatalf("sweep: %+v %v", summary, err)
+	}
+	left, _ := objects.List(ctx, "originals/")
+	if len(left) != 2 || left[0].Key != "originals/u1/fresh.mp4" || left[1].Key != "originals/u1/named.mp4" {
+		t.Fatalf("left: %+v", left)
 	}
 }

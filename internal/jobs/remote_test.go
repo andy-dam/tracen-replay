@@ -17,14 +17,25 @@ import (
 )
 
 // keyUpload serves one recording held in an object store as user u1's
-// upload "src-1".
-type keyUpload struct{ key string }
+// upload "src-1", and takes back what an analysis learns about it.
+type keyUpload struct {
+	key     string
+	updated *jobs.Recording
+}
 
-func (f keyUpload) GetRecording(ctx context.Context, id string) (jobs.Recording, error) {
+func (f *keyUpload) GetRecording(ctx context.Context, id string) (jobs.Recording, error) {
 	if id != "src-1" {
 		return jobs.Recording{}, &jobs.NotFoundError{Kind: "recording", ID: id}
 	}
+	if f.updated != nil {
+		return *f.updated, nil
+	}
 	return jobs.Recording{ID: "src-1", UserID: "u1", Name: "clip.mp4", Path: f.key, Size: 4}, nil
+}
+
+func (f *keyUpload) UpdateRecording(ctx context.Context, r jobs.Recording) error {
+	f.updated = &r
+	return nil
 }
 
 // remoteHarness is the API process and the worker process of the shared
@@ -38,6 +49,7 @@ type remoteHarness struct {
 	objects *objectstore.Local
 	queue   *queue.Memory
 	scratch string
+	upload  *keyUpload
 }
 
 func newRemoteHarness(t *testing.T) *remoteHarness {
@@ -56,7 +68,7 @@ func newRemoteHarness(t *testing.T) *remoteHarness {
 		t.Fatal(err)
 	}
 	q := queue.NewMemory()
-	recordings := keyUpload{key: "originals/u1/src-1.mp4"}
+	recordings := &keyUpload{key: "originals/u1/src-1.mp4"}
 	api, err := jobs.NewManager(jobs.Config{Workers: 1, QueueLimit: 4, Recordings: recordings, Queue: q, Objects: objects, Poll: 20 * time.Millisecond}, st, &scriptedRunner{})
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +81,7 @@ func newRemoteHarness(t *testing.T) *remoteHarness {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	return &remoteHarness{t: t, api: api, worker: worker, runner: runner, store: st, objects: objects, queue: q, scratch: scratch}
+	return &remoteHarness{t: t, api: api, worker: worker, runner: runner, store: st, objects: objects, queue: q, scratch: scratch, upload: recordings}
 }
 
 func (h *remoteHarness) waitStatus(id string, want jobs.Status) jobs.Job {
@@ -147,6 +159,10 @@ func TestRemoteJobRunsFromTheQueueAndUploadsItsOutputs(t *testing.T) {
 	}
 	if h.queue.Len() != 0 {
 		t.Fatalf("message not deleted: %d left", h.queue.Len())
+	}
+	// The recording learned its hash from the analysis.
+	if h.upload.updated == nil || h.upload.updated.SHA256 != done.Result.SourceSHA256 || h.upload.updated.SHA256 == "" {
+		t.Fatalf("recording after the analysis: %+v", h.upload.updated)
 	}
 }
 

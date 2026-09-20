@@ -318,28 +318,61 @@ export const api = {
   events: (id: string) => new EventSource(url(`/api/jobs/${enc(id)}/events`), { withCredentials: !!API_BASE }),
 };
 
-/** Upload a recording with progress; XMLHttpRequest is the only browser API that reports upload progress. */
+export interface UploadTarget {
+  mode: "direct" | "multipart";
+  id?: string;
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  expires_at?: string;
+}
+
+/**
+ * Upload a recording with progress; XMLHttpRequest is the only browser API that reports upload progress.
+ * The service says where the bytes go: straight into its object store by a signed URL (the API then
+ * records the upload once told it is complete), or to the API itself as a multipart post.
+ */
 export function uploadRecording(file: File, onProgress: (sent: number, total: number) => void): { promise: Promise<Recording>; abort: () => void } {
   const xhr = new XMLHttpRequest();
-  const promise = new Promise<Recording>((resolve, reject) => {
-    xhr.open("POST", url("/api/recordings"));
-    xhr.withCredentials = !!API_BASE;
-    xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
-    xhr.onerror = () => reject(new ApiError(0, "network", "the upload was interrupted"));
-    xhr.onabort = () => reject(new ApiError(0, "aborted", "the upload was cancelled"));
-    xhr.onload = () => {
-      let body: { error?: Failure } & Partial<Recording> = {};
-      try {
-        body = JSON.parse(xhr.responseText);
-      } catch {
-        // no body
-      }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(body as Recording);
-      else reject(new ApiError(xhr.status, body.error?.code ?? "http_" + xhr.status, body.error?.message ?? xhr.statusText));
-    };
+  let aborted = false;
+  const send = (method: string, target: string, headers: Record<string, string>, body: FormData | File, credentials: boolean) =>
+    new Promise<string>((resolve, reject) => {
+      xhr.open(method, target);
+      xhr.withCredentials = credentials;
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
+      xhr.onerror = () => reject(new ApiError(0, "network", "the upload was interrupted"));
+      xhr.onabort = () => reject(new ApiError(0, "aborted", "the upload was cancelled"));
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
+        else {
+          let error: Failure | undefined;
+          try {
+            error = (JSON.parse(xhr.responseText) as { error?: Failure }).error;
+          } catch {
+            // no JSON body: a storage service answers with XML or nothing
+          }
+          reject(new ApiError(xhr.status, error?.code ?? "http_" + xhr.status, error?.message ?? xhr.statusText));
+        }
+      };
+      xhr.send(body);
+    });
+  const promise = (async () => {
+    const target = await request<UploadTarget>("/api/recordings/uploads", { method: "POST", body: JSON.stringify({ name: file.name, size: file.size }) });
+    if (aborted) throw new ApiError(0, "aborted", "the upload was cancelled");
+    if (target.mode === "direct" && target.url && target.id) {
+      await send(target.method ?? "PUT", target.url, target.headers ?? {}, file, false);
+      return request<Recording>(`/api/recordings/uploads/${enc(target.id)}/complete`, { method: "POST", body: JSON.stringify({ name: file.name }) });
+    }
     const form = new FormData();
     form.append("file", file, file.name);
-    xhr.send(form);
-  });
-  return { promise, abort: () => xhr.abort() };
+    return JSON.parse(await send("POST", url("/api/recordings"), {}, form, !!API_BASE)) as Recording;
+  })();
+  return {
+    promise,
+    abort: () => {
+      aborted = true;
+      xhr.abort();
+    },
+  };
 }

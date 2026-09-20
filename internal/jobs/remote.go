@@ -252,6 +252,24 @@ func (m *Manager) Follow(ctx context.Context) {
 	}
 }
 
+// learned takes back to the recording what the analysis found out: its
+// hash, when the upload arrived without one.
+func (m *Manager) learned(j *Job, sourceSHA256 string) {
+	updater, ok := m.cfg.Recordings.(RecordingUpdater)
+	if !ok || sourceSHA256 == "" {
+		return
+	}
+	ctx := context.Background()
+	recording, err := m.cfg.Recordings.GetRecording(ctx, j.SourceID)
+	if err != nil || recording.SHA256 == sourceSHA256 {
+		return
+	}
+	recording.SHA256 = sourceSHA256
+	if err := updater.UpdateRecording(ctx, recording); err != nil {
+		m.log.Warn("recording not updated after the analysis", "recording", j.SourceID, "error", err)
+	}
+}
+
 // fetch downloads the job's recording into its scratch directory and says
 // where the run reads and writes.
 func (m *Manager) fetch(ctx context.Context, job Job) (placement, error) {

@@ -49,6 +49,42 @@ type Summary struct {
 	BytesFreed        int64
 	SessionsDeleted   int64
 	FrameBytesPruned  int64
+	// OrphansDeleted counts uploads in the object store that no record
+	// names: direct uploads that were never completed.
+	OrphansDeleted int
+}
+
+// orphanAge is how old an upload nobody completed must be before it goes:
+// longer than an upload URL stays valid.
+const orphanAge = 24 * time.Hour
+
+// sweepOrphans deletes objects under originals/ that no recording names
+// and that are older than orphanAge.
+func (s Sweeper) sweepOrphans(ctx context.Context, now time.Time) (int, error) {
+	objects, err := s.Objects.List(ctx, "originals/")
+	if err != nil {
+		return 0, err
+	}
+	recordings, err := s.Store.ListRecordingsOlderThan(ctx, now.Add(24*time.Hour))
+	if err != nil {
+		return 0, err
+	}
+	named := map[string]bool{}
+	for _, recording := range recordings {
+		named[recording.Path] = true
+	}
+	deleted := 0
+	for _, object := range objects {
+		if named[object.Key] || now.Sub(object.ModTime) < orphanAge {
+			continue
+		}
+		if err := s.Objects.Delete(ctx, object.Key); err != nil {
+			s.log().Warn("orphaned upload not removed", "key", object.Key, "error", err)
+			continue
+		}
+		deleted++
+	}
+	return deleted, nil
 }
 
 // Run sweeps at the interval until ctx ends.
@@ -68,7 +104,7 @@ func (s Sweeper) Run(ctx context.Context) {
 				s.log().Warn("housekeeping sweep failed", "error", err)
 			} else if summary != (Summary{}) {
 				s.log().Info("housekeeping", "recordings_deleted", summary.RecordingsDeleted, "bytes_freed", summary.BytesFreed,
-					"sessions_deleted", summary.SessionsDeleted, "frame_bytes_pruned", summary.FrameBytesPruned)
+					"orphans_deleted", summary.OrphansDeleted, "sessions_deleted", summary.SessionsDeleted, "frame_bytes_pruned", summary.FrameBytesPruned)
 			}
 		}
 	}
@@ -95,6 +131,9 @@ func (s Sweeper) Sweep(ctx context.Context) (Summary, error) {
 					s.log().Warn("expired upload not removed", "recording", recording.ID, "error", err)
 					continue
 				}
+				if recording.KeptPath != "" {
+					s.Objects.Delete(ctx, recording.KeptPath)
+				}
 			} else if path, err := artifacts.Confined(s.RecordingsDir, recording.Path); err == nil {
 				if err := os.Remove(path); err != nil {
 					s.log().Warn("expired upload not removed", "recording", recording.ID, "error", err)
@@ -108,6 +147,13 @@ func (s Sweeper) Sweep(ctx context.Context) (Summary, error) {
 			summary.RecordingsDeleted++
 			summary.BytesFreed += recording.Size
 		}
+	}
+	if s.Objects != nil {
+		orphans, err := s.sweepOrphans(ctx, now)
+		if err != nil {
+			return summary, err
+		}
+		summary.OrphansDeleted = orphans
 	}
 	sessions, err := s.Store.DeleteExpiredSessions(ctx, now)
 	if err != nil {

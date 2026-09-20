@@ -107,6 +107,8 @@ var migrations = []string{
 	// the record, and the worker's heartbeat says it is still alive.
 	`ALTER TABLE jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT;`,
+	// The copy kept for playback once a worker has made one.
+	`ALTER TABLE recordings ADD COLUMN kept_path TEXT;`,
 }
 
 // Open opens or creates the database file and applies migrations.
@@ -454,23 +456,37 @@ func (s *Store) ListReportsForUser(ctx context.Context, userID string) ([]jobs.R
 
 // ---- recordings ----
 
-const recordingColumns = `id, user_id, name, path, size, sha256, created_at`
+const recordingColumns = `id, user_id, name, path, size, sha256, created_at, kept_path`
 
 func scanRecording(row interface{ Scan(...any) error }) (jobs.Recording, error) {
 	var r jobs.Recording
-	var created sql.NullString
-	if err := row.Scan(&r.ID, &r.UserID, &r.Name, &r.Path, &r.Size, &r.SHA256, &created); err != nil {
+	var created, kept sql.NullString
+	if err := row.Scan(&r.ID, &r.UserID, &r.Name, &r.Path, &r.Size, &r.SHA256, &created, &kept); err != nil {
 		return jobs.Recording{}, err
 	}
 	r.CreatedAt = parseStamp(created)
+	r.KeptPath = kept.String
 	return r, nil
 }
 
 // CreateRecording records an upload that is fully written to disk.
 func (s *Store) CreateRecording(ctx context.Context, r jobs.Recording) error {
-	_, err := s.exec(ctx, `INSERT INTO recordings (`+recordingColumns+`) VALUES (?,?,?,?,?,?,?)`,
-		r.ID, r.UserID, r.Name, r.Path, r.Size, r.SHA256, stamp(r.CreatedAt))
+	_, err := s.exec(ctx, `INSERT INTO recordings (`+recordingColumns+`) VALUES (?,?,?,?,?,?,?,?)`,
+		r.ID, r.UserID, r.Name, r.Path, r.Size, r.SHA256, stamp(r.CreatedAt), nullable(r.KeptPath))
 	return err
+}
+
+// UpdateRecording takes back what an analysis learned: the hash and the
+// kept copy. The rest of the record does not change.
+func (s *Store) UpdateRecording(ctx context.Context, r jobs.Recording) error {
+	res, err := s.exec(ctx, `UPDATE recordings SET sha256=?, kept_path=? WHERE id=?`, r.SHA256, nullable(r.KeptPath), r.ID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return &jobs.NotFoundError{Kind: "recording", ID: r.ID}
+	}
+	return nil
 }
 
 // GetRecording returns one upload record.
