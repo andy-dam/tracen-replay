@@ -34,6 +34,9 @@ const (
 	// maxTakes is how often a queued job's message may come back before the
 	// job is failed instead of tried again.
 	maxTakes = 3
+	// idlePollsBeforeExit is how many empty polls in a row end a worker
+	// that exits when idle.
+	idlePollsBeforeExit = 3
 	// defaultPoll is the wait between looks at an empty queue, for a
 	// cancellation request, and at the active jobs.
 	defaultPoll = 3 * time.Second
@@ -67,6 +70,7 @@ func (m *Manager) Work(ctx context.Context) error {
 	slots := make(chan struct{}, max(1, m.cfg.Parallel))
 	var running sync.WaitGroup
 	defer running.Wait()
+	idle := 0
 	for {
 		select {
 		case slots <- struct{}{}:
@@ -79,6 +83,11 @@ func (m *Manager) Work(ctx context.Context) error {
 		}
 		if !ok {
 			<-slots
+			idle++
+			if m.cfg.ExitWhenIdle && err == nil && idle >= idlePollsBeforeExit && len(slots) == 0 {
+				m.log.Info("queue empty; exiting as asked")
+				return nil
+			}
 			select {
 			case <-ctx.Done():
 				return nil
@@ -86,6 +95,7 @@ func (m *Manager) Work(ctx context.Context) error {
 			}
 			continue
 		}
+		idle = 0
 		id := message.Body
 		if !m.takeable(ctx, message) {
 			m.cfg.Queue.Delete(ctx, message)

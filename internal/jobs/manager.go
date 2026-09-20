@@ -85,6 +85,10 @@ type Config struct {
 	// empty queue and for a cancellation request, and the API process
 	// re-reads the active jobs; zero means a few seconds.
 	Poll time.Duration
+	// ExitWhenIdle makes Work return once the queue has been empty for a
+	// few polls in a row and nothing is running: a worker started on
+	// demand (a Container Apps job) ends instead of waiting.
+	ExitWhenIdle bool
 	// Clock and NewID are replaceable for tests.
 	Clock func() time.Time
 	NewID func() string

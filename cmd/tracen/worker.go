@@ -38,6 +38,7 @@ func runWorker(args []string) error {
 	keepCopy := fs.Bool("keep-copy", true, "after a completed analysis, encode a 720p playback copy of the recording and store it under kept/; the report and the recording then play from it")
 	ffmpeg := fs.String("ffmpeg", "ffmpeg", "ffmpeg executable for the playback copy")
 	copyThreads := fs.Int("copy-threads", 0, "threads for the playback copy's encoder; 0 lets ffmpeg decide")
+	exitWhenIdle := fs.Bool("exit-when-idle", false, "exit once the queue has been empty for a few polls and nothing is running (a worker started on demand, such as a Container Apps job)")
 	storage := addStorageFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -66,7 +67,7 @@ func runWorker(args []string) error {
 	cfg := jobs.Config{Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
 		QueueLimit: 1, KeepWorkingData: *keepWorkingData, MaxDuration: *maxAnalysis,
-		Recordings: db, Queue: q, Objects: objects, Scratch: *scratch, Logger: logger}
+		Recordings: db, Queue: q, Objects: objects, Scratch: *scratch, ExitWhenIdle: *exitWhenIdle, Logger: logger}
 	if *keepCopy {
 		cfg.KeepCopy = artifacts.Copy{FFmpeg: *ffmpeg, Threads: *copyThreads}.Encode
 	}
