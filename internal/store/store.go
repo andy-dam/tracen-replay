@@ -479,6 +479,25 @@ func (s *Store) ListRecordingsForUser(ctx context.Context, userID string) ([]job
 	return out, rows.Err()
 }
 
+// ListRecordingsOlderThan returns the uploads created before the given time,
+// oldest first.
+func (s *Store) ListRecordingsOlderThan(ctx context.Context, before time.Time) ([]jobs.Recording, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE created_at<? ORDER BY created_at, id`, stamp(before))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []jobs.Recording
+	for rows.Next() {
+		r, err := scanRecording(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // RecordingUsage counts one user's uploads and their bytes; an empty user
 // id counts everyone's.
 func (s *Store) RecordingUsage(ctx context.Context, userID string) (jobs.StorageUsage, error) {
@@ -572,6 +591,16 @@ func (s *Store) SessionUser(ctx context.Context, tokenHash string, now time.Time
 	}
 	u.CreatedAt = parseStamp(created)
 	return u, nil
+}
+
+// DeleteExpiredSessions drops every session past its expiry and returns
+// how many went.
+func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at<=?`, stamp(now))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // DeleteSession ends a session.

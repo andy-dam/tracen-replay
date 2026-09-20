@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,15 @@ type Container struct {
 	// Owner names this service instance on every container it starts, and
 	// is what Reap looks for. Empty leaves the label off, and Reap idle.
 	Owner string
+	// Memory, CPUs and PidsLimit are passed as --memory, --cpus and
+	// --pids-limit when set: an upload that makes the analyzer balloon is
+	// killed inside its container rather than taking the host down. Network
+	// is passed as --network when set; the analyzer needs none, its models
+	// and ffmpeg being in the image, so "none" is the hosted setting.
+	Memory    string
+	CPUs      string
+	PidsLimit int
+	Network   string
 	// KillGrace is how long a cancelled container gets to go away before the
 	// docker client is killed as a last resort. Zero means five seconds.
 	KillGrace time.Duration
@@ -133,6 +143,18 @@ func (c Container) Run(ctx context.Context, cmd worker.Command, onProgress func(
 	}
 	if c.GPUs != "" {
 		run = append(run, "--gpus", c.GPUs)
+	}
+	if c.Memory != "" {
+		run = append(run, "--memory", c.Memory)
+	}
+	if c.CPUs != "" {
+		run = append(run, "--cpus", c.CPUs)
+	}
+	if c.PidsLimit > 0 {
+		run = append(run, "--pids-limit", strconv.Itoa(c.PidsLimit))
+	}
+	if c.Network != "" {
+		run = append(run, "--network", c.Network)
 	}
 	for _, kv := range cmd.Env() {
 		run = append(run, "-e", kv)

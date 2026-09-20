@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -114,6 +115,63 @@ type Frames struct {
 	CacheDir string
 	// Timeout bounds one extraction.
 	Timeout time.Duration
+	// Gate, when set, bounds how many extractions run at once (NewGate);
+	// each is an ffmpeg process seeking through a recording.
+	Gate chan struct{}
+	// MaxCacheBytes bounds the cache; Prune removes the oldest frames until
+	// it fits. Zero leaves the cache unbounded.
+	MaxCacheBytes int64
+}
+
+// NewGate allows n extractions at once.
+func NewGate(n int) chan struct{} {
+	return make(chan struct{}, max(1, n))
+}
+
+// Prune removes the oldest cached frames until the cache is within
+// MaxCacheBytes, and returns the bytes removed. A frame's age is when it was
+// extracted; a viewer who comes back to an old report gets it extracted
+// again, which costs one ffmpeg seek.
+func (f Frames) Prune() (int64, error) {
+	if f.CacheDir == "" || f.MaxCacheBytes <= 0 {
+		return 0, nil
+	}
+	type frame struct {
+		path string
+		size int64
+		used time.Time
+	}
+	var frames []frame
+	var total int64
+	err := filepath.WalkDir(f.CacheDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil
+		}
+		frames = append(frames, frame{path: path, size: info.Size(), used: info.ModTime()})
+		total += info.Size()
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	if total <= f.MaxCacheBytes {
+		return 0, nil
+	}
+	sort.Slice(frames, func(i, j int) bool { return frames[i].used.Before(frames[j].used) })
+	var removed int64
+	for _, frame := range frames {
+		if total-removed <= f.MaxCacheBytes {
+			break
+		}
+		if err := os.Remove(frame.path); err == nil {
+			removed += frame.size
+		}
+	}
+	return removed, nil
 }
 
 // At returns the path of a JPEG of the recording at the given source
@@ -142,6 +200,14 @@ func (f Frames) At(ctx context.Context, reportID, recording string, timestampMS 
 	out := filepath.Join(dir, strconv.FormatInt(timestampMS, 10)+".jpg")
 	if info, err := os.Stat(out); err == nil && info.Size() > 0 {
 		return out, nil
+	}
+	if f.Gate != nil {
+		select {
+		case f.Gate <- struct{}{}:
+			defer func() { <-f.Gate }()
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
 	}
 	ffmpeg := f.FFmpeg
 	if ffmpeg == "" {

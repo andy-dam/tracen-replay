@@ -23,6 +23,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
+	"github.com/andy-dam/tracen-replay/internal/maintenance"
 	"github.com/andy-dam/tracen-replay/internal/runner"
 	"github.com/andy-dam/tracen-replay/internal/store"
 	"github.com/andy-dam/tracen-replay/internal/webassets"
@@ -85,6 +86,12 @@ func run() error {
 	dockerCLI := flag.String("docker", "docker", "docker command line client, used with -worker-image")
 	workerGPUs := flag.String("worker-gpus", "", "docker run --gpus value for the worker container, e.g. all, for an image built with the CUDA wheel; empty stays on the CPU provider")
 	workerUser := flag.String("worker-user", "", "docker run --user value for the worker container, e.g. 1000:1000, so its files belong to the service's user on a Linux host")
+	workerMemory := flag.String("worker-memory", "14g", "docker run --memory for the worker container (an analysis peaks near 5 GB plus 2 GB per OCR worker); empty for no bound")
+	workerCPUs := flag.String("worker-cpus", "", "docker run --cpus for the worker container; empty for no bound")
+	workerPids := flag.Int("worker-pids", 512, "docker run --pids-limit for the worker container; 0 for no bound")
+	workerNetwork := flag.String("worker-network", "none", "docker run --network for the worker container; the analyzer needs none")
+	recordingRetention := flag.Duration("recording-retention", 14*24*time.Hour, "uploads older than this that no analysis is using are deleted (their reports stay); 0 keeps uploads forever")
+	frameCache := flag.Int64("frame-cache-gb", 2, "space the extracted-frame cache may take, in GB, the oldest frames going first; 0 for no bound")
 	flag.Parse()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
@@ -112,7 +119,8 @@ func run() error {
 	analyzerQuery := runner.Exec{Logger: logger}.VersionQuery(*python, workDirAbs)
 	var container *runner.Container
 	if *workerImage != "" {
-		container = &runner.Container{Docker: *dockerCLI, Image: *workerImage, GPUs: *workerGPUs, User: *workerUser, Owner: dataDirAbs, Logger: logger}
+		container = &runner.Container{Docker: *dockerCLI, Image: *workerImage, GPUs: *workerGPUs, User: *workerUser, Owner: dataDirAbs, Logger: logger,
+			Memory: *workerMemory, CPUs: *workerCPUs, PidsLimit: *workerPids, Network: *workerNetwork}
 		jobRunner = *container
 		analyzerQuery = container.VersionQuery()
 	}
@@ -233,10 +241,15 @@ func run() error {
 	// serving must not wait on an interpreter or a container, and a missing
 	// analyzer is a readiness problem rather than a reason not to listen.
 	analyzer := &runner.AnalyzerVersion{Ask: analyzerQuery}
+	// Two frame extractions at once: a viewer scrubbing gets prompt frames,
+	// a crowd cannot fork ffmpeg without bound.
+	frames := artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames"), Gate: artifacts.NewGate(2), MaxCacheBytes: *frameCache << 30}
+	sweeper := maintenance.Sweeper{Store: db, RecordingsDir: recordingsDir, RecordingRetention: *recordingRetention, Frames: frames, Logger: logger}
+	go sweeper.Run(ctx)
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
 		Analyzer:     analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
-		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
+		Frames:       frames,
 		AllowedHosts: hosts, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static,
 		TrustedProxies: proxies, Registration: *registration, InviteCodes: invites,
 		UploadLimit: *uploadLimit << 30,

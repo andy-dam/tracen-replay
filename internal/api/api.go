@@ -183,6 +183,10 @@ type Server struct {
 	// registrations bounds account creation per client address: a script
 	// cannot fill the user table, and a leaked invite code is worth little.
 	registrations *auth.Limiter
+	// frames bounds frame extractions per user: each is an ffmpeg seek
+	// through a recording, and a viewer scrubbing needs a few a second at
+	// most.
+	frames *auth.Limiter
 }
 
 const sessionCookie = "tracen_session"
@@ -203,7 +207,7 @@ func New(cfg Config) *Server {
 		cfg.Registration = RegistrationOpen
 	}
 	s := &Server{cfg: cfg, mux: http.NewServeMux(), log: cfg.Logger, docs: newDocCache(8),
-		registrations: auth.NewLimiter(5, time.Hour)}
+		registrations: auth.NewLimiter(5, time.Hour), frames: auth.NewLimiter(120, time.Minute)}
 	s.routes()
 	return s
 }
@@ -682,6 +686,9 @@ func (s *Server) recordingFrame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "recording_unavailable", "the upload is no longer on disk")
 		return
 	}
+	if !s.frameAllowed(w, r) {
+		return
+	}
 	frame, err := s.cfg.Frames.At(r.Context(), "recording-"+recording.ID, path, ms)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "frame_unavailable", err.Error())
@@ -1087,6 +1094,9 @@ func (s *Server) reportFrame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "recording_unavailable", "the recording is no longer at its recorded path")
 		return
 	}
+	if !s.frameAllowed(w, r) {
+		return
+	}
 	path, err := s.cfg.Frames.At(r.Context(), report.ID, report.SourcePath, ms)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "frame_unavailable", err.Error())
@@ -1095,6 +1105,20 @@ func (s *Server) reportFrame(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Cache-Control", "private, max-age=86400")
 	http.ServeFile(w, r, path)
+}
+
+// frameAllowed counts a frame request against the user's limit and answers
+// 429 when it is spent.
+func (s *Server) frameAllowed(w http.ResponseWriter, r *http.Request) bool {
+	key := userFrom(r).ID
+	if key == "" {
+		key = s.clientAddress(r)
+	}
+	if s.frames.Allow(key) {
+		return true
+	}
+	writeError(w, http.StatusTooManyRequests, "too_many_requests", "too many frame requests; slow down for a minute")
+	return false
 }
 
 // reportVideo streams the recording behind a report (an upload or the file a

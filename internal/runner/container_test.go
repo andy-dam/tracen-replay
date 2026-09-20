@@ -216,6 +216,24 @@ func TestContainerPassesGPUsAndUserWhenAsked(t *testing.T) {
 	}
 }
 
+// A hosted worker is boxed: memory, CPUs and process count are capped and
+// it has no network, since everything it needs is in the image.
+func TestContainerPassesResourceBoundsWhenAsked(t *testing.T) {
+	c, logPath := fakeContainer(t, "ok")
+	c.Memory, c.CPUs, c.PidsLimit, c.Network = "14g", "4", 512, "none"
+	dir := t.TempDir()
+	cmd := worker.Command{Python: "p", WorkDir: "w", Source: filepath.Join(dir, "in.mp4"), Output: filepath.Join(dir, "out"), Workers: 2}
+	if _, _, err := c.Run(context.Background(), cmd, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	run := dockerCalls(t, logPath)[0]
+	for flag, want := range map[string]string{"--memory": "14g", "--cpus": "4", "--pids-limit": "512", "--network": "none"} {
+		if i := slices.Index(run, flag); i < 0 || run[i+1] != want {
+			t.Errorf("%s %s missing from %q", flag, want, run)
+		}
+	}
+}
+
 func TestContainerCancelRemovesTheContainerNotJustTheClient(t *testing.T) {
 	c, logPath := fakeContainer(t, "hang")
 	dir := t.TempDir()
