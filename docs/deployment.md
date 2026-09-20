@@ -402,8 +402,10 @@ it goes.
    northcentralus; the deployment uses `northcentralus` (Chicago, next
    to Oracle's Chicago region for the worker). The first run creates the resource group
    `tracen` with the storage account, PostgreSQL, the Container Apps
-   environment and the API, and prints the storage account name and
-   the client's URL. Without a domain the API serves the client itself
+   environment and the application (the container app `tracen-replay`;
+   its Azure hostname is that name under the environment's default
+   domain, and changes only if the environment is recreated), and prints
+   the storage account name and the client's URL. Without a domain the API serves the client itself
    at its Azure hostname, one site, so cookies need nothing special.
 3. **Storage connection string**, for the real-account tests and for the
    Oracle worker:
