@@ -602,10 +602,21 @@ serious is the next thing to look at.
       whole-card reread to the span rule (clamped, as the missing-gain
       path already was). Could's rerun proved the reader fix itself: the
       Dance +13 came from the reread, the Vocals +20 from the repaired
-      receipt. The one gap no rule covers: a
-      cursor parked on a badge digit for the whole card leaves a wrong
-      "observed" read (the accounting still gets the total right from the
-      bars); a cursor-aware badge read would be the fix.
+      receipt. The flags left after that got two more rules: a receipt's
+      direction word under the parked cursor ("Speed went  by 5." for two
+      seconds) is supplied by the frame's gain popup, whose sign must fit
+      what is left of the word and whose amount must be the line's number
+      (the +5 Could's 12:33 turn was missing, so its disputed badge can
+      settle); and a caption read with its head gone at the same right
+      edge and rows ("Challenge" where "Ready for a Challenge" sat)
+      continues its event instead of counting the receipt twice. Two gaps
+      no rule covers: a cursor parked on a badge digit for the whole card
+      leaves a wrong "observed" read (the accounting still gets the total
+      right from the bars; a cursor-aware badge read would be the fix), and
+      a result card dismissed in under a quarter second mid count-up
+      (20-52-07 37:09) never shows its numbers; they appear only in the
+      Log side panel that most PC recordings keep open beside the game,
+      which the analyzer does not read yet.
 - [ ] **Two runs of one recording can read a result card differently.**
       Gran Concert's 31:02 training read Dance +30 on the morning run and
       Visual +30 on the afternoon run of the same file; the dense rereads'
