@@ -112,3 +112,36 @@ func TestFramesExtractsAndCaches(t *testing.T) {
 		t.Fatal("a timestamp beyond the clip must fail rather than return an empty file")
 	}
 }
+
+// The playback copy is a smaller H.264 file with its index at the front,
+// which the frame extractor reads like the original.
+func TestCopyEncodesAPlayableCopy(t *testing.T) {
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	dir := t.TempDir()
+	recording := filepath.Join(dir, "clip.mp4")
+	make := exec.Command(ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=30", "-t", "2", "-pix_fmt", "yuv420p", recording)
+	if out, err := make.CombinedOutput(); err != nil {
+		t.Fatalf("ffmpeg test clip: %v %s", err, out)
+	}
+	kept := filepath.Join(dir, "kept.mp4")
+	if err := (Copy{FFmpeg: ffmpeg, Height: 120, Timeout: time.Minute}).Encode(context.Background(), recording, kept); err != nil {
+		t.Fatal(err)
+	}
+	media, err := ProbeMedia(context.Background(), "ffprobe", kept)
+	if err != nil {
+		t.Skip("ffprobe not installed: " + err.Error())
+	}
+	if !media.HasVideo || media.Height != 120 || media.Width != 160 {
+		t.Fatalf("copy: %+v", media)
+	}
+	head, _ := os.ReadFile(kept)
+	if len(head) < 64 || !strings.Contains(string(head[:64]), "moov") {
+		t.Fatalf("the index must be at the front of the copy: %q", head[:min(64, len(head))])
+	}
+	if _, err := (Frames{FFmpeg: ffmpeg, CacheDir: filepath.Join(dir, "cache"), Timeout: 20 * time.Second}).At(context.Background(), "rep-1", kept, 1000); err != nil {
+		t.Fatal(err)
+	}
+}

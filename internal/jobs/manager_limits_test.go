@@ -119,3 +119,32 @@ func TestAnAnalysisPastItsBoundTimesOut(t *testing.T) {
 		t.Fatalf("timed out job: %+v", done.Error)
 	}
 }
+
+// The month's budget counts every analysis started in the last 30 days,
+// whoever started it, over and above the day's.
+func TestMonthlyBudget(t *testing.T) {
+	now := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
+	h := newHarness(t, 8, func(c *jobs.Config) {
+		c.DailyTotal, c.MonthlyTotal = 10, 3
+		c.Clock = func() time.Time { return now }
+		c.Recordings = userUploads{path: c.Recordings.(oneUpload).path}
+	})
+	submit := func(user string) error {
+		_, err := h.manager.Submit(context.Background(), user, "src-"+user)
+		return err
+	}
+	for i, user := range []string{"u1", "u2", "u3"} {
+		if err := submit(user); err != nil {
+			t.Fatalf("submission %d: %v", i+1, err)
+		}
+		now = now.Add(24 * time.Hour)
+	}
+	var limit *jobs.LimitError
+	if err := submit("u4"); !errors.As(err, &limit) || limit.Code != "monthly_limit" || limit.Limit != 3 {
+		t.Fatalf("the month is full, got %v", err)
+	}
+	now = now.Add(28 * 24 * time.Hour)
+	if err := submit("u4"); err != nil {
+		t.Fatalf("a month on the first has aged out: %v", err)
+	}
+}

@@ -39,8 +39,9 @@ const (
 	defaultPoll = 3 * time.Second
 )
 
-// placement is where one run's files are on this machine.
-type placement struct{ source, output, log string }
+// placement is where one run's files are on this machine, and, once
+// made, the key of the playback copy.
+type placement struct{ source, output, log, kept string }
 
 func (m *Manager) remote() bool { return m.cfg.Queue != nil }
 
@@ -253,21 +254,61 @@ func (m *Manager) Follow(ctx context.Context) {
 }
 
 // learned takes back to the recording what the analysis found out: its
-// hash, when the upload arrived without one.
-func (m *Manager) learned(j *Job, sourceSHA256 string) {
+// hash, when the upload arrived without one, and the playback copy.
+func (m *Manager) learned(j *Job, sourceSHA256, kept string) {
 	updater, ok := m.cfg.Recordings.(RecordingUpdater)
-	if !ok || sourceSHA256 == "" {
+	if !ok || (sourceSHA256 == "" && kept == "") {
 		return
 	}
 	ctx := context.Background()
 	recording, err := m.cfg.Recordings.GetRecording(ctx, j.SourceID)
-	if err != nil || recording.SHA256 == sourceSHA256 {
+	if err != nil {
 		return
 	}
-	recording.SHA256 = sourceSHA256
+	changed := false
+	if sourceSHA256 != "" && recording.SHA256 != sourceSHA256 {
+		recording.SHA256, changed = sourceSHA256, true
+	}
+	if kept != "" && recording.KeptPath != kept {
+		recording.KeptPath, changed = kept, true
+	}
+	if !changed {
+		return
+	}
 	if err := updater.UpdateRecording(ctx, recording); err != nil {
 		m.log.Warn("recording not updated after the analysis", "recording", j.SourceID, "error", err)
 	}
+}
+
+// keepCopy encodes the playback copy of the job's recording and stores it
+// under kept/; it returns the key, or "" when no copy could be made, which
+// only costs playback from the copy.
+func (m *Manager) keepCopy(ctx context.Context, job Job, place placement) string {
+	m.mu.Lock()
+	if current, err := m.store.GetJob(ctx, job.ID); err == nil {
+		current.Stage, current.StageAt = "keeping a playback copy", m.cfg.Clock()
+		current.HeartbeatAt = current.StageAt
+		m.store.UpdateJob(ctx, current)
+		m.mu.Unlock()
+		m.publish(current, nil)
+	} else {
+		m.mu.Unlock()
+	}
+	dst := filepath.Join(filepath.Dir(place.output), "kept.mp4")
+	if err := m.cfg.KeepCopy(ctx, place.source, dst); err != nil {
+		m.log.Warn("playback copy not made", "job", job.ID, "error", err)
+		return ""
+	}
+	owner := "local"
+	if job.UserID != "" {
+		owner = job.UserID
+	}
+	key := "kept/" + owner + "/" + job.SourceID + ".mp4"
+	if err := m.putFile(context.WithoutCancel(ctx), key, dst, "video/mp4"); err != nil {
+		m.log.Warn("playback copy not stored", "job", job.ID, "error", err)
+		return ""
+	}
+	return key
 }
 
 // fetch downloads the job's recording into its scratch directory and says
