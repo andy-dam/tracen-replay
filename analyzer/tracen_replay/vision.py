@@ -398,6 +398,25 @@ class CompactInputEngine:
 STRIP_PROBE_BOXES=tuple((x,700,x+35,719) for x in (310,410,510,610,710))
 STRIP_PROBE_MIN=.35
 
+# The lean OCR experiment (TRACEN_REPLAY_OCR_LEAN=skip|reuse|both). Every fixed
+# box a parser reads detected lines from, in frame coordinates: a detected line
+# whose centre lies in none of them is read by no rule (the Skip and Quick
+# buttons, the far edges). A line whose crop is the same pixels as a line in
+# the same place on the last pane this process read is recognised again for
+# nothing; the recogniser is deterministic on identical pixels.
+_READ_ZONES=((250,770,850,1000),(240,195,850,245),(780,450,950,535),(720,580,950,635),(690,457,810,495),(690,395,800,875),
+             (585,550,710,600),(550,225,850,280),(500,325,650,380),(480,205,550,255),(440,85,760,116),(440,130,820,245),
+             (430,650,700,760),(430,0,760,80),(400,595,710,635),(400,550,590,600),(390,28,830,62),(300,500,400,540),
+             (280,900,425,936),(280,85,650,125),(280,425,810,456),(280,160,550,355),(260,790,850,1005),(260,457,810,495),
+             (260,0,390,80),(250,500,830,900),(240,735,850,850),(210,160,420,200),(150,250,270,285),(148,0,450,30),(140,850,700,960))
+_LEAN_REUSE_MEAN=1.0
+# A changed glyph is a few dozen pixels that moved by far more than noise;
+# in a long line those are under one percent of the crop, so the test is a
+# count of strongly changed pixels, not a percentile.
+_LEAN_REUSE_CHANGED_LEVEL=40
+_LEAN_REUSE_CHANGED_PIXELS=2
+_LEAN_REUSE_IOU=.9
+
 
 def _strip_saturation(colors):
     """The fraction of a crop's pixels that carry a colour.
@@ -422,6 +441,9 @@ class NeuralReader:
         self.engine=CompactInputEngine(RapidOCR(params=dict(PARAMS,**{'Global.model_root_dir':str(model_dir),
             'Rec.lang_type':LangRec.EN,'Rec.ocr_version':OCRVersion.PPOCRV5,'Rec.model_type':ModelType.MOBILE})))
         self.models={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(model_dir).glob('*.onnx') if p.name in ('PP-OCRv6_det_small.onnx','en_PP-OCRv5_rec_mobile.onnx')}
+        self.lean=os.environ.get('TRACEN_REPLAY_OCR_LEAN','').strip().lower()
+        self._reuse_prev=None
+        self.lean_counts=dict(detected=0,skipped=0,reused=0,recognised=0)
         from .code_identity import function_digest
         component_code = b''.join(
             function_digest(globals()[name])
@@ -631,6 +653,84 @@ class NeuralReader:
             pass
         return raw
 
+    def _engine_lines(self,bgr):
+        """Detect and recognise a pane as the engine does, with the lean levers between the two steps.
+
+        With ``skip`` a detected line no parser reads (its centre in none of
+        _READ_ZONES) is not recognised. With ``reuse`` a detected line whose
+        crop is the same pixels, within noise, as a line in the same place on
+        the last pane this process read takes that line's text, score and
+        word boxes instead of being recognised again. ``both`` does both. Off,
+        the engine's own call runs unchanged.
+        """
+        lean=getattr(self,'lean','')
+        if lean not in ('skip','reuse','both'):
+            return self.engine(bgr,return_word_box=True)
+        self.lean=lean
+        if not hasattr(self,'lean_counts'):self.lean_counts=dict(detected=0,skipped=0,reused=0,recognised=0)
+        if not hasattr(self,'_reuse_prev'):self._reuse_prev=None
+        from rapidocr.main import RapidOCRError,RapidOCROutput,TextClsOutput,TextDetOutput,filter_by_indices,map_boxes_to_original
+        np=self.np
+        eng=self.engine._engine
+        eng.update_params(return_word_box=True)
+        ori=eng.load_img(np.ascontiguousarray(bgr))
+        img,op_record=eng.preprocess_img(ori)
+        try:
+            cropped,det=eng.detect_and_crop(img,op_record)
+        except RapidOCRError:
+            self._reuse_prev=None
+            return RapidOCROutput()
+        height,width=ori.shape[:2]
+        quads=map_boxes_to_original(det.boxes.copy(),copy.deepcopy(op_record),height,width)
+        gray=ori[:,:,1].astype(np.int16)
+        prev_gray,prev_entries=self._reuse_prev if self._reuse_prev is not None else (None,[])
+        def bounds(quad):
+            return (float(quad[:,0].min()),float(quad[:,1].min()),float(quad[:,0].max()),float(quad[:,1].max()))
+        def iou(a,b):
+            ix=max(0,min(a[2],b[2])-max(a[0],b[0]));iy=max(0,min(a[3],b[3])-max(a[1],b[1]));inter=ix*iy
+            union=(a[2]-a[0])*(a[3]-a[1])+(b[2]-b[0])*(b[3]-b[1])-inter
+            return inter/union if union>0 else 0
+        todo=[];reused=[]
+        for index,quad in enumerate(quads):
+            box=bounds(quad)
+            self.lean_counts['detected']+=1
+            if self.lean in ('skip','both'):
+                cx,cy=(box[0]+box[2])/2+PANE[0],(box[1]+box[3])/2
+                if not any(x0<=cx<=x1 and y0<=cy<=y1 for x0,y0,x1,y1 in _READ_ZONES):
+                    self.lean_counts['skipped']+=1
+                    continue
+            if self.lean in ('reuse','both') and prev_gray is not None:
+                match=max(prev_entries,key=lambda e:iou(e['box'],box),default=None)
+                if match is not None and iou(match['box'],box)>=_LEAN_REUSE_IOU:
+                    x0=max(0,int(min(box[0],match['box'][0]))-2);y0=max(0,int(min(box[1],match['box'][1]))-2)
+                    x1=min(width,int(max(box[2],match['box'][2]))+3);y1=min(height,int(max(box[3],match['box'][3]))+3)
+                    diff=np.abs(gray[y0:y1,x0:x1]-prev_gray[y0:y1,x0:x1])
+                    if diff.size and float(diff.mean())<=_LEAN_REUSE_MEAN and int((diff>_LEAN_REUSE_CHANGED_LEVEL).sum())<=_LEAN_REUSE_CHANGED_PIXELS:
+                        self.lean_counts['reused']+=1
+                        reused.append(dict(match,quad=quad,box=box))
+                        continue
+            todo.append(index)
+        entries=[]
+        if todo:
+            self.lean_counts['recognised']+=len(todo)
+            subset=TextDetOutput(boxes=det.boxes[todo],scores=filter_by_indices(det.scores,todo),elapse=det.elapse)
+            try:
+                rec=eng.recognize_txt([cropped[i] for i in todo])
+                out=eng.build_final_output(ori,subset,TextClsOutput(),rec,[cropped[i] for i in todo],op_record)
+            except RapidOCRError:
+                out=RapidOCROutput()
+            if out.txts:
+                words=list(getattr(out,'word_results',None) or ())
+                if len(words)!=len(out.txts):words=[()]*len(out.txts)
+                for quad,text,score,word in zip(out.boxes,out.txts,out.scores,words):
+                    entries.append(dict(quad=quad,box=bounds(quad),text=text,score=score,words=word))
+        entries.extend(reused)
+        self._reuse_prev=(gray,entries)
+        if not entries:
+            return RapidOCROutput()
+        return RapidOCROutput(img=ori,boxes=np.array([e['quad'] for e in entries]),txts=tuple(e['text'] for e in entries),
+                              scores=tuple(e['score'] for e in entries),word_results=tuple(e['words'] for e in entries))
+
     def read(self,pane):
         if pane.size != (810,1080):
             raise ValueError('Neural OCR accepts only the gameplay crop.')
@@ -640,7 +740,7 @@ class NeuralReader:
         # costs nothing and changes no text or score; it is kept for the
         # receipt band alone, where an obstruction over a line has to be
         # judged word by word.
-        result=self.engine(array[:,:,::-1],return_word_box=True)
+        result=self._engine_lines(array[:,:,::-1])
         lines=[]
         if result.txts:
             found=getattr(result,'word_results',None) or ((),)*len(result.txts)
