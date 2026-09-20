@@ -146,6 +146,55 @@ def subject_word_obstructed(line,overlays):
     return not any(touches(overlay,w['box']) for overlay in overlays for w in words[1:])
 
 
+def direction_word_obstructed(line,overlays):
+    """True when an obstruction on a one-word receipt covers only the place of its direction word.
+
+    "Speed went  by 5." with the cursor parked over "up": the subject, "went",
+    the number and its full stop are read, and the overlay sits between the
+    verb and the number without touching any of those three. Only the
+    direction word can have suffered; which word it was is not for the
+    geometry to say.
+    """
+    from .receipt_grammar import direction_receipt
+    text=line.get('text','')
+    if not any(direction_receipt(text,direction) for direction in ('up','down')):return False
+    words=line.get('word_boxes')
+    if not isinstance(words,list) or len(words)<4 or not overlays:return False
+    if not all(isinstance(w,dict) and isinstance(w.get('box'),list) and len(w['box'])==4 for w in words):return False
+    # The words must spell the line; a remnant may have been read as its own
+    # word ("u", "by") or fused ("uby"), so spacing does not count.
+    if ''.join(str(w.get('text','')) for w in words)!=text.replace(' ',''):return False
+    subject,verb,number=words[0],words[1],words[-1]
+    if verb.get('text')!='went' or not re.fullmatch(r'\d+[.!]',str(number.get('text',''))):return False
+    top=min(w['box'][1] for w in words);bottom=max(w['box'][3] for w in words)
+    gap=[verb['box'][2],top,number['box'][0],bottom]
+    def touches(overlay,box):
+        return (min(overlay[2],box[2])-max(overlay[0],box[0])>0
+                and min(overlay[3],box[3])-max(overlay[1],box[1])>0)
+    if not any(touches(overlay,gap) for overlay in overlays):return False
+    return not any(touches(overlay,w['box']) for overlay in overlays for w in (subject,verb,number))
+
+
+def direction_word_resolution(line,lines):
+    """The direction the frame's gain popup proves for a hidden direction word, or None.
+
+    While a receipt shows, the game floats the change over the scene as a
+    tall signed number with the stat's name under it. Its sign is the
+    direction and its amount must be the number the line read; exactly one
+    direction may fit.
+    """
+    from .receipt_grammar import direction_receipt
+    from .gameplay import gain_popup
+    text=line.get('text','');found=[]
+    for direction in ('up','down'):
+        mended=direction_receipt(text,direction)
+        if not mended:continue
+        popup=gain_popup(lines,mended.split(' ',1)[0].lower(),direction)
+        if popup and popup['amount']==int(re.search(r'(\d+)[.!]$',mended)[1]):
+            found.append(dict(direction=direction,gain_popup=popup['popup'],gain_popup_label=popup['label']))
+    return found[0] if len(found)==1 else None
+
+
 def recovered_leading_digit(line,alignments):
     """Padded OCR views can expose a digit missed by the tight alignment crop."""
     from .refine_receipts import consensus
@@ -577,6 +626,14 @@ def annotate(raw,pane):
                 resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
                                      basis='overlay_covers_fixed_subject_word',independent_frame_count=1))
                 continue
+            # And over the place of its direction word alone, when the gain
+            # popup over the scene states which way the stat went.
+            if direction_word_obstructed(line,overlaps):
+                proof=direction_word_resolution(line,raw['lines'])
+                if proof:
+                    resolved.append(dict(text=line['text'],box=line['box'],overlay_boxes=overlaps,
+                                         basis='overlay_covers_fixed_direction_word',independent_frame_count=1,**proof))
+                    continue
             animated_overlaps=[box for box in overlaps if box in particle_boxes]
             blocked.append(dict(text=line['text'],box=line['box'],confidence=line['confidence'],overlay_boxes=overlaps,
                                 animated_overlay_boxes=animated_overlaps,

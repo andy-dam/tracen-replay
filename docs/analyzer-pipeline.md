@@ -233,7 +233,18 @@ its confidence (basis `overlay_covers_fixed_subject_word`) and the word is
 repaired only if exactly one of the fixed subjects is within one substitution
 or deletion of it (two edits for a subject of seven letters or more, the
 cursor covering about two letters: "Slumina" is Stamina), recorded as
-`text_normalization: obstructed_subject_word`. The cursor is found on the
+`text_normalization: obstructed_subject_word`. And for the direction word of
+such a receipt ("Speed went  by 5." or "went uby 5." with the cursor parked
+over "up"): when the overlays sit between "went" and the number and touch
+neither the subject, the verb nor the number, only that word can have
+suffered, and the frame's gain popup (the tall "+5" with "Speed" under it,
+the same popup a cut receipt takes its number from) states which way the stat
+went; its sign must fit what is left of the word ("u" is not "down") and its
+amount must be the number the line read. The line then keeps its confidence
+(basis `overlay_covers_fixed_direction_word`, with the popup as evidence) and
+the direction is supplied around what was read, recorded as
+`text_normalization: obstructed_direction_word`. Frames without the popup
+stay blocked; the receipt is stated by the frames that carry it. The cursor is found on the
 bubble even when parked over a word: the letters under and beside it take a
 share of its surroundings, so a third of them white is enough
 (`CURSOR_WHITE_SURROUND`).

@@ -136,6 +136,38 @@ def _subject_within_reach(observed, expected):
     return _edit_distance(observed, expected) <= 2
 
 
+_DIRECTIONS = ('up', 'down')
+
+
+def direction_receipt(text, direction):
+    """Return a one-word receipt whose direction word was hidden, read as ``direction``, or None.
+
+    "Speed went  by 5." with the cursor parked over "up", or "went uby 5."
+    with the cursor over most of it: the subject, "went", "by", the number
+    and the punctuation come back exactly as they were read; the one word
+    between "went" and "by" is missing or a remnant. A remnant must be
+    letters of ``direction`` in their order ("u", "dwn"), and the subject
+    must already read as a field: this repair touches the direction alone.
+
+    Which direction it was must come from elsewhere, the gain popup over the
+    scene whose sign and amount state it; see
+    ``receipt_occlusion.direction_word_obstructed``.
+    """
+    if direction not in _DIRECTIONS:
+        return None
+    match = re.fullmatch(r'(?P<subject>[A-Za-z]+) went (?P<remnant>[A-Za-z]*?) ?by (?P<amount>\d+)(?P<stop>[.!])',
+                         re.sub(r' {2,}', ' ', text))
+    if not match or match['subject'] not in _READ_SUBJECTS:
+        return None
+    position = 0
+    for letter in match['remnant']:
+        position = direction.find(letter, position)
+        if position < 0:
+            return None
+        position += 1
+    return f"{match['subject']} went {direction} by {match['amount']}{match['stop']}"
+
+
 def normalize(text, *, allow_boundary_repair=False):
     receipt = friendship_receipt(text)
     if receipt and receipt['boundary_repaired'] and not allow_boundary_repair:

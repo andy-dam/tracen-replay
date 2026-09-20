@@ -2419,6 +2419,17 @@ def parse(raw):
             if (line['text'],tuple(line['box'])) not in obstructed_subjects:continue
             mended=subject_receipt(line['text'])
             if mended:outcome_lines[position]=dict(line,text=mended,original_subject_word=line['text'])
+    # And the direction word such a receipt lost under the obstruction
+    # ("Speed went  by 5."), the frame's gain popup having stated which way.
+    obstructed_directions={(item.get('text'),tuple(item.get('box') or ())):item.get('direction')
+                           for item in raw.get('resolved_receipt_occlusions') or []
+                           if isinstance(item,dict) and item.get('basis')=='overlay_covers_fixed_direction_word'}
+    if obstructed_directions:
+        from .receipt_grammar import direction_receipt
+        for position,line in enumerate(outcome_lines):
+            direction=obstructed_directions.get((line['text'],tuple(line['box'])))
+            mended=direction_receipt(line['text'],direction) if isinstance(direction,str) else None
+            if mended:outcome_lines[position]=dict(line,text=mended,original_direction_word=line['text'])
     joined=[];index=0
     while index<len(outcome_lines):
         line=outcome_lines[index]
@@ -2498,6 +2509,10 @@ def parse(raw):
         if subject_line:
             effect['original_text']=subject_line['original_subject_word']
             effect['text_normalization']='obstructed_subject_word'
+        direction_line=next((l for l in joined if l['text']==effect['raw_text'] and l.get('original_direction_word')),None)
+        if direction_line:
+            effect['original_text']=direction_line['original_direction_word']
+            effect['text_normalization']='obstructed_direction_word'
     # Typewriter/fade frames can expose a prefix such as "... by 5" of "... by 57."
     # Numeric receipts require their visible sentence terminator in this layout,
     # except one whose number came from the gain popup: its line never had one.
