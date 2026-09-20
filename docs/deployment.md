@@ -369,12 +369,13 @@ it goes.
    (`az account show --query id`).
 2. **Azure CLI signed in** (`az login`) on a machine that can run
    `deploy/azure/deploy.sh` (Git Bash works). The script needs
-   `TRACEN_APP_ORIGIN`, `TRACEN_API_IMAGE`, `TRACEN_PG_PASSWORD` in its
-   environment (its header lists them). The first run creates the
-   resource group `tracen` with the storage account, PostgreSQL, the
-   Container Apps environment, the API and the Static Web App, and prints
-   the storage account name, the API's default host and the client's
-   default host.
+   `TRACEN_API_IMAGE` and `TRACEN_PG_PASSWORD` in its environment (its
+   header lists them; the images must exist on GHCR first, which the
+   first release run makes). The first run creates the resource group
+   `tracen` with the storage account, PostgreSQL, the Container Apps
+   environment and the API, and prints the storage account name and
+   the client's URL. Without a domain the API serves the client itself
+   at its Azure hostname, one site, so cookies need nothing special.
 3. **Storage connection string**, for the real-account tests and for the
    Oracle worker:
    `az storage account show-connection-string --name <account> --resource-group tracen -o tsv`.
@@ -395,11 +396,14 @@ it goes.
    packages (`tracen-replay`, `tracen-replay-worker`) to public in the
    GitHub package settings so Azure and Oracle can pull them without
    credentials.
-7. **A domain** (optional but wanted for cookies and a clean URL):
-   `app.<domain>` as the Static Web App's custom domain and `api.<domain>`
-   as the container app's, each a CNAME the portal shows; then rerun
-   `deploy.sh` with `TRACEN_API_HOST=api.<domain>` and
-   `TRACEN_APP_ORIGIN=https://app.<domain>`.
+7. **A domain** (optional; a clean URL): the GitHub Student Developer
+   Pack gives a `.me` domain from Namecheap free for a year. With one,
+   rerun `deploy.sh` with `TRACEN_APP_ORIGIN=https://app.<domain>` and
+   `TRACEN_API_HOST=api.<domain>`; that creates the Static Web App for
+   the client and switches the API to `-api-only`. Then `app.<domain>`
+   as the Static Web App's custom domain and `api.<domain>` as the
+   container app's, each a CNAME the portal shows, and the client token
+   (item 5) for the release workflow.
 8. **Oracle Cloud account** (a card is required; nothing is charged on
    Always Free): a compartment, a VCN with a public subnet, and an
    `VM.Standard.A1.Flex` instance (2 OCPU, 12 GB; retry until capacity
