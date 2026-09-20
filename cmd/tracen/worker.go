@@ -43,7 +43,7 @@ func runWorker(args []string) error {
 		return err
 	}
 	if *storage.queue == "" {
-		return errors.New("tracen worker needs -queue: there is nothing to take jobs from")
+		return errors.New("tracen worker needs -shared-queue: there is nothing to take jobs from")
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)

@@ -292,29 +292,124 @@ plan are:
 ## 8. Code changes, in order
 
 Each step keeps the local single-binary application working, because the
-local application is the development loop.
+local application is the development loop. Every step below is built and
+tested on the `develop` branch as of 2026-09-20; what is still open is
+listed under "Still to do" and section 11 says what the owner sets up.
 
-1. **Object store interface.** `Put`, `Get`, `Delete`, `Presign` for
-   upload and for read, `List` by prefix and age. Implementations: the
-   local directory (today's behaviour) and Azure Blob. Uploads, kept
-   copies, reports and the frame cache go through it.
-2. **Postgres store.** The `store` package behind the same interfaces on
-   Postgres, with the SQLite implementation kept; migrations shared.
-3. **Queue interface and worker mode.** The manager splits into the
-   submitter (in the API) and the worker loop (`tracen worker`), joined by
-   a `Queue` with in-process (local) and Azure Storage Queue
-   implementations. The worker loop pulls, renews visibility, runs the
-   analyzer through the existing `Runner`, uploads results, acknowledges.
-4. **Upload by SAS URL** with the ffprobe gate run against the blob URL,
-   and a recording page that says until when the original can be analyzed
-   again.
-5. **Keep-copy encode** on the worker after a successful analysis, and the
-   video and frame routes served from the copy. Re-analysis reads the
-   cold original (a rehydration is not needed for the cold tier, only a
-   read charge).
-6. **Monthly budget flag** and the Azure job's own budget check.
-7. **Deployment definitions** (Bicep for Azure, a Terraform or shell script
-   for Oracle) and the CI changes above.
+1. **Object store interface.** Done: `internal/objectstore` (`Put`,
+   `Open`, `Stat`, `Delete`, `List`, `PresignUpload`, `PresignRead`) on a
+   directory (`-object-store dir:PATH`) and on Azure Blob
+   (`-object-store azure`). Records name files by key: `originals/<user>/
+   <id>.<ext>`, `kept/<user>/<recording>.mp4`, `jobs/<job>/run/...`,
+   `jobs/<job>/worker.log`. The API reads reports from the store, plays a
+   recording from the store's file or by redirecting to a URL it signs
+   for an hour, and ffmpeg extracts frames from that URL.
+2. **Postgres store.** Done: `-database postgres` with
+   `TRACEN_DATABASE_URL`; the same SQL on both engines through a
+   placeholder rewrite; the store tests run on PostgreSQL in CI.
+3. **Queue and worker mode.** Done: `internal/queue` (in memory, and an
+   Azure Storage Queue) and `tracen worker`. With `-shared-queue azure`
+   the API only queues (the job id on the queue) and follows the record
+   for the event stream; a worker takes the id, fetches the recording to
+   its scratch directory, runs the analyzer, uploads the report, the
+   timeline and the log. The hold on the message is renewed every four
+   minutes, a heartbeat is written every minute, a cancellation crosses
+   machines through `cancel_requested` on the record, and a job whose
+   worker died is settled as interrupted by the API after 15 silent
+   minutes or by the next worker that gets the message back.
+4. **Upload by signed URL.** Done: `POST /api/recordings/uploads` gives
+   the browser a target (quotas checked, a URL valid for two hours) and
+   `POST /api/recordings/uploads/{id}/complete` probes the object where it
+   lies and records it; the client uses it when offered and posts the
+   file to the API otherwise. The recording's hash is filled in by the
+   worker that first analyzes it. Uploads nobody completed are swept
+   after a day.
+5. **Keep-copy encode.** Done: the worker encodes the 720p copy after a
+   completed analysis (`-keep-copy`, on by default; libx264 veryfast,
+   30 fps, no audio, index at the front), stores it under `kept/`, and
+   the report and the recording play from it.
+6. **Monthly budget.** Done: `-monthly-total`.
+7. **Deployment definitions.** Written, not yet run against an account:
+   `deploy/azure/main.bicep` (compiles) with `deploy/azure/deploy.sh`,
+   `deploy/oracle/cloud-init.yaml`, and `.github/workflows/release.yml`
+   (images to GHCR for amd64 and arm64 on every push to `main`; the API
+   and the client deployed when the secrets exist).
+
+Still to do, none of it blocking a first deployment:
+
+- The Azure Blob and Queue code paths have only been exercised against
+  the SDK's contract, not a real account: the Azurite emulator refuses
+  this SDK's signatures. `TRACEN_TEST_AZURE_STORAGE=<connection string>
+  go test ./internal/objectstore ./internal/queue` runs the real tests
+  the moment an account exists; that is the first thing to do after
+  provisioning.
+- The overflow Container Apps job (section 2) and its own budget check.
+- The recording page saying until when the original can be analyzed
+  again (90 days from upload), and a re-analysis refused up front after
+  that instead of failing as `source_unavailable`.
+- Frames extracted on the API are cached on its ephemeral disk
+  (`-frame-cache-gb 1`), not in the `frames` container; a replica restart
+  re-extracts. Good enough at this scale.
+- `-trusted-proxy` for the Container Apps ingress is set on the second
+  deploy, once the API's logs show the ingress address.
+
+## 11. What the owner sets up
+
+The code cannot go further without accounts. Everything below is a thing
+only the account holder can do; each says what comes out of it and where
+it goes.
+
+1. **Azure for Students subscription.** Sign up at azure.microsoft.com/
+   free/students with the school email. Note the subscription id
+   (`az account show --query id`).
+2. **Azure CLI signed in** (`az login`) on a machine that can run
+   `deploy/azure/deploy.sh` (Git Bash works). The script needs
+   `TRACEN_APP_ORIGIN`, `TRACEN_API_IMAGE`, `TRACEN_PG_PASSWORD` in its
+   environment (its header lists them). The first run creates the
+   resource group `tracen` with the storage account, PostgreSQL, the
+   Container Apps environment, the API and the Static Web App, and prints
+   the storage account name, the API's default host and the client's
+   default host.
+3. **Storage connection string**, for the real-account tests and for the
+   Oracle worker:
+   `az storage account show-connection-string --name <account> --resource-group tracen -o tsv`.
+   It goes into `TRACEN_TEST_AZURE_STORAGE` for one test run and into
+   `/etc/tracen/worker.env` on the Oracle instance. It is a secret.
+4. **GitHub Actions sign-in to Azure**: an app registration with a
+   federated credential for `repo:andy-dam/tracen-replay:ref:refs/heads/main`
+   and the Contributor role on the resource group; its client id, the
+   tenant id and the subscription id become the repository secrets
+   `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`. The
+   repository variable `TRACEN_RG` is `tracen`.
+5. **Client deployment token**: `az staticwebapp secrets list --name tracen-web
+   --resource-group tracen --query properties.apiKey -o tsv` becomes the
+   secret `AZURE_STATIC_WEB_APPS_API_TOKEN`; the variable
+   `TRACEN_API_BASE` is the API's origin (`https://api.<domain>` or the
+   default host).
+6. **GHCR packages public**: after the first release run, set the two
+   packages (`tracen-replay`, `tracen-replay-worker`) to public in the
+   GitHub package settings so Azure and Oracle can pull them without
+   credentials.
+7. **A domain** (optional but wanted for cookies and a clean URL):
+   `app.<domain>` as the Static Web App's custom domain and `api.<domain>`
+   as the container app's, each a CNAME the portal shows; then rerun
+   `deploy.sh` with `TRACEN_API_HOST=api.<domain>` and
+   `TRACEN_APP_ORIGIN=https://app.<domain>`.
+8. **Oracle Cloud account** (a card is required; nothing is charged on
+   Always Free): a compartment, a VCN with a public subnet, and an
+   `VM.Standard.A1.Flex` instance (2 OCPU, 12 GB; retry until capacity
+   appears; never delete it once it exists) with Ubuntu 24.04 arm64 and
+   `deploy/oracle/cloud-init.yaml` as its user data, with the storage
+   connection string, the PostgreSQL URL and the image filled into the
+   `worker.env` block first. Its public address goes into
+   `TRACEN_WORKER_IPS` for the next `deploy.sh` run so PostgreSQL admits
+   it. Optional: upgrade the account to pay-as-you-go for 4 OCPU / 24 GB
+   and no idle reclaim.
+9. **Then**, in this order: run the real-account tests (item 3), push
+   `develop` to `main` through a pull request (the release workflow builds
+   and deploys), watch a first upload go through the queue to the Oracle
+   worker and come back as a report, and read the API's logs for the
+   ingress address to set `TRACEN_TRUSTED_PROXIES`.
 
 ## 9. Running it for a year
 

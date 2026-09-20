@@ -7,6 +7,15 @@ running service onto it, with nobody logging into a server.
 
 ## What runs today
 
+Two workflows: `ci.yml` (below) on every push to `main` and `develop` and
+every pull request, and `release.yml` on every push to `main`, which
+builds the worker and service images for amd64 and arm64, pushes them to
+GHCR tagged by commit and as `latest`, and, when the repository secrets
+and variables exist, deploys the API (a `containerapp update` to the
+commit's image) and the client (the Static Web Apps action on the built
+bundle). The Oracle worker pulls `latest` once a day on its own
+(`deploy/oracle/cloud-init.yaml`).
+
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push
 to `main` and on every pull request:
 
