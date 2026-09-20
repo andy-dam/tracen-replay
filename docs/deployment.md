@@ -342,12 +342,13 @@ listed under "Still to do" and section 11 says what the owner sets up.
 
 Still to do, none of it blocking a first deployment:
 
-- The Azure Blob and Queue code paths have only been exercised against
-  the SDK's contract, not a real account: the Azurite emulator refuses
-  this SDK's signatures. `TRACEN_TEST_AZURE_STORAGE=<connection string>
-  go test ./internal/objectstore ./internal/queue` runs the real tests
-  the moment an account exists; that is the first thing to do after
-  provisioning.
+- The Azure Blob and Queue code paths were exercised on 2026-09-20
+  through the deployed API (direct upload by a user-delegation SAS,
+  probe by URL, playback redirect, frame from the URL, enqueue, cancel,
+  delete). The SDK-level tests still run against the account with
+  `TRACEN_TEST_AZURE_STORAGE=<connection string> go test
+  ./internal/objectstore ./internal/queue` when the store or queue code
+  changes.
 - The overflow Container Apps job (section 2) and its own budget check.
 - The recording page saying until when the original can be analyzed
   again (90 days from upload), and a re-analysis refused up front after
@@ -359,6 +360,13 @@ Still to do, none of it blocking a first deployment:
   deploy, once the API's logs show the ingress address.
 
 ## 11. What the owner sets up
+
+Deployed on 2026-09-20: resource group `tracen` in North Central US,
+storage account `tracen25rbwzu2mj4vo`, PostgreSQL
+`tracen-pg.postgres.database.azure.com`, the API and client at
+https://tracen-api.blackfield-de9295ce.northcentralus.azurecontainerapps.io
+(items 1 to 3 and 6 below are done; the Oracle worker, the GitHub
+deploy secrets and a domain are not).
 
 The code cannot go further without accounts. Everything below is a thing
 only the account holder can do; each says what comes out of it and where
