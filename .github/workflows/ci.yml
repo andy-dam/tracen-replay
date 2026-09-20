@@ -13,6 +13,21 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+    services:
+      # The store tests run on PostgreSQL as well as SQLite on Linux; the
+      # service container is absent on Windows and the tests skip it there.
+      postgres:
+        image: ${{ runner.os == 'Linux' && 'postgres:18-alpine' || '' }}
+        env:
+          POSTGRES_PASSWORD: tracen
+          POSTGRES_DB: tracen
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -25,8 +40,10 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install ffmpeg --no-progress -y
       - run: go vet ./...
-      - name: Test with the race detector
+      - name: Test with the race detector (store tests on PostgreSQL)
         if: runner.os == 'Linux'
+        env:
+          TRACEN_TEST_POSTGRES_URL: postgres://postgres:tracen@127.0.0.1:5432/tracen?sslmode=disable
         run: go test -race ./...
       - name: Test
         if: runner.os == 'Windows'
