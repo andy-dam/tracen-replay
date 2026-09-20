@@ -38,6 +38,11 @@ fi
 if ! az containerapp env show --name "$rg-apps" --resource-group "$rg" --output none 2>/dev/null; then
 	az containerapp env create --name "$rg-apps" --resource-group "$rg" --location "$location" 		--environment-mode WorkloadProfiles --enable-workload-profiles --output none
 fi
+# The application app was first named tracen-api; under its new name it is
+# a new resource, so the old one goes (one-time; a no-op afterwards).
+if az containerapp show --name "$rg-api" --resource-group "$rg" --output none 2>/dev/null; then
+	az containerapp delete --name "$rg-api" --resource-group "$rg" --yes --output none
+fi
 az deployment group create \
 	--resource-group "$rg" \
 	--template-file "$(dirname "$0")/main.bicep" \

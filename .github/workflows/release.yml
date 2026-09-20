@@ -77,7 +77,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Point the container app at this commit's image
-        run: az containerapp update --name ${{ vars.TRACEN_RG }}-api --resource-group ${{ vars.TRACEN_RG }} --image ${{ env.APP_IMAGE }}:${{ github.sha }} --output none
+        run: az containerapp update --name tracen-replay --resource-group ${{ vars.TRACEN_RG }} --image ${{ env.APP_IMAGE }}:${{ github.sha }} --output none
 
   web:
     name: Deploy the client

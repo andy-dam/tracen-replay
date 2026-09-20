@@ -24,6 +24,9 @@ param appOrigin string = ''
 @description('Host name the API answers for, for example api.example.com; the container app default host is always allowed too.')
 param apiHost string = ''
 
+@description('Name of the container app that serves the application; it is the first part of the Azure hostname.')
+param appName string = 'tracen-replay'
+
 @description('The service image the API runs (the Dockerfile app stage), for example ghcr.io/andy-dam/tracen-replay:<sha>.')
 param apiImage string
 
@@ -68,7 +71,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 
 // Where the client is served from: its own domain, or the API's own Azure
 // hostname (the app's name under the environment's default domain).
-var apiDefaultHost = '${name}-api.${environment.properties.defaultDomain}'
+var apiDefaultHost = '${appName}.${environment.properties.defaultDomain}'
 var clientOrigin = appOrigin == '' ? 'https://${apiDefaultHost}' : appOrigin
 
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
@@ -214,7 +217,7 @@ resource roleAssignments 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 var databaseURL = 'postgres://${postgresAdmin}:${uriComponent(postgresPassword)}@${postgres.properties.fullyQualifiedDomainName}:5432/tracen?sslmode=require'
 
 resource api 'Microsoft.App/containerApps@2024-03-01' = {
-  name: '${name}-api'
+  name: appName
   location: location
   identity: {
     type: 'UserAssigned'
