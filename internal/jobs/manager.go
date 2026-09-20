@@ -572,6 +572,7 @@ func (m *Manager) conclude(j *Job, exitCode int, stdout []byte, place placement)
 	j.ReportID = report.ID
 	j.Result = &result
 	j.StageFailure = result.StageFailures
+	m.learned(j, result.SourceSHA256)
 	if result.Status == worker.StatusCompletedWithStageFailures {
 		j.Status = CompletedWithStageFailures
 	} else {

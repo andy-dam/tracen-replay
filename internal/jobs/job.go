@@ -142,12 +142,22 @@ type Recording struct {
 	Size      int64     `json:"size"`
 	SHA256    string    `json:"sha256"`
 	CreatedAt time.Time `json:"created_at"`
+	// KeptPath is the key of the copy kept for playback (720p, made by the
+	// worker after an analysis) when there is one; the original at Path
+	// is what analyses read.
+	KeptPath string `json:"-"`
 }
 
 // Recordings resolves uploaded recordings; a job may analyze one of them
 // when it belongs to the submitting user.
 type Recordings interface {
 	GetRecording(ctx context.Context, id string) (Recording, error)
+}
+
+// RecordingUpdater is a Recordings that can take back what an analysis
+// learned about a recording: its hash, and the kept copy made from it.
+type RecordingUpdater interface {
+	UpdateRecording(ctx context.Context, r Recording) error
 }
 
 // ErrNotFound is returned by a Store for an unknown id.

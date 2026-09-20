@@ -92,10 +92,7 @@ func (s *Server) uploadRecording(w http.ResponseWriter, r *http.Request) {
 		if len(name) > 200 {
 			name = name[:200]
 		}
-		owner := user.ID
-		if owner == "" {
-			owner = "local"
-		}
+		owner := uploadOwner(user.ID)
 		dir := filepath.Join(s.cfg.RecordingsDir, owner)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			writeError(w, http.StatusInternalServerError, "upload_failed", err.Error())

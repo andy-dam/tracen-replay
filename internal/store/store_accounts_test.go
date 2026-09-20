@@ -89,3 +89,31 @@ func TestUsersSessionsAndRecordingsRoundTrip(t *testing.T) {
 		t.Fatal("deleting twice must report not found")
 	}
 }
+
+// UpdateRecording changes the hash and the kept copy and nothing else.
+func TestUpdateRecordingTakesBackHashAndKeptCopy(t *testing.T) {
+	s, _ := open(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	if err := s.CreateUser(ctx, auth.User{ID: "u1", Email: "andy@example.com", DisplayName: "Andy", CreatedAt: now}, "hash"); err != nil {
+		t.Fatal(err)
+	}
+	r := jobs.Recording{ID: "r1", UserID: "u1", Name: "run.mp4", Path: "originals/u1/r1.mp4", Size: 42, CreatedAt: now}
+	if err := s.CreateRecording(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetRecording(ctx, "r1"); got.KeptPath != "" || got.SHA256 != "" {
+		t.Fatalf("fresh: %+v", got)
+	}
+	r.SHA256, r.KeptPath, r.Name = "abc", "kept/u1/r1.mp4", "renamed"
+	if err := s.UpdateRecording(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetRecording(ctx, "r1")
+	if err != nil || got.SHA256 != "abc" || got.KeptPath != "kept/u1/r1.mp4" || got.Name != "run.mp4" {
+		t.Fatalf("updated: %+v %v", got, err)
+	}
+	if err := s.UpdateRecording(ctx, jobs.Recording{ID: "nope"}); err == nil {
+		t.Fatal("updating an unknown recording must fail")
+	}
+}

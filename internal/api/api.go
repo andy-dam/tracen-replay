@@ -241,6 +241,8 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/auth/me", s.me)
 	m.HandleFunc("GET /api/recordings", s.listRecordings)
 	m.HandleFunc("POST /api/recordings", s.uploadRecording)
+	m.HandleFunc("POST /api/recordings/uploads", s.beginUpload)
+	m.HandleFunc("POST /api/recordings/uploads/{id}/complete", s.completeUpload)
 	m.HandleFunc("DELETE /api/recordings/{id}", s.deleteRecording)
 	m.HandleFunc("GET /api/recordings/{id}/video", s.recordingVideo)
 	m.HandleFunc("GET /api/recordings/{id}/frame", s.recordingFrame)
@@ -651,9 +653,7 @@ func (s *Server) deleteRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.cfg.Objects != nil {
-		if err := s.cfg.Objects.Delete(r.Context(), recording.Path); err != nil {
-			s.log.Warn("deleted recording's object not removed", "recording", recording.ID, "error", err)
-		}
+		s.deleteRecordingObjects(r.Context(), recording)
 	} else if path, err := artifacts.Confined(s.cfg.RecordingsDir, recording.Path); err == nil {
 		os.Remove(path)
 	}
@@ -724,7 +724,7 @@ func (s *Server) recordingVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.cfg.Objects != nil {
-		s.serveRecording(w, r, recording.Path)
+		s.serveRecording(w, r, playbackKey(recording))
 		return
 	}
 	path, err := artifacts.Confined(s.cfg.RecordingsDir, recording.Path)
@@ -754,7 +754,7 @@ func (s *Server) recordingFrame(w http.ResponseWriter, r *http.Request) {
 	}
 	var path string
 	if s.cfg.Objects != nil {
-		path, err = s.recordingInput(r.Context(), recording.Path)
+		path, err = s.recordingInput(r.Context(), playbackKey(recording))
 	} else {
 		path, err = artifacts.Confined(s.cfg.RecordingsDir, recording.Path)
 	}
