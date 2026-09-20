@@ -157,6 +157,23 @@ class HiddenMenuBalanceTests(unittest.TestCase):
         self.assertEqual(got['performance_cost']['dance'],0)
         self.assertEqual(got['initial_balance_fill_fields'],['dance'])
 
+    def test_an_empty_slot_the_dialog_projects_as_zero_is_the_dim_zero_before_the_purchase(self):
+        # The menu read nothing in the passion slot before the purchase (a
+        # zero balance is drawn dim); the dialog projected passion 0 on every
+        # frame, and the menu after it read the dim 0. The projection is
+        # complete, so the price is the menu less the projection, with the
+        # empty slot as that zero.
+        rows,event=sequence()
+        for r in rows[:2]:r['facts']['performance_points']['passion']=None
+        for r in rows[2:4]:r['facts']['projected_performance_points'].update(passion=0,dance=43)
+        for r in rows[6:]:r['facts']['performance_points']['passion']=0
+        got=lesson_receipts(rows,[event])[0]
+        self.assertEqual(got['performance_cost'],dict(dance=0,passion=0,vocal=0,visual=24,composure=0))
+        self.assertEqual((got['cost_basis'],got['initial_dim_zero_fields']),('observed_debit',['passion']))
+        # A projection that is not zero on every dialog frame names nothing.
+        rows[3]['facts']['projected_performance_points']['passion']=12
+        self.assertIsNone(lesson_receipts(rows,[event])[0]['performance_cost'])
+
     def test_fill_needs_every_readable_field_to_agree(self):
         rows,event=sequence()
         for r in rows[:2]:r['facts']['performance_points']['dance']=None

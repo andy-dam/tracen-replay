@@ -948,6 +948,15 @@ def lesson_receipts(readings, outcomes):
                         break
             invalid_projection=any(not isinstance(r['facts'].get('projected_performance_points',{}),dict) for r in group)
             projected=repeated_projection(group)
+            # A balance at zero is drawn dim and the menu reads nothing there;
+            # when the request dialog projected that currency as zero on every
+            # frame it showed, the empty slot is that zero (the inference
+            # observed_lesson_debit makes for repeated balances, here for the
+            # menu the dialog's own leftover prices).
+            dim_zero_fill=[k for k in CURRENCIES if initial.get(k) is None and group and not invalid_projection
+                           and all(r['facts']['projected_performance_points'].get(k)==0 for r in group)]
+            if dim_zero_fill:
+                initial={k:(0 if k in dim_zero_fill else initial[k]) for k in CURRENCIES}
             complete=not invalid_projection and all(type(projected.get(k)) is int for k in CURRENCIES)
             cost={k:initial[k]-projected[k] for k in CURRENCIES} if before and complete and all(type(v) is int for v in initial.values()) else None
             if cost and any(v<0 for v in cost.values()):cost=None
@@ -1047,6 +1056,7 @@ def lesson_receipts(readings, outcomes):
                 name_match_basis='source_symbol_alias_and_repeated_observed_debit' if symbol_alias else 'partial_name_and_repeated_observed_debit' if partial else 'exact_observed_text',
                 after_balance_observed=matched is not None,awarded_stats=event['deltas'],
                 initial_balance_fill_fields=initial_fill,
+                **({'initial_dim_zero_fields': dim_zero_fill} if dim_zero_fill else {}),
                 projected_effects=projected_effects,
                 evidence=[r['evidence'] for r in (before,first,matched) if r]+[event['evidence']],
                 complete_transaction_verified=False))

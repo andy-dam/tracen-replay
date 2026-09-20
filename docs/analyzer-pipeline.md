@@ -168,7 +168,10 @@ after its receipt tolerates a leftover the dialog read with a digit cut
 observed balance with its leading or trailing digits hidden is that balance
 cut short, not a disagreement with it. A currency the menu reads as nothing
 on both sides of the purchase, which the request dialog projected as zero on
-every frame it showed, is the dim zero the game draws for an empty balance.
+every frame it showed, is the dim zero the game draws for an empty balance;
+so is an empty slot on the menu before the purchase alone when the dialog's
+leftover prices are complete and project it as zero (the menu after may read
+the dim 0 itself), recorded as `initial_dim_zero_fields`.
 When the names a skill confirmation showed each carry a price and those
 prices sum to exactly the cart's net cost, nothing scrolled off the list: the
 visible names are the whole purchase (`visible_names_cost_the_cart_net`).
