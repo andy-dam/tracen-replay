@@ -288,8 +288,8 @@ export const api = {
   ready: () => request<Readiness>("/readyz").catch((e) => (e instanceof ApiError && e.status === 503 ? ({ ready: false, checks: [] } as Readiness) : Promise.reject(e))),
   me: () => request<{ user: User }>("/api/auth/me").then((r) => r.user),
   login: (email: string, password: string) => request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }).then((r) => r.user),
-  register: (email: string, password: string, display_name: string, invite = "") =>
-    request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, display_name, invite }) }).then((r) => r.user),
+  register: (email: string, password: string, display_name: string) =>
+    request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }).then((r) => r.user),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   recordings: () => request<{ recordings: Recording[] }>("/api/recordings").then((r) => r.recordings),
   deleteRecording: (id: string) => request<void>(`/api/recordings/${enc(id)}`, { method: "DELETE" }),

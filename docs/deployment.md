@@ -81,13 +81,17 @@ owner turns the budgets off ([local-app.md](local-app.md) lists every flag).
 
 What a stranger cannot do:
 
-- **Create accounts at will.** `-registration invite` takes accounts only
-  from people holding a code (`-invite-code`, compared in constant time);
-  `closed` takes none. Whatever the mode, one address makes at most five
-  accounts an hour, and sign-ins stay limited to ten attempts per address
+- **Create accounts at will.** Registration is open, and what bounds it is
+  that one address makes at most five accounts an hour and that an account
+  buys nothing by itself: what costs money is bounded per account below,
+  so a crowd of accounts from one person is a crowd of daily budgets, not
+  a crowd of machines. Sign-ins stay limited to ten attempts per address
   per five minutes. Behind a reverse proxy the client is the address the
   proxy forwarded (`-trusted-proxy`), so one proxy does not make everyone
-  one address.
+  one address. Should open registration ever be abused, `-registration
+  closed` stops new accounts and `-registration invite` with `-invite-code`
+  takes them by code (the API accepts an `invite` field; the sign-up form
+  does not show one).
 - **Reach another user's data.** Every recording, job and report is looked
   up under the signed-in user; another user's id is "not found". The client
   never names a path; every file the service opens is confined under its
