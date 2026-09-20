@@ -17,7 +17,7 @@ jobs:
       # The store tests run on PostgreSQL as well as SQLite on Linux; the
       # service container is absent on Windows and the tests skip it there.
       postgres:
-        image: ${{ runner.os == 'Linux' && 'postgres:18-alpine' || '' }}
+        image: ${{ matrix.os == 'ubuntu-latest' && 'postgres:18-alpine' || '' }}
         env:
           POSTGRES_PASSWORD: tracen
           POSTGRES_DB: tracen
