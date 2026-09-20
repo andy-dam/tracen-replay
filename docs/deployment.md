@@ -240,7 +240,7 @@ count separate from originals.
 
 ## 6. Provisioning
 
-Azure, one resource group, one region (East US for the cheapest Blob):
+Azure, one resource group, one region (North Central US: the one US region the student subscription allows):
 
 1. Storage account (LRS): blob containers `originals`, `kept`, `reports`,
    `frames`; queue `analyses`; lifecycle rules: `originals` to the cold
@@ -375,8 +375,10 @@ it goes.
    allowed only some regions ("RequestDisallowedByAzure ... best
    available regions"): list them with `az policy assignment list
    --disable-scope-strict-match --query "[].parameters.listOfAllowedLocations.value"`
-   and set `TRACEN_LOCATION` to one of them (eastus2, centralus or
-   westus2 have the cheap storage prices). The first run creates the resource group
+   and set `TRACEN_LOCATION` to one of them. This subscription allows
+   denmarkeast, francecentral, swedencentral, belgiumcentral and
+   northcentralus; the deployment uses `northcentralus` (Chicago, next
+   to Oracle's Chicago region for the worker). The first run creates the resource group
    `tracen` with the storage account, PostgreSQL, the Container Apps
    environment and the API, and prints the storage account name and
    the client's URL. Without a domain the API serves the client itself

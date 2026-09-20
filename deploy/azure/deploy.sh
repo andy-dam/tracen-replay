@@ -5,7 +5,7 @@
 # secret is on the command line:
 #
 #   TRACEN_RG           resource group name (default tracen)
-#   TRACEN_LOCATION     region (default eastus; Azure for Students allows only some regions, see docs/deployment.md section 11)
+#   TRACEN_LOCATION     region (default northcentralus; Azure for Students allows only some regions, see docs/deployment.md section 11)
 #   TRACEN_APP_ORIGIN   the client's origin when it has its own domain, e.g. https://app.example.com;
 #                       leave it unset and the API serves the client itself at its Azure hostname
 #   TRACEN_API_HOST     the API's host name, e.g. api.example.com (optional)
@@ -17,7 +17,7 @@
 # The first run creates everything; later runs change only what differs.
 set -eu
 rg="${TRACEN_RG:-tracen}"
-location="${TRACEN_LOCATION:-eastus}"
+location="${TRACEN_LOCATION:-northcentralus}"
 : "${TRACEN_API_IMAGE:?the service image}"
 : "${TRACEN_PG_PASSWORD:?the PostgreSQL password}"
 workers="[]"
