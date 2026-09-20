@@ -37,8 +37,8 @@ func addStorageFlags(fs *flag.FlagSet) *storageFlags {
 	return &storageFlags{
 		database:    fs.String("database", "", "the database: empty for SQLite under -data, or postgres for the PostgreSQL database at TRACEN_DATABASE_URL (what the hosted service and its workers share)"),
 		objectStore: fs.String("object-store", "", "where recordings and analysis files are kept: empty for files under -data, dir:PATH for a directory used as an object store, or azure for Blob storage (TRACEN_STORAGE_CONNECTION or TRACEN_STORAGE_ACCOUNT)"),
-		queue:       fs.String("queue", "", "the analysis queue: empty to run analyses in this process, or azure for an Azure Storage Queue that `tracen worker` processes take from (same account as -object-store)"),
-		queueName:   fs.String("queue-name", "analyses", "name of the Azure Storage Queue"),
+		queue:       fs.String("shared-queue", "", "a queue shared with worker processes: empty to run analyses in this process, or azure for an Azure Storage Queue that `tracen worker` processes take from (same account as -object-store)"),
+		queueName:   fs.String("shared-queue-name", "analyses", "name of the Azure Storage Queue"),
 	}
 }
 
@@ -99,27 +99,27 @@ func (f *storageFlags) open(ctx context.Context) (objectstore.Store, queue.Queue
 	case "":
 	case "azure":
 		if objects == nil {
-			return nil, nil, errors.New("-queue azure needs an -object-store: the workers fetch recordings and store their files there")
+			return nil, nil, errors.New("-shared-queue azure needs an -object-store: the workers fetch recordings and store their files there")
 		}
 		connection, account := os.Getenv("TRACEN_STORAGE_CONNECTION"), os.Getenv("TRACEN_STORAGE_ACCOUNT")
 		switch {
 		case connection != "":
 			azure, err := queue.NewAzureFromConnectionString(ctx, connection, *f.queueName)
 			if err != nil {
-				return nil, nil, fmt.Errorf("-queue azure: %w", err)
+				return nil, nil, fmt.Errorf("-shared-queue azure: %w", err)
 			}
 			q = azure
 		case account != "":
 			azure, err := queue.NewAzure(ctx, "https://"+account+".queue.core.windows.net/"+*f.queueName, nil)
 			if err != nil {
-				return nil, nil, fmt.Errorf("-queue azure: %w", err)
+				return nil, nil, fmt.Errorf("-shared-queue azure: %w", err)
 			}
 			q = azure
 		default:
-			return nil, nil, errors.New("-queue azure needs TRACEN_STORAGE_CONNECTION or TRACEN_STORAGE_ACCOUNT in the environment")
+			return nil, nil, errors.New("-shared-queue azure needs TRACEN_STORAGE_CONNECTION or TRACEN_STORAGE_ACCOUNT in the environment")
 		}
 	default:
-		return nil, nil, fmt.Errorf("bad -queue %q: empty or azure", *f.queue)
+		return nil, nil, fmt.Errorf("bad -shared-queue %q: empty or azure", *f.queue)
 	}
 	return objects, q, nil
 }

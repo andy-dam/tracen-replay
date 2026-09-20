@@ -1,0 +1,79 @@
+#cloud-config
+# The worker instance on Oracle Cloud (an Always Free A1.Flex, arm64, Ubuntu
+# 24.04): docker, and the service image running `tracen worker` as a
+# systemd service that takes analyses from the Azure queue. Paste this as
+# the instance's cloud-init user data; before that, fill in
+# /etc/tracen/worker.env below (the values come from deploy/azure/deploy.sh).
+#
+# The worker needs no inbound port. It reaches the Azure storage account,
+# the queue and PostgreSQL over the internet; PostgreSQL's firewall must
+# allow this instance's public address (deploy.sh, TRACEN_WORKER_IPS).
+
+package_update: true
+packages:
+  - docker.io
+
+write_files:
+  - path: /etc/tracen/worker.env
+    permissions: "0600"
+    content: |
+      # The Azure storage account (originals, kept copies, analysis files, the queue).
+      TRACEN_STORAGE_CONNECTION=DefaultEndpointsProtocol=https;AccountName=REPLACE;AccountKey=REPLACE;EndpointSuffix=core.windows.net
+      # The PostgreSQL database the API writes jobs to.
+      TRACEN_DATABASE_URL=postgres://tracen:REPLACE@REPLACE.postgres.database.azure.com:5432/tracen?sslmode=require
+      # The service image (the Dockerfile app stage, arm64 build).
+      TRACEN_IMAGE=ghcr.io/andy-dam/tracen-replay:latest
+      # OCR workers: two on the free 2-OCPU shape, four after the upgrade.
+      TRACEN_WORKERS=2
+      TRACEN_DENSE_WORKERS=1
+
+  - path: /etc/systemd/system/tracen-worker.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Tracen Replay analysis worker
+      After=docker.service network-online.target
+      Requires=docker.service
+      Wants=network-online.target
+
+      [Service]
+      EnvironmentFile=/etc/tracen/worker.env
+      Restart=always
+      RestartSec=30
+      TimeoutStopSec=120
+      ExecStartPre=-/usr/bin/docker pull ${TRACEN_IMAGE}
+      ExecStartPre=-/usr/bin/docker rm -f tracen-worker
+      ExecStart=/usr/bin/docker run --name tracen-worker --rm \
+        --entrypoint /usr/local/bin/tracen \
+        --env-file /etc/tracen/worker.env \
+        --memory 11g --pids-limit 512 \
+        -v /var/lib/tracen/scratch:/scratch \
+        ${TRACEN_IMAGE} worker \
+        -python /usr/local/bin/python -workdir /opt/tracen/analyzer -model-dir /opt/tracen/models \
+        -database postgres -object-store azure -shared-queue azure \
+        -scratch /scratch -workers ${TRACEN_WORKERS} -dense-workers ${TRACEN_DENSE_WORKERS} -ocr-device cpu \
+        -parallel 1 -max-analysis 6h -copy-threads 2
+      ExecStop=/usr/bin/docker stop -t 90 tracen-worker
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Once a day, pull the image again and restart if it changed: the worker
+  # follows the tag the API is deployed from.
+  - path: /etc/cron.daily/tracen-worker-update
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      . /etc/tracen/worker.env
+      before=$(docker image inspect --format '{{.Id}}' "$TRACEN_IMAGE" 2>/dev/null || true)
+      docker pull "$TRACEN_IMAGE" >/dev/null 2>&1 || exit 0
+      after=$(docker image inspect --format '{{.Id}}' "$TRACEN_IMAGE")
+      # Restart only between analyses: the worker exits cleanly on SIGTERM
+      # after its current job when stopped through systemd.
+      [ "$before" != "$after" ] && systemctl restart tracen-worker
+      docker image prune -f >/dev/null 2>&1 || true
+
+runcmd:
+  - mkdir -p /var/lib/tracen/scratch
+  - systemctl daemon-reload
+  - systemctl enable --now tracen-worker
