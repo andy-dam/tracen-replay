@@ -305,4 +305,4 @@ output apiIdentityClientId string = identity.properties.clientId
 output apiDefaultHost string = api.properties.configuration.ingress.fqdn
 output postgresHost string = postgres.properties.fullyQualifiedDomainName
 output clientURL string = appOrigin == '' ? 'https://${apiDefaultHost}' : appOrigin
-output webDefaultHost string = appOrigin == '' ? '' : web.properties.defaultHostname
+output webDefaultHost string = web.?properties.defaultHostname ?? ''
