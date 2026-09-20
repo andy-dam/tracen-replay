@@ -52,6 +52,41 @@ type Recordings interface {
 	ListRecordingsForUser(ctx context.Context, userID string) ([]jobs.Recording, error)
 	DeleteRecording(ctx context.Context, id string) error
 	RecordingInUse(ctx context.Context, id string) (bool, error)
+	// RecordingUsage counts a user's uploads and their bytes; "" counts everyone's.
+	RecordingUsage(ctx context.Context, userID string) (jobs.StorageUsage, error)
+}
+
+// Quota bounds what one user, and all users together, may keep on disk
+// and what an upload may contain. Zero leaves a bound off.
+type Quota struct {
+	// MaxRecordingsPerUser is how many uploads a user may keep at once.
+	MaxRecordingsPerUser int
+	// MaxBytesPerUser is the space one user's uploads may take together.
+	MaxBytesPerUser int64
+	// MaxBytesTotal is the space every upload may take together: the disk
+	// guard, refused as temporary rather than as the user's fault.
+	MaxBytesTotal int64
+	// MaxDuration is the longest recording accepted.
+	MaxDuration time.Duration
+	// MaxPixels is the largest frame (width times height) accepted.
+	MaxPixels int64
+	// MaxFPS is the highest frame rate accepted.
+	MaxFPS float64
+}
+
+// refuse says why a probed upload is not acceptable, or "" when it is.
+func (q Quota) refuse(media artifacts.Media) string {
+	switch {
+	case !media.HasVideo:
+		return "the file has no video stream"
+	case q.MaxDuration > 0 && media.Duration > q.MaxDuration:
+		return fmt.Sprintf("the recording is longer than %s", q.MaxDuration)
+	case q.MaxPixels > 0 && int64(media.Width)*int64(media.Height) > q.MaxPixels:
+		return fmt.Sprintf("the video frame (%dx%d) is larger than this service analyzes", media.Width, media.Height)
+	case q.MaxFPS > 0 && media.FPS > q.MaxFPS:
+		return fmt.Sprintf("the frame rate (%.0f per second) is higher than this service analyzes", media.FPS)
+	}
+	return ""
 }
 
 // Auth is what the handlers need from the account service.
@@ -88,6 +123,11 @@ type Config struct {
 	ArtifactsDir string
 	// UploadLimit bounds one upload in bytes; zero means 16 GiB.
 	UploadLimit int64
+	// Quota bounds what users keep and what an upload may contain.
+	Quota Quota
+	// Probe reads an upload's duration, frame size and rate before it is
+	// accepted (artifacts.ProbeMedia); nil accepts uploads unprobed.
+	Probe func(ctx context.Context, path string) (artifacts.Media, error)
 	// Ready runs the readiness probes; nil means always ready.
 	Ready func() []Check
 	// Analyzer reports the installed analyzer's identity, so a report can say

@@ -141,6 +141,19 @@ func (m *memoryRecordings) RecordingInUse(ctx context.Context, id string) (bool,
 	return false, nil
 }
 
+func (m *memoryRecordings) RecordingUsage(ctx context.Context, userID string) (jobs.StorageUsage, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var usage jobs.StorageUsage
+	for _, r := range m.recs {
+		if userID == "" || r.UserID == userID {
+			usage.Count++
+			usage.Bytes += r.Size
+		}
+	}
+	return usage, nil
+}
+
 func newAccountServer(t *testing.T) (*Server, *memoryRecordings, string) {
 	t.Helper()
 	fj := &fakeJobs{jobs: map[string]jobs.Job{}, hub: jobs.NewHub()}

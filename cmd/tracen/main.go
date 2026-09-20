@@ -70,6 +70,12 @@ func run() error {
 	trustedProxies := flag.String("trusted-proxy", "", "comma-separated networks (CIDR) of reverse proxies in front of the service; their X-Forwarded-For names the client for the sign-in and registration limits")
 	registration := flag.String("registration", "open", "who may create an account: open, invite (a code from -invite-code) or closed")
 	inviteCodes := flag.String("invite-code", "", "comma-separated invite codes accepted with -registration invite")
+	ffprobe := flag.String("ffprobe", "ffprobe", "ffprobe executable; every upload is probed with it and refused when it is not a video or is longer, larger or faster than the limits below")
+	uploadLimit := flag.Int64("upload-limit-gb", 3, "largest upload accepted, in GB (a 1080p career of an hour is about 1.5 GB)")
+	maxRecordings := flag.Int("max-recordings", 5, "uploads one user may keep at once; 0 for no limit")
+	maxRecordingBytes := flag.Int64("max-recording-gb", 8, "space one user's uploads may take together, in GB; 0 for no limit")
+	maxStorage := flag.Int64("max-storage-gb", 100, "space all uploads may take together, in GB; further uploads are refused as temporary; 0 for no limit")
+	maxDuration := flag.Duration("max-duration", 3*time.Hour, "longest recording accepted; 0 for no limit")
 	keepWorkingData := flag.Bool("keep-working-data", false, "keep the analyzer's OCR caches, crops and recovery inputs in the job directory (about 1 GB per analysis); by default only the report, timeline, viewer page and log are kept")
 	workerImage := flag.String("worker-image", "", "run each analysis as a container of this worker image (the Dockerfile's worker stage) instead of as a child process; -python, -workdir and -model-dir are then unused")
 	dockerCLI := flag.String("docker", "docker", "docker command line client, used with -worker-image")
@@ -165,6 +171,7 @@ func run() error {
 				}),
 			}
 		}
+		checks = append(checks, check("ffprobe", *ffprobe, func() error { _, err := exec.LookPath(*ffprobe); return err }))
 		checks = append(checks, api.Check{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"})
 		if *learnedReader != "" {
 			checks = append(checks, check("learned-reader", *learnedReader, func() error { _, err := os.Stat(*learnedReader); return err }))
@@ -226,7 +233,13 @@ func run() error {
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       artifacts.Frames{FFmpeg: *ffmpeg, CacheDir: filepath.Join(*dataDir, "frames")},
 		AllowedHosts: hosts, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static,
-		TrustedProxies: proxies, Registration: *registration, InviteCodes: invites})
+		TrustedProxies: proxies, Registration: *registration, InviteCodes: invites,
+		UploadLimit: *uploadLimit << 30,
+		Quota: api.Quota{MaxRecordingsPerUser: *maxRecordings, MaxBytesPerUser: *maxRecordingBytes << 30, MaxBytesTotal: *maxStorage << 30,
+			MaxDuration: *maxDuration, MaxPixels: 4096 * 2304, MaxFPS: 120},
+		Probe: func(ctx context.Context, path string) (artifacts.Media, error) {
+			return artifacts.ProbeMedia(ctx, *ffprobe, path)
+		}})
 	// No read or write deadline on the whole request: an upload of a few
 	// gigabytes over a slow link and a job's event stream are both long by
 	// design. Headers must arrive promptly, idle keep-alive connections are

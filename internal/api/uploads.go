@@ -5,10 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +31,37 @@ func (s *Server) uploadRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := userFrom(r)
+	// What the user already keeps, and what everyone keeps, is checked
+	// before a byte is read: the request's Content-Length says roughly how
+	// much is coming (the multipart framing adds a few hundred bytes), and
+	// the bytes that actually arrive are checked again after the copy.
+	quota := s.cfg.Quota
+	usage, err := s.cfg.Recordings.RecordingUsage(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store_error", err.Error())
+		return
+	}
+	incoming := max(r.ContentLength, 0)
+	if quota.MaxRecordingsPerUser > 0 && usage.Count >= quota.MaxRecordingsPerUser {
+		writeError(w, http.StatusForbidden, "quota_exceeded", fmt.Sprintf("you can keep at most %d recordings; delete one first", quota.MaxRecordingsPerUser))
+		return
+	}
+	if quota.MaxBytesPerUser > 0 && usage.Bytes+incoming > quota.MaxBytesPerUser {
+		writeError(w, http.StatusForbidden, "quota_exceeded", fmt.Sprintf("your recordings may take at most %s together; delete one first", gigabytes(quota.MaxBytesPerUser)))
+		return
+	}
+	if quota.MaxBytesTotal > 0 {
+		total, err := s.cfg.Recordings.RecordingUsage(r.Context(), "")
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "store_error", err.Error())
+			return
+		}
+		if total.Bytes+incoming > quota.MaxBytesTotal {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": map[string]string{"code": "storage_full",
+				"message": "the service has no room for another recording right now; try again later"}})
+			return
+		}
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, s.cfg.UploadLimit)
 	reader, err := r.MultipartReader()
 	if err != nil {
@@ -92,6 +125,28 @@ func (s *Server) uploadRecording(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "upload_failed", "the recording is empty")
 			return
 		}
+		if quota.MaxBytesPerUser > 0 && usage.Bytes+size > quota.MaxBytesPerUser {
+			os.Remove(path)
+			writeError(w, http.StatusForbidden, "quota_exceeded", fmt.Sprintf("your recordings may take at most %s together; delete one first", gigabytes(quota.MaxBytesPerUser)))
+			return
+		}
+		// The file is a recording the analyzer can work on, or it is not
+		// kept: not a video, or longer, larger or faster than the service
+		// will spend its hours on.
+		if s.cfg.Probe != nil {
+			media, err := s.cfg.Probe(r.Context(), path)
+			if err != nil {
+				os.Remove(path)
+				s.log.Info("upload refused", "user", user.ID, "name", name, "reason", err.Error())
+				writeError(w, http.StatusBadRequest, "unsupported_recording", "the file is not a video this service can read")
+				return
+			}
+			if reason := quota.refuse(media); reason != "" {
+				os.Remove(path)
+				writeError(w, http.StatusBadRequest, "unsupported_recording", reason)
+				return
+			}
+		}
 		recording := jobs.Recording{ID: id, UserID: user.ID, Name: name, Path: path, Size: size,
 			SHA256: hex.EncodeToString(digest.Sum(nil)), CreatedAt: time.Now()}
 		if err := s.cfg.Recordings.CreateRecording(r.Context(), recording); err != nil {
@@ -102,6 +157,11 @@ func (s *Server) uploadRecording(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusCreated, recording)
 		return
 	}
+}
+
+// gigabytes says a byte count the way people read it.
+func gigabytes(n int64) string {
+	return strconv.FormatFloat(float64(n)/float64(1<<30), 'f', -1, 64) + " GB"
 }
 
 func randomID() string {

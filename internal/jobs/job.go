@@ -111,6 +111,12 @@ type Store interface {
 	ListReportsForUser(ctx context.Context, userID string) ([]Report, error)
 }
 
+// StorageUsage is how much of the upload space a user, or everyone, holds.
+type StorageUsage struct {
+	Count int   `json:"count"`
+	Bytes int64 `json:"bytes"`
+}
+
 // Recording is a video a user uploaded through the service; it lives under
 // the service's data directory and belongs to that user only.
 type Recording struct {

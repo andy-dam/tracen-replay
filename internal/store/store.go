@@ -463,6 +463,14 @@ func (s *Store) ListRecordingsForUser(ctx context.Context, userID string) ([]job
 	return out, rows.Err()
 }
 
+// RecordingUsage counts one user's uploads and their bytes; an empty user
+// id counts everyone's.
+func (s *Store) RecordingUsage(ctx context.Context, userID string) (jobs.StorageUsage, error) {
+	var usage jobs.StorageUsage
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(size), 0) FROM recordings WHERE ?='' OR user_id=?`, userID, userID).Scan(&usage.Count, &usage.Bytes)
+	return usage, err
+}
+
 // DeleteRecording removes an upload record; the caller deletes the file.
 func (s *Store) DeleteRecording(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM recordings WHERE id=?`, id)

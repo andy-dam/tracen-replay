@@ -1,13 +1,18 @@
 package api
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 )
@@ -146,6 +151,81 @@ func TestInternalErrorsAreGenericToTheClient(t *testing.T) {
 	writeError(rec, http.StatusBadRequest, "bad_request", "send a file")
 	if !strings.Contains(rec.Body.String(), "send a file") {
 		t.Fatalf("4xx message must stand: %s", rec.Body.String())
+	}
+}
+
+// A user keeps a bounded number of uploads and a bounded number of bytes;
+// the service as a whole keeps a bounded number of bytes.
+func TestUploadQuotas(t *testing.T) {
+	srv := limitedServer(t, func(c *Config) {
+		c.Quota = Quota{MaxRecordingsPerUser: 2, MaxBytesPerUser: 25_000, MaxBytesTotal: 40_000}
+	})
+	andy := register(t, srv, "andy@example.com")
+	someone := register(t, srv, "someone@example.com")
+	upload := func(token, name string, size int) *httptest.ResponseRecorder {
+		body, ct := multipartFile(t, "file", name, bytes.Repeat([]byte("f"), size))
+		return call(t, srv, "POST", "/api/recordings", body, ct, token)
+	}
+	if rec := upload(andy, "one.mp4", 10_000); rec.Code != http.StatusCreated {
+		t.Fatalf("first upload: %d %s", rec.Code, rec.Body.String())
+	}
+	// Over the byte quota, refused before the body is read (Content-Length).
+	if rec := upload(andy, "big.mp4", 20_000); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "quota_exceeded") {
+		t.Fatalf("byte quota: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := upload(andy, "two.mp4", 10_000); rec.Code != http.StatusCreated {
+		t.Fatalf("second upload: %d %s", rec.Code, rec.Body.String())
+	}
+	// Two kept: the third is refused however small.
+	if rec := upload(andy, "three.mp4", 10); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "at most 2 recordings") {
+		t.Fatalf("count quota: %d %s", rec.Code, rec.Body.String())
+	}
+	// Another user has their own quota, but the disk guard is shared.
+	if rec := upload(someone, "mine.mp4", 15_000); rec.Code != http.StatusCreated {
+		t.Fatalf("other user's upload: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := upload(someone, "more.mp4", 8_000); rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "storage_full") {
+		t.Fatalf("disk guard: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// An upload is kept only when ffprobe reads it as a video within the
+// limits; anything else is removed from disk before it is recorded.
+func TestUploadsAreProbedBeforeTheyAreKept(t *testing.T) {
+	var media artifacts.Media
+	var probeErr error
+	srv := limitedServer(t, func(c *Config) {
+		c.Quota = Quota{MaxDuration: 3 * time.Hour, MaxPixels: 4096 * 2304, MaxFPS: 120}
+		c.Probe = func(ctx context.Context, path string) (artifacts.Media, error) { return media, probeErr }
+	})
+	andy := register(t, srv, "andy@example.com")
+	upload := func() *httptest.ResponseRecorder {
+		body, ct := multipartFile(t, "file", "run.mp4", []byte("not really a video"))
+		return call(t, srv, "POST", "/api/recordings", body, ct, andy)
+	}
+	files := func() int {
+		matches, _ := filepath.Glob(filepath.Join(srv.cfg.RecordingsDir, "*", "*.mp4"))
+		return len(matches)
+	}
+	probeErr = errors.New("ffprobe: Invalid data found when processing input")
+	if rec := upload(); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "unsupported_recording") || files() != 0 {
+		t.Fatalf("unreadable file: %d %s, %d files kept", rec.Code, rec.Body.String(), files())
+	}
+	probeErr = nil
+	for _, bad := range []artifacts.Media{
+		{HasVideo: false, Duration: time.Minute},
+		{HasVideo: true, Duration: 4 * time.Hour, Width: 1920, Height: 1080, FPS: 60},
+		{HasVideo: true, Duration: time.Hour, Width: 7680, Height: 4320, FPS: 60},
+		{HasVideo: true, Duration: time.Hour, Width: 1920, Height: 1080, FPS: 240},
+	} {
+		media = bad
+		if rec := upload(); rec.Code != http.StatusBadRequest || files() != 0 {
+			t.Fatalf("%+v: %d %s, %d files kept", bad, rec.Code, rec.Body.String(), files())
+		}
+	}
+	media = artifacts.Media{HasVideo: true, Duration: 45 * time.Minute, Width: 1920, Height: 1080, FPS: 60}
+	if rec := upload(); rec.Code != http.StatusCreated || files() != 1 {
+		t.Fatalf("a career recording: %d %s, %d files", rec.Code, rec.Body.String(), files())
 	}
 }
 
