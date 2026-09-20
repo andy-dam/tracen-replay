@@ -19,9 +19,11 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/worker"
 )
 
-// Store is a SQLite-backed jobs.Store, auth.Store and recordings store.
+// Store is the jobs.Store, auth.Store and recordings store, on SQLite (the
+// local application) or PostgreSQL (the hosted service; see postgres.go).
 type Store struct {
-	db *sql.DB
+	db       *sql.DB
+	postgres bool
 }
 
 var migrations = []string{
@@ -124,23 +126,23 @@ func Open(path string) (*Store, error) {
 }
 
 func (s *Store) migrate(ctx context.Context) error {
-	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
+	if _, err := s.exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
 		return err
 	}
 	var current int
-	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&current); err != nil {
+	if err := s.queryRow(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&current); err != nil {
 		return err
 	}
 	for i := current; i < len(migrations); i++ {
-		tx, err := s.db.BeginTx(ctx, nil)
+		tx, err := s.begin(ctx)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, migrations[i]); err != nil {
+		if _, err := tx.exec(ctx, migrations[i]); err != nil {
 			tx.Rollback()
 			return fmt.Errorf("migration %d: %w", i+1, err)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, i+1, stamp(time.Now())); err != nil {
+		if _, err := tx.exec(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, i+1, stamp(time.Now())); err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -250,7 +252,7 @@ func scanJob(row interface{ Scan(...any) error }) (jobs.Job, error) {
 
 // CreateJob inserts a new job record.
 func (s *Store) CreateJob(ctx context.Context, j jobs.Job) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO jobs (`+jobColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	_, err := s.exec(ctx, `INSERT INTO jobs (`+jobColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		j.ID, j.SourceID, j.SourcePath, j.SourceName, string(j.Status), stamp(j.CreatedAt), stamp(j.StartedAt), stamp(j.FinishedAt),
 		j.OutputDir, nullable(j.LogPath), j.PID, nullable(j.Stage), stamp(j.StageAt), j.OCRProcessed, j.OCRTotal,
 		marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result), nullable(j.UserID), boolInt(j.CancelRequested), stamp(j.HeartbeatAt))
@@ -259,7 +261,7 @@ func (s *Store) CreateJob(ctx context.Context, j jobs.Job) error {
 
 // UpdateJob rewrites every mutable column of an existing job.
 func (s *Store) UpdateJob(ctx context.Context, j jobs.Job) error {
-	res, err := s.db.ExecContext(ctx, `UPDATE jobs SET status=?, started_at=?, finished_at=?, log_path=?, pid=?, stage=?, stage_at=?,
+	res, err := s.exec(ctx, `UPDATE jobs SET status=?, started_at=?, finished_at=?, log_path=?, pid=?, stage=?, stage_at=?,
 		ocr_processed=?, ocr_total=?, error_json=?, stage_failures_json=?, report_id=?, result_json=?, cancel_requested=?, heartbeat_at=? WHERE id=?`,
 		string(j.Status), stamp(j.StartedAt), stamp(j.FinishedAt), nullable(j.LogPath), j.PID, nullable(j.Stage), stamp(j.StageAt),
 		j.OCRProcessed, j.OCRTotal, marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result),
@@ -275,7 +277,7 @@ func (s *Store) UpdateJob(ctx context.Context, j jobs.Job) error {
 
 // GetJob returns one job.
 func (s *Store) GetJob(ctx context.Context, id string) (jobs.Job, error) {
-	j, err := scanJob(s.db.QueryRowContext(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id=?`, id))
+	j, err := scanJob(s.queryRow(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobs.Job{}, &jobs.NotFoundError{Kind: "job", ID: id}
 	}
@@ -283,7 +285,7 @@ func (s *Store) GetJob(ctx context.Context, id string) (jobs.Job, error) {
 }
 
 func (s *Store) queryJobs(ctx context.Context, query string, args ...any) ([]jobs.Job, error) {
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +313,7 @@ func (s *Store) ListJobsForUser(ctx context.Context, userID string) ([]jobs.Job,
 
 // NextQueued returns the oldest queued job.
 func (s *Store) NextQueued(ctx context.Context) (jobs.Job, bool, error) {
-	j, err := scanJob(s.db.QueryRowContext(ctx, `SELECT `+jobColumns+` FROM jobs WHERE status=? ORDER BY created_at, id LIMIT 1`, string(jobs.Queued)))
+	j, err := scanJob(s.queryRow(ctx, `SELECT `+jobColumns+` FROM jobs WHERE status=? ORDER BY created_at, id LIMIT 1`, string(jobs.Queued)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobs.Job{}, false, nil
 	}
@@ -329,14 +331,14 @@ func (s *Store) ListActiveJobs(ctx context.Context) ([]jobs.Job, error) {
 // CountByStatus counts jobs in one state.
 func (s *Store) CountByStatus(ctx context.Context, status jobs.Status) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE status=?`, string(status)).Scan(&n)
+	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE status=?`, string(status)).Scan(&n)
 	return n, err
 }
 
 // CountActiveForUser counts a user's queued and running jobs.
 func (s *Store) CountActiveForUser(ctx context.Context, userID string) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE user_id=? AND status IN (?, ?)`, userID, string(jobs.Queued), string(jobs.Running)).Scan(&n)
+	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE user_id=? AND status IN (?, ?)`, userID, string(jobs.Queued), string(jobs.Running)).Scan(&n)
 	return n, err
 }
 
@@ -344,7 +346,7 @@ func (s *Store) CountActiveForUser(ctx context.Context, userID string) (int, err
 // everyone, leaving out jobs cancelled before they started.
 func (s *Store) CountJobsSince(ctx context.Context, userID string, since time.Time) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE (?='' OR user_id=?) AND created_at>=? AND NOT (status=? AND started_at IS NULL)`,
+	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE (?='' OR user_id=?) AND created_at>=? AND NOT (status=? AND started_at IS NULL)`,
 		userID, userID, stamp(since), string(jobs.Cancelled)).Scan(&n)
 	return n, err
 }
@@ -384,7 +386,7 @@ func scanReport(row interface{ Scan(...any) error }) (jobs.Report, error) {
 
 // CreateReport inserts a validated report record.
 func (s *Store) CreateReport(ctx context.Context, r jobs.Report) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO reports (`+reportColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	_, err := s.exec(ctx, `INSERT INTO reports (`+reportColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.ID, nullable(r.JobID), r.Origin, r.SourceName, r.SourceSHA256, r.ReportPath, r.ReportSHA256, r.TimelinePath, r.EvidenceRoot,
 		nullable(r.SourcePath), stamp(r.CreatedAt), r.DurationMS, r.Turns, r.Entries, nullable(r.UserID))
 	return err
@@ -392,7 +394,7 @@ func (s *Store) CreateReport(ctx context.Context, r jobs.Report) error {
 
 // GetReport returns one report record.
 func (s *Store) GetReport(ctx context.Context, id string) (jobs.Report, error) {
-	r, err := scanReport(s.db.QueryRowContext(ctx, `SELECT `+reportColumns+` FROM reports WHERE id=?`, id))
+	r, err := scanReport(s.queryRow(ctx, `SELECT `+reportColumns+` FROM reports WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobs.Report{}, &jobs.NotFoundError{Kind: "report", ID: id}
 	}
@@ -402,29 +404,29 @@ func (s *Store) GetReport(ctx context.Context, id string) (jobs.Report, error) {
 // DeleteReport removes a report record with the corrections made on it, and
 // detaches it from the job that produced it; the caller removes the files.
 func (s *Store) DeleteReport(ctx context.Context, id string) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `DELETE FROM reports WHERE id=?`, id)
+	res, err := tx.exec(ctx, `DELETE FROM reports WHERE id=?`, id)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return &jobs.NotFoundError{Kind: "report", ID: id}
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM corrections WHERE report_id=?`, id); err != nil {
+	if _, err := tx.exec(ctx, `DELETE FROM corrections WHERE report_id=?`, id); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE jobs SET report_id=NULL WHERE report_id=?`, id); err != nil {
+	if _, err := tx.exec(ctx, `UPDATE jobs SET report_id=NULL WHERE report_id=?`, id); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
 func (s *Store) queryReports(ctx context.Context, query string, args ...any) ([]jobs.Report, error) {
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -466,14 +468,14 @@ func scanRecording(row interface{ Scan(...any) error }) (jobs.Recording, error) 
 
 // CreateRecording records an upload that is fully written to disk.
 func (s *Store) CreateRecording(ctx context.Context, r jobs.Recording) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO recordings (`+recordingColumns+`) VALUES (?,?,?,?,?,?,?)`,
+	_, err := s.exec(ctx, `INSERT INTO recordings (`+recordingColumns+`) VALUES (?,?,?,?,?,?,?)`,
 		r.ID, r.UserID, r.Name, r.Path, r.Size, r.SHA256, stamp(r.CreatedAt))
 	return err
 }
 
 // GetRecording returns one upload record.
 func (s *Store) GetRecording(ctx context.Context, id string) (jobs.Recording, error) {
-	r, err := scanRecording(s.db.QueryRowContext(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE id=?`, id))
+	r, err := scanRecording(s.queryRow(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobs.Recording{}, &jobs.NotFoundError{Kind: "recording", ID: id}
 	}
@@ -482,7 +484,7 @@ func (s *Store) GetRecording(ctx context.Context, id string) (jobs.Recording, er
 
 // ListRecordingsForUser returns the user's uploads, newest first.
 func (s *Store) ListRecordingsForUser(ctx context.Context, userID string) ([]jobs.Recording, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE user_id=? ORDER BY created_at DESC, id DESC`, userID)
+	rows, err := s.query(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE user_id=? ORDER BY created_at DESC, id DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +503,7 @@ func (s *Store) ListRecordingsForUser(ctx context.Context, userID string) ([]job
 // ListRecordingsOlderThan returns the uploads created before the given time,
 // oldest first.
 func (s *Store) ListRecordingsOlderThan(ctx context.Context, before time.Time) ([]jobs.Recording, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE created_at<? ORDER BY created_at, id`, stamp(before))
+	rows, err := s.query(ctx, `SELECT `+recordingColumns+` FROM recordings WHERE created_at<? ORDER BY created_at, id`, stamp(before))
 	if err != nil {
 		return nil, err
 	}
@@ -521,13 +523,13 @@ func (s *Store) ListRecordingsOlderThan(ctx context.Context, before time.Time) (
 // id counts everyone's.
 func (s *Store) RecordingUsage(ctx context.Context, userID string) (jobs.StorageUsage, error) {
 	var usage jobs.StorageUsage
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(size), 0) FROM recordings WHERE ?='' OR user_id=?`, userID, userID).Scan(&usage.Count, &usage.Bytes)
+	err := s.queryRow(ctx, `SELECT COUNT(*), COALESCE(SUM(size), 0) FROM recordings WHERE ?='' OR user_id=?`, userID, userID).Scan(&usage.Count, &usage.Bytes)
 	return usage, err
 }
 
 // DeleteRecording removes an upload record; the caller deletes the file.
 func (s *Store) DeleteRecording(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM recordings WHERE id=?`, id)
+	res, err := s.exec(ctx, `DELETE FROM recordings WHERE id=?`, id)
 	if err != nil {
 		return err
 	}
@@ -540,7 +542,7 @@ func (s *Store) DeleteRecording(ctx context.Context, id string) error {
 // RecordingInUse reports whether a queued or running job analyzes the upload.
 func (s *Store) RecordingInUse(ctx context.Context, id string) (bool, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM jobs WHERE source_id=? AND status IN (?, ?)`, id, string(jobs.Queued), string(jobs.Running)).Scan(&n)
+	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE source_id=? AND status IN (?, ?)`, id, string(jobs.Queued), string(jobs.Running)).Scan(&n)
 	return n > 0, err
 }
 
@@ -548,7 +550,7 @@ func (s *Store) RecordingInUse(ctx context.Context, id string) (bool, error) {
 
 // CreateUser inserts an account.
 func (s *Store) CreateUser(ctx context.Context, user auth.User, passwordHash string) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO users (id, email, display_name, password_hash, created_at) VALUES (?,?,?,?,?)`,
+	_, err := s.exec(ctx, `INSERT INTO users (id, email, display_name, password_hash, created_at) VALUES (?,?,?,?,?)`,
 		user.ID, user.Email, user.DisplayName, passwordHash, stamp(user.CreatedAt))
 	return err
 }
@@ -558,7 +560,7 @@ func (s *Store) UserByEmail(ctx context.Context, email string) (auth.User, strin
 	var u auth.User
 	var hash string
 	var created sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT id, email, display_name, password_hash, created_at FROM users WHERE email=?`, email).
+	err := s.queryRow(ctx, `SELECT id, email, display_name, password_hash, created_at FROM users WHERE email=?`, email).
 		Scan(&u.ID, &u.Email, &u.DisplayName, &hash, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return auth.User{}, "", auth.ErrNotFound
@@ -574,7 +576,7 @@ func (s *Store) UserByEmail(ctx context.Context, email string) (auth.User, strin
 func (s *Store) UserByID(ctx context.Context, id string) (auth.User, error) {
 	var u auth.User
 	var created sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT id, email, display_name, created_at FROM users WHERE id=?`, id).Scan(&u.ID, &u.Email, &u.DisplayName, &created)
+	err := s.queryRow(ctx, `SELECT id, email, display_name, created_at FROM users WHERE id=?`, id).Scan(&u.ID, &u.Email, &u.DisplayName, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return auth.User{}, auth.ErrNotFound
 	}
@@ -587,7 +589,7 @@ func (s *Store) UserByID(ctx context.Context, id string) (auth.User, error) {
 
 // CreateSession stores a session by token hash.
 func (s *Store) CreateSession(ctx context.Context, tokenHash, userID string, createdAt, expiresAt time.Time) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?,?,?,?)`,
+	_, err := s.exec(ctx, `INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?,?,?,?)`,
 		tokenHash, userID, stamp(createdAt), stamp(expiresAt))
 	return err
 }
@@ -596,7 +598,7 @@ func (s *Store) CreateSession(ctx context.Context, tokenHash, userID string, cre
 func (s *Store) SessionUser(ctx context.Context, tokenHash string, now time.Time) (auth.User, error) {
 	var u auth.User
 	var created, expires sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT u.id, u.email, u.display_name, u.created_at, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash=?`, tokenHash).
+	err := s.queryRow(ctx, `SELECT u.id, u.email, u.display_name, u.created_at, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash=?`, tokenHash).
 		Scan(&u.ID, &u.Email, &u.DisplayName, &created, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return auth.User{}, auth.ErrNotFound
@@ -605,7 +607,7 @@ func (s *Store) SessionUser(ctx context.Context, tokenHash string, now time.Time
 		return auth.User{}, err
 	}
 	if !now.Before(parseStamp(expires)) {
-		s.db.ExecContext(ctx, `DELETE FROM sessions WHERE token_hash=?`, tokenHash)
+		s.exec(ctx, `DELETE FROM sessions WHERE token_hash=?`, tokenHash)
 		return auth.User{}, auth.ErrNotFound
 	}
 	u.CreatedAt = parseStamp(created)
@@ -615,7 +617,7 @@ func (s *Store) SessionUser(ctx context.Context, tokenHash string, now time.Time
 // DeleteExpiredSessions drops every session past its expiry and returns
 // how many went.
 func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at<=?`, stamp(now))
+	res, err := s.exec(ctx, `DELETE FROM sessions WHERE expires_at<=?`, stamp(now))
 	if err != nil {
 		return 0, err
 	}
@@ -624,7 +626,7 @@ func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64
 
 // DeleteSession ends a session.
 func (s *Store) DeleteSession(ctx context.Context, tokenHash string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE token_hash=?`, tokenHash)
+	res, err := s.exec(ctx, `DELETE FROM sessions WHERE token_hash=?`, tokenHash)
 	if err != nil {
 		return err
 	}

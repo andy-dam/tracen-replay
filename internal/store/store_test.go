@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,15 +14,40 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/worker"
 )
 
+// open gives a fresh store: SQLite in a temporary file, or, when
+// TRACEN_TEST_POSTGRES_URL is set, that PostgreSQL database emptied. The
+// returned location reopens it.
 func open(t *testing.T) (*Store, string) {
 	t.Helper()
+	if url := os.Getenv("TRACEN_TEST_POSTGRES_URL"); url != "" {
+		s, err := OpenPostgres(context.Background(), url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.db.Exec(`DROP TABLE IF EXISTS corrections, recordings, sessions, users, reports, jobs, schema_migrations CASCADE`); err != nil {
+			t.Fatal(err)
+		}
+		s.Close()
+		return reopen(t, url), url
+	}
 	path := filepath.Join(t.TempDir(), "tracen.db")
-	s, err := Open(path)
+	return reopen(t, path), path
+}
+
+func reopen(t *testing.T, location string) *Store {
+	t.Helper()
+	var s *Store
+	var err error
+	if strings.HasPrefix(location, "postgres://") {
+		s, err = OpenPostgres(context.Background(), location)
+	} else {
+		s, err = Open(location)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
-	return s, path
+	return s
 }
 
 func TestJobsRoundTripAndQueueOrder(t *testing.T) {
@@ -104,11 +131,7 @@ func TestMarkInterruptedAndPersistenceAcrossReopen(t *testing.T) {
 		t.Fatalf("mark interrupted: %+v %v", interrupted, err)
 	}
 	s.Close()
-	reopened, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer reopened.Close()
+	reopened := reopen(t, path)
 	got, _ := reopened.GetJob(ctx, "running-1")
 	if got.Status != jobs.Interrupted || got.Error == nil || got.Error.Code != "interrupted" {
 		t.Fatalf("interrupted job after reopen: %+v", got)
