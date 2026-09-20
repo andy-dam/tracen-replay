@@ -176,16 +176,24 @@ func (m *Manager) watch(ctx context.Context, id string, message queue.Message) {
 				message = extended
 			}
 		case <-beat.C:
+			// Bounded: a database call that hangs must not hold the lock
+			// every other record update waits on.
+			beatCtx, done := context.WithTimeout(ctx, 30*time.Second)
 			m.mu.Lock()
-			if job, err := m.store.GetJob(ctx, id); err == nil && job.Status == Running {
+			if job, err := m.store.GetJob(beatCtx, id); err == nil && job.Status == Running {
 				job.HeartbeatAt = m.cfg.Clock()
-				m.store.UpdateJob(ctx, job)
+				if err := m.store.UpdateJob(beatCtx, job); err != nil {
+					m.log.Warn("heartbeat not written", "job", id, "error", err)
+				}
 			}
 			m.mu.Unlock()
+			done()
 		case <-look.C:
-			if job, err := m.store.GetJob(ctx, id); err == nil && job.CancelRequested {
+			lookCtx, done := context.WithTimeout(ctx, 30*time.Second)
+			if job, err := m.store.GetJob(lookCtx, id); err == nil && job.CancelRequested {
 				m.stop(id)
 			}
+			done()
 		}
 	}
 }
