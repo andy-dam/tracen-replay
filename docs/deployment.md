@@ -371,7 +371,12 @@ it goes.
    `deploy/azure/deploy.sh` (Git Bash works). The script needs
    `TRACEN_API_IMAGE` and `TRACEN_PG_PASSWORD` in its environment (its
    header lists them; the images must exist on GHCR first, which the
-   first release run makes). The first run creates the resource group
+   first release run makes). An Azure for Students subscription is
+   allowed only some regions ("RequestDisallowedByAzure ... best
+   available regions"): list them with `az policy assignment list
+   --disable-scope-strict-match --query "[].parameters.listOfAllowedLocations.value"`
+   and set `TRACEN_LOCATION` to one of them (eastus2, centralus or
+   westus2 have the cheap storage prices). The first run creates the resource group
    `tracen` with the storage account, PostgreSQL, the Container Apps
    environment and the API, and prints the storage account name and
    the client's URL. Without a domain the API serves the client itself

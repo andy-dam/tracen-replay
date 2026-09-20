@@ -5,7 +5,7 @@
 # secret is on the command line:
 #
 #   TRACEN_RG           resource group name (default tracen)
-#   TRACEN_LOCATION     region (default eastus)
+#   TRACEN_LOCATION     region (default eastus; Azure for Students allows only some regions, see docs/deployment.md section 11)
 #   TRACEN_APP_ORIGIN   the client's origin when it has its own domain, e.g. https://app.example.com;
 #                       leave it unset and the API serves the client itself at its Azure hostname
 #   TRACEN_API_HOST     the API's host name, e.g. api.example.com (optional)
@@ -29,7 +29,7 @@ az group create --name "$rg" --location "$location" --output none
 az deployment group create \
 	--resource-group "$rg" \
 	--template-file "$(dirname "$0")/main.bicep" \
-	--parameters appOrigin="${TRACEN_APP_ORIGIN:-}" apiHost="${TRACEN_API_HOST:-}" apiImage="$TRACEN_API_IMAGE" \
+	--parameters location="$location" appOrigin="${TRACEN_APP_ORIGIN:-}" apiHost="${TRACEN_API_HOST:-}" apiImage="$TRACEN_API_IMAGE" \
 		postgresPassword="$TRACEN_PG_PASSWORD" workerAddresses="$workers" trustedProxies="${TRACEN_TRUSTED_PROXIES:-}" \
 	--query properties.outputs --output yaml
 
