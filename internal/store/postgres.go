@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registered as "pgx"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 // The same store on PostgreSQL, for the hosted service, where the API and
@@ -20,12 +22,21 @@ import (
 // ("postgres://user:password@host:5432/tracen?sslmode=require") and
 // applies migrations.
 func OpenPostgres(ctx context.Context, url string) (*Store, error) {
-	db, err := sql.Open("pgx", url)
+	config, err := pgx.ParseConfig(url)
 	if err != nil {
 		return nil, err
 	}
+	// A cloud network drops a connection that sits idle for a few minutes
+	// without telling either end (Azure's outbound NAT after four). A
+	// worker in a long stage with nothing to write would then hang on the
+	// dead socket at its next write for as long as TCP retries. Keepalives
+	// notice the loss within a minute, and a connection is retired before
+	// it can go idle that long.
+	config.DialFunc = (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 20 * time.Second}).DialContext
+	db := stdlib.OpenDB(*config)
 	db.SetMaxOpenConns(8)
 	db.SetConnMaxLifetime(30 * time.Minute)
+	db.SetConnMaxIdleTime(2 * time.Minute)
 	pingCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if err := db.PingContext(pingCtx); err != nil {
