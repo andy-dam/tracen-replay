@@ -43,6 +43,29 @@ class TitleContinuityTests(unittest.TestCase):
         rows=self.pair();rows.insert(1,row(200,'training_preview'))
         self.assertEqual(len(outcome_events(rows)),2)
 
+    def test_a_caption_read_with_its_head_gone_on_the_same_pixels_is_the_same_caption(self):
+        # The event's last frame wipes the caption off from the left: 'Ready
+        # for a Challenge' reads 'Challenge' at the same right edge and rows,
+        # over the same receipt. The text alone could be another event's.
+        effect=dict(kind='stat_change',field='speed',amount=5)
+        rows=[row(100,'event_outcome',effects=[effect],context_title='Ready for a Challenge',context_title_box=[240,204,446,234]),
+              row(350,'event_outcome',effects=[effect],context_title='Challenge',context_title_box=[352,207,442,231])]
+        events=outcome_events(rows)
+        self.assertEqual(len(events),1)
+        self.assertEqual(events[0]['deltas'],{'speed':5})
+        self.assertEqual(events[0]['context_title'],'Ready for a Challenge')
+        self.assertEqual(events[0]['title_continuation_evidence'][0]['basis'],'caption_head_cut_on_same_pixels')
+        self.assertNotIn('context_title_box',events[0])
+        # Elsewhere on the line, or without the boxes, a suffix is its own caption.
+        rows[1]['context_title_box']=[240,204,330,234]
+        self.assertEqual(len(outcome_events(rows)),2)
+        for r in rows:r.pop('context_title_box')
+        self.assertEqual(len(outcome_events(rows)),2)
+
+    def test_the_caption_box_is_where_its_lines_sat(self):
+        self.assertEqual(parse(raw([line('Ready for a Challenge',(240,204,446,234),99)]))['context_title_box'],[240,204,446,234])
+        self.assertIsNone(parse(raw([line('Wit went up by 5.',(309,811,500,835))]))['context_title_box'])
+
     def test_later_clear_caption_can_complete_an_earlier_fragment(self):
         rows=self.pair();rows[0]['context_title']='Decisive Match';rows[1]['context_title']='Race: The Decisive Match'
         events=outcome_events(rows)

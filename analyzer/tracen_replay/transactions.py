@@ -2454,6 +2454,27 @@ def _same_caption(left,right):
     return len(short)>=_CAPTION_PREFIX_MIN and abs(len(a)-len(b))<=2 and _edit_distance(a.casefold(),b.casefold())<=2
 
 
+def _caption_head_cut(current,row):
+    """The caption read with its head gone, on the same pixels, is the caption still on screen.
+
+    On an event's last frame the caption wipes off from the left: 'Ready for
+    a Challenge' reads 'Challenge'. The text alone cannot say so, a suffix may
+    be another event's caption, but this read sits where the fuller caption
+    sat, the same right edge and the same rows, within the same half second.
+    """
+    if not current or row['source_timestamp_ms']-current['last_seen_ms']>500:return False
+    title=row.get('context_title');previous=current.get('context_title')
+    box=row.get('context_title_box');anchor=current.get('context_title_box')
+    if not title or not previous or not _caption_box(box) or not _caption_box(anchor):return False
+    full=' '.join(str(previous).split());tail=' '.join(str(title).split())
+    if not full.endswith(' '+tail):return False
+    return all(abs(box[i]-anchor[i])<=6 for i in (1,2,3))
+
+
+def _caption_box(box):
+    return isinstance(box,list) and len(box)==4 and all(type(v) in (int,float) for v in box)
+
+
 def continued_title(current,row):
     """A weaker full caption can link a truncated title, never invent an award."""
     if not current or row['source_timestamp_ms']-current['last_seen_ms']>500:return None
@@ -2519,7 +2540,8 @@ def outcome_events(readings):
             narrative=bool(long_lines) and (not anchored or any(
                 not repeats_receipt(l) and not uncertain_companion(l) for l in long_lines))
             changed_title=(current and row.get('context_title') and current['context_title']
-                           and not _same_caption(row['context_title'],current['context_title']) and not continued_title(current,row))
+                           and not _same_caption(row['context_title'],current['context_title']) and not continued_title(current,row)
+                           and not _caption_head_cut(current,row))
             if current and (narrative or changed_title or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
             elif current and long_lines:
                 current.setdefault('receipt_continuity_evidence',[]).append(dict(
@@ -2530,14 +2552,20 @@ def outcome_events(readings):
         title=row.get('context_title')
         continuation=continued_title(current,row)
         if continuation:title=continuation
-        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and not _same_caption(title,current['context_title']) and not continuation):
+        head_cut=_caption_head_cut(current,row)
+        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and not _same_caption(title,current['context_title']) and not continuation and not head_cut):
             current=dict(id=f'outcome-{len(events)+1:04d}',kind='outcome',first_seen_ms=time,last_seen_ms=time,evidence=row['evidence'],
-                         context_title=title,effects={},field_evidence={},conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
+                         context_title=title,context_title_box=row.get('context_title_box'),effects={},field_evidence={},
+                         conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
             events.append(current)
         current['last_seen_ms']=time
         if title and (not current['context_title'] or len(' '.join(title.split()))>=len(' '.join(str(current['context_title']).split()))):
             current['context_title']=title
+            if row.get('context_title_box') is not None:current['context_title_box']=row['context_title_box']
         current['context_title_candidate']=row.get('context_title_candidate')
+        if head_cut:
+            current.setdefault('title_continuation_evidence',[]).append(dict(evidence=row['evidence'],
+                observed_title=row.get('context_title'),retained_title=current['context_title'],basis='caption_head_cut_on_same_pixels'))
         if continuation:
             current.setdefault('title_continuation_evidence',[]).append(dict(evidence=row['evidence'],
                 observed_title=row.get('context_title'),full_candidate=row.get('context_title_candidate'),
@@ -2587,6 +2615,7 @@ def outcome_events(readings):
                 current['effects'][key]=effect
                 current['field_evidence'].setdefault(key,[]).append(row['evidence'])
     for event in events:
+        event.pop('context_title_box',None)
         receipt_observations=event.pop('effect_observations')
         for key,observations in receipt_observations.items():
             conflicts=[c for c in event['conflicting_readings'] if c['field']==key]

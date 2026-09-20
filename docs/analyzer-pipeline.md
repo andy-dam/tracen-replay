@@ -176,10 +176,14 @@ visible names are the whole purchase (`visible_names_cost_the_cart_net`).
 **Receipts and captions.** A story caption read whole, and read again with
 its tail cut off (at a word, or inside its last word with at most three
 glyphs missing) or with one or two misread letters, is one outcome, not
-two (a caption's tail alone, "Challenge" beside "Ready for a Challenge", is
-not: only the wrapped-title candidate and a shared receipt continue a
-title, so that receipt counts twice on purpose rather than a lone tail
-merging two events): outcome grouping stays open across an unreadable frame for up to 500 ms
+two. A caption's tail alone ("Challenge" beside "Ready for a Challenge") is
+not the same caption by its text, it may be another event's; it is when it
+sits where the fuller caption sat, the same right edge and the same rows
+(`context_title_box`, within 6 px) within half a second: the event's last
+frame wipes the caption off from the left, and the receipt under it would
+otherwise count twice (`title_continuation_evidence` basis
+`caption_head_cut_on_same_pixels`). Without the boxes only the wrapped-title
+candidate and a shared receipt continue a title. Outcome grouping stays open across an unreadable frame for up to 500 ms
 and matches captions by a fuzzy same-caption check rather than exact text. A
 frame with no receipt and no pending caption only closes the current outcome
 when it carries real narrative content, a different context title, or an

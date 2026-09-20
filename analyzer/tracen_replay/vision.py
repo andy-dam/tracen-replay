@@ -3029,11 +3029,17 @@ def parse(raw):
     runner_card=_race_runner_card(raw,lines)
     if runner_card is not None:
         facts['race_runner_attributes']=runner_card
-    titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=95 and l['box'][3]<=250 and l['text']!='MAX']
+    title_lines=[l for l in lines if within(l,(240,195,850,245)) and l['confidence']>=95 and l['box'][3]<=250 and l['text']!='MAX']
+    titles=[l['text'] for l in title_lines]
+    # Where the caption sat: a later read of its tail on the same pixels is
+    # the same caption wiping off, not another event's.
+    title_box=[min(l['box'][0] for l in title_lines),min(l['box'][1] for l in title_lines),
+               max(l['box'][2] for l in title_lines),max(l['box'][3] for l in title_lines)] if title_lines else None
     candidate_titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=90 and l['box'][3]<=250 and l['text']!='MAX']
     result = dict(screen=screen,stats=stats,training_option=option if screen=='training_result' else None,
                   effects=effects,facts=facts,completed_action='training' if screen=='training_result' else None,
-                  context_title=' '.join(titles) or None,context_title_candidate=' '.join(candidate_titles) or None,ocr={'neural':lines})
+                  context_title=' '.join(titles) or None,context_title_candidate=' '.join(candidate_titles) or None,
+                  context_title_box=title_box,ocr={'neural':lines})
     # Preserve the source/model envelope alongside parsed rows.  Inspection
     # mergers need this physical identity to distinguish a same-timestamp
     # reread of one frame from an unrelated frame or recording.  Older raw
