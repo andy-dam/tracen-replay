@@ -359,9 +359,12 @@ Still to do, none of it blocking a first deployment:
 - The Container Apps job is in the Bicep (`tracen-analysis`, 4 vCPU /
   8 GiB, one execution per waiting message, `-exit-when-idle`), added on
   2026-09-20 when the Oracle A1 shape stayed out of capacity; the
-  monthly fence (`-monthly-total`, 8 by default) is its budget check.
-  A career there costs about $1.50 beyond the free grant of 3 to 4 a
-  month. An Oracle worker, when it exists, takes from the same queue and
+  monthly fence (`-monthly-total`, 3 by default) is its budget check.
+  Measured on 2026-09-20 with a five-minute clip: 44 minutes of
+  analysis plus 90 seconds for the 720p copy, 2.2 seconds a frame, so a
+  40-minute career is about seven hours and about $3 beyond the free
+  grant, which covers about two a month. The job's time bound is 9 hours
+  (`-max-analysis`) inside a 10-hour execution limit. An Oracle worker, when it exists, takes from the same queue and
   usually wins the race (it polls every 3 seconds; the job scaler every
   30).
 - The recording page saying until when the original can be analyzed
