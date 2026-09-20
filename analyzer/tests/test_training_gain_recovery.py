@@ -74,6 +74,37 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         # An event that outlasts the span (its banner stayed up) is reread from its first moments.
         self.assertEqual([(w['start_ms'],w['end_ms']) for w in plan([card],[dict(event,last_seen_ms=2200)])],[(500,2000)])
 
+    def test_a_card_that_showed_before_the_result_frames_is_reread_at_its_own_moment(self):
+        # The card came and went in a quarter second, caught once mid
+        # animation: unclassified, its badges under the banner, but the stat
+        # names along its row read through. The event is dated by the empty
+        # transition frames 1.5 s later; that window would miss the card.
+        def glimpse(t, labels=('Speed', 'Skill Pts'), screen='unknown', **extra):
+            lines=[dict(text=text, confidence=96, box=[289+466*i, 747, 360+466*i, 764]) for i, text in enumerate(labels)]
+            lines.append(dict(text='+11', confidence=100, box=[755, 678, 831, 720]))
+            return dict(source_timestamp_ms=t, evidence=f'{t}.png', screen=screen, facts={}, stats={}, ocr={'neural': lines}, **extra)
+        empty=dict(row(2229500,{}),training_option='guts');empty['facts'].update(result_values={'skill_points':None})
+        event=dict(id='training',kind='training',training_option='guts',first_seen_ms=2229500,last_seen_ms=2229750,deltas={},conflicting_readings={})
+        got=plan([glimpse(2228000),empty],[event])
+        self.assertEqual([(w['start_ms'],w['end_ms'],w['reason']) for w in got],
+                         [(2229000,2230250,'result_seen_without_any_signed_gain'),(2227750,2229000,'card_shown_before_result_frames')])
+        self.assertEqual((got[1]['owner_id'],got[1]['fields'],got[1]['training_option']),('training',got[0]['fields'],'guts'))
+        # A committed result with a gain missing gets the same second window
+        # only while it has no accepted gain at all.
+        committed=dict(empty);committed['facts']=dict(empty['facts'],result_values={'guts':334,'skill_points':299},training_outcome='success')
+        self.assertEqual([w['reason'] for w in plan([glimpse(2228000),committed],[event])],
+                         ['committed_result_missing_signed_gain_observation','card_shown_before_result_frames'])
+        self.assertNotIn('card_shown_before_result_frames',
+                         [w['reason'] for w in plan([glimpse(2228000),committed],[dict(event,deltas={'guts':32})])])
+        # One name, a preview frame, a preview after the glimpse, or a glimpse
+        # too long before: no second window.
+        for rows in ([glimpse(2228000,labels=('Speed',)),empty],
+                     [glimpse(2228000,screen='training_preview'),empty],
+                     [glimpse(2228000),glimpse(2228500,screen='training_preview'),empty],
+                     [glimpse(2226500),empty]):
+            with self.subTest(rows=[r['source_timestamp_ms'] for r in rows]):
+                self.assertEqual([w['reason'] for w in plan(rows,[event])],['result_seen_without_any_signed_gain'])
+
     def test_same_timestamp_unrequested_fields_and_other_occurrences_are_excluded(self):
         original=[row(100,{'speed':1})];before=copy.deepcopy(original)
         fresh=[row(100,{'speed':13}),row(117,{'speed':13,'wit':999}),row(300,{'speed':13})]

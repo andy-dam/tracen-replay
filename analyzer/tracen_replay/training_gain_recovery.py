@@ -24,6 +24,61 @@ _SOURCE_ENVELOPE_KEYS = (
 )
 _RESULT_RECOVERY_RADIUS_MS = 500
 _RESULT_RECOVERY_MAX_SPAN_MS = 1500
+_CARD_MOMENT_LOOKBACK_MS = 2500
+_CARD_MOMENT_RADIUS_MS = 250
+_CARD_LABELS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill pts')
+
+
+def _card_moment_before(readings, first_seen):
+    """The last frame before the result's own frames on which the card's label row shows, or None.
+
+    A card the player dismisses within a quarter second is caught by the
+    sparse pass once, mid animation: the result banner or the wipe covers
+    its badges and its scaffold, the frame stays unclassified, and the
+    result event is dated by frames after the card (the transition after
+    the outcome dialog reads as an empty result). The stat names along the
+    card's own row still read through on that frame. Two whole names in
+    the card's lower half, on an unclassified frame that is no preview and
+    has no preview after it, mark where the card was.
+    """
+    rows = [r for r in readings if isinstance(r, dict) and type(r.get('source_timestamp_ms')) is int
+            and first_seen - _CARD_MOMENT_LOOKBACK_MS <= r['source_timestamp_ms'] < first_seen]
+    best = None
+    for row in rows:
+        if row.get('screen') not in ('unknown', 'training_result_candidate'):
+            continue
+        facts = row.get('facts') if isinstance(row.get('facts'), dict) else {}
+        if (row.get('stats') or {}).get('training_preview') is True or any(
+                facts.get(key) is True for key in ('preview', 'preview_overlay_proven', 'preview_modifier_proven')):
+            continue
+        labels = set()
+        for line in (row.get('ocr') or {}).get('neural') or []:
+            box = line.get('box') if isinstance(line, dict) else None
+            if not isinstance(box, (list, tuple)) or len(box) != 4 or (line.get('confidence') or 0) < 90:
+                continue
+            if not (250 <= box[0] and box[2] <= 850 and 700 <= box[1] and box[3] <= 1005):
+                continue
+            text = str(line.get('text', '')).strip().lower()
+            if text in _CARD_LABELS:
+                labels.add(text)
+        if len(labels) >= 2 and (best is None or row['source_timestamp_ms'] > best):
+            best = row['source_timestamp_ms']
+    if best is None or any(r.get('screen') == 'training_preview' or (r.get('stats') or {}).get('training_preview') is True
+                           for r in rows if r['source_timestamp_ms'] > best):
+        return None
+    return best
+
+
+def _earlier_card_request(readings, first_seen, request):
+    """The same reread, bounded around the card's earlier moment, when that lies before the request."""
+    moment = _card_moment_before(readings, first_seen)
+    if moment is None:
+        return None
+    start = max(0, moment - _CARD_MOMENT_RADIUS_MS)
+    end = min(start + _RESULT_RECOVERY_MAX_SPAN_MS, request['start_ms'])
+    if not start < end:
+        return None
+    return dict(request, start_ms=start, end_ms=end, reason='card_shown_before_result_frames')
 
 
 def _candidate_only_fields(row):
@@ -321,10 +376,15 @@ def plan(readings, events):
             # reread from its first moments too, rather than not at all.
             end=min(last_seen + _RESULT_RECOVERY_RADIUS_MS, start + _RESULT_RECOVERY_MAX_SPAN_MS)
             if start<end:
-                fallback_requests.append(dict(
+                request=dict(
                     start_ms=start, end_ms=end, owner_id=event['id'], fields=sorted(FIELDS),
                     performance_fields=list(_PERFORMANCE_FIELDS), training_option=event.get('training_option'),
-                    source_result_projection=True, reason='result_seen_without_any_signed_gain'))
+                    source_result_projection=True, reason='result_seen_without_any_signed_gain')
+                fallback_requests.append(request)
+                # The card itself may have shown, and gone, before the frames
+                # that make this event; its own moment is reread as well.
+                earlier=_earlier_card_request(readings, first_seen, request)
+                if earlier:fallback_requests.append(earlier)
             continue
         # A performance row the committed card left unread (a badge over it,
         # a merged read under the floor, the award's box cut before its
@@ -355,7 +415,7 @@ def plan(readings, events):
         end=min(last_seen + _RESULT_RECOVERY_RADIUS_MS, start + _RESULT_RECOVERY_MAX_SPAN_MS)
         if not start<end:
             continue
-        fallback_requests.append(dict(
+        request=dict(
             start_ms=start,
             end_ms=end,
             owner_id=event['id'],
@@ -364,7 +424,11 @@ def plan(readings, events):
             training_option=event.get('training_option'),
             source_result_projection=True,
             reason='committed_result_missing_signed_gain_observation',
-        ))
+        )
+        fallback_requests.append(request)
+        if not (event.get('deltas') or {}):
+            earlier=_earlier_card_request(readings, first_seen, request)
+            if earlier:fallback_requests.append(earlier)
     return requests + fallback_requests
 
 
