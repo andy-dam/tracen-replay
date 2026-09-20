@@ -501,7 +501,10 @@ them, are:
   transaction row are marked complete (`purchased_list_basis`
   `cart_costs_match_turn_difference`, `spent_skill_points` from the
   difference with `spent_skill_points_basis` `turn_difference`), while the
-  debit itself stays worked out; when only the cart counter's net change
+  debit itself stays worked out; likewise when the names the confirmation
+  showed each carry a price and those prices alone add up to the difference
+  (`visible_names_cost_the_turn_difference`), whatever else the cart counter
+  saw come and go before the purchase; when only the cart counter's net change
   equals the difference, the charge is that (`spent_skill_points_basis`
   `turn_difference_matches_cart_net_cost`) and the list stays partly
   named;

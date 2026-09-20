@@ -318,14 +318,26 @@ def _complete_list_from_cart(batch, charge, data):
         for target in (batch, *twins):
             target.update(spent_skill_points=charge, spent_skill_points_basis='turn_difference_matches_cart_net_cost')
     items = batch.get('selected_item_candidates') or []
-    if (not items or batch.get('purchased_list_complete')
-            or any(not isinstance(item, dict) or type(item.get('cost')) is not int or not item.get('name')
-                   for item in items)
-            or sum(item['cost'] for item in items) != charge):
+    if not items or batch.get('purchased_list_complete'):
         return
-    names = sorted({item['name'] for item in items} | set(batch.get('visible_confirmation_names') or []))
+    visible = batch.get('visible_confirmation_names') or []
+    priced = {item['name']: item['cost'] for item in items
+              if isinstance(item, dict) and item.get('basis') == 'visible_confirmation_and_price'
+              and isinstance(item.get('name'), str) and type(item.get('cost')) is int}
+    if visible and all(name in priced for name in visible) and sum(priced[name] for name in visible) == charge:
+        # The names the confirmation showed each carry a price, and those
+        # prices add up to the turn's drop: nothing scrolled off the list
+        # (the same inference the cart's own net cost supports), whatever
+        # else the cart counter saw come and go before the purchase.
+        basis, names = 'visible_names_cost_the_turn_difference', sorted(set(visible))
+    elif (any(not isinstance(item, dict) or type(item.get('cost')) is not int or not item.get('name')
+              for item in items)
+          or sum(item['cost'] for item in items) != charge):
+        return
+    else:
+        basis, names = 'cart_costs_match_turn_difference', sorted({item['name'] for item in items} | set(visible))
     completed = dict(spent_skill_points=charge, spent_skill_points_basis='turn_difference',
-                     purchased_list_complete=True, purchased_list_basis='cart_costs_match_turn_difference',
+                     purchased_list_complete=True, purchased_list_basis=basis,
                      purchased_skill_names=names)
     for target in (batch, *twins):
         target.update(completed)

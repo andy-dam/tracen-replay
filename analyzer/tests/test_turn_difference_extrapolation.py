@@ -628,6 +628,27 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         cost = next(c for c in result['contributions'] if c['basis'] == 'turn_difference' and c['field'] == 'skill_points')
         self.assertEqual(cost['amount'], -8)
 
+    def test_visible_names_whose_prices_add_up_to_the_difference_complete_the_list(self):
+        # The cart counter saw an item come and go before the purchase, so
+        # the candidates' costs overshoot the drop; the names the
+        # confirmation showed each carry a price, and those add up to it.
+        cart = [dict(name='Alpha', cost=5, basis='visible_confirmation_and_price'),
+                dict(name='Beta', cost=3, basis='visible_confirmation_and_price'),
+                dict(name='Gamma', cost=4, basis='cart_counter_and_unique_visible_price_candidate')]
+        doc = report(residual_sign=-1, batches=[batch(selected_item_candidates=cart, visible_confirmation_names=['Alpha', 'Beta'],
+                                                      purchased_list_complete=False)])
+        build(doc)
+        committed = doc['gameplay_tracking']['events'][-1]
+        self.assertEqual((committed['purchased_list_complete'], committed['purchased_list_basis'], committed['spent_skill_points'],
+                          committed['purchased_skill_names']),
+                         (True, 'visible_names_cost_the_turn_difference', 8, ['Alpha', 'Beta']))
+        # A visible name without a price, or prices short of the drop, prove nothing.
+        for names in (['Alpha', 'Beta', 'Delta'], ['Alpha']):
+            doc = report(residual_sign=-1, batches=[batch(selected_item_candidates=cart, visible_confirmation_names=names,
+                                                          purchased_list_complete=False)])
+            build(doc)
+            self.assertFalse(doc['gameplay_tracking']['events'][-1]['purchased_list_complete'])
+
     def test_a_cart_short_of_the_difference_leaves_the_list_incomplete(self):
         for cart in ([dict(name='Alpha', cost=5), dict(name='Beta', cost=2)], [dict(name='', cost=8)], []):
             doc = report(residual_sign=-1, batches=[batch(selected_item_candidates=cart, purchased_list_complete=False)])
