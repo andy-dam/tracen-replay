@@ -201,9 +201,14 @@ Tested on 2026-09-20 on a five-minute clip against the current code:
   frames because the reused read is an earlier frame's jitter rather than
   this frame's, which the event grouping absorbs, and two trainings and
   one performance award came out better named or observed rather than
-  derived. It is off by default until one full career has been run both
-  ways; then it becomes the default and the cloud capacity figures above
-  rise by about a fifth.
+  derived. Then a full career was run both ways (Could, 2026-09-20, three
+  OCR workers on DirectML) and the lever lost data: 66 of 74 turns
+  identical to the base run, where two base runs of the same code agree
+  on 72; 25 unexplained changes against 0; 162 stat checkpoints against
+  178; 8 serious flags against 1. The frames a process reads in a row are
+  not consecutive frames when several worker processes share the work,
+  so the saving was 5 percent of base OCR time, not 18. It stays off; the
+  capacity figures above stand as they are.
 - **A GPU worker.** Not available on either free tier. The CUDA image
   exists; a paid GPU job is the only way to bring an analysis under an
   hour, at several dollars each on Azure, so it is not part of this plan.
