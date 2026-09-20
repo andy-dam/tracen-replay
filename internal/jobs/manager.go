@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/andy-dam/tracen-replay/internal/objectstore"
+	"github.com/andy-dam/tracen-replay/internal/queue"
 	"github.com/andy-dam/tracen-replay/internal/timeline"
 	"github.com/andy-dam/tracen-replay/internal/worker"
 )
@@ -61,6 +63,19 @@ type Config struct {
 	KeepWorkingData bool
 	// Recordings resolves the uploaded recordings a job may analyze.
 	Recordings Recordings
+	// Queue, when set, is shared with other processes: Submit puts the job
+	// id on it and a worker process takes ids from it with Work, while Run
+	// is not used. Objects then holds every file: the recording under
+	// Job.SourcePath (an object key), the outputs under Job.OutputDir (a
+	// key prefix) and the log under Job.LogPath. Scratch is the worker's
+	// directory for the downloaded recording and the run.
+	Queue   queue.Queue
+	Objects objectstore.Store
+	Scratch string
+	// Poll is how often, in the shared-queue mode, a worker looks at an
+	// empty queue and for a cancellation request, and the API process
+	// re-reads the active jobs; zero means a few seconds.
+	Poll time.Duration
 	// Clock and NewID are replaceable for tests.
 	Clock func() time.Time
 	NewID func() string
@@ -118,8 +133,10 @@ func NewManager(cfg Config, store Store, runner Runner) (*Manager, error) {
 	switch {
 	case store == nil || runner == nil || cfg.Recordings == nil:
 		return nil, errors.New("jobs: store, runner and recordings are required")
-	case cfg.DataDir == "" || cfg.Python == "" || cfg.WorkDir == "":
+	case cfg.Queue == nil && (cfg.DataDir == "" || cfg.Python == "" || cfg.WorkDir == ""):
 		return nil, errors.New("jobs: data directory, python and working directory are required")
+	case cfg.Queue != nil && cfg.Objects == nil:
+		return nil, errors.New("jobs: a shared queue needs an object store")
 	case cfg.Workers < 1:
 		return nil, errors.New("jobs: at least one OCR worker is required")
 	case cfg.QueueLimit < 1:
@@ -159,7 +176,12 @@ func (m *Manager) List(ctx context.Context, userID string) ([]Job, error) {
 
 // Recover marks jobs left running by a previous process as interrupted. It
 // never re-runs them: an interrupted analysis is resubmitted explicitly.
+// With a shared queue the running jobs belong to other processes, which
+// Follow and Work watch instead.
 func (m *Manager) Recover(ctx context.Context) ([]Job, error) {
+	if m.remote() {
+		return nil, nil
+	}
 	interrupted, err := m.store.MarkInterrupted(ctx, m.cfg.Clock())
 	for _, job := range interrupted {
 		m.log.Warn("job interrupted by restart", "job", job.ID)
@@ -187,14 +209,27 @@ func (m *Manager) Submit(ctx context.Context, userID, sourceID string) (Job, err
 		return Job{}, err
 	}
 	id := m.cfg.NewID()
-	dir := filepath.Join(m.cfg.DataDir, "jobs", id)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return Job{}, err
-	}
 	job := Job{ID: id, UserID: userID, SourceID: source.ID, SourcePath: source.Path, SourceName: source.Name, Status: Queued,
-		CreatedAt: m.cfg.Clock(), OutputDir: filepath.Join(dir, "run"), LogPath: filepath.Join(dir, "worker.log")}
+		CreatedAt: m.cfg.Clock()}
+	if m.remote() {
+		job.OutputDir, job.LogPath = "jobs/"+id+"/run", "jobs/"+id+"/worker.log"
+	} else {
+		dir := filepath.Join(m.cfg.DataDir, "jobs", id)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return Job{}, err
+		}
+		job.OutputDir, job.LogPath = filepath.Join(dir, "run"), filepath.Join(dir, "worker.log")
+	}
 	if err := m.store.CreateJob(ctx, job); err != nil {
 		return Job{}, err
+	}
+	if m.remote() {
+		if err := m.cfg.Queue.Enqueue(ctx, id); err != nil {
+			job.Status, job.FinishedAt = Failed, m.cfg.Clock()
+			job.Error = &Failure{Code: "queue_unavailable", Message: "the analysis could not be queued: " + err.Error()}
+			m.store.UpdateJob(ctx, job)
+			return Job{}, err
+		}
 	}
 	m.publish(job, nil)
 	select {
@@ -275,6 +310,14 @@ func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
 		return job, err
 	case Running:
 		cancel, done := m.cancels[id], m.done[id]
+		if cancel == nil && m.remote() {
+			// The worker process that runs it will see the request within
+			// seconds and stop; the record reaches cancelled when it has.
+			job.CancelRequested = true
+			err := m.store.UpdateJob(ctx, job)
+			m.mu.Unlock()
+			return job, err
+		}
 		m.mu.Unlock()
 		if cancel == nil {
 			return job, &TransitionError{ID: id, Status: job.Status, Action: "cancel: it is owned by another process"}
@@ -354,6 +397,7 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	m.cancels[id], m.done[id] = cancel, done
 	job.Status = Running
 	job.StartedAt = m.cfg.Clock()
+	job.HeartbeatAt = job.StartedAt
 	if err := m.store.UpdateJob(ctx, job); err != nil {
 		m.mu.Unlock()
 		close(claimed)
@@ -366,11 +410,27 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	m.publish(job, nil)
 	m.log.Info("job started", "job", id, "source", job.SourceName)
 
-	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: job.SourcePath, Output: job.OutputDir,
+	// Where the worker reads and writes: the job's own paths, or, with a
+	// shared queue, a scratch directory the recording is fetched into and
+	// the outputs are uploaded from.
+	place := placement{source: job.SourcePath, output: job.OutputDir, log: job.LogPath}
+	if m.remote() {
+		var err error
+		if place, err = m.fetch(jobCtx, job); err != nil {
+			m.finish(ctx, id, func(j *Job) {
+				j.Status = Failed
+				j.Error = &Failure{Code: "source_unavailable", Message: "the recording could not be fetched: " + err.Error()}
+			})
+			cancel()
+			return
+		}
+		defer os.RemoveAll(filepath.Dir(place.output))
+	}
+	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: place.source, Output: place.output,
 		ModelDir: m.cfg.ModelDir, Workers: m.cfg.Workers, DenseWorkers: m.cfg.DenseWorkers, OCRDevice: m.cfg.OCRDevice,
 		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
 		PruneWorkingData: !m.cfg.KeepWorkingData, OwnerPID: os.Getpid()}
-	logs, err := os.Create(job.LogPath)
+	logs, err := os.Create(place.log)
 	if err != nil {
 		m.finish(ctx, id, func(j *Job) { j.Status = Failed; j.Error = &Failure{Code: "log_unwritable", Message: err.Error()} })
 		cancel()
@@ -409,6 +469,7 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		}
 		applyProgress(&current)
 		now := m.cfg.Clock()
+		current.HeartbeatAt = now
 		if p.Stage != worker.StageOCR || now.Sub(lastSave) >= 2*time.Second || p.Processed == p.Total {
 			if err := m.store.UpdateJob(ctx, current); err == nil {
 				lastSave = now
@@ -419,6 +480,11 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	}
 	exitCode, stdout, runErr := m.runner.Run(jobCtx, cmd, onProgress, logs)
 	logs.Close()
+	if m.remote() {
+		if err := m.putFile(context.WithoutCancel(ctx), job.LogPath, place.log, "text/plain; charset=utf-8"); err != nil {
+			m.log.Warn("worker log not uploaded", "job", id, "error", err)
+		}
+	}
 
 	m.finish(ctx, id, func(j *Job) {
 		applyProgress(j)
@@ -436,14 +502,14 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 			j.Status = Failed
 			j.Error = &Failure{Code: "worker_start_failed", Message: runErr.Error()}
 		default:
-			m.conclude(j, exitCode, stdout)
+			m.conclude(j, exitCode, stdout, place)
 		}
 	})
 	cancel()
 }
 
 // conclude turns the worker's exit code and stdout into the job's final state.
-func (m *Manager) conclude(j *Job, exitCode int, stdout []byte) {
+func (m *Manager) conclude(j *Job, exitCode int, stdout []byte, place placement) {
 	result, err := worker.Interpret(exitCode, stdout)
 	if err != nil {
 		j.Status = Failed
@@ -478,6 +544,25 @@ func (m *Manager) conclude(j *Job, exitCode int, stdout []byte) {
 		ReportPath: artifacts.ReportPath, ReportSHA256: artifacts.ReportSHA256, TimelinePath: artifacts.TimelinePath,
 		EvidenceRoot: result.EvidenceRoot, SourcePath: j.SourcePath, CreatedAt: m.cfg.Clock(), DurationMS: doc.Source.DurationMS,
 		Turns: len(doc.Turns), Entries: len(doc.Entries)}
+	if m.remote() {
+		// The run's files go to the object store, and the report names them
+		// by key; the recording is the key it was analyzed from.
+		keys, err := m.upload(context.Background(), j.OutputDir, place.output)
+		if err != nil {
+			j.Status = Failed
+			j.Error = &Failure{Code: "upload_failed", Message: "the analysis finished but its files could not be stored: " + err.Error()}
+			j.Result = &result
+			return
+		}
+		report.ReportPath, report.TimelinePath = keys[artifacts.ReportPath], keys[artifacts.TimelinePath]
+		report.EvidenceRoot = j.OutputDir
+		if report.ReportPath == "" || report.TimelinePath == "" {
+			j.Status = Failed
+			j.Error = &Failure{Code: "upload_failed", Message: "the report or the timeline lies outside the run directory"}
+			j.Result = &result
+			return
+		}
+	}
 	if err := m.store.CreateReport(context.Background(), report); err != nil {
 		j.Status = Failed
 		j.Error = &Failure{Code: "report_record_failed", Message: err.Error()}

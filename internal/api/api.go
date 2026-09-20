@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -25,6 +26,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
+	"github.com/andy-dam/tracen-replay/internal/objectstore"
 	"github.com/andy-dam/tracen-replay/internal/timeline"
 	"github.com/andy-dam/tracen-replay/internal/worker"
 )
@@ -115,8 +117,14 @@ type Config struct {
 	Frames      artifacts.Frames
 	// Auth gates every /api route; nil (tests) serves an anonymous user.
 	Auth Auth
-	// RecordingsDir receives uploads, one subdirectory per user.
+	// RecordingsDir receives uploads, one subdirectory per user; with
+	// Objects it only holds each upload while it is probed.
 	RecordingsDir string
+	// Objects, when set, holds every recording and every analysis file, and
+	// the records name them by key rather than by path: uploads go to it,
+	// reports are read from it, and a recording plays from a URL it signs
+	// (or from its own file when it is a local directory).
+	Objects objectstore.Store
 	// ArtifactsDir holds the analyses' run directories. A deleted report's
 	// evidence is removed from disk only when it lies under it; an imported
 	// report's files stay where they were found.
@@ -642,10 +650,69 @@ func (s *Server) deleteRecording(w http.ResponseWriter, r *http.Request) {
 		writeNotFoundOr(w, err)
 		return
 	}
-	if path, err := artifacts.Confined(s.cfg.RecordingsDir, recording.Path); err == nil {
+	if s.cfg.Objects != nil {
+		if err := s.cfg.Objects.Delete(r.Context(), recording.Path); err != nil {
+			s.log.Warn("deleted recording's object not removed", "recording", recording.ID, "error", err)
+		}
+	} else if path, err := artifacts.Confined(s.cfg.RecordingsDir, recording.Path); err == nil {
 		os.Remove(path)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// recordingInput is where ffmpeg reads a recording named by a record: its
+// path, or, in an object store elsewhere, a URL signed for a short while.
+func (s *Server) recordingInput(ctx context.Context, key string) (string, error) {
+	if s.cfg.Objects == nil {
+		return key, nil
+	}
+	if local, ok := s.cfg.Objects.(objectstore.LocalPaths); ok {
+		return local.Path(key)
+	}
+	if _, err := s.cfg.Objects.Stat(ctx, key); err != nil {
+		return "", err
+	}
+	return s.cfg.Objects.PresignRead(ctx, key, 10*time.Minute)
+}
+
+// recordingAvailable reports whether the recording a record names is still
+// there.
+func (s *Server) recordingAvailable(ctx context.Context, key string) bool {
+	if key == "" {
+		return false
+	}
+	if s.cfg.Objects == nil {
+		_, err := os.Stat(key)
+		return err == nil
+	}
+	_, err := s.cfg.Objects.Stat(ctx, key)
+	return err == nil
+}
+
+// serveRecording plays a recording from an object store: from its file when
+// the store is a local directory, otherwise by sending the browser to a URL
+// signed for an hour, which serves ranges so the player can seek.
+func (s *Server) serveRecording(w http.ResponseWriter, r *http.Request, key string) {
+	if local, ok := s.cfg.Objects.(objectstore.LocalPaths); ok {
+		path, err := local.Path(key)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "recording_unavailable", "the recording is no longer stored")
+			return
+		}
+		serveVideo(w, r, path)
+		return
+	}
+	if _, err := s.cfg.Objects.Stat(r.Context(), key); err != nil {
+		writeError(w, http.StatusNotFound, "recording_unavailable", "the recording is no longer stored")
+		return
+	}
+	url, err := s.cfg.Objects.PresignRead(r.Context(), key, time.Hour)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "recording_unavailable", "the recording could not be signed for playback")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, max-age=1800")
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
 func (s *Server) recordingVideo(w http.ResponseWriter, r *http.Request) {
@@ -654,6 +721,10 @@ func (s *Server) recordingVideo(w http.ResponseWriter, r *http.Request) {
 	}
 	recording, ok := s.ownRecording(w, r)
 	if !ok {
+		return
+	}
+	if s.cfg.Objects != nil {
+		s.serveRecording(w, r, recording.Path)
 		return
 	}
 	path, err := artifacts.Confined(s.cfg.RecordingsDir, recording.Path)
@@ -681,7 +752,12 @@ func (s *Server) recordingFrame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_timestamp", "ms must be a non-negative integer millisecond timestamp")
 		return
 	}
-	path, err := artifacts.Confined(s.cfg.RecordingsDir, recording.Path)
+	var path string
+	if s.cfg.Objects != nil {
+		path, err = s.recordingInput(r.Context(), recording.Path)
+	} else {
+		path, err = artifacts.Confined(s.cfg.RecordingsDir, recording.Path)
+	}
 	if err != nil {
 		writeError(w, http.StatusNotFound, "recording_unavailable", "the upload is no longer on disk")
 		return
@@ -872,7 +948,13 @@ func (s *Server) jobLog(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no_log", "this job has no worker log")
 		return
 	}
-	text, err := artifacts.LogTail(job.LogPath, 64*1024)
+	var text string
+	var err error
+	if s.cfg.Objects != nil {
+		text, err = s.objectTail(r.Context(), job.LogPath, 64*1024)
+	} else {
+		text, err = artifacts.LogTail(job.LogPath, 64*1024)
+	}
 	if err != nil {
 		writeError(w, http.StatusNotFound, "no_log", "the worker log is not readable")
 		return
@@ -912,7 +994,13 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.docs.forget(report.ID)
-	if s.cfg.ArtifactsDir != "" && report.Origin == "job" {
+	if s.cfg.Objects != nil && report.Origin == "job" && report.EvidenceRoot != "" {
+		if objects, err := s.cfg.Objects.List(r.Context(), report.EvidenceRoot+"/"); err == nil {
+			for _, object := range objects {
+				s.cfg.Objects.Delete(r.Context(), object.Key)
+			}
+		}
+	} else if s.cfg.ArtifactsDir != "" && report.Origin == "job" {
 		if dir, err := artifacts.ConfinedDir(s.cfg.ArtifactsDir, report.EvidenceRoot); err == nil {
 			os.RemoveAll(dir)
 		}
@@ -939,7 +1027,7 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) (jobs.Report, *t
 	if !ok {
 		return jobs.Report{}, nil, false
 	}
-	doc, err := s.docs.get(report)
+	doc, err := s.docs.get(report, s.timelineBytes)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "timeline_unreadable", err.Error())
 		return jobs.Report{}, nil, false
@@ -947,16 +1035,51 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) (jobs.Report, *t
 	return report, doc, true
 }
 
+// timelineBytes reads a report's timeline from wherever the record says.
+func (s *Server) timelineBytes(ctx context.Context, report jobs.Report) ([]byte, error) {
+	if s.cfg.Objects != nil {
+		reader, err := s.cfg.Objects.Open(ctx, report.TimelinePath)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return io.ReadAll(reader)
+	}
+	path, err := artifacts.Confined(report.EvidenceRoot, report.TimelinePath)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(path)
+}
+
+// objectTail returns the last max bytes of a text object, from a line
+// boundary when it was cut.
+func (s *Server) objectTail(ctx context.Context, key string, max int64) (string, error) {
+	reader, err := s.cfg.Objects.Open(ctx, key)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+	text := string(data)
+	if int64(len(text)) > max {
+		text = text[int64(len(text))-max:]
+		if i := strings.IndexByte(text, '\n'); i >= 0 {
+			text = text[i+1:]
+		}
+	}
+	return text, nil
+}
+
 func (s *Server) reportSummary(w http.ResponseWriter, r *http.Request) {
 	report, doc, ok := s.report(w, r)
 	if !ok {
 		return
 	}
-	hasVideo := report.SourcePath != ""
-	if hasVideo {
-		_, err := os.Stat(report.SourcePath)
-		hasVideo = err == nil
-	}
+	hasVideo := s.recordingAvailable(r.Context(), report.SourcePath)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"report": report, "source": doc.Source, "recognition": doc.Recognition, "summary": doc.Summary,
 		"turns": len(doc.Turns), "entries": len(doc.Entries), "unassigned": len(doc.Unassigned()),
@@ -1052,6 +1175,18 @@ func (s *Server) reportDownload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if s.cfg.Objects != nil {
+		reader, err := s.cfg.Objects.Open(r.Context(), report.ReportPath)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "report_unavailable", "the report file is not available")
+			return
+		}
+		defer reader.Close()
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", `attachment; filename="report-`+report.ID+`.json"`)
+		io.Copy(w, reader)
+		return
+	}
 	path, err := artifacts.Confined(report.EvidenceRoot, report.ReportPath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "report_unavailable", "the report file is not available: "+err.Error())
@@ -1090,14 +1225,19 @@ func (s *Server) reportFrame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "recording_unavailable", "this report has no recording on this machine")
 		return
 	}
-	if _, err := os.Stat(report.SourcePath); err != nil {
+	input, err := s.recordingInput(r.Context(), report.SourcePath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "recording_unavailable", "the recording is no longer at its recorded path")
+		return
+	}
+	if !s.recordingAvailable(r.Context(), report.SourcePath) {
 		writeError(w, http.StatusNotFound, "recording_unavailable", "the recording is no longer at its recorded path")
 		return
 	}
 	if !s.frameAllowed(w, r) {
 		return
 	}
-	path, err := s.cfg.Frames.At(r.Context(), report.ID, report.SourcePath, ms)
+	path, err := s.cfg.Frames.At(r.Context(), report.ID, input, ms)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "frame_unavailable", err.Error())
 		return
@@ -1132,6 +1272,10 @@ func (s *Server) reportVideo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "recording_unavailable", "this report has no recording on this machine")
 		return
 	}
+	if s.cfg.Objects != nil {
+		s.serveRecording(w, r, report.SourcePath)
+		return
+	}
 	serveVideo(w, r, report.SourcePath)
 }
 
@@ -1163,18 +1307,18 @@ func (c *docCache) forget(id string) {
 	}
 }
 
-func (c *docCache) get(report jobs.Report) (*timeline.Document, error) {
+func (c *docCache) get(report jobs.Report, read func(context.Context, jobs.Report) ([]byte, error)) (*timeline.Document, error) {
 	c.mu.Lock()
 	if doc, ok := c.docs[report.ID]; ok && c.hash[report.ID] == report.ReportSHA256 {
 		c.mu.Unlock()
 		return doc, nil
 	}
 	c.mu.Unlock()
-	path, err := artifacts.Confined(report.EvidenceRoot, report.TimelinePath)
+	data, err := read(context.Background(), report)
 	if err != nil {
 		return nil, err
 	}
-	doc, err := timeline.Load(path)
+	doc, err := timeline.Parse(data)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
+	"github.com/andy-dam/tracen-replay/internal/objectstore"
 )
 
 // Store is what the sweeper needs from the database.
@@ -25,8 +26,10 @@ type Store interface {
 // Sweeper runs the housekeeping.
 type Sweeper struct {
 	Store Store
-	// RecordingsDir confines the files it may delete.
+	// RecordingsDir confines the files it may delete; with Objects the
+	// recordings are objects named by key instead.
 	RecordingsDir string
+	Objects       objectstore.Store
 	// RecordingRetention is how long an upload is kept; zero keeps uploads
 	// forever.
 	RecordingRetention time.Duration
@@ -87,7 +90,12 @@ func (s Sweeper) Sweep(ctx context.Context) (Summary, error) {
 			}
 			// The file goes only when it lies under the uploads directory,
 			// and the row goes with it; a file already gone still frees its row.
-			if path, err := artifacts.Confined(s.RecordingsDir, recording.Path); err == nil {
+			if s.Objects != nil {
+				if err := s.Objects.Delete(ctx, recording.Path); err != nil {
+					s.log().Warn("expired upload not removed", "recording", recording.ID, "error", err)
+					continue
+				}
+			} else if path, err := artifacts.Confined(s.RecordingsDir, recording.Path); err == nil {
 				if err := os.Remove(path); err != nil {
 					s.log().Warn("expired upload not removed", "recording", recording.ID, "error", err)
 					continue
