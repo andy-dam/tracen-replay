@@ -25,7 +25,13 @@ if [ -n "${TRACEN_WORKER_IPS:-}" ]; then
 	workers="[$(echo "$TRACEN_WORKER_IPS" | sed 's/[^,]*/"&"/g')]"
 fi
 
-az group create --name "$rg" --location "$location" --output none
+# The group is created once; later runs keep it where it is (a group
+# cannot move) and deploy into it.
+if [ "$(az group exists --name "$rg")" = "true" ]; then
+	location="$(az group show --name "$rg" --query location -o tsv)"
+else
+	az group create --name "$rg" --location "$location" --output none
+fi
 az deployment group create \
 	--resource-group "$rg" \
 	--template-file "$(dirname "$0")/main.bicep" \
