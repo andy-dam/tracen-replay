@@ -189,12 +189,15 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   }
 }
 
-// A workload-profiles environment: the default ("express") kind cannot
-// run jobs. The Consumption profile bills per second like before.
-resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
+// A workload-profiles environment: the "express" kind, which this region
+// creates by default, cannot run jobs; environmentMode is what the CLI
+// sets with --environment-mode. The Consumption profile bills per second.
+resource environment 'Microsoft.App/managedEnvironments@2026-01-01' = {
   name: '${name}-apps'
   location: location
   properties: {
+    #disable-next-line BCP037
+    environmentMode: 'WorkloadProfiles'
     workloadProfiles: [
       { name: 'Consumption', workloadProfileType: 'Consumption' }
     ]
