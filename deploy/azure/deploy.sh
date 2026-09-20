@@ -32,6 +32,12 @@ if [ "$(az group exists --name "$rg")" = "true" ]; then
 else
 	az group create --name "$rg" --location "$location" --output none
 fi
+# The Container Apps environment: created here, not in the template, in
+# workload-profiles mode, because an environment a template creates is the
+# "express" kind in this region and cannot run the analysis job.
+if ! az containerapp env show --name "$rg-apps" --resource-group "$rg" --output none 2>/dev/null; then
+	az containerapp env create --name "$rg-apps" --resource-group "$rg" --location "$location" 		--environment-mode WorkloadProfiles --enable-workload-profiles --output none
+fi
 az deployment group create \
 	--resource-group "$rg" \
 	--template-file "$(dirname "$0")/main.bicep" \
