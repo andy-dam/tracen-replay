@@ -6,7 +6,8 @@
 #
 #   TRACEN_RG           resource group name (default tracen)
 #   TRACEN_LOCATION     region (default eastus)
-#   TRACEN_APP_ORIGIN   the client's origin, e.g. https://app.example.com
+#   TRACEN_APP_ORIGIN   the client's origin when it has its own domain, e.g. https://app.example.com;
+#                       leave it unset and the API serves the client itself at its Azure hostname
 #   TRACEN_API_HOST     the API's host name, e.g. api.example.com (optional)
 #   TRACEN_API_IMAGE    the service image, e.g. ghcr.io/andy-dam/tracen-replay:latest
 #   TRACEN_PG_PASSWORD  PostgreSQL administrator password
@@ -17,7 +18,6 @@
 set -eu
 rg="${TRACEN_RG:-tracen}"
 location="${TRACEN_LOCATION:-eastus}"
-: "${TRACEN_APP_ORIGIN:?the client's origin}"
 : "${TRACEN_API_IMAGE:?the service image}"
 : "${TRACEN_PG_PASSWORD:?the PostgreSQL password}"
 workers="[]"
@@ -29,7 +29,7 @@ az group create --name "$rg" --location "$location" --output none
 az deployment group create \
 	--resource-group "$rg" \
 	--template-file "$(dirname "$0")/main.bicep" \
-	--parameters appOrigin="$TRACEN_APP_ORIGIN" apiHost="${TRACEN_API_HOST:-}" apiImage="$TRACEN_API_IMAGE" \
+	--parameters appOrigin="${TRACEN_APP_ORIGIN:-}" apiHost="${TRACEN_API_HOST:-}" apiImage="$TRACEN_API_IMAGE" \
 		postgresPassword="$TRACEN_PG_PASSWORD" workerAddresses="$workers" trustedProxies="${TRACEN_TRUSTED_PROXIES:-}" \
 	--query properties.outputs --output yaml
 
@@ -42,9 +42,11 @@ az consumption budget create --budget-name tracen-monthly --amount 8 --time-grai
 cat <<EOF
 
 Next:
-  1. The client's deployment token, for the GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN:
-       az staticwebapp secrets list --name "${TRACEN_RG:-tracen}-web" --resource-group "$rg" --query properties.apiKey -o tsv
+  1. Open clientURL above in a browser: the application is there.
   2. The worker's storage connection string, for the Oracle instance (deploy/oracle):
        az storage account show-connection-string --name <storageAccount above> --resource-group "$rg" -o tsv
   3. The API's peer address in its logs, for TRACEN_TRUSTED_PROXIES on the next run.
+  4. With a domain of your own later (TRACEN_APP_ORIGIN set): the client's deployment token, for the
+     GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN:
+       az staticwebapp secrets list --name "${TRACEN_RG:-tracen}-web" --resource-group "$rg" --query properties.apiKey -o tsv
 EOF

@@ -17,8 +17,8 @@ param name string = 'tracen'
 @description('Region for everything; East US has the cheapest Blob storage.')
 param location string = resourceGroup().location
 
-@description('The client origin allowed to call the API and to upload to Blob, for example https://app.example.com.')
-param appOrigin string
+@description('The client origin when the client is served from its own domain, for example https://app.example.com; empty serves the client from the API itself at its Azure hostname, which needs no domain.')
+param appOrigin string = ''
 
 @description('Host name the API answers for, for example api.example.com; the container app default host is always allowed too.')
 param apiHost string = ''
@@ -62,6 +62,11 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+// Where the client is served from: its own domain, or the API's own Azure
+// hostname (the app's name under the environment's default domain).
+var apiDefaultHost = '${name}-api.${environment.properties.defaultDomain}'
+var clientOrigin = appOrigin == '' ? 'https://${apiDefaultHost}' : appOrigin
+
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   parent: storage
   name: 'default'
@@ -70,7 +75,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
     cors: {
       corsRules: [
         {
-          allowedOrigins: [appOrigin]
+          allowedOrigins: [clientOrigin]
           allowedMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT']
           allowedHeaders: ['*']
           exposedHeaders: ['*']
@@ -253,12 +258,10 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'TRACEN_DATABASE_URL', secretRef: 'database-url' }
           ]
           args: concat([
-            '-api-only'
             '-database', 'postgres'
             '-object-store', 'azure'
             '-shared-queue', 'azure'
-            '-allowed-origin', appOrigin
-            '-cookie-samesite', 'lax'
+            '-allowed-host', apiDefaultHost
             '-max-recordings', '10'
             '-max-recording-gb', '20'
             '-max-storage-gb', '400'
@@ -268,7 +271,9 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             '-max-analysis', '10h'
             '-recording-retention', '0'
             '-frame-cache-gb', '1'
-          ], apiHost == '' ? [] : ['-allowed-host', apiHost], trustedProxies == '' ? [] : ['-trusted-proxy', trustedProxies])
+          ], apiHost == '' ? [] : ['-allowed-host', apiHost],
+            appOrigin == '' ? [] : ['-api-only', '-allowed-origin', appOrigin, '-cookie-samesite', 'lax'],
+            trustedProxies == '' ? [] : ['-trusted-proxy', trustedProxies])
           probes: [
             { type: 'Liveness', httpGet: { path: '/healthz', port: 8765 }, periodSeconds: 30 }
             { type: 'Readiness', httpGet: { path: '/readyz', port: 8765 }, periodSeconds: 30, failureThreshold: 3 }
@@ -286,9 +291,9 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-// ---- the client ----
+// ---- the client, only when it has its own domain ----
 
-resource web 'Microsoft.Web/staticSites@2023-12-01' = {
+resource web 'Microsoft.Web/staticSites@2023-12-01' = if (appOrigin != '') {
   name: '${name}-web'
   location: location
   sku: { name: 'Free', tier: 'Free' }
@@ -299,4 +304,5 @@ output storageAccount string = storage.name
 output apiIdentityClientId string = identity.properties.clientId
 output apiDefaultHost string = api.properties.configuration.ingress.fqdn
 output postgresHost string = postgres.properties.fullyQualifiedDomainName
-output webDefaultHost string = web.properties.defaultHostname
+output clientURL string = appOrigin == '' ? 'https://${apiDefaultHost}' : appOrigin
+output webDefaultHost string = appOrigin == '' ? '' : web.properties.defaultHostname
