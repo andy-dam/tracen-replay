@@ -59,8 +59,13 @@ Apps job in the same region is not internet egress.
 
 **Oracle Cloud Always Free** ([limits](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm),
 checked 2026-09-20): Ampere A1 compute of 2 OCPUs and 12 GB total (halved
-from 4 and 24 on 2026-06-15; an account upgraded to pay-as-you-go keeps 4
-OCPUs and 24 GB free and is not charged while within the free limits), two
+from 4 and 24 on 2026-06-15: the allowance is 1,500 OCPU-hours and 9,000
+GB-hours a month for every tenancy; an account upgraded to pay-as-you-go
+is not charged within that allowance, gets placed ahead of free accounts
+when the shape is out of capacity, but 4 OCPUs and 24 GB would exceed the
+allowance by about $27 a month, and Oracle's support has given conflicting
+answers on whether upgraded accounts are exempt, so the worker stays at 2
+OCPUs and 12 GB), two
 AMD micro VMs of 1 GB, 200 GB of block storage, 20 GB of object storage, 10
 TB a month of outbound transfer, one flexible load balancer, two Autonomous
 Databases of 20 GB. Two rules matter: an Always Free instance idle for 7
@@ -143,7 +148,7 @@ Analyses are the whole cost; storage and traffic are small beside them.
 | Source of capacity | Analyses a month | What it costs |
 | --- | --- | --- |
 | Oracle A1, 2 OCPU, around the clock | 90 to 120 (one at a time, 6 to 8 hours each) | $0 |
-| Oracle A1 upgraded to 4 OCPU | 180 to 240 (one at a time, 3 to 4 hours each; two at a time with 24 GB) | $0, card on file |
+| Oracle A1 on an upgraded account, still 2 OCPU | 120 (the same worker, placed reliably) | $0, card on file |
 | Azure job inside the free grant | 3 to 4 | $0 |
 | Azure job from the credit | about 65 a year, so 5 to 6 a month | $1.50 each, the credit pays |
 
@@ -265,9 +270,11 @@ Oracle, one tenancy in a home region near Azure's:
 
 1. Compartment, VCN with one public subnet, security list allowing only
    outbound (the worker needs no inbound port).
-2. An A1.Flex instance at the free limit (2 OCPU / 12 GB, or 4 / 24 after
-   the upgrade), Oracle Linux or Ubuntu arm64, a 100 GB boot volume; retry
-   creation until capacity appears.
+2. An A1.Flex instance at the free limit (2 OCPU / 12 GB), Ubuntu 24.04
+   arm64, a 100 GB boot volume. Creation fails for days with "out of
+   capacity" on a free account; the reliable way is to upgrade the account
+   to pay-as-you-go first (Oracle's own remedy in the docs), which places
+   the instance and stays free at 2 / 12.
 3. On the instance: docker, the arm64 worker image from GHCR, and the
    worker as a systemd service with the Azure queue and storage
    credentials (a service principal limited to the queue and the four
@@ -427,8 +434,9 @@ it goes.
    connection string, the PostgreSQL URL and the image filled into the
    `worker.env` block first. Its public address goes into
    `TRACEN_WORKER_IPS` for the next `deploy.sh` run so PostgreSQL admits
-   it. Optional: upgrade the account to pay-as-you-go for 4 OCPU / 24 GB
-   and no idle reclaim.
+   it. Upgrade the account to pay-as-you-go first: it is what gets the
+   instance placed, it removes the idle-reclaim rule, and 2 OCPU / 12 GB
+   stays free of charge (not 4 / 24; see section 1).
 9. **Then**, in this order: run the real-account tests (item 3), push
    `develop` to `main` through a pull request (the release workflow builds
    and deploys), watch a first upload go through the queue to the Oracle
@@ -449,7 +457,7 @@ it goes.
   once it exists; never delete it to recreate it.
 - **Oracle idle reclaim.** On an Always Free account the worker must stay
   busy or the instance may be reclaimed after a quiet week; upgrading the
-  account removes the rule and doubles the free compute.
+  account removes the rule.
 - **Secrets.** The worker's service principal and the Postgres password
   live in Container Apps secrets and on the Oracle instance only; rotate
   both when anyone else has had access to either place.
