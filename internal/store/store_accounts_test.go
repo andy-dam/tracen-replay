@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -12,11 +11,7 @@ import (
 )
 
 func TestUsersSessionsAndRecordingsRoundTrip(t *testing.T) {
-	s, err := Open(filepath.Join(t.TempDir(), "t.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
+	s, _ := open(t)
 	ctx := context.Background()
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	andy := auth.User{ID: "u1", Email: "andy@example.com", DisplayName: "Andy", CreatedAt: now}

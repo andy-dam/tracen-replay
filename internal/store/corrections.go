@@ -42,7 +42,7 @@ const correctionColumns = `report_id, turn_id, user_id, payload, created_at, upd
 
 // GetCorrection returns the viewer's correction for one turn, if any.
 func (s *Store) GetCorrection(ctx context.Context, reportID, turnID, userID string) (timeline.Correction, bool, error) {
-	c, err := scanCorrection(s.db.QueryRowContext(ctx, `SELECT `+correctionColumns+` FROM corrections WHERE report_id=? AND turn_id=? AND user_id=?`,
+	c, err := scanCorrection(s.queryRow(ctx, `SELECT `+correctionColumns+` FROM corrections WHERE report_id=? AND turn_id=? AND user_id=?`,
 		reportID, turnID, userID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return timeline.Correction{}, false, nil
@@ -63,7 +63,7 @@ func (s *Store) PutCorrection(ctx context.Context, c timeline.Correction) error 
 	if c.CreatedAt.IsZero() {
 		c.CreatedAt = now
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO corrections (`+correctionColumns+`) VALUES (?,?,?,?,?,?)
+	_, err = s.exec(ctx, `INSERT INTO corrections (`+correctionColumns+`) VALUES (?,?,?,?,?,?)
 		ON CONFLICT(report_id, turn_id, user_id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at`,
 		c.ReportID, c.TurnID, c.UserID, string(payload), stamp(c.CreatedAt), stamp(now))
 	return err
@@ -71,13 +71,13 @@ func (s *Store) PutCorrection(ctx context.Context, c timeline.Correction) error 
 
 // DeleteCorrection removes the viewer's correction for one turn.
 func (s *Store) DeleteCorrection(ctx context.Context, reportID, turnID, userID string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM corrections WHERE report_id=? AND turn_id=? AND user_id=?`, reportID, turnID, userID)
+	_, err := s.exec(ctx, `DELETE FROM corrections WHERE report_id=? AND turn_id=? AND user_id=?`, reportID, turnID, userID)
 	return err
 }
 
 // ListCorrections returns every correction the viewer made on one report.
 func (s *Store) ListCorrections(ctx context.Context, reportID, userID string) ([]timeline.Correction, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+correctionColumns+` FROM corrections WHERE report_id=? AND user_id=? ORDER BY turn_id`, reportID, userID)
+	rows, err := s.query(ctx, `SELECT `+correctionColumns+` FROM corrections WHERE report_id=? AND user_id=? ORDER BY turn_id`, reportID, userID)
 	if err != nil {
 		return nil, err
 	}

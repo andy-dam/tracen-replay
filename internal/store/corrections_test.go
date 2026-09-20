@@ -2,18 +2,13 @@ package store
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/andy-dam/tracen-replay/internal/timeline"
 )
 
 func TestCorrectionsRoundTrip(t *testing.T) {
-	s, err := Open(filepath.Join(t.TempDir(), "t.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
+	s, _ := open(t)
 	ctx := context.Background()
 	if _, ok, err := s.GetCorrection(ctx, "rep", "turn-001", "u1"); err != nil || ok {
 		t.Fatalf("empty store: %v %v", ok, err)

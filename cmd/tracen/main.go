@@ -25,7 +25,6 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/maintenance"
 	"github.com/andy-dam/tracen-replay/internal/runner"
-	"github.com/andy-dam/tracen-replay/internal/store"
 	"github.com/andy-dam/tracen-replay/internal/webassets"
 )
 
@@ -111,7 +110,7 @@ func run() error {
 	if err := os.MkdirAll(*dataDir, 0o755); err != nil {
 		return err
 	}
-	db, err := store.Open(filepath.Join(*dataDir, "tracen.db"))
+	db, err := storage.openStore(context.Background(), *dataDir)
 	if err != nil {
 		return err
 	}

@@ -6,10 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/andy-dam/tracen-replay/internal/objectstore"
 	"github.com/andy-dam/tracen-replay/internal/queue"
+	"github.com/andy-dam/tracen-replay/internal/store"
 )
 
 // Where the files and the queue live. By default everything is on this
@@ -19,11 +21,13 @@ import (
 // processes, started with `tracen worker` anywhere that reaches the same
 // database, store and queue, run them.
 //
-// Azure credentials never go on the command line: TRACEN_STORAGE_CONNECTION
+// Credentials never go on the command line: TRACEN_STORAGE_CONNECTION
 // holds the storage account's connection string, or TRACEN_STORAGE_ACCOUNT
 // names the account and the ambient identity (a managed identity, the
-// environment, or the Azure CLI login) signs in.
+// environment, or the Azure CLI login) signs in; TRACEN_DATABASE_URL is
+// the PostgreSQL URL.
 type storageFlags struct {
+	database    *string
 	objectStore *string
 	queue       *string
 	queueName   *string
@@ -31,9 +35,29 @@ type storageFlags struct {
 
 func addStorageFlags(fs *flag.FlagSet) *storageFlags {
 	return &storageFlags{
+		database:    fs.String("database", "", "the database: empty for SQLite under -data, or postgres for the PostgreSQL database at TRACEN_DATABASE_URL (what the hosted service and its workers share)"),
 		objectStore: fs.String("object-store", "", "where recordings and analysis files are kept: empty for files under -data, dir:PATH for a directory used as an object store, or azure for Blob storage (TRACEN_STORAGE_CONNECTION or TRACEN_STORAGE_ACCOUNT)"),
 		queue:       fs.String("queue", "", "the analysis queue: empty to run analyses in this process, or azure for an Azure Storage Queue that `tracen worker` processes take from (same account as -object-store)"),
 		queueName:   fs.String("queue-name", "analyses", "name of the Azure Storage Queue"),
+	}
+}
+
+// openStore opens the database the flags name.
+func (f *storageFlags) openStore(ctx context.Context, dataDir string) (*store.Store, error) {
+	switch *f.database {
+	case "":
+		if err := os.MkdirAll(dataDir, 0o755); err != nil {
+			return nil, err
+		}
+		return store.Open(filepath.Join(dataDir, "tracen.db"))
+	case "postgres":
+		url := os.Getenv("TRACEN_DATABASE_URL")
+		if url == "" {
+			return nil, errors.New("-database postgres needs TRACEN_DATABASE_URL in the environment")
+		}
+		return store.OpenPostgres(ctx, url)
+	default:
+		return nil, fmt.Errorf("bad -database %q: empty or postgres", *f.database)
 	}
 }
 

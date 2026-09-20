@@ -13,7 +13,6 @@ import (
 
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/runner"
-	"github.com/andy-dam/tracen-replay/internal/store"
 )
 
 // runWorker is `tracen worker`: a process that takes analyses from the
@@ -51,7 +50,7 @@ func runWorker(args []string) error {
 	if err != nil {
 		return err
 	}
-	db, err := store.Open(filepath.Join(*dataDir, "tracen.db"))
+	db, err := storage.openStore(ctx, *dataDir)
 	if err != nil {
 		return err
 	}
