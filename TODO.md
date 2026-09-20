@@ -609,14 +609,24 @@ serious is the next thing to look at.
       (the +5 Could's 12:33 turn was missing, so its disputed badge can
       settle); and a caption read with its head gone at the same right
       edge and rows ("Challenge" where "Ready for a Challenge" sat)
-      continues its event instead of counting the receipt twice. Two gaps
-      no rule covers: a cursor parked on a badge digit for the whole card
-      leaves a wrong "observed" read (the accounting still gets the total
-      right from the bars; a cursor-aware badge read would be the fix), and
-      a result card dismissed in under a quarter second mid count-up
-      (20-52-07 37:09) never shows its numbers; they appear only in the
-      Log side panel that most PC recordings keep open beside the game,
-      which the analyzer does not read yet.
+      continues its event instead of counting the receipt twice. The card
+      dismissed in a quarter second (20-52-07 37:09) turned out to be
+      readable after all: it showed whole on ten 60 fps frames 1.3 s
+      before the empty frames that dated its event, so a result with no
+      gain read is now also reread at the card's own earlier moment. The
+      eight reruns on that code then left five flags, each a rule: a
+      receipt number with a digit under the cursor is a fragment of the
+      receipt beside it; no ledger opening fallback takes a hub value the
+      checkpoints on both sides contradict; an empty menu slot the lesson
+      dialog projects as zero is the dim zero; and visible skill names
+      whose prices add up to the turn's drop complete the list. Every
+      rerun is now at 0 serious flags on the fresh run or after its rule
+      (proven by rebuilding the stage from the report). One gap no rule
+      covers: a cursor parked on a badge digit for the whole card leaves a
+      wrong "observed" read (the accounting still gets the total right
+      from the bars; a cursor-aware badge read would be the fix). The Log
+      side panel most PC recordings keep open beside the game lists every
+      receipt in text and is not read yet.
 - [ ] **Two runs of one recording can read a result card differently.**
       Gran Concert's 31:02 training read Dance +30 on the morning run and
       Visual +30 on the afternoon run of the same file; the dense rereads'
