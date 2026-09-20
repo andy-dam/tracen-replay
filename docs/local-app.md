@@ -147,8 +147,9 @@ picks the service's address (default `http://127.0.0.1:8765`).
 ## Accounts and uploads
 
 The front page leads to the sign-in screen (`#/signin`, or `#/signup` to
-create an account with a display name, an email address and a password of at
-least eight characters); any page that needs an account shows the sign-in
+create an account with a display name, an email address, a password of at
+least eight characters and, when the service runs with `-registration
+invite`, the invite code its operator gave out); any page that needs an account shows the sign-in
 screen while nobody is signed in. The top bar has Home, Runs, Guide (how to
 record, what the report shows, how to review, and what every flag means) and
 About (what the application does, its parts, its scope and where the data

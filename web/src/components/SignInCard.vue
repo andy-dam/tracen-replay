@@ -8,6 +8,7 @@ const mode = ref<"signin" | "create">(props.initialMode ?? "signin");
 const email = ref("");
 const password = ref("");
 const name = ref("");
+const invite = ref("");
 const error = ref("");
 const busy = ref(false);
 
@@ -15,7 +16,7 @@ async function submit() {
   error.value = "";
   busy.value = true;
   try {
-    const user = mode.value === "signin" ? await api.login(email.value, password.value) : await api.register(email.value, password.value, name.value);
+    const user = mode.value === "signin" ? await api.login(email.value, password.value) : await api.register(email.value, password.value, name.value, invite.value.trim());
     emit("signed-in", user);
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : (e as Error).message;
@@ -35,6 +36,7 @@ async function submit() {
       <label v-if="mode === 'create'" class="field"><span>Display Name</span><input v-model="name" autocomplete="nickname" required maxlength="60" /></label>
       <label class="field"><span>Email</span><input v-model="email" type="email" autocomplete="email" required /></label>
       <label class="field"><span>Password</span><input v-model="password" type="password" :autocomplete="mode === 'create' ? 'new-password' : 'current-password'" required minlength="8" /></label>
+      <label v-if="mode === 'create'" class="field"><span>Invite code <span class="muted">(only if you were given one)</span></span><input v-model="invite" autocomplete="off" maxlength="200" /></label>
       <p v-if="error" class="error small">{{ error }}</p>
       <button class="btn primary" type="submit" :disabled="busy">{{ mode === "signin" ? "Sign In" : "Create Account" }}</button>
       <p class="muted small" style="margin-top: 14px">
