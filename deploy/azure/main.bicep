@@ -180,35 +180,12 @@ resource allowWorkers 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2
 
 // ---- the API ----
 
-resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: '${name}-logs'
-  location: location
-  properties: {
-    sku: { name: 'PerGB2018' }
-    retentionInDays: 30
-  }
-}
-
-// A workload-profiles environment: the "express" kind, which this region
-// creates by default, cannot run jobs; environmentMode is what the CLI
-// sets with --environment-mode. The Consumption profile bills per second.
-resource environment 'Microsoft.App/managedEnvironments@2026-01-01' = {
+// The environment is created by deploy.sh with the CLI: an environment a
+// template creates comes out as the "express" kind in this region, which
+// cannot run jobs, and only the CLI's --environment-mode WorkloadProfiles
+// makes a standard one (the ARM schema has no such property yet).
+resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: '${name}-apps'
-  location: location
-  properties: {
-    #disable-next-line BCP037
-    environmentMode: 'WorkloadProfiles'
-    workloadProfiles: [
-      { name: 'Consumption', workloadProfileType: 'Consumption' }
-    ]
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logs.properties.customerId
-        sharedKey: logs.listKeys().primarySharedKey
-      }
-    }
-  }
 }
 
 // The API signs in to storage as this identity: it reads and writes blobs
