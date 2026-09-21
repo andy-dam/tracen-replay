@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
 import { turnWarnings } from "../warnings";
+import { progressView } from "../phases";
 import RankBadge from "../components/RankBadge.vue";
 import StatBar from "../components/StatBar.vue";
 import UploadBox from "../components/UploadBox.vue";
@@ -210,7 +211,10 @@ onUnmounted(() => window.clearInterval(timer));
 // the Open button is the state.
 function status(run: Run): { text: string; cls: string } | null {
   if (run.job && active(run.job)) {
-    const pct = run.job.ocr_total && run.job.stage === "ocr" ? ` ${Math.round((100 * (run.job.ocr_processed ?? 0)) / run.job.ocr_total)}%` : "";
+    // The same figure the job page shows: progress through the whole
+    // analysis, of which OCR is the first stage.
+    const ocr = run.job.ocr_total && run.job.stage === "ocr" ? (100 * (run.job.ocr_processed ?? 0)) / run.job.ocr_total : null;
+    const pct = run.job.status === "running" ? ` ${Math.round(progressView(run.job, ocr).overall)}%` : "";
     return { text: run.job.status === "queued" ? "Queued" : `Analyzing${pct}`, cls: "warn" };
   }
   if (run.report) return run.madeBy?.status === "completed_with_stage_failures" ? { text: "Some Stages Were Skipped", cls: "warn" } : null;
