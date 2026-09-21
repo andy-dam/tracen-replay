@@ -18,14 +18,21 @@ const props = defineProps<{
   carried?: boolean;
   // Fields whose end value was never read; the value shown is the last one read for them.
   open?: string[] | null;
+  // The skill points the whole run earned. With it the skill point cell leads
+  // with that figure and says the balance left beneath it.
+  earned?: number | null;
 }>();
 
+const showsEarned = () => typeof props.earned === "number";
+
 function approximate(field: string): boolean {
+  if (field === "skill_points" && showsEarned()) return false;
   return !!props.carried || !!props.open?.includes(field);
 }
 function title(field: string): string {
   const v = value(field);
   if (v === null) return "not observed";
+  if (field === "skill_points" && showsEarned()) return `${v} skill points earned in the run, ${balance(field) ?? "?"} left at the end`;
   if (props.carried) return `about ${v}, carried from the previous turn's entries`;
   if (props.open?.includes(field)) return `${v} was the last value read for it; the run's end was not on a screen the report reads`;
   return String(v);
@@ -34,6 +41,10 @@ function title(field: string): string {
 const FIELDS = [...CORE_STATS, "skill_points"];
 
 function value(field: string): number | null {
+  if (field === "skill_points" && showsEarned()) return props.earned!;
+  return balance(field);
+}
+function balance(field: string): number | null {
   const map = props.stats;
   if (!map || !(field in map)) return null;
   return map[field];
@@ -82,6 +93,10 @@ watch(
   },
   { immediate: true, deep: true },
 );
+watch(
+  () => props.earned,
+  () => animate("skill_points", value("skill_points")),
+);
 onUnmounted(() => {
   for (const id of Object.values(frames)) cancelAnimationFrame(id);
 });
@@ -95,7 +110,8 @@ onUnmounted(() => {
         <RankBadge v-if="f !== 'skill_points'" :value="value(f)" :small="compact" />
         <span class="sb-value" :class="{ unknown: value(f) === null, carried: approximate(f) }">{{ approximate(f) && shown[f] !== null && shown[f] !== undefined ? "≈" : "" }}{{ shown[f] ?? "?" }}</span>
       </div>
-      <div v-if="acct(f)" class="sb-after" :class="{ warn: isWarn(f) }" :title="statusText(acct(f)!.status)">
+      <div v-if="f === 'skill_points' && showsEarned()" class="sb-after">earned · {{ balance(f) ?? "?" }} left</div>
+      <div v-else-if="acct(f)" class="sb-after" :class="{ warn: isWarn(f) }" :title="statusText(acct(f)!.status)">
         <span v-if="acct(f)!.after !== null">→ {{ acct(f)!.after }}<span v-if="delta(f)" class="sb-delta" :class="delta(f)! > 0 ? 'up' : 'down'"> {{ delta(f)! > 0 ? "+" : "" }}{{ delta(f) }}</span></span>
         <span v-else>→ ?</span>
         <span v-if="verified?.includes(f)" class="sb-flag">filled in by you</span>

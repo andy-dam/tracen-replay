@@ -184,6 +184,8 @@ export interface Summary {
   entries: number;
   unassigned: number;
   video_available: boolean;
+  /** What the run's entries did to the skill points: gains added up, and purchases. */
+  skill_points?: { earned: number; spent: number };
   // Which analyzer made this report and which one is installed now. Each side
   // is present only when it is known, and `stale` only when both are, so an
   // absent field means unknown rather than same.

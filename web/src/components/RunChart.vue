@@ -13,6 +13,9 @@ export interface Series {
   name: string;
   color: string;
   values: (number | null)[];
+  /** Line width and opacity in the lines mode. A wide, soft line under a thin one keeps both visible where they coincide. */
+  width?: number;
+  opacity?: number;
 }
 const props = defineProps<{ turns: TurnSummary[]; series: Series[]; selected: string; mode: "lines" | "bars"; floor?: number }>();
 const emit = defineEmits<{ select: [id: string] }>();
@@ -25,7 +28,7 @@ function niceMax(v: number): number {
   if (v <= 0) return 10;
   const step = Math.pow(10, Math.floor(Math.log10(v)));
   const m = v / step;
-  const nice = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+  const nice = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 3 ? 3 : m <= 4 ? 4 : m <= 5 ? 5 : m <= 6 ? 6 : m <= 8 ? 8 : 10;
   return nice * step;
 }
 
@@ -124,7 +127,7 @@ function at(s: Series): number | null {
         <rect v-for="b in chart.bars" :key="b.key" :x="b.x" :y="b.y" :width="chart.barW" :height="b.h" :fill="b.color" rx="1.5" />
       </template>
       <g v-for="line in chart.lines" v-else :key="line.key">
-        <polyline v-for="(seg, i) in line.segments" :key="i" :points="seg" fill="none" :stroke="line.color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+        <polyline v-for="(seg, i) in line.segments" :key="i" :points="seg" fill="none" :stroke="line.color" :stroke-width="line.width ?? 2" :stroke-opacity="line.opacity ?? 1" stroke-linejoin="round" stroke-linecap="round" />
       </g>
       <g v-if="hoverX !== null && hoverTurn">
         <line :x1="hoverX" :x2="hoverX" :y1="PAD.t" :y2="H - PAD.b" stroke="var(--ink-3)" stroke-width="1" />
@@ -143,7 +146,7 @@ function at(s: Series): number | null {
       </g>
     </svg>
     <div class="legend" style="margin-top: 6px">
-      <span v-for="s in series" :key="s.key"><i :style="{ background: s.color }"></i>{{ s.name }}</span>
+      <span v-for="s in series" :key="s.key"><i :style="{ background: s.color, opacity: s.opacity ?? 1 }"></i>{{ s.name }}</span>
     </div>
   </div>
 </template>

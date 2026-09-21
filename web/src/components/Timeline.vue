@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { TurnSummary } from "../api";
-import { actionClass, clock, CORE_STATS, describeAction, repeatsYear, shortLabel, STAT_NAMES, stripPosition, yearOf } from "../format";
+import { actionClass, clock, CORE_STATS, describeAction, repeatsYear, shortLabel, STAT_NAMES, STRIP_ROWS, stripPosition, yearOf } from "../format";
 
-// The run as one scrubber: 24 half-month cells per year in a single row
-// (Junior, Classic, Senior) and the three finale races, wrapping into one
+// The run as one scrubber: one cell per turn of each year in a single row
+// (Junior with 23, Classic and Senior with 24) and the three finale races, wrapping into one
 // row per year on narrow screens. A cell holds every window the ledger put
 // there; the first one is what a click opens, a dot marks that there are
 // more. Hovering shows the turn, its action and its opening stats.
@@ -15,17 +15,22 @@ interface Cell {
   key: string;
   turns: TurnSummary[];
   finale: boolean;
+  /** The first cell of a year, which starts a new line on a narrow screen. */
+  rowStart: boolean;
 }
 
 const cells = computed(() => {
   const out: Cell[] = [];
-  for (let row = 0; row < 3; row++) for (let col = 0; col < 24; col++) out.push({ key: `${row}-${col}`, turns: [], finale: false });
-  for (let col = 0; col < 3; col++) out.push({ key: `3-${col}`, turns: [], finale: true });
+  const offsets: number[] = [];
+  STRIP_ROWS.forEach((length, row) => {
+    offsets.push(out.length);
+    for (let col = 0; col < length; col++) out.push({ key: `${row}-${col}`, turns: [], finale: row === 3, rowStart: col === 0 });
+  });
   const unplaced: TurnSummary[] = [];
   for (const turn of props.turns) {
     const pos = stripPosition(turn);
-    if (!pos) unplaced.push(turn);
-    else out[pos.row === 3 ? 72 + pos.col : pos.row * 24 + pos.col].turns.push(turn);
+    if (!pos || pos.col >= STRIP_ROWS[pos.row]) unplaced.push(turn);
+    else out[offsets[pos.row] + pos.col].turns.push(turn);
   }
   return { cells: out, unplaced };
 });
@@ -76,7 +81,7 @@ const tipTurn = computed(() => tip.value?.cell.turns[0] ?? null);
   <div ref="root" class="timeline" @mouseleave="hideTip">
     <div class="tl-years"><span>Junior</span><span>Classic</span><span>Senior</span><span class="tl-finale">Finale</span></div>
     <div class="tl-cells">
-      <button v-for="cell in cells.cells" :key="cell.key" type="button" class="cell" :class="[cellClass(cell), { finale: cell.finale }]" :aria-label="cellTitle(cell)" @mouseenter="showTip(cell, $event)" @mouseleave="hideTip" @focus="showTip(cell, $event as unknown as MouseEvent)" @blur="hideTip" @click="hideTip(); cell.turns.length && emit('select', cell.turns[0].id)"></button>
+      <button v-for="cell in cells.cells" :key="cell.key" type="button" class="cell" :class="[cellClass(cell), { finale: cell.finale, 'row-start': cell.rowStart }]" :aria-label="cellTitle(cell)" @mouseenter="showTip(cell, $event)" @mouseleave="hideTip" @focus="showTip(cell, $event as unknown as MouseEvent)" @blur="hideTip" @click="hideTip(); cell.turns.length && emit('select', cell.turns[0].id)"></button>
     </div>
     <div v-if="tip && tipTurn" class="tl-tip" :style="{ left: tip.x + 'px', top: tip.y + 'px', width: '250px' }">
       <div class="tt-title">{{ repeatsYear(tipTurn.label, tipTurn.phase) ? shortLabel(tipTurn.label) : `${yearOf(tipTurn.label, tipTurn.phase)} · ${shortLabel(tipTurn.label)}` }}</div>

@@ -119,7 +119,7 @@ async function recover() {
       <span :class="['pill', statusClass(job.status), { live: !terminal && !paused }]" style="font-size: 13px">{{ titleCase(job.status) }}</span>
     </div>
 
-    <div class="card" style="max-width: 720px">
+    <div class="card" style="max-width: 860px">
       <template v-if="!terminal">
         <div class="row between" style="align-items: baseline">
           <p class="display" style="font-size: 22px; margin: 0">{{ paused ? "Paused" : (view.current?.label ?? (job.status === "running" ? "Starting" : "Waiting for a Free Worker")) }}</p>
