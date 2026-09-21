@@ -229,6 +229,9 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 @media (max-width: 640px) { .sheet { padding: 4px 16px 28px; border-radius: 14px; } }
 .page-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 26px 0 18px; flex-wrap: wrap; }
 .page-head p { margin: 6px 0 0; color: var(--ink-2); max-width: 60ch; }
+/* The way back sits on its own line above the page's label. */
+.page-head .back { display: block; width: fit-content; margin-bottom: 2px; font-size: 13px; font-weight: 700; color: var(--ink-2); text-decoration: none; }
+.page-head .back:hover { color: var(--green-ink); }
 
 /* generic pieces */
 .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; min-width: 0; }
@@ -709,8 +712,9 @@ table.sources td.down { color: var(--blue); font-weight: 700; }
 .dash-link:hover { color: var(--green-ink); }
 .dash-tile .bar { margin-top: 8px; height: 8px; }
 .dash-tile .bar > i { animation: none; }
-.best { padding: 18px 20px; border-radius: 16px; background: var(--bg-2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-width: 0; animation: rise 420ms var(--ease) 240ms both; }
-.best-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.best { padding: 18px 20px; border-radius: 16px; background: var(--bg-2); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; animation: rise 420ms var(--ease) 240ms both; }
+.best-head { display: flex; align-items: center; justify-content: flex-start; gap: 12px; }
+.best-head .overline { margin: 0; flex: none; white-space: nowrap; }
 .best-name { font-family: var(--font-display); font-weight: 800; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .best-name:hover { color: var(--green-ink); }
 .best .statbar { margin-top: 2px; }
