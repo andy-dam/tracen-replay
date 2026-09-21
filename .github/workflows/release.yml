@@ -85,13 +85,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Build the bundle
+      - name: Wails and NSIS
         shell: pwsh
-        run: ./desktop/build-windows.ps1 -Version ${{ github.ref_name }} -Out dist/windows
-      - name: Attach it to the release
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          choco install nsis --no-progress -y
+          Add-Content $env:GITHUB_PATH "$(go env GOPATH)\bin"
+          Add-Content $env:GITHUB_PATH "C:\Program Files (x86)\NSIS"
+      - name: Build the application, the zip and the installer
+        shell: pwsh
+        run: ./desktop/build-windows.ps1 -Version ${{ github.ref_name }} -Out dist/windows -Installer
+      - name: Attach them to the release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/windows/tracen-replay-windows-${{ github.ref_name }}.zip
+          files: |
+            dist/windows/tracen-replay-windows-${{ github.ref_name }}.zip
+            dist/windows/TracenReplay-Setup-${{ github.ref_name }}.exe
 
   api:
     name: Deploy the API

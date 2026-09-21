@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Tracen Replay",
+  "outputfilename": "Tracen Replay",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Andy Dam"
+  },
+  "info": {
+    "companyName": "Andy Dam",
+    "productName": "Tracen Replay",
+    "productVersion": "0.2.0",
+    "copyright": "Copyright (c) 2026 Andy Dam",
+    "comments": "Your career run, turn by turn."
+  }
+}

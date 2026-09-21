@@ -1,18 +1,18 @@
-# Builds the Windows bundle of the local application: one folder with the
-# service, the client inside it, an embeddable Python with the analyzer and
-# its pinned wheels (the DirectML build of ONNX Runtime, so any DirectX 12
-# card is used), the OCR models, the learned card reader, ffmpeg, and a
-# launcher. Zipped, it is near a gigabyte; unzipped anywhere, "Tracen
-# Replay.cmd" starts the service with its data under the user's AppData
-# and opens the browser.
+# Builds the Windows desktop application: one folder with "Tracen
+# Replay.exe" (the native window with the client inside it), an embeddable
+# Python with the analyzer and its pinned wheels (the DirectML build of
+# ONNX Runtime, so any DirectX 12 card is used), the OCR models, the
+# learned card reader and ffmpeg. Zipped it is a third of a gigabyte;
+# with -Installer and makensis on PATH it also makes the installer.
 #
-#   pwsh desktop/build-windows.ps1 [-Version v0.2.0] [-Out dist/windows]
+#   pwsh desktop/build-windows.ps1 [-Version v0.2.0] [-Out dist/windows] [-Installer]
 #
-# Needs: Go, Node, curl, and a Python on PATH to drive pip inside the
-# embeddable interpreter. Run from the repository root.
+# Needs: Go, Node, curl, the wails CLI, and a Python on PATH to drive pip
+# inside the embeddable interpreter. Run from the repository root.
 param(
     [string]$Version = "dev",
     [string]$Out = "dist/windows",
+    [switch]$Installer,
     [string]$PythonVersion = "3.13.7",
     [string]$FfmpegZip = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 )
@@ -25,13 +25,16 @@ New-Item -ItemType Directory -Force $bundle | Out-Null
 $cache = Join-Path $Out "cache"
 New-Item -ItemType Directory -Force $cache | Out-Null
 
-Write-Host "== client and service ($Version)"
+Write-Host "== client and the desktop application ($Version)"
 Push-Location web
 npm ci
 npm run build
 Pop-Location
-$env:CGO_ENABLED = "0"
-go build -trimpath -ldflags "-s -w -X main.version=$Version" -o (Join-Path $bundle "tracen.exe") ./cmd/tracen
+Push-Location cmd/tracen-desktop
+wails build -clean -s -trimpath -ldflags "-X main.version=$Version" -o "Tracen Replay.exe"
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "wails build failed" }
+Pop-Location
+Copy-Item "cmd/tracen-desktop/build/bin/Tracen Replay.exe" $bundle
 
 Write-Host "== embeddable Python $PythonVersion"
 $pyZip = Join-Path $cache "python-$PythonVersion-embed-amd64.zip"
@@ -80,8 +83,7 @@ New-Item -ItemType Directory -Force (Join-Path $bundle "ffmpeg") | Out-Null
 Copy-Item (Join-Path $ffBin.DirectoryName "ffmpeg.exe"), (Join-Path $ffBin.DirectoryName "ffprobe.exe") (Join-Path $bundle "ffmpeg")
 Get-ChildItem $ffTmp -Recurse -Filter "LICENSE*" | Select-Object -First 1 | Copy-Item -Destination (Join-Path $bundle "ffmpeg/LICENSE.txt")
 
-Write-Host "== launcher and notices"
-Copy-Item (Join-Path $PSScriptRoot "Tracen Replay.cmd") $bundle
+Write-Host "== notices"
 Copy-Item LICENSE.md, README.md $bundle
 Set-Content -Path (Join-Path $bundle "VERSION") -Value $Version
 Copy-Item (Join-Path $PSScriptRoot "README-bundle.md") (Join-Path $bundle "README-first.md")
@@ -91,3 +93,12 @@ $zip = Join-Path $Out "tracen-replay-windows-$Version.zip"
 if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path $bundle -DestinationPath $zip
 Write-Host "built $zip ($([math]::Round((Get-Item $zip).Length / 1MB)) MB)"
+
+if ($Installer) {
+    Write-Host "== installer"
+    $nsi = Join-Path $PSScriptRoot "installer.nsi"
+    $setup = Join-Path (Resolve-Path $Out).Path "TracenReplay-Setup-$Version.exe"
+    makensis "/DVERSION=$Version" "/DBUNDLE=$((Resolve-Path $bundle).Path)" "/DOUT=$setup" $nsi
+    if ($LASTEXITCODE -ne 0) { throw "makensis failed" }
+    Write-Host "built $setup"
+}

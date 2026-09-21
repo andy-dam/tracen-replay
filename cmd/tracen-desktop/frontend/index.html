@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tracen Replay</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0f1218; color: #cdd6f4; font: 15px system-ui, sans-serif; }
+    main { height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #3ec9a7; animation: pulse 1s infinite alternate; }
+    @keyframes pulse { to { opacity: 0.2; } }
+    p { margin: 0; opacity: 0.8; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="dot"></div>
+  <p id="msg">Starting</p>
+</main>
+<script>
+  // The application is served by this process on a loopback port it chose;
+  // once it answers, the window moves there.
+  (async () => {
+    const msg = document.getElementById("msg");
+    for (let i = 0; i < 100; i++) {
+      try {
+        const url = await window.go.main.App.URL();
+        const base = url.split("#")[0];
+        const r = await fetch(base + "healthz", { cache: "no-store" });
+        if (r.ok) { window.location.replace(url); return; }
+      } catch (e) {
+        // not yet
+      }
+      await new Promise((f) => setTimeout(f, 300));
+    }
+    msg.textContent = "The application did not start. Close the window and try again.";
+  })();
+</script>
+</body>
+</html>
