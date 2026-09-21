@@ -142,6 +142,16 @@ type Manager struct {
 	cancels map[string]context.CancelFunc
 	done    map[string]chan struct{}
 	wake    chan struct{}
+	// active counts the analyses Run has started and not yet seen finish.
+	active int
+}
+
+// wakeLoop makes Run look at the queue again now rather than in a second.
+func (m *Manager) wakeLoop() {
+	select {
+	case m.wake <- struct{}{}:
+	default:
+	}
 }
 
 // NewManager validates the configuration and prepares the manager. Call
@@ -193,6 +203,42 @@ func (m *Manager) ocrDevice() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.cfg.OCRDevice
+}
+
+// SetLoad changes how many analyses run at once and how many reader
+// processes each of the next analyses starts. An analysis already running
+// keeps what it started with; when fewer may run at once than are running,
+// the extra ones finish and no new one starts until there is room.
+func (m *Manager) SetLoad(parallel, workers, denseWorkers int) {
+	m.mu.Lock()
+	m.cfg.Parallel, m.cfg.Workers, m.cfg.DenseWorkers = max(1, parallel), max(1, workers), max(0, denseWorkers)
+	m.mu.Unlock()
+	m.wakeLoop()
+}
+
+// load is the reader counts the next analysis starts with.
+func (m *Manager) load() (workers, denseWorkers int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.cfg.Workers, m.cfg.DenseWorkers
+}
+
+// acquire takes a place among the running analyses if one is free.
+func (m *Manager) acquire() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.active >= max(1, m.cfg.Parallel) {
+		return false
+	}
+	m.active++
+	return true
+}
+
+func (m *Manager) release() {
+	m.mu.Lock()
+	m.active--
+	m.mu.Unlock()
+	m.wakeLoop()
 }
 
 // Hub exposes the event hub for subscribers.
@@ -387,17 +433,22 @@ func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
 // Jobs start in queue order; a job in flight when ctx ends is recorded as
 // interrupted after its process is gone.
 func (m *Manager) Run(ctx context.Context) error {
-	slots := make(chan struct{}, max(1, m.cfg.Parallel))
 	var running sync.WaitGroup
 	defer running.Wait()
 	for {
 		if ctx.Err() != nil {
 			return nil
 		}
-		select {
-		case slots <- struct{}{}:
-		case <-ctx.Done():
-			return nil
+		// How many may run at once can change while the service runs
+		// (SetLoad), so the places are counted rather than fixed at the start.
+		if !m.acquire() {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-m.wake:
+			case <-time.After(time.Second):
+			}
+			continue
 		}
 		job, ok, err := m.store.NextQueued(ctx)
 		if err != nil {
@@ -405,7 +456,7 @@ func (m *Manager) Run(ctx context.Context) error {
 			ok = false
 		}
 		if !ok {
-			<-slots
+			m.release()
 			select {
 			case <-ctx.Done():
 				return nil
@@ -420,7 +471,7 @@ func (m *Manager) Run(ctx context.Context) error {
 		running.Add(1)
 		go func(id string) {
 			defer running.Done()
-			defer func() { <-slots }()
+			defer m.release()
 			m.runOne(ctx, id, claimed)
 		}(job.ID)
 		<-claimed
@@ -472,8 +523,9 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		}
 		defer os.RemoveAll(filepath.Dir(place.output))
 	}
+	workers, denseWorkers := m.load()
 	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: place.source, Output: place.output,
-		ModelDir: m.cfg.ModelDir, Workers: m.cfg.Workers, DenseWorkers: m.cfg.DenseWorkers, OCRDevice: m.ocrDevice(),
+		ModelDir: m.cfg.ModelDir, Workers: workers, DenseWorkers: denseWorkers, OCRDevice: m.ocrDevice(),
 		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
 		PruneWorkingData: !m.cfg.KeepWorkingData, OwnerPID: os.Getpid()}
 	logs, err := os.Create(place.log)

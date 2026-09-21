@@ -99,6 +99,22 @@ End to end on the same 35-minute recording, every report identical:
 These are observed runs, not a controlled benchmark, and not a throughput
 guarantee for another machine or recording.
 
+## Memory
+
+Measured on Windows on 2026-09-21, sampling the whole process tree once a
+second. The analyzer's own process holds about 1.3 GB while frames are read,
+3.4 GB while it assembles a full career and 4.8 GB at its peak, writing the
+viewer page. A reader process holds about half a gigabyte. The tree committed
+6.5 GB with three readers on the graphics card; the worst run seen committed
+8.4 GB, with a single reader. The readers are the small part: the number of
+analyses at once decides the memory, not the number of readers.
+
+`internal/loadplan` plans the desktop application's load from these figures
+(6 GB for an analysis, 0.5 to 0.6 GB for each reader, rounded up): the memory
+limit in Settings sets how many analyses may run at once, and each analysis
+gets the readers its share of the memory and of the processor allows. The
+limit is a plan, not a fence. Nothing is stopped for crossing it.
+
 ## In the application image
 
 The [application image](container.md) installs the CPU provider, so the same
