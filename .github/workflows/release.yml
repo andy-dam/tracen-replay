@@ -115,6 +115,11 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Point the container app at this commit's image
         run: az containerapp update --name tracen-replay --resource-group ${{ vars.TRACEN_RG }} --image ${{ env.APP_IMAGE }}:${{ github.sha }} --output none
+      # The analyses run as a job from the same image; without this the site
+      # moves on and the analyzer stays where the last manual deploy left it.
+      # An execution already running keeps the image it started with.
+      - name: Point the analysis job at this commit's image
+        run: az containerapp job update --name tracen-analysis --resource-group ${{ vars.TRACEN_RG }} --image ${{ env.APP_IMAGE }}:${{ github.sha }} --output none
 
   web:
     name: Deploy the client
