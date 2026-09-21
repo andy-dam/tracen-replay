@@ -180,6 +180,21 @@ func randomID() string {
 	return hex.EncodeToString(b[:])
 }
 
+// SetOCRDevice changes the device the next analyses run on (auto, cpu,
+// dml, cuda, coreml); an analysis already running keeps its own.
+func (m *Manager) SetOCRDevice(device string) {
+	m.mu.Lock()
+	m.cfg.OCRDevice = device
+	m.mu.Unlock()
+}
+
+// ocrDevice is the device the next analysis runs on.
+func (m *Manager) ocrDevice() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.cfg.OCRDevice
+}
+
 // Hub exposes the event hub for subscribers.
 func (m *Manager) Hub() *Hub { return m.hub }
 
@@ -458,7 +473,7 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		defer os.RemoveAll(filepath.Dir(place.output))
 	}
 	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: place.source, Output: place.output,
-		ModelDir: m.cfg.ModelDir, Workers: m.cfg.Workers, DenseWorkers: m.cfg.DenseWorkers, OCRDevice: m.cfg.OCRDevice,
+		ModelDir: m.cfg.ModelDir, Workers: m.cfg.Workers, DenseWorkers: m.cfg.DenseWorkers, OCRDevice: m.ocrDevice(),
 		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
 		PruneWorkingData: !m.cfg.KeepWorkingData, OwnerPID: os.Getpid()}
 	logs, err := os.Create(place.log)

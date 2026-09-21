@@ -20,6 +20,12 @@ export interface Recording {
   original_until?: string;
 }
 
+export interface Settings {
+  gpu: boolean;
+  gpu_available: boolean;
+  device: string;
+}
+
 export interface Failure {
   code: string;
   message: string;
@@ -291,7 +297,10 @@ const enc = encodeURIComponent;
 export const api = {
   version: () => request<{ version: string; latest?: string; url?: string }>("/api/version"),
   ready: () => request<Readiness>("/readyz").catch((e) => (e instanceof ApiError && e.status === 503 ? ({ ready: false, checks: [] } as Readiness) : Promise.reject(e))),
-  me: () => request<{ user: User }>("/api/auth/me").then((r) => r.user),
+  /** The session: the user, and whether this service has accounts at all (the desktop application has none). */
+  me: () => request<{ user: User; accounts?: boolean }>("/api/auth/me"),
+  settings: () => request<Settings>("/api/settings"),
+  saveSettings: (s: { gpu: boolean }) => request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(s) }),
   login: (email: string, password: string) => request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }).then((r) => r.user),
   register: (email: string, password: string, display_name: string) =>
     request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }).then((r) => r.user),

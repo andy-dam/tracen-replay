@@ -5,20 +5,23 @@ and the HTTP API, keeps a SQLite database of jobs and reports, and runs the
 Python analyzer as a child process for each submitted recording. Nothing
 leaves the machine; the server listens on the loopback interface only.
 
-## The Windows bundle
+## The desktop application
 
-The way in without any of the prerequisites below: a zip attached to each
-release, built by `desktop/build-windows.ps1`, holding the service with
-the client inside it, an embeddable Python with the analyzer and its
-pinned wheels (the DirectML build of ONNX Runtime, so any DirectX 12
-card is used), the OCR models, the learned card reader and ffmpeg. Unzip
-it anywhere and start `Tracen Replay.cmd`: the data lives under
-`%LOCALAPPDATA%\TracenReplay`, the browser opens on
-http://127.0.0.1:8765/, and the runs page says which device analyses run
-on. The service asks GitHub once a day whether a newer release exists
-(`-update-check=false` turns it off) and sends nothing else. Updating is
-unzipping the newer one next to the old. `desktop/README-bundle.md` is
-the note inside the zip.
+The way in without any of the prerequisites below, and without a browser:
+`Tracen Replay.exe` (`cmd/tracen-desktop`, a Wails application) opens one
+native window with Runs, Guide, About and Settings, no accounts. Inside
+the process the same service the website runs listens on a loopback port
+it picks itself, and the window shows it; nothing is exposed and nothing
+is sent anywhere. Settings has the switch for the graphics card, which
+can be on only when a supported accelerator is found (a DirectX 12 card
+on Windows through DirectML, CUDA on Linux, Apple silicon on Mac through
+CoreML; the interpreter is asked which providers it has). The data lives
+under the user's application folder (`%APPDATA%\TracenReplay` on
+Windows). Each release carries a zip of the folder and an installer,
+built by `desktop/build-windows.ps1` (the embeddable Python with the
+analyzer and the Windows pins, the OCR models, the learned card reader,
+ffmpeg) and `desktop/installer.nsi`; `desktop/README-bundle.md` is the
+note inside.
 
 ## Prerequisites
 

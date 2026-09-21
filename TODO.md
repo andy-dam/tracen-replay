@@ -918,21 +918,24 @@ and reports on their own machine. The hosted service stays the zero-install
 way in and the cloud learning project; the two share the service, the
 client and the analyzer.
 
-- [x] **A Windows bundle** (2026-09-20). `desktop/build-windows.ps1`
-      makes it: the service with the client inside, an embeddable Python
-      3.13 with the analyzer and the Windows pins
-      (`docker/constraints-windows.txt`, the DirectML build of ONNX
-      Runtime), the OCR models checked against `docker/models.sha256`, the
-      learned card reader, ffmpeg and ffprobe, `Tracen Replay.cmd` and a
-      first-read note; 344 MB zipped, 833 MB unzipped. The release
-      workflow builds it on a version tag and attaches it to the release.
-      Smoke-tested from the built folder on this machine (every readiness
-      check passes, DirectML found, the page serves); a clean machine is
-      still owed, the workflow's Windows runner being the nearest thing.
-- [x] **A first-run check in the client** (2026-09-20). `/readyz` asks the
-      interpreter which ONNX Runtime providers it has and the runs page
-      of the local application says "Analyses run on: DirectML (the
-      graphics card)" or "CPU only: analyses take much longer". No time
+- [x] **A desktop application** (2026-09-20). `cmd/tracen-desktop`: a
+      Wails application, one native window (WebView2) with Runs, Guide,
+      About and Settings and no accounts; the service runs inside the
+      process on a loopback port it picks, nothing is exposed. Settings
+      has the graphics-card switch, on only when the interpreter reports
+      a supported provider (DirectML, CUDA, CoreML), applied to the next
+      analysis and kept in `settings.json`. `desktop/build-windows.ps1`
+      builds the folder (the executable, an embeddable Python 3.13 with
+      the analyzer and the Windows pins, the OCR models checked against
+      `docker/models.sha256`, the learned card reader, ffmpeg) and, with
+      `-Installer`, the NSIS installer; the release workflow attaches
+      both to a version tag. Run on this machine: the window opens, no
+      sign-in, the card is detected and the switch works; a clean machine
+      is still owed, the workflow's Windows runner being the nearest
+      thing. Mac: the same code with CoreML, packaging not started.
+- [x] **A first-run check in the client** (2026-09-20). The desktop's
+      Settings page names the accelerator found or says CPU only; the
+      website's runs page says the same for a local service. No time
       figure, by request.
 - [x] **A privacy page** (2026-09-20). The About page's "Local by Design"
       says what stays on the machine, and that the only thing ever sent is

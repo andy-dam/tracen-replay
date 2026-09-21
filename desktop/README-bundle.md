@@ -1,25 +1,24 @@
 # Tracen Replay on your own machine
 
-Double-click **Tracen Replay.cmd**. A console window opens (leave it open;
-closing it stops the service), and your browser opens
-http://127.0.0.1:8765/. Create an account there; it exists only on this
+Start **Tracen Replay.exe** (the installer puts it in the Start menu). One
+window opens with Runs, Guide, About and Settings. No account: it is your
 machine.
 
-**What stays here:** everything. Accounts, recordings, reports and the
-frames the viewer shows live under `%LOCALAPPDATA%\TracenReplay`. The
-service listens on this machine only and never sends anything anywhere,
-except the once-a-day check for a newer version, which asks GitHub for the
-latest release number and nothing else.
+**What stays here:** everything. Recordings, reports and the frames the
+viewer shows live under `%APPDATA%\TracenReplay`. The application never
+sends anything anywhere.
 
-**Speed:** the analyzer uses your graphics card through DirectX 12 when it
-has one (any card from the last several years); without one it uses the
-processor and takes much longer. The Runs page says which it found.
+**Speed:** Settings has a switch to use your graphics card. It can be
+turned on when a supported card is found (any DirectX 12 card on Windows,
+Apple silicon on Mac); on, a career analyzes in a fraction of the time the
+processor needs. Off, the processor does it and takes much longer.
 
-**Updating:** download the newer zip, unzip it next to this one, and start
-that one instead; your data stays where it is.
+**Updating:** install the newer version over this one; your data stays
+where it is.
 
-**Removing:** delete this folder and, if you want the data gone too,
-`%LOCALAPPDATA%\TracenReplay`.
+**Removing:** the uninstaller in the Start menu, or delete the folder; your
+data under `%APPDATA%\TracenReplay` stays unless you delete it too.
 
-The first start on a machine may show a Windows SmartScreen warning because
-the launcher is not signed: choose "More info", then "Run anyway".
+The installer and the application are not signed yet, so Windows may show
+a SmartScreen warning the first time: choose "More info", then "Run
+anyway".

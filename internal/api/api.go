@@ -157,6 +157,9 @@ type Config struct {
 	Ready func() []Check
 	// Version answers /api/version; nil answers "dev".
 	Version func() VersionInfo
+	// Settings, when set, are the desktop application's choices behind
+	// /api/settings; nil has no settings.
+	Settings SettingsStore
 	// Analyzer reports the installed analyzer's identity, so a report can say
 	// whether the analyzer that made it is still the one on disk. nil leaves
 	// the comparison out rather than guessing at it.
@@ -254,6 +257,8 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	m.HandleFunc("GET /readyz", s.ready)
+	m.HandleFunc("GET /api/settings", s.getSettings)
+	m.HandleFunc("PUT /api/settings", s.putSettings)
 	m.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		info := VersionInfo{Version: "dev"}
 		if s.cfg.Version != nil {
@@ -573,7 +578,9 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
-	if s.noAuth(w) {
+	if s.cfg.Auth == nil {
+		// Without accounts the one user is whoever sits at this machine.
+		writeJSON(w, http.StatusOK, map[string]any{"user": auth.User{DisplayName: "This computer"}, "accounts": false})
 		return
 	}
 	user, err := s.currentUser(r)
@@ -581,7 +588,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		authError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"user": user})
+	writeJSON(w, http.StatusOK, map[string]any{"user": user, "accounts": true})
 }
 
 // clientAddress is the address the sign-in and registration limits count:
