@@ -31,11 +31,13 @@ onMounted(load);
 </script>
 
 <template>
-  <section class="page">
-    <header class="page-head">
-      <h1>Settings</h1>
-      <p>How analyses run on this computer. A change applies to the next analysis you start.</p>
-    </header>
+  <section>
+    <div class="page-head">
+      <div>
+        <h1>Settings</h1>
+        <p>How analyses run on this computer. A change applies to the next analysis you start.</p>
+      </div>
+    </div>
     <p v-if="error" class="error">{{ error }}</p>
     <div v-if="settings" class="card">
       <div class="setting">
