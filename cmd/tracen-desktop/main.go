@@ -4,6 +4,8 @@
 // data under the user's application folder, and the window shows it. The
 // analyzer, its models and ffmpeg live next to the executable, where the
 // installer puts them.
+//go:build windows || darwin
+
 package main
 
 import (
