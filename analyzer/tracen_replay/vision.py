@@ -29,8 +29,8 @@ def ocr_device():
     process when this returns ``dml``.
     """
     requested = os.environ.get('TRACEN_REPLAY_OCR_DEVICE', 'auto').strip().lower()
-    if requested not in ('auto', 'cpu', 'dml', 'cuda'):
-        raise ValueError(f'unsupported TRACEN_REPLAY_OCR_DEVICE {requested!r}; use auto, cpu, dml or cuda')
+    if requested not in ('auto', 'cpu', 'dml', 'cuda', 'coreml'):
+        raise ValueError(f'unsupported TRACEN_REPLAY_OCR_DEVICE {requested!r}; use auto, cpu, dml, cuda or coreml')
     if requested == 'cpu':
         return 'cpu'
     try:
@@ -38,8 +38,11 @@ def ocr_device():
         providers = set(onnxruntime.get_available_providers())
     except Exception:  # pragma: no cover - onnxruntime is optional at import time
         providers = set()
-    available = {'dml': 'DmlExecutionProvider' in providers, 'cuda': 'CUDAExecutionProvider' in providers}
-    if requested in ('dml', 'cuda'):
+    # CoreML (Apple silicon) is only ever chosen by name: ``auto`` on a Mac
+    # stays on the CPU provider, which every run so far was read with.
+    available = {'dml': 'DmlExecutionProvider' in providers, 'cuda': 'CUDAExecutionProvider' in providers,
+                 'coreml': 'CoreMLExecutionProvider' in providers}
+    if requested in ('dml', 'cuda', 'coreml'):
         if not available[requested]:
             raise ValueError(f'TRACEN_REPLAY_OCR_DEVICE={requested} but onnxruntime has no matching execution provider')
         return requested
@@ -64,6 +67,8 @@ def engine_params(device):
               'EngineConfig.onnxruntime.use_dml':device=='dml'}
     if device == 'cuda':
         params['EngineConfig.onnxruntime.use_cuda'] = True
+    if device == 'coreml':
+        params['EngineConfig.onnxruntime.use_coreml'] = True
     return params
 
 

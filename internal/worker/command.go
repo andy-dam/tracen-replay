@@ -97,7 +97,7 @@ func (c Command) Args(clean func(string) string) ([]string, error) {
 	case c.OwnerPID < 0:
 		return nil, fmt.Errorf("worker: owner pid must not be negative, got %d", c.OwnerPID)
 	case !validDevice(c.OCRDevice):
-		return nil, fmt.Errorf("worker: ocr device %q is not one of auto, cpu, dml, cuda", c.OCRDevice)
+		return nil, fmt.Errorf("worker: ocr device %q is not one of auto, cpu, dml, cuda, coreml", c.OCRDevice)
 	}
 	args := []string{clean(c.Source), "--output", clean(c.Output), "--workers", strconv.Itoa(c.Workers)}
 	if c.ModelDir != "" {
@@ -126,7 +126,7 @@ func (c Command) Args(clean func(string) string) ([]string, error) {
 
 func validDevice(device string) bool {
 	switch device {
-	case "", "auto", "cpu", "dml", "cuda":
+	case "", "auto", "cpu", "dml", "cuda", "coreml":
 		return true
 	}
 	return false

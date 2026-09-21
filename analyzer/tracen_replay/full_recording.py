@@ -616,7 +616,7 @@ def _analyze_frame_in_process(frame,root,source_sha256):
 
 def ocr_pool_for_device(device=None):
     """Executor kind for the OCR stage: DirectML readers need their own processes."""
-    return 'process' if (OCR_DEVICE if device is None else device) in ('dml','cuda') else 'thread'
+    return 'process' if (OCR_DEVICE if device is None else device) in ('dml','cuda','coreml') else 'thread'
 
 
 def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr',pool='thread'):
