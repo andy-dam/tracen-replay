@@ -280,3 +280,44 @@ accepted; a model's output never fills a report field on its own.
 
 Results are not recorded here; they are kept with each model in the local
 records.
+
+### Second model: the recognizer's confusions
+
+What it learns: how the recognizer damages names. Every rare spelling of a
+supporter or skill name in a career (fewer sightings than make a name
+known) is paired with the one known name of that run within three plain
+edits, the same pairing the hand-set resolver made; the alignment of the
+pair says, character by character, what happened: a match, a
+substitution, a dropped letter, an added one. The counts over the fourteen
+careers, smoothed, are the model: a probability for each substitution the
+recognizer has been seen to make, for dropping each letter, for adding
+one. `analyzer/lab/learn_confusions.py` writes them to
+`tracen_replay/data/confusions.json`.
+
+How it is used: the distance between a read spelling and a candidate
+name is the cheapest alignment under those probabilities, in nats, so a
+confusion the recognizer often makes costs little and one it never makes
+costs a lot (`tracen_replay/confusions.py`). The resolver keeps its shape:
+one candidate within the margin, under the limit, the same circle grade,
+never a name read on the same frame. The limit and the margin are not set
+by hand: the limit is the costliest training pair, the margin the median
+cost of one confusion, both written into the table by the script. Without
+a table the distance is unit edits and the limits the old constants.
+
+How it is judged: leave one career out, learn from the other thirteen,
+and count that career's rare spellings resolved by the hand-set rules and
+by the learned resolver, and any spelling the two send to different names.
+On 2026-09-20: 304 rare spellings; rules 20, learned 23, every one of the
+rules' 20 among the learned 23, no disagreement. The three the rules
+refused and the learned resolver accepts are right: "Symboli Ralf"
+(Symboli Rudolf), "Subauea Front Kunners" (Subdued Front Runners),
+"Light He!" (Light Hello); each is more than two edits but made of
+confusions the recognizer is known for. Short names (six letters or
+fewer) take a limit learned from the short pairs alone, as the hand-set
+rule allowed them one edit instead of two; 27 pairs in all, 2 of them
+short, so the table will sharpen as careers accumulate.
+
+What stays hand-set: the field labels of the stat bar
+(`current_state_layout`, two edits) and the receipt grammar's own
+distances. They can move to the same table once their pairs are
+collected the same way.

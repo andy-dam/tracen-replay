@@ -756,12 +756,26 @@ reading small fixed crops. The accounting labels them for free. Order:
       The four runs are tabled in `.local/learned-readers/pointer-v9.md`;
       `reader-final-v2`, the same setting trained on every run, is what the
       service now loads.
-- [ ] **Second model: text repair.** Learn the recognizer's character
-      confusions from receipt lines paired with their resolved names, and
-      replace the hand-set edit distances with one repair that uses the
-      learned confusions and a shared word list. Done: the per-rule
-      thresholds are gone and the held-out receipt names resolve at least as
-      often.
+- [x] **Second model: text repair** (2026-09-20). The recognizer's
+      character confusions are learned from every rare spelling of a
+      supporter or skill name paired with the one known name of its run
+      (`analyzer/lab/learn_confusions.py`, 14 careers), and live in
+      `tracen_replay/data/confusions.json` with the two decision numbers
+      the resolver needs: the costliest training pair as the limit and the
+      median cost of one confusion as the margin. `name_vocabulary.repair`
+      keeps its shape (one candidate within the margin, under the limit,
+      same circle grade, never a name read on the same frame) with the
+      learned distance in place of unit edits and the learned numbers in
+      place of MAX_EDITS, SHORT_MAX_EDITS and MARGIN_EDITS, which remain
+      only as the fallback without a table. Leave-one-career-out: 304 rare
+      spellings, the hand-set rules resolved 20, the learned resolver 23,
+      all 20 of the rules' among them, no disagreement; the three more are
+      right ("Symboli Ralf", "Subauea Front Kunners", "Light He!"). The
+      field-label matching in `current_state_layout` and the receipt
+      grammar's own distances are not on this table yet. The learned
+      result-card reader (`tracen_replay/data/reader.onnx`) now ships with
+      the analyzer and is the default for the service, the worker and the
+      hosted job, which had been running without it.
 - [ ] **Later:** boundary and animation-state detection, using the current
       rules' decisions as labels.
 

@@ -69,7 +69,7 @@ func run() error {
 	queue := flag.Int("queue", 4, "maximum number of queued jobs")
 	parallel := flag.Int("parallel", 1, "analyses run at once; each holds a few GB of memory and its OCR workers' share of the CPU")
 	ocrDevice := flag.String("ocr-device", "auto", "OCR device for the analyzer: auto (DirectML, then CUDA, then CPU), cpu, dml or cuda")
-	learnedReader := flag.String("learned-reader", "", "exported learned result-card reader (ONNX) for the analyzer; its reads count only where they equal an unexplained difference (off when empty)")
+	learnedReader := flag.String("learned-reader", "", "exported learned result-card reader (ONNX) for the analyzer; its reads count only where they equal an unexplained difference; empty uses the reader shipped with the analyzer (tracen_replay/data/reader.onnx) when it exists")
 	webDir := flag.String("web", "", "serve the browser client from this built directory instead of the embedded copy (a rebuild is picked up without a restart)")
 	apiOnly := flag.Bool("api-only", false, "serve the API only; the browser client is hosted elsewhere and named with -allowed-origin")
 	allowedOrigins := flag.String("allowed-origin", "", "comma-separated client origins served from elsewhere that may call the API with credentials, e.g. http://localhost:5173")
@@ -125,6 +125,9 @@ func run() error {
 	dataDirAbs, err := filepath.Abs(*dataDir)
 	if err != nil {
 		return err
+	}
+	if *learnedReader == "" {
+		*learnedReader = shippedReader(workDirAbs)
 	}
 	// The worker is a child process unless an image is named; then each
 	// analysis is a container of that image, labelled with this data

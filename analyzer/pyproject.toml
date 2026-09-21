@@ -21,3 +21,6 @@ tracen-replay = "tracen_replay.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["tracen_replay*"]
+
+[tool.setuptools.package-data]
+tracen_replay = ["data/*.json"]

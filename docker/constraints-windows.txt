@@ -1,0 +1,28 @@
+# The Python packages the image installs, pinned to the versions the build
+# resolved on 2026-09-18 from analyzer/pyproject.toml's vision extra. pip
+# takes this file as constraints, so a rebuild installs exactly these; a
+# package the extra no longer needs is simply not installed, and a new
+# requirement is resolved freely until it is added here. To move forward,
+# build the image without this file and copy `pip freeze` back into it.
+antlr4-python3-runtime==4.9.3
+certifi==2026.7.22
+charset-normalizer==3.5.1
+colorlog==6.12.0
+flatbuffers==25.12.19
+idna==3.20
+numpy==2.5.3
+omegaconf==2.3.1
+onnxruntime-directml==1.24.4
+opencv-python==5.0.0.93
+packaging==26.3
+pillow==12.3.0
+protobuf==7.36.2
+psutil==7.2.2
+pyclipper==1.4.0
+PyYAML==6.0.3
+rapidocr==3.9.2
+requests==2.34.2
+shapely==2.1.2
+six==1.17.0
+tqdm==4.70.1
+urllib3==2.8.0

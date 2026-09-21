@@ -32,7 +32,7 @@ func runWorker(args []string) error {
 	denseWorkers := fs.Int("dense-workers", 0, "worker processes for the dense re-read passes (0 = workers minus one)")
 	parallel := fs.Int("parallel", 1, "analyses run at once on this machine")
 	ocrDevice := fs.String("ocr-device", "auto", "OCR device for the analyzer: auto, cpu, dml or cuda")
-	learnedReader := fs.String("learned-reader", "", "exported learned result-card reader (ONNX); off when empty")
+	learnedReader := fs.String("learned-reader", "", "exported learned result-card reader (ONNX); empty uses the reader shipped with the analyzer when it exists")
 	maxAnalysis := fs.Duration("max-analysis", 4*time.Hour, "longest one analysis may run before it is stopped as timed_out; 0 for no limit")
 	keepWorkingData := fs.Bool("keep-working-data", false, "upload the analyzer's OCR caches, crops and recovery inputs with the report (about 1 GB per analysis)")
 	keepCopy := fs.Bool("keep-copy", true, "after a completed analysis, encode a 720p playback copy of the recording and store it under kept/; the report and the recording then play from it")
@@ -63,6 +63,9 @@ func runWorker(args []string) error {
 	workDirAbs, err := filepath.Abs(*workDir)
 	if err != nil {
 		return err
+	}
+	if *learnedReader == "" {
+		*learnedReader = shippedReader(workDirAbs)
 	}
 	cfg := jobs.Config{Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
