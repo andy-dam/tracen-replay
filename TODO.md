@@ -918,21 +918,31 @@ and reports on their own machine. The hosted service stays the zero-install
 way in and the cloud learning project; the two share the service, the
 client and the analyzer.
 
-- [ ] **A Windows bundle.** Embeddable Python with the pinned wheels
-      (`docker/constraints.txt` is the list; no PyTorch at run time), the
-      OCR models, ffmpeg, the ONNX reader and the binary, as one zip or
-      installer near a gigabyte, with the data directory under the user's
-      AppData. Tested on a clean machine, not this one.
-- [ ] **A first-run check in the client.** Which OCR device the analyzer
-      found and the time a career will take on it, so a laptop without a
-      usable GPU knows what it is in for before uploading. `/readyz`
-      already reports the checks; the device and a time estimate are the
-      additions.
-- [ ] **A privacy page.** What stays on the machine (everything), what the
-      app never sends (anything), and how to export a report to share it.
-- [ ] **Signing and updates.** An unsigned installer draws a Windows
-      warning; signing is a cost and a process, fine to start without. An
-      update check against the release page is enough to begin with.
-- [ ] **Linux with the CUDA wheel, then perhaps Mac.** The Dockerfile's
-      `OCR_RUNTIME=cuda` build argument is the Linux path. Apple silicon
-      would need another runtime provider and is untested; last, or never.
+- [x] **A Windows bundle** (2026-09-20). `desktop/build-windows.ps1`
+      makes it: the service with the client inside, an embeddable Python
+      3.13 with the analyzer and the Windows pins
+      (`docker/constraints-windows.txt`, the DirectML build of ONNX
+      Runtime), the OCR models checked against `docker/models.sha256`, the
+      learned card reader, ffmpeg and ffprobe, `Tracen Replay.cmd` and a
+      first-read note; 344 MB zipped, 833 MB unzipped. The release
+      workflow builds it on a version tag and attaches it to the release.
+      Smoke-tested from the built folder on this machine (every readiness
+      check passes, DirectML found, the page serves); a clean machine is
+      still owed, the workflow's Windows runner being the nearest thing.
+- [x] **A first-run check in the client** (2026-09-20). `/readyz` asks the
+      interpreter which ONNX Runtime providers it has and the runs page
+      of the local application says "Analyses run on: DirectML (the
+      graphics card)" or "CPU only: analyses take much longer". No time
+      figure, by request.
+- [x] **A privacy page** (2026-09-20). The About page's "Local by Design"
+      says what stays on the machine, and that the only thing ever sent is
+      the once-a-day release check, with the flag that turns it off;
+      `desktop/README-bundle.md` repeats it inside the zip. Exporting a
+      report is the download button that exists.
+- [x] **Updates** (2026-09-20). `-update-check` asks GitHub daily for the
+      newest release; `/api/version` says this build and the newer one,
+      and the runs page links to it. Signing is not done: the bundle draws
+      the SmartScreen warning, which the note inside explains.
+- [x] **Linux with the CUDA wheel.** It is the container image built with
+      `OCR_RUNTIME=cuda` ([container.md](container.md)); no separate
+      bundle. Mac: never, without a runtime provider for it.

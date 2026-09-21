@@ -334,7 +334,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/api/auth/") {
+	if strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/api/auth/") && r.URL.Path != "/api/version" {
 		user, err := s.currentUser(r)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "unauthenticated", "sign in to continue")
