@@ -1500,6 +1500,96 @@ def collapse_uncorroborated_circle_base_variants(event, name_sightings):
         event['ambiguous_effect_candidates'] = [c for c in candidates if not any(c is f for f in folded)]
 
 
+def _list_item_base(name):
+    """A hint name without its rank mark, however the mark was read."""
+    return re.sub(r'\s*[O0○◯◎]$', '', str(name or '').strip()).strip().casefold()
+
+
+def _list_item_sightings(effect, event, rows_by_evidence, group_texts):
+    """``(preceding line's text or None)`` for each frame that shows this reading.
+
+    Returns ``None`` when a frame shows two lines of the group: those are two
+    list items, and nothing may be folded.
+    """
+    key = 'skill_hint_change||' + str(effect.get('name') or '')
+    proof = effect.get('source_bound_receipt_proof')
+    proof_box = proof.get('line_box') if isinstance(proof, dict) else None
+    sightings = []
+    for evidence in dict.fromkeys(p for p in event.get('field_evidence', {}).get(key, []) if isinstance(p, str)):
+        row = rows_by_evidence.get(evidence)
+        lines = [line for line in ((row or {}).get('ocr') or {}).get('neural', [])
+                 if isinstance(line, dict) and len(line.get('box', [])) == 4 and isinstance(line.get('text'), str)]
+        if sum(1 for line in lines if line['text'] in group_texts) > 1:
+            return None
+        if isinstance(proof_box, list) and len(proof_box) == 4:
+            own = [line for line in lines if all(abs(a - b) <= 4 for a, b in zip(line['box'], proof_box))]
+        else:
+            own = [line for line in lines if line.get('confidence', 0) >= 90
+                   and line['text'] in (effect.get('raw_text'), effect.get('original_text'))]
+        if len(own) != 1:
+            continue
+        left, top = own[0]['box'][0], own[0]['box'][1]
+        above = [line for line in lines if line is not own[0] and line.get('confidence', 0) >= 95
+                 and abs(line['box'][0] - left) <= 6 and 16 <= top - line['box'][1] <= 34]
+        sightings.append(above[0]['text'] if len(above) == 1 else None)
+    return sightings
+
+
+def collapse_same_list_item_hint_variants(event, rows_by_evidence):
+    """One line of a scrolling receipt list is one award, however it was read.
+
+    The list scrolls while a cursor or a skill card crosses it, so one line
+    can come out as ``Rainy Days ○`` (ring proven), ``Rainy Days O`` and,
+    half covered, ``Rainy Days``, with gaps between the readings that the
+    continuity rules cannot bridge.  Position in the list can: a list item
+    keeps the same line above it on every frame.  Readings of one skill (rank
+    mark aside) at one amount fold into the single ring-marked reading when
+    every one of them was seen under the same preceding line, and no frame
+    shows two of them at once (which would be two awards of the same skill).
+    """
+    hints = [e for e in event.get('effects', []) if isinstance(e, dict)
+             and e.get('kind') == 'skill_hint_change' and e.get('name')]
+    groups = {}
+    for effect in hints:
+        groups.setdefault((_list_item_base(effect['name']), effect.get('amount')), []).append(effect)
+    removed = []
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        marked = [e for e in members if str(e['name']).strip()[-1] in _CIRCLE_MARKERS]
+        if len(marked) != 1:
+            continue
+        target = marked[0]
+        texts = {t for e in members for t in (e.get('raw_text'), e.get('original_text')) if isinstance(t, str)}
+        above = set()
+        for effect in members:
+            sightings = _list_item_sightings(effect, event, rows_by_evidence, texts)
+            seen = {text for text in sightings or [] if text}
+            if sightings is None or not seen:
+                above = None
+                break
+            above |= seen
+        if not above or len(above) != 1 or above & texts:
+            continue
+        target_key = 'skill_hint_change||' + target['name']
+        proofs = event.setdefault('field_evidence', {}).setdefault(target_key, [])
+        fields = {target_key}
+        for weak in members:
+            if weak is target:
+                continue
+            weak_key = 'skill_hint_change||' + weak['name']
+            weak_proofs = list(event['field_evidence'].get(weak_key, []))
+            target.setdefault('observed_name_candidates', [target['name']]).append(weak['name'])
+            target.setdefault('alternate_name_evidence', []).append(dict(name=weak['name'], evidence=weak_proofs))
+            proofs.extend(proof for proof in weak_proofs if proof not in proofs)
+            fields.add(weak_key)
+            removed.append(weak)
+        target['name_resolution'] = 'same_preceding_line_in_scrolling_receipt'
+        _drop_conflicts(event, fields, {'unresolved_circle_variant_relation'})
+    if removed:
+        event['effects'] = [e for e in event['effects'] if not any(e is r for r in removed)]
+
+
 _HINT_SEPARATOR_RE = re.compile(r"[\s\-\u2010-\u2015\u2212]+")
 
 
