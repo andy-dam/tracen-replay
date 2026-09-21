@@ -262,10 +262,12 @@ Azure, one resource group, one region (North Central US: the one US region the s
    execution, the same identity and secrets). The two run different
    images of one build: the job the whole application (`:<sha>`), the API
    the site stage (`:site-<sha>`), the service with a small static ffmpeg
-   that reads signed https addresses and no Python. The API scales to
-   nothing, and what a first visitor waits for is mostly the image pull:
-   about half a minute with the whole application (417 MB compressed), a
-   few seconds with the site image. The analyzer's identity, which the
+   that reads signed https addresses and no Python (46 MB compressed
+   against 417 MB, a pull of two seconds). The API scales to nothing, so a
+   first visitor waits for a start; measured, most of that wait was not
+   the image but the probes: the first readiness check ran before the
+   service listened, and the next was a thirty-second period away. A
+   startup probe every second fixes that. The analyzer's identity, which the
    API compares reports against, is written into the site image when it is
    built (`-analyzer-version-file`).
 4. Static Web App (free) bound to the `web/` build; custom domain

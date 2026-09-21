@@ -70,9 +70,9 @@ ENTRYPOINT ["python", "-X", "utf8", "-m", "tracen_replay.analysis_job"]
 # The site alone (`docker build --target site`), for a deployment whose
 # analyses run in `tracen worker` processes elsewhere (-shared-queue): the
 # service with the client, ffmpeg and ffprobe for the upload check and the
-# viewer's frames, and nothing of Python. It is a tenth of the app image, so
-# a container that was scaled to nothing answers in seconds instead of half
-# a minute. Two helper stages feed it.
+# viewer's frames, and nothing of Python. It is a tenth of the app image (46
+# MB compressed against 417), so a container that was scaled to nothing
+# pulls it in two seconds. Two helper stages feed it.
 
 # What the analyzer of this build says it is. The site reads the answer from
 # a file (-analyzer-version-file), so a report is still compared with the
