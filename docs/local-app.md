@@ -365,8 +365,9 @@ recorded; it never derives a value of its own. It reads like a replay:
   it. Every item opens its turn.
 - **Theme.** The page follows the system light or dark setting; the button
   in the top bar switches it, and the choice is kept per browser. The mark
-  in the top bar and the favicon (`web/public/favicon.svg`) are drawn for
-  this app: a green tile, a white loop for the track, a pink play mark.
+  in the top bar, the favicon and the desktop application's icon are one
+  picture: the green hat on a green rounded tile. `desktop/icon/make_icons.py`
+  builds all of them from `desktop/icon/logo.png`.
 
 ### Stat rank letters
 

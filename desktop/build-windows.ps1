@@ -30,6 +30,11 @@ Push-Location web
 npm ci
 npm run build
 Pop-Location
+# The build folder is not tracked; the application's icon is, and goes in
+# before the build so the executable carries it.
+New-Item -ItemType Directory -Force "cmd/tracen-desktop/build/windows" | Out-Null
+Copy-Item "desktop/icon/appicon.png" "cmd/tracen-desktop/build/appicon.png" -Force
+Copy-Item "desktop/icon/icon.ico" "cmd/tracen-desktop/build/windows/icon.ico" -Force
 Push-Location cmd/tracen-desktop
 wails build -clean -s -trimpath -ldflags "-X main.version=$Version" -o "Tracen Replay.exe"
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "wails build failed" }
