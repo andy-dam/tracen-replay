@@ -21,7 +21,27 @@ Windows). Each release carries a zip of the folder and an installer,
 built by `desktop/build-windows.ps1` (the embeddable Python with the
 analyzer and the Windows pins, the OCR models, the learned card reader,
 ffmpeg) and `desktop/installer.nsi`; `desktop/README-bundle.md` is the
-note inside.
+note inside. The Mac counterpart is `desktop/build-macos.sh`: `Tracen
+Replay.app` for Apple silicon with a standalone Python, the analyzer, the
+models and ffmpeg in `Contents/Resources`, signed ad hoc (not with an Apple
+developer certificate, so the first opening needs the step in
+`desktop/README-bundle-macos.md`) and packed as a disk image; its data is
+under `~/Library/Application Support/TracenReplay`.
+
+The ffmpeg in both is the project's own build (`desktop/ffmpeg/build.sh`
+cross-compiles the Windows one, `build-macos.sh` next to it builds the Mac
+one; the "Slim ffmpeg" workflow publishes both as assets of a pre-release).
+It keeps everything that is part of ffmpeg itself and leaves out the
+external encoder libraries the application never calls, which takes it
+from 330 MB to about 25; it is LGPL. The application puts it first on the
+analyzer's `PATH`, so a machine without ffmpeg analyzes too.
+
+The "Desktop test build" workflow builds either application from any
+branch on request and keeps it as an artifact for two weeks, to try on a
+real machine before a release exists. Both it and a tagged release run
+`desktop/smoke.py` inside the finished bundle: a few seconds of drawn
+video analyzed by the bundle's own Python, models and ffmpeg, with the
+words on it checked in the report.
 
 ## Prerequisites
 

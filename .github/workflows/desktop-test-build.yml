@@ -39,6 +39,15 @@ jobs:
         run: |
           res="dist/macos/Tracen Replay.app/Contents/Resources"
           cd "$res/analyzer" && ../python/bin/python3 -m tracen_replay.analysis_job --worker-version
+      - name: A short analysis inside the bundle, on the processor
+        run: |
+          res="dist/macos/Tracen Replay.app/Contents/Resources"
+          "$res/python/bin/python3" desktop/smoke.py "$res/analyzer" "$res/ffmpeg" "$res/models" cpu
+      - name: The same with CoreML (informative; a runner is a virtual Mac)
+        continue-on-error: true
+        run: |
+          res="dist/macos/Tracen Replay.app/Contents/Resources"
+          "$res/python/bin/python3" desktop/smoke.py "$res/analyzer" "$res/ffmpeg" "$res/models" coreml
       - uses: actions/upload-artifact@v4
         with:
           name: tracen-replay-macos
@@ -71,6 +80,12 @@ jobs:
       - name: Build the application, the zip and the installer
         shell: pwsh
         run: ./desktop/build-windows.ps1 -Version "test-$($env:GITHUB_SHA.Substring(0,8))" -Out dist/windows -Installer
+      - name: A short analysis inside the bundle, on the processor
+        shell: pwsh
+        run: |
+          $b = "dist/windows/tracen-replay"
+          & "$b/python/python.exe" desktop/smoke.py "$b/analyzer" "$b/ffmpeg" "$b/models" cpu
+          if ($LASTEXITCODE -ne 0) { throw "the bundled analyzer failed its short analysis" }
       - uses: actions/upload-artifact@v4
         with:
           name: tracen-replay-windows

@@ -933,6 +933,19 @@ client and the analyzer.
       sign-in, the card is detected and the switch works; a clean machine
       is still owed, the workflow's Windows runner being the nearest
       thing. Mac: the same code with CoreML, packaging not started.
+- [x] **The Mac application and a small ffmpeg** (2026-09-21).
+      `desktop/build-macos.sh` builds `Tracen Replay.app` for Apple silicon
+      and a disk image (ad hoc signature; the first opening needs the
+      quarantine step in `desktop/README-bundle-macos.md`); a tag attaches
+      it, and the "Desktop test build" workflow makes one from any branch.
+      The bundled ffmpeg is the project's own 25 MB build in place of the
+      330 MB general one, with frames, timestamps and probe output equal
+      to the full build on a recorded career and eight codec variants; the
+      desktop now puts it on the analyzer's `PATH` (before, analyses only
+      worked where ffmpeg was installed). `desktop/smoke.py` analyzes a
+      drawn clip inside every built bundle. Built and smoke-tested on the
+      macOS runner; opening the window on a real MacBook is the owner's
+      test, and CoreML there is untried.
 - [x] **A first-run check in the client** (2026-09-20). The desktop's
       Settings page names the accelerator found or says CPU only; the
       website's runs page says the same for a local service. No time
