@@ -186,6 +186,10 @@ func (f Frames) Forget(id string) error {
 	return os.RemoveAll(filepath.Join(f.CacheDir, id))
 }
 
+// errNoFrame is what At answers when ffmpeg had no frame to give, however
+// the installed ffmpeg reports that.
+var errNoFrame = errors.New("ffmpeg produced no frame (timestamp beyond the recording?)")
+
 func (f Frames) At(ctx context.Context, reportID, recording string, timestampMS int64) (string, error) {
 	if timestampMS < 0 {
 		return "", errors.New("timestamp must not be negative")
@@ -225,11 +229,17 @@ func (f Frames) At(ctx context.Context, reportID, recording string, timestampMS 
 		"-frames:v", "1", "-q:v", "3", "-f", "image2", tmp)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		os.Remove(tmp)
+		// A timestamp past the end: older ffmpeg exits cleanly with no file
+		// (the case below); newer ffmpeg fails, its encoder never having
+		// seen a frame. The answer is the same either way.
+		if text := string(output); strings.Contains(text, "Nothing was written into output file") || strings.Contains(text, "received no packets") {
+			return "", errNoFrame
+		}
 		return "", fmt.Errorf("ffmpeg: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 	if info, err := os.Stat(tmp); err != nil || info.Size() == 0 {
 		os.Remove(tmp)
-		return "", errors.New("ffmpeg produced no frame (timestamp beyond the recording?)")
+		return "", errNoFrame
 	}
 	if err := os.Rename(tmp, out); err != nil {
 		return "", err
