@@ -245,7 +245,7 @@ function hideBroken(e: Event) {
   <div class="page-head">
     <div>
       <h1>Runs</h1>
-      <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "The server runs a few analyses at a time and queues the rest." }}</p>
+      <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "Analyses run one after another; the rest wait their turn." }}</p>
       <p v-if="device" class="muted small">Analyses run on: {{ device }}.</p>
       <p v-if="update" class="muted small">A newer version, {{ update.latest }}, is available: <a :href="update.url" target="_blank" rel="noopener noreferrer">download it</a>.</p>
     </div>

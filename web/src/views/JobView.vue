@@ -24,8 +24,12 @@ function listen() {
   stream.addEventListener("progress", (e) => {
     const p = JSON.parse((e as MessageEvent).data);
     if (job.value) job.value = { ...job.value, status: p.status, stage: p.stage ?? job.value.stage };
-    if (typeof p.percent === "number") percent.value = p.percent;
-    else if (p.stage && p.stage !== "ocr") percent.value = null;
+    if (typeof p.percent === "number") {
+      percent.value = p.percent;
+      // The event carries the share done; the frame count the text shows
+      // follows it, so the words move with the bar.
+      if (job.value?.ocr_total) job.value = { ...job.value, ocr_processed: Math.round((p.percent / 100) * job.value.ocr_total) };
+    } else if (p.stage && p.stage !== "ocr") percent.value = null;
   });
   stream.onerror = () => {
     // The stream closes after the terminal event; refresh the record once.
