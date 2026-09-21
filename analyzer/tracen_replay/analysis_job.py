@@ -417,8 +417,52 @@ def _failure(code: str, message: str) -> dict[str, object]:
     }
 
 
+# The stream the terminal JSON object is written to once standard output has
+# been reserved for it (``_reserve_stdout``); ``None`` writes to ``sys.stdout``.
+_TERMINAL = None
+
+
+def _reserve_stdout() -> None:
+    """Keep standard output for the terminal JSON object alone.
+
+    The caller reads standard output as exactly one JSON object. Redirecting
+    ``sys.stdout`` covers this interpreter's own printing and nothing else: a
+    native library writes to file descriptor 1 directly (Apple's CoreML
+    runtime logs lines that begin "E5RT"), and every reader process starts
+    with a standard output of its own. One such line made a finished
+    six-hour analysis fail with "worker stdout is not a JSON object". So the
+    real standard output is moved to a descriptor only ``_emit`` holds, and
+    descriptor 1 is pointed at standard error, where the log is. Child
+    processes inherit the redirected descriptor. On Windows a child takes the
+    process's standard handle rather than descriptor 1, so that is moved too.
+    """
+    global _TERMINAL
+    if _TERMINAL is not None:
+        return
+    try:
+        sys.stdout.flush()
+        private = os.dup(1)
+        os.dup2(2, 1)
+        if os.name == "nt":
+            import ctypes
+            import msvcrt
+
+            ctypes.windll.kernel32.SetStdHandle(-11, msvcrt.get_osfhandle(2))  # STD_OUTPUT_HANDLE
+        _TERMINAL = os.fdopen(private, "w", encoding="utf-8", newline="\n")
+        sys.stdout = sys.stderr
+    except (OSError, ValueError, AttributeError):
+        # Without real descriptors (an embedding, a test harness) the stream
+        # stays as it was and ``_emit`` prints as before.
+        _TERMINAL = None
+
+
 def _emit(payload: Mapping[str, object]) -> None:
-    print(json.dumps(payload, ensure_ascii=True, separators=(",", ":")), flush=True)
+    line = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+    if _TERMINAL is not None:
+        _TERMINAL.write(line + "\n")
+        _TERMINAL.flush()
+        return
+    print(line, flush=True)
 
 
 def _validate_verification_coverage(
@@ -808,4 +852,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # Only the real program reserves standard output; a caller of ``main``
+    # inside another interpreter (the tests) keeps its own streams.
+    _reserve_stdout()
     raise SystemExit(main())

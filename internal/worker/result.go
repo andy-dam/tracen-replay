@@ -102,6 +102,25 @@ const (
 
 var hexDigest = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
+// lastTerminalLine returns the last non-empty line of stdout when it is a
+// JSON object of the terminal schema and is not all of stdout (which the
+// caller has already tried).
+func lastTerminalLine(stdout []byte) ([]byte, bool) {
+	trimmed := bytes.TrimSpace(stdout)
+	cut := bytes.LastIndexByte(trimmed, '\n')
+	if cut < 0 {
+		return nil, false
+	}
+	last := bytes.TrimSpace(trimmed[cut+1:])
+	var probe struct {
+		SchemaVersion string `json:"schema_version"`
+	}
+	if len(last) == 0 || last[0] != '{' || json.Unmarshal(last, &probe) != nil || probe.SchemaVersion != SchemaVersion {
+		return nil, false
+	}
+	return last, true
+}
+
 // DecodeTerminal parses the worker's stdout, which must hold exactly one JSON
 // object of the analysis-job-v1 schema. Surrounding whitespace is tolerated;
 // a second object, a non-object, or a foreign schema is a contract error.
@@ -111,6 +130,14 @@ func DecodeTerminal(stdout []byte) (Result, error) {
 	if err := dec.Decode(&r); err != nil {
 		if errors.Is(err, io.EOF) {
 			return Result{}, &ContractError{CodeBadTerminalOutput, "worker wrote no terminal JSON object"}
+		}
+		// Something that is not the analyzer's own printing reached standard
+		// output ahead of the object: a native library's log line, a child
+		// process. The analyzer reserves the stream against that now, but an
+		// analysis of hours is not thrown away for it: when the last line is
+		// a terminal object of this schema, that is the answer.
+		if last, ok := lastTerminalLine(stdout); ok {
+			return DecodeTerminal(last)
 		}
 		return Result{}, &ContractError{CodeBadTerminalOutput, "worker stdout is not a JSON object: " + err.Error()}
 	}
