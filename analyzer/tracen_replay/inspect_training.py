@@ -7,7 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from pathlib import PurePosixPath, PureWindowsPath
 from collections.abc import Mapping
-from .pipeline import decode_frames, PipelineError
+from .pipeline import clear_partial_capture, decode_frames, PipelineError
 from .proof_writer import save_while
 from .vision import NeuralReader, parse
 from .transactions import training_events
@@ -635,7 +635,7 @@ def inspect(source,root,readings):
         manifest=directory/'frames.json';dest=directory/'frames';dest.mkdir(exist_ok=True)
         if manifest.exists():frames=json.loads(manifest.read_text(encoding='utf-8'))
         else:
-            if any(dest.iterdir()):raise PipelineError(f'Incomplete inspection capture: {directory}')
+            clear_partial_capture(dest)
             frames=decode_frames(source,dest,window['start_ms']/1000,(window['end_ms']-window['start_ms'])/1000,30,capture['source']['timeline_origin_seconds'])
             save_json(manifest,frames)
         for frame in frames:

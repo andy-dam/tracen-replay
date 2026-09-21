@@ -9,7 +9,7 @@ from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor,as_complet
 import threading
 import time
 import traceback
-from .pipeline import probe,decode_frames,PipelineError
+from .pipeline import probe,decode_frames,clear_partial_capture,PipelineError
 from .proof_writer import save_while
 from .worker_memory import frame_done
 from .vision import NeuralReader,OCR_DEVICE,parse
@@ -452,11 +452,16 @@ def capture(source,root,fps):
     for index,start in enumerate(range(0,int(duration)+1,120)):
         length=min(120,duration-start)
         if length<=0:continue
+        # A recording a hair longer than a whole number of parts ends in a
+        # part shorter than one sampling step. The part before it sampled up
+        # to its start, so nothing the sampling rate promises is in it, and
+        # the decoder can hand back no frame for it at all.
+        if index and length<1/fps:continue
         part=root/f'part-{index:03d}';part.mkdir(exist_ok=True);dest=part/'frames';manifest=part/'frames.json'
         if manifest.exists():rows=json.loads(manifest.read_text(encoding='utf-8'))
         else:
             dest.mkdir(exist_ok=True)
-            if list(dest.iterdir()):raise PipelineError(f'Incomplete frame directory: {dest}. Preserve it and choose a new output directory.')
+            clear_partial_capture(dest)
             rows=decode_frames(source,dest,start,length,fps,origin)
             for row in rows:
                 row['id']=f'part-{index:03d}-'+row['id'];row['evidence']=f'part-{index:03d}/'+row['evidence'];row['clip_timestamp_ms']=row['source_timestamp_ms']
