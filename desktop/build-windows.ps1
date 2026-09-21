@@ -102,7 +102,7 @@ if ($LASTEXITCODE -ne 0) { throw "the bundled ffmpeg does not start" }
 Get-ChildItem $ffTmp -Recurse -Filter "LICENSE*" | Select-Object -First 1 | Copy-Item -Destination (Join-Path $bundle "ffmpeg/LICENSE.txt")
 
 Write-Host "== notices"
-Copy-Item LICENSE.md, README.md $bundle
+Copy-Item LICENSE.md, THIRD-PARTY-NOTICES.md, README.md $bundle
 Set-Content -Path (Join-Path $bundle "VERSION") -Value $Version
 Copy-Item (Join-Path $PSScriptRoot "README-bundle.md") (Join-Path $bundle "README-first.md")
 
