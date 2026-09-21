@@ -288,6 +288,7 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/jobs", s.submitJob)
 	m.HandleFunc("GET /api/jobs/{id}", s.getJob)
 	m.HandleFunc("POST /api/jobs/{id}/cancel", s.cancelJob)
+	m.HandleFunc("POST /api/jobs/{id}/recover", s.recoverJob)
 	m.HandleFunc("GET /api/jobs/{id}/events", s.jobEvents)
 	m.HandleFunc("GET /api/jobs/{id}/log", s.jobLog)
 	m.HandleFunc("GET /api/reports", s.listReports)
@@ -934,6 +935,32 @@ func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 		var te *jobs.TransitionError
 		if errors.As(err, &te) {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]string{"code": "not_cancellable", "message": err.Error()}, "job": job})
+			return
+		}
+		writeNotFoundOr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+// recoverJob answers POST /api/jobs/{id}/recover: an analysis that ran to
+// the end and whose result could not be read gets its report from the
+// output it wrote, without being run again.
+func (s *Server) recoverJob(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.ownJob(w, r); !ok {
+		return
+	}
+	rescuer, ok := s.cfg.Jobs.(interface {
+		Rescue(context.Context, string) (jobs.Job, error)
+	})
+	if !ok {
+		writeError(w, http.StatusConflict, "not_recoverable", "this service cannot recover a finished analysis")
+		return
+	}
+	job, err := rescuer.Rescue(r.Context(), r.PathValue("id"))
+	if err != nil {
+		if errors.Is(err, jobs.ErrNotRescuable) {
+			writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]string{"code": "not_recoverable", "message": err.Error()}, "job": job})
 			return
 		}
 		writeNotFoundOr(w, err)

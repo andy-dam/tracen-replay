@@ -333,6 +333,8 @@ export const api = {
   job: (id: string) => request<Job>(`/api/jobs/${enc(id)}`),
   submit: (sourceId: string) => request<Job>("/api/jobs", { method: "POST", body: JSON.stringify({ source_id: sourceId }) }),
   cancel: (id: string) => request<Job>(`/api/jobs/${enc(id)}/cancel`, { method: "POST" }),
+  /** A finished analysis whose result could not be read gets its report from the files it wrote. */
+  recover: (id: string) => request<Job>(`/api/jobs/${enc(id)}/recover`, { method: "POST" }),
   reports: () => request<{ reports: Report[] }>("/api/reports").then((r) => r.reports),
   summary: (id: string) => request<Summary>(`/api/reports/${enc(id)}/summary`),
   turns: (id: string) => request<{ turns: TurnSummary[] }>(`/api/reports/${enc(id)}/turns`).then((r) => r.turns),
