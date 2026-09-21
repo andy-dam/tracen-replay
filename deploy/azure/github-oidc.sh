@@ -35,6 +35,28 @@ if ! az ad app federated-credential list --id "$appId" --query "[?name=='github-
 	}" --output none
 fi
 
+# GitHub now names the repository in the token's subject with its immutable
+# ids as well (repo:OWNER@OWNER_ID/NAME@REPO_ID:ref:...); Azure matches the
+# subject exactly, so that form gets its own credential. The ids come from
+# the gh CLI, or from TRACEN_REPO_IDS="OWNER_ID REPO_ID".
+ids="${TRACEN_REPO_IDS:-$(gh api "repos/$repo" --jq '"\(.owner.id) \(.id)"' 2>/dev/null || true)}"
+if [ -n "$ids" ]; then
+	ownerId="${ids% *}"
+	repoId="${ids#* }"
+	subject="repo:${repo%%/*}@${ownerId}/${repo#*/}@${repoId}:ref:refs/heads/main"
+	if ! az ad app federated-credential list --id "$appId" --query "[?name=='github-main-ids']" -o tsv | grep -q github-main-ids; then
+		az ad app federated-credential create --id "$appId" --parameters "{
+			\"name\": \"github-main-ids\",
+			\"issuer\": \"https://token.actions.githubusercontent.com\",
+			\"subject\": \"$subject\",
+			\"audiences\": [\"api://AzureADTokenExchange\"]
+		}" --output none
+	fi
+	echo "federated subjects: repo:$repo:ref:refs/heads/main and $subject"
+else
+	echo "could not read the repository's ids (gh not signed in?); set TRACEN_REPO_IDS=\"OWNER_ID REPO_ID\" and run again" >&2
+fi
+
 cat <<EOF
 
 Set these on the repository (Settings > Secrets and variables > Actions), or with gh:
