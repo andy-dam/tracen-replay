@@ -12,6 +12,7 @@ import Guide from "./views/Guide.vue";
 import About from "./views/About.vue";
 import Settings from "./views/Settings.vue";
 import Logo from "./components/Logo.vue";
+import CloseDialog from "./components/CloseDialog.vue";
 
 // Hash routing keeps the client dependency-free: #/, #/reports/<id>/<turn>, #/reports/<id>/<turn>/review, #/jobs/<id>.
 const hash = ref(window.location.hash);
@@ -138,4 +139,5 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
       <JobView v-else-if="route.name === 'job'" :job-id="route.id" />
     </main>
   </div>
+  <CloseDialog v-if="checked && !accounts" />
 </template>

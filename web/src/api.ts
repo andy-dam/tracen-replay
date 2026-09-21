@@ -20,11 +20,27 @@ export interface Recording {
   original_until?: string;
 }
 
+export type OnClose = "ask" | "background" | "exit";
+
 export interface Settings {
   gpu: boolean;
   gpu_available: boolean;
   device: string;
+  parallel: number;
+  memory_limit_gb: number;
+  on_close: OnClose;
+  /** Read-only: what the machine has and what the settings allow. */
+  parallel_max: number;
+  workers: number;
+  memory_total_gb: number;
+  memory_min_gb: number;
+  cores: number;
+  recommended: { parallel: number; memory_limit_gb: number };
+  /** Where the application stays when its window is closed and it keeps running. */
+  background: "tray" | "dock";
 }
+
+export type SettingsChange = Partial<Pick<Settings, "gpu" | "parallel" | "memory_limit_gb" | "on_close">>;
 
 export interface Failure {
   code: string;
@@ -232,6 +248,8 @@ export interface Correction {
   entries?: Record<string, EntryEdit>;
   added?: AddedEvent[];
   note?: string;
+  /** The viewer's mark that the turn needs no more checking. */
+  resolved?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -300,7 +318,10 @@ export const api = {
   /** The session: the user, and whether this service has accounts at all (the desktop application has none). */
   me: () => request<{ user: User; accounts?: boolean }>("/api/auth/me"),
   settings: () => request<Settings>("/api/settings"),
-  saveSettings: (s: { gpu: boolean }) => request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(s) }),
+  saveSettings: (s: SettingsChange) => request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(s) }),
+  /** The desktop window asked what closing should do; this is the answer. */
+  desktopClose: (action: "exit" | "background" | "cancel", remember: boolean) =>
+    request<void>("/api/desktop/close", { method: "POST", body: JSON.stringify({ action, remember }) }),
   login: (email: string, password: string) => request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }).then((r) => r.user),
   register: (email: string, password: string, display_name: string) =>
     request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }).then((r) => r.user),
@@ -317,7 +338,7 @@ export const api = {
   turns: (id: string) => request<{ turns: TurnSummary[] }>(`/api/reports/${enc(id)}/turns`).then((r) => r.turns),
   turn: (id: string, turnId: string) => request<TurnDetail>(`/api/reports/${enc(id)}/turns/${enc(turnId)}`),
   correction: (id: string, turnId: string) => request<{ correction: Correction | null; verification: Verification | null }>(`/api/reports/${enc(id)}/turns/${enc(turnId)}/correction`),
-  saveCorrection: (id: string, turnId: string, body: { action?: CorrectionAction | null; changes: CorrectionChange[]; entries?: Record<string, EntryEdit>; added?: AddedEvent[]; note?: string }) =>
+  saveCorrection: (id: string, turnId: string, body: { action?: CorrectionAction | null; changes: CorrectionChange[]; entries?: Record<string, EntryEdit>; added?: AddedEvent[]; note?: string; resolved?: boolean }) =>
     request<{ correction: Correction; verification: Verification }>(`/api/reports/${enc(id)}/turns/${enc(turnId)}/correction`, { method: "PUT", body: JSON.stringify(body) }),
   deleteCorrection: (id: string, turnId: string) => request<void>(`/api/reports/${enc(id)}/turns/${enc(turnId)}/correction`, { method: "DELETE" }),
   corrections: (id: string) => request<{ corrections: { correction: Correction; verification: Verification }[] }>(`/api/reports/${enc(id)}/corrections`).then((r) => r.corrections),

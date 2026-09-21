@@ -5,8 +5,9 @@ import (
 	"net/http"
 )
 
-// Settings are the desktop application's choices: whether analyses use
-// the graphics card, and what the machine has to offer.
+// Settings are the desktop application's choices, and what the machine has
+// to offer. The read-only fields are filled by the application; a request
+// that carries them changes nothing.
 type Settings struct {
 	// GPU is the switch: analyses run on the graphics card when it is on
 	// and the machine has one the analyzer's runtime supports.
@@ -17,12 +18,58 @@ type Settings struct {
 	GPUAvailable bool `json:"gpu_available"`
 	// Device names the accelerator found, or says CPU only. Read-only.
 	Device string `json:"device"`
+
+	// Parallel is how many analyses run at the same time.
+	Parallel int `json:"parallel"`
+	// MemoryLimitGB is the memory the running analyses are planned within.
+	MemoryLimitGB int `json:"memory_limit_gb"`
+	// OnClose is what closing the window does: "ask", "background" (keep
+	// running without a window) or "exit".
+	OnClose string `json:"on_close"`
+
+	// ParallelMax is the most analyses the memory limit and the processor
+	// allow. Read-only.
+	ParallelMax int `json:"parallel_max"`
+	// Workers is the number of reader processes each analysis starts under
+	// these settings. Read-only.
+	Workers int `json:"workers"`
+	// MemoryTotalGB and Cores are what the machine has; MemoryMinGB is the
+	// smallest limit accepted. Read-only.
+	MemoryTotalGB int `json:"memory_total_gb"`
+	MemoryMinGB   int `json:"memory_min_gb"`
+	Cores         int `json:"cores"`
+	// Recommended is the setting suggested for this machine. Read-only.
+	Recommended struct {
+		Parallel      int `json:"parallel"`
+		MemoryLimitGB int `json:"memory_limit_gb"`
+	} `json:"recommended"`
+	// Background names where the application stays when its window is
+	// closed and it keeps running: "tray" or "dock". Read-only.
+	Background string `json:"background"`
 }
 
-// SettingsStore keeps the settings and applies them.
+// SettingsChange is a request to change settings; a nil field is left as
+// it is.
+type SettingsChange struct {
+	GPU           *bool   `json:"gpu"`
+	Parallel      *int    `json:"parallel"`
+	MemoryLimitGB *int    `json:"memory_limit_gb"`
+	OnClose       *string `json:"on_close"`
+}
+
+// SettingsStore keeps the settings and applies them. Change clamps numbers
+// to what the machine allows and returns the settings as they then are.
 type SettingsStore interface {
 	Get() Settings
-	Set(Settings) error
+	Change(SettingsChange) (Settings, error)
+}
+
+// Desktop is what the desktop application lets its page ask of the window.
+type Desktop interface {
+	// Close answers the question the window asks when it is closed:
+	// "exit" or "background", and whether to remember it; "cancel" keeps
+	// the window as it is.
+	Close(action string, remember bool) error
 }
 
 // getSettings answers GET /api/settings.
@@ -34,29 +81,59 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.cfg.Settings.Get())
 }
 
-// putSettings answers PUT /api/settings with the switch; the read-only
-// fields are what the machine has, not what the request says.
+// putSettings answers PUT /api/settings with any of the changeable fields.
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Settings == nil {
 		writeError(w, http.StatusNotFound, "no_settings", "this service has no settings to change")
 		return
 	}
-	var body struct {
-		GPU bool `json:"gpu"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "send {\"gpu\": true|false}")
+	var change SettingsChange
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&change); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "send any of gpu, parallel, memory_limit_gb, on_close")
 		return
 	}
 	current := s.cfg.Settings.Get()
-	if body.GPU && !current.GPUAvailable {
+	switch {
+	case change.GPU != nil && *change.GPU && !current.GPUAvailable:
 		writeError(w, http.StatusConflict, "gpu_unavailable", "no supported graphics card was found on this machine")
 		return
+	case change.Parallel != nil && *change.Parallel < 1:
+		writeError(w, http.StatusBadRequest, "bad_request", "parallel must be at least 1")
+		return
+	case change.MemoryLimitGB != nil && *change.MemoryLimitGB < 1:
+		writeError(w, http.StatusBadRequest, "bad_request", "memory_limit_gb must be at least 1")
+		return
+	case change.OnClose != nil && *change.OnClose != "ask" && *change.OnClose != "background" && *change.OnClose != "exit":
+		writeError(w, http.StatusBadRequest, "bad_request", "on_close is ask, background or exit")
+		return
 	}
-	current.GPU = body.GPU
-	if err := s.cfg.Settings.Set(current); err != nil {
+	updated, err := s.cfg.Settings.Change(change)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "settings_error", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, s.cfg.Settings.Get())
+	writeJSON(w, http.StatusOK, updated)
+}
+
+// desktopClose answers POST /api/desktop/close: the page's answer to the
+// question the window asked when it was closed.
+func (s *Server) desktopClose(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Desktop == nil {
+		writeError(w, http.StatusNotFound, "not_desktop", "this service is not the desktop application")
+		return
+	}
+	var body struct {
+		Action   string `json:"action"`
+		Remember bool   `json:"remember"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil ||
+		(body.Action != "exit" && body.Action != "background" && body.Action != "cancel") {
+		writeError(w, http.StatusBadRequest, "bad_request", "send {\"action\": \"exit\"|\"background\"|\"cancel\", \"remember\": true|false}")
+		return
+	}
+	if err := s.cfg.Desktop.Close(body.Action, body.Remember); err != nil {
+		writeError(w, http.StatusInternalServerError, "desktop_error", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

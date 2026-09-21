@@ -9,9 +9,26 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
+
+// totalMemoryBytes is the machine's installed memory, or 0 when Windows
+// could not be asked.
+func totalMemoryBytes() uint64 {
+	// MEMORYSTATUSEX; the first field is the structure's own size.
+	var status struct {
+		length, load                                                              uint32
+		totalPhys, availPhys, totalPage, availPage, totalVirtual, availVirtual, _ uint64
+	}
+	status.length = uint32(unsafe.Sizeof(status))
+	ok, _, _ := windows.NewLazySystemDLL("kernel32.dll").NewProc("GlobalMemoryStatusEx").Call(uintptr(unsafe.Pointer(&status)))
+	if ok == 0 {
+		return 0
+	}
+	return status.totalPhys
+}
 
 // quiet keeps a helper program from flashing a console window over the
 // application.
