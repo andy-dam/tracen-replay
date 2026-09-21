@@ -19,7 +19,13 @@ CoreML; the interpreter is asked which providers it has, and the machine
 which graphics hardware, because DirectML is in every Windows build of
 the runtime and runs in software where there is no card). Until the
 person sets the switch it follows what was found: on with real hardware,
-off without. The data lives
+off without. Settings also has the number of analyses that run at once and
+a memory limit they are planned within, with the values recommended for
+the machine's memory and processors (`internal/loadplan`; the figures are
+in [OCR performance](ocr-performance.md#memory)), and what the window's
+close button does: ask, exit, or keep running without a window (in the
+notification area on Windows, in the Dock on a Mac), so an analysis is not
+lost to a click on the X. The data lives
 under the user's application folder (`%APPDATA%\TracenReplay` on
 Windows). Each release carries a zip of the folder and an installer,
 built by `desktop/build-windows.ps1` (the embeddable Python with the

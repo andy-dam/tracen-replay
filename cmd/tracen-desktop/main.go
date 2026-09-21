@@ -34,6 +34,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/artifacts"
 	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
+	"github.com/andy-dam/tracen-replay/internal/loadplan"
 	"github.com/andy-dam/tracen-replay/internal/maintenance"
 	tracenrunner "github.com/andy-dam/tracen-replay/internal/runner"
 	"github.com/andy-dam/tracen-replay/internal/store"
@@ -119,43 +120,128 @@ type settings struct {
 	device    string
 	provider  string
 	manager   *jobs.Manager
+
+	// parallel and memoryGB are the load the person allows; 0 means they
+	// have not said, and the recommendation for this machine is used.
+	parallel, memoryGB int
+	// onClose is what closing the window does: ask, background or exit.
+	onClose string
+	// cores and totalGB are what the machine has.
+	cores, totalGB int
+}
+
+// saved is the settings file. A field that is absent was never chosen.
+type saved struct {
+	GPU           *bool  `json:"gpu,omitempty"`
+	Parallel      int    `json:"parallel,omitempty"`
+	MemoryLimitGB int    `json:"memory_limit_gb,omitempty"`
+	OnClose       string `json:"on_close,omitempty"`
 }
 
 func (s *settings) load() {
+	s.onClose = "ask"
 	data, err := os.ReadFile(s.path)
 	if err != nil {
 		return
 	}
-	var saved struct {
-		GPU bool `json:"gpu"`
+	var file saved
+	if json.Unmarshal(data, &file) != nil {
+		return
 	}
-	if json.Unmarshal(data, &saved) == nil {
-		s.gpu, s.chosen = saved.GPU, true
+	if file.GPU != nil {
+		s.gpu, s.chosen = *file.GPU, true
 	}
+	s.parallel, s.memoryGB = file.Parallel, file.MemoryLimitGB
+	if file.OnClose == "background" || file.OnClose == "exit" {
+		s.onClose = file.OnClose
+	}
+}
+
+// save writes what the person has chosen, and only that.
+func (s *settings) save() error {
+	file := saved{Parallel: s.parallel, MemoryLimitGB: s.memoryGB}
+	if s.chosen {
+		file.GPU = &s.gpu
+	}
+	if s.onClose != "ask" {
+		file.OnClose = s.onClose
+	}
+	data, _ := json.Marshal(file)
+	return os.WriteFile(s.path, data, 0o644)
+}
+
+// machine is what the load is planned for.
+func (s *settings) machine() loadplan.Machine {
+	return loadplan.Machine{MemoryGB: s.totalGB, Cores: s.cores, Accelerated: s.gpu && s.available}
+}
+
+// load settings in force: the person's, or the recommendation where they
+// have not chosen.
+func (s *settings) inForce() (memoryGB, parallel int) {
+	memoryGB, parallel = s.machine().Recommend()
+	if s.memoryGB > 0 {
+		memoryGB = s.machine().ClampMemory(s.memoryGB)
+	}
+	if s.parallel > 0 {
+		parallel = s.parallel
+	}
+	return memoryGB, parallel
 }
 
 func (s *settings) Get() api.Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return api.Settings{GPU: s.gpu && s.available, GPUAvailable: s.available, Device: s.device}
+	return s.view()
 }
 
-func (s *settings) Set(v api.Settings) error {
+func (s *settings) view() api.Settings {
+	m := s.machine()
+	memoryGB, parallel := s.inForce()
+	plan := m.Fit(memoryGB, parallel)
+	out := api.Settings{GPU: s.gpu && s.available, GPUAvailable: s.available, Device: s.device,
+		Parallel: plan.Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose,
+		ParallelMax: m.MaxParallel(memoryGB), Workers: plan.Workers,
+		MemoryTotalGB: s.totalGB, MemoryMinGB: loadplan.MinMemoryGB, Cores: s.cores, Background: background}
+	out.Recommended.MemoryLimitGB, out.Recommended.Parallel = m.Recommend()
+	return out
+}
+
+func (s *settings) Change(c api.SettingsChange) (api.Settings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.gpu, s.chosen = v.GPU && s.available, true
+	if c.GPU != nil {
+		s.gpu, s.chosen = *c.GPU && s.available, true
+	}
+	if c.MemoryLimitGB != nil {
+		s.memoryGB = s.machine().ClampMemory(*c.MemoryLimitGB)
+	}
+	if c.Parallel != nil {
+		s.parallel = *c.Parallel
+	}
+	if c.OnClose != nil {
+		s.onClose = *c.OnClose
+	}
+	// A parallel count the memory no longer allows is lowered to what fits,
+	// and stays lowered if the memory is raised again later.
+	if s.parallel > 0 {
+		memoryGB, _ := s.inForce()
+		s.parallel = min(s.parallel, s.machine().MaxParallel(memoryGB))
+	}
 	s.apply()
-	data, _ := json.Marshal(map[string]bool{"gpu": s.gpu})
-	return os.WriteFile(s.path, data, 0o644)
+	return s.view(), s.save()
 }
 
-// apply tells the manager which device the next analysis uses.
+// apply tells the manager which device the next analysis uses, how many
+// analyses run at once and how many readers each starts.
 func (s *settings) apply() {
 	device := "cpu"
 	if s.gpu && s.available {
 		device = s.provider
 	}
 	s.manager.SetOCRDevice(device)
+	memoryGB, parallel := s.inForce()
+	plan := s.machine().Fit(memoryGB, parallel)
+	s.manager.SetLoad(plan.Parallel, plan.Workers, plan.DenseWorkers)
 }
 
 // detect asks the interpreter which ONNX Runtime providers it has and
@@ -216,6 +302,94 @@ type App struct {
 // URL is where the application is served; the loading page goes there.
 func (a *App) URL() string { return a.url }
 
+// window is what closing the window does. Closing can end the application
+// or leave it running without a window (in the notification area on
+// Windows, in the Dock on a Mac), so an analysis is not lost to a click on
+// the X. Until the person has chosen, the page asks them.
+type window struct {
+	mu       sync.Mutex
+	ctx      context.Context
+	prefs    *settings
+	quitting bool
+	// asked is when the page was last asked and has not answered yet.
+	asked time.Time
+}
+
+func (w *window) show() {
+	if w.ctx == nil {
+		return
+	}
+	if runtime.GOOS == "darwin" {
+		wailsruntime.Show(w.ctx)
+	}
+	wailsruntime.WindowUnminimise(w.ctx)
+	wailsruntime.WindowShow(w.ctx)
+}
+
+func (w *window) hide() {
+	if runtime.GOOS == "darwin" {
+		wailsruntime.Hide(w.ctx)
+		return
+	}
+	wailsruntime.WindowHide(w.ctx)
+}
+
+func (w *window) quit() {
+	w.mu.Lock()
+	w.quitting = true
+	w.mu.Unlock()
+	if w.ctx != nil {
+		wailsruntime.Quit(w.ctx)
+	}
+}
+
+// beforeClose answers the window's close button; true keeps the
+// application running.
+func (w *window) beforeClose(ctx context.Context) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.quitting || w.prefs == nil {
+		return false
+	}
+	switch w.prefs.Get().OnClose {
+	case "exit":
+		return false
+	case "background":
+		go w.hide()
+		return true
+	}
+	// The page asks. Should it be unable to (it never loaded, or its script
+	// failed), a second press while the question stands closes the
+	// application, so the button can never stop working.
+	if !w.asked.IsZero() && time.Since(w.asked) < 5*time.Second {
+		return false
+	}
+	w.asked = time.Now()
+	wailsruntime.WindowExecJS(ctx, "window.dispatchEvent(new CustomEvent('tracen:close-request'))")
+	return true
+}
+
+// Close is the page's answer (api.Desktop).
+func (w *window) Close(action string, remember bool) error {
+	w.mu.Lock()
+	w.asked = time.Time{}
+	w.mu.Unlock()
+	if action == "cancel" {
+		return nil
+	}
+	if remember {
+		if _, err := w.prefs.Change(api.SettingsChange{OnClose: &action}); err != nil {
+			return err
+		}
+	}
+	if action == "exit" {
+		go w.quit()
+	} else {
+		go w.hide()
+	}
+	return nil
+}
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
@@ -233,7 +407,7 @@ func main() {
 // analysis as interrupted.
 func run(logger *slog.Logger) error {
 	app := &App{}
-	var windowCtx context.Context
+	win := &window{}
 	var shutdown func()
 	loading, _ := fs.Sub(frontend, "frontend")
 	return wails.Run(&options.App{
@@ -247,17 +421,15 @@ func run(logger *slog.Logger) error {
 		Bind:             []any{app},
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "tracen-replay-desktop-0f6b2c9e",
-			OnSecondInstanceLaunch: func(options.SecondInstanceData) {
-				if windowCtx != nil {
-					wailsruntime.WindowUnminimise(windowCtx)
-					wailsruntime.WindowShow(windowCtx)
-				}
-			},
+			// Starting the application again while it runs without a window
+			// brings the window back.
+			OnSecondInstanceLaunch: func(options.SecondInstanceData) { win.show() },
 		},
+		OnBeforeClose: win.beforeClose,
 		OnStartup: func(ctx context.Context) {
-			windowCtx = ctx
+			win.ctx = ctx
 			wailsruntime.WindowSetTitle(ctx, "Tracen Replay")
-			url, stop, err := start(logger)
+			url, prefs, stop, err := start(logger, win)
 			if err != nil {
 				logger.Error("the application could not start", "error", err)
 				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{Type: wailsruntime.ErrorDialog,
@@ -266,6 +438,10 @@ func run(logger *slog.Logger) error {
 				return
 			}
 			app.url, shutdown = url, stop
+			win.mu.Lock()
+			win.prefs = prefs
+			win.mu.Unlock()
+			startTray(win.show, win.quit)
 		},
 		// The service is listening by the time the window's page is up, and
 		// the window goes there. Navigating from Go avoids a cross-origin
@@ -276,6 +452,7 @@ func run(logger *slog.Logger) error {
 			}
 		},
 		OnShutdown: func(context.Context) {
+			stopTray()
 			if shutdown != nil {
 				shutdown()
 			}
@@ -285,13 +462,13 @@ func run(logger *slog.Logger) error {
 
 // start brings the service up on a loopback port it picks and returns the
 // address the window shows and what stops it all.
-func start(logger *slog.Logger) (string, func(), error) {
+func start(logger *slog.Logger, desk api.Desktop) (string, *settings, func(), error) {
 	l, err := find()
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	if err := os.MkdirAll(l.data, 0o755); err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	// The analyzer calls ffmpeg and ffprobe by name. With the bundled ones
 	// first on this process's PATH it finds them on a machine that has no
@@ -303,13 +480,13 @@ func start(logger *slog.Logger) (string, func(), error) {
 	}
 	db, err := store.Open(filepath.Join(l.data, "tracen.db"))
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	ctx, stop := context.WithCancel(context.Background())
-	fail := func(err error) (string, func(), error) {
+	fail := func(err error) (string, *settings, func(), error) {
 		stop()
 		db.Close()
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	// The one person at this machine: a user row, so recordings, jobs and
 	// reports have an owner the records can name.
@@ -320,15 +497,19 @@ func start(logger *slog.Logger) (string, func(), error) {
 		return fail(fmt.Errorf("the local user: %w", err))
 	}
 
-	workers := max(2, runtime.NumCPU()/2)
+	// The manager starts with one analysis and one reader; the settings put
+	// the person's load, or the one recommended for this machine, in force
+	// before anything can be queued (prefs.apply below).
 	manager, err := jobs.NewManager(jobs.Config{DataDir: l.data, Python: l.python, WorkDir: l.analyzer, ModelDir: l.models,
-		Workers: min(workers, 4), DenseWorkers: max(1, min(workers, 4)-1), OCRDevice: "cpu", LearnedReader: l.reader,
+		Workers: 1, DenseWorkers: 1, OCRDevice: "cpu", LearnedReader: l.reader,
 		Parallel: 1, QueueLimit: 8, Recordings: db, Logger: logger}, db, tracenrunner.Exec{Logger: logger})
 	if err != nil {
 		return fail(err)
 	}
-	prefs := &settings{path: filepath.Join(l.data, "settings.json"), manager: manager}
+	prefs := &settings{path: filepath.Join(l.data, "settings.json"), manager: manager,
+		cores: runtime.NumCPU(), totalGB: int(totalMemoryBytes() >> 30)}
 	prefs.load()
+	prefs.apply()
 	go prefs.detect(l.python)
 	if _, err := manager.Recover(ctx); err != nil {
 		return fail(err)
@@ -359,7 +540,7 @@ func start(logger *slog.Logger) (string, func(), error) {
 	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, RecordingsDir: recordingsDir,
 		ArtifactsDir: filepath.Join(l.data, "jobs"), Frames: frames, Ready: ready, Logger: logger, Static: webassets.Handler(),
-		AllowedHosts: []string{"127.0.0.1"}, Settings: prefs, UploadLimit: 16 << 30, LocalUser: local,
+		AllowedHosts: []string{"127.0.0.1"}, Settings: prefs, Desktop: desk, UploadLimit: 16 << 30, LocalUser: local,
 		Quota:   api.Quota{MaxDuration: 0, MaxPixels: 4096 * 2304, MaxFPS: 120},
 		Version: func() api.VersionInfo { return api.VersionInfo{Version: version} },
 		Probe: func(ctx context.Context, path string) (artifacts.Media, error) {
@@ -368,7 +549,7 @@ func start(logger *slog.Logger) (string, func(), error) {
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	go server.Serve(listener)
 	logger.Info("tracen desktop", "url", "http://"+addr, "data", l.data, "version", version)
-	return "http://" + addr + "/#/runs", func() {
+	return "http://" + addr + "/#/runs", prefs, func() {
 		stop()
 		server.Close()
 		db.Close()

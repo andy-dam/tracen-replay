@@ -59,6 +59,9 @@ def main():
     master.save(HERE / "appicon.png", optimize=True)
     sizes = [256, 128, 64, 48, 32, 24, 16]
     master.save(HERE / "icon.ico", sizes=[(s, s) for s in sizes])
+    # The notification-area icon is embedded in the desktop program, so it
+    # lives in that program's folder.
+    master.save(ROOT / "cmd" / "tracen-desktop" / "tray.ico", sizes=[(s, s) for s in sizes])
     public = ROOT / "web" / "public"
     master.resize((192, 192), Image.LANCZOS).save(ROOT / "web" / "src" / "assets" / "logo.png", optimize=True)
     master.resize((64, 64), Image.LANCZOS).save(public / "favicon.png", optimize=True)

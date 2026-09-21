@@ -5,7 +5,19 @@ package main
 import (
 	"os/exec"
 	"runtime"
+
+	"golang.org/x/sys/unix"
 )
+
+// totalMemoryBytes is the machine's installed memory, or 0 when the system
+// could not be asked.
+func totalMemoryBytes() uint64 {
+	size, err := unix.SysctlUint64("hw.memsize")
+	if err != nil {
+		return 0
+	}
+	return size
+}
 
 // quiet has nothing to hide on a Mac: a helper program opens no window.
 func quiet(*exec.Cmd) {}

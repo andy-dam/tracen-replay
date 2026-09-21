@@ -163,6 +163,9 @@ type Config struct {
 	// Settings, when set, are the desktop application's choices behind
 	// /api/settings; nil has no settings.
 	Settings SettingsStore
+	// Desktop, when set, lets the page answer the desktop window's question
+	// about closing (POST /api/desktop/close); nil is not a desktop.
+	Desktop Desktop
 	// Analyzer reports the installed analyzer's identity, so a report can say
 	// whether the analyzer that made it is still the one on disk. nil leaves
 	// the comparison out rather than guessing at it.
@@ -262,6 +265,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /readyz", s.ready)
 	m.HandleFunc("GET /api/settings", s.getSettings)
 	m.HandleFunc("PUT /api/settings", s.putSettings)
+	m.HandleFunc("POST /api/desktop/close", s.desktopClose)
 	m.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		info := VersionInfo{Version: "dev"}
 		if s.cfg.Version != nil {
