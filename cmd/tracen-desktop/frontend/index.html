@@ -18,22 +18,11 @@
 </main>
 <script>
   // The application is served by this process on a loopback port it chose;
-  // once it answers, the window moves there.
-  (async () => {
-    const msg = document.getElementById("msg");
-    for (let i = 0; i < 100; i++) {
-      try {
-        const url = await window.go.main.App.URL();
-        const base = url.split("#")[0];
-        const r = await fetch(base + "healthz", { cache: "no-store" });
-        if (r.ok) { window.location.replace(url); return; }
-      } catch (e) {
-        // not yet
-      }
-      await new Promise((f) => setTimeout(f, 300));
-    }
-    msg.textContent = "The application did not start. Close the window and try again.";
-  })();
+  // the process moves the window there as soon as this page is up. If that
+  // has not happened after a while, the loading page says so.
+  setTimeout(() => {
+    document.getElementById("msg").textContent = "The application did not start. Close the window and try again.";
+  }, 30000);
 </script>
 </body>
 </html>
