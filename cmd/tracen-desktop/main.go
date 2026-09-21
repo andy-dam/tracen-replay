@@ -263,10 +263,23 @@ func run(logger *slog.Logger) error {
 		OnStartup: func(ctx context.Context) {
 			wailsruntime.WindowSetTitle(ctx, "Tracen Replay")
 		},
+		// The service is listening before the window exists; once the
+		// window's page is up, it goes there. Navigating from Go avoids a
+		// cross-origin request from the loading page, which the engine
+		// would refuse.
+		OnDomReady: func(ctx context.Context) {
+			wailsruntime.WindowExecJS(ctx, "window.location.replace("+jsString(app.url)+")")
+		},
 		OnShutdown: func(context.Context) {
 			stop()
 		},
 	})
+}
+
+// jsString quotes a string for a script.
+func jsString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 func check(name, note string, probe func() error) api.Check {
