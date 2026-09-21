@@ -2654,12 +2654,10 @@ def parse(raw):
             effects=merge_condition_removal_effects(effects,condition_banner)
             if screen=='unknown':
                 screen='event_outcome'
-    options=[]
-    for l in lines:
-        if within(l,(210,160,420,200)) and l['confidence']>=90:
-            m=re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit)\s+Lvl\s*\d*',l['text'],re.I)
-            if m:options.append(m[1].lower())
-    option=options[0] if len(set(options))==1 and options else None
+    # The heading names the option; a misread "Lvl" or a weak heading backed
+    # by the known training name under it still does (training_identity).
+    from .training_identity import heading_option
+    option=heading_option(lines)
     recovery_option = None
     if preview and option is None and isinstance(raw.get('preview_recovery'), dict):
         from .preview_recovery import validated_recovery
