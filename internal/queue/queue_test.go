@@ -45,9 +45,18 @@ func TestMemoryQueue(t *testing.T) {
 		t.Fatalf("the old receipt cannot delete: %v", err)
 	}
 	// An extended hold outlives the original visibility.
-	if _, err := q.Extend(ctx, again, 10*time.Minute); err != nil {
+	renewed, err := q.Extend(ctx, again, 10*time.Minute)
+	if err != nil {
 		t.Fatal(err)
 	}
+	// The renewal gave a new receipt, and the one before it stops working.
+	if renewed.Receipt == again.Receipt {
+		t.Fatal("a renewed hold kept its receipt")
+	}
+	if err := q.Delete(ctx, again); !errors.Is(err, ErrStale) {
+		t.Fatalf("the receipt from before the renewal deleted the message: %v", err)
+	}
+	again = renewed
 	now = now.Add(5 * time.Minute)
 	// The extended message stays hidden; the second, whose minute lapsed, is
 	// the only one given out.
