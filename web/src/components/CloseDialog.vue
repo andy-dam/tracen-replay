@@ -55,8 +55,8 @@ onUnmounted(() => {
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="close-title">
       <h2 id="close-title">Close Tracen Replay</h2>
       <p v-if="running" class="close-warn">{{ running }} {{ running === 1 ? "analysis is" : "analyses are" }} running or queued. Exit stops {{ running === 1 ? "it" : "them" }}.</p>
-      <p class="muted small">{{ background === "dock" ? "Keep Running closes the window and leaves the application in the Dock." : "Keep Running closes the window and leaves the application in the tray." }} Analyses continue.</p>
-      <label class="close-remember"><input v-model="remember" type="checkbox" /> Remember this choice</label>
+      <p class="muted small">{{ background === "dock" ? "Keep Running closes the window and leaves the application and its analyses running in the Dock." : "Keep Running closes the window and leaves the application and its analyses running in the tray." }}</p>
+      <label class="close-remember"><input v-model="remember" type="checkbox" /> Remember This Choice</label>
       <div class="row dialog-actions" style="margin-top: 0">
         <button class="btn primary" :disabled="busy" @click="answer('background')">Keep Running</button>
         <button class="btn" :disabled="busy" @click="answer('exit')">Exit</button>

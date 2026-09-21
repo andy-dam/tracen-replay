@@ -47,7 +47,7 @@ var (
 	ErrInvalidName     = errors.New("enter a display name of 1 to 60 characters")
 	ErrEmailTaken      = errors.New("an account with this email already exists")
 	ErrBadCredentials  = errors.New("email or password is incorrect")
-	ErrTooManyAttempts = errors.New("too many sign-in attempts; wait a few minutes")
+	ErrTooManyAttempts = errors.New("too many sign-in attempts, wait a few minutes")
 	ErrUnauthenticated = errors.New("sign in to continue")
 	ErrNotFound        = errors.New("not found")
 )

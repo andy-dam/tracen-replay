@@ -120,7 +120,7 @@ const labelLeft = computed(() => (hoverX.value === null ? 0 : hoverX.value > W *
               <span><i :style="{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '2px', background: `var(--stat-${line.field})`, marginRight: '5px' }"></i>{{ STAT_NAMES[line.field] }}</span>
               <span class="tabular">{{ carried(hoverTurn, line.field) !== null ? "≈ " : "" }}{{ plotted(hoverTurn, line.field) ?? "?" }}</span>
             </div>
-            <div v-if="hoverTurn.opening_estimate && !hoverTurn.opening.stats" style="margin-top: 4px; font-weight: 600; color: var(--ink-3)">≈ not on screen this turn; carried from the previous turn's entries</div>
+            <div v-if="hoverTurn.opening_estimate && !hoverTurn.opening.stats" style="margin-top: 4px; font-weight: 600; color: var(--ink-3)">≈ not on screen this turn, carried from the previous turn's entries</div>
           </div>
         </foreignObject>
       </g>

@@ -96,7 +96,7 @@ export function progressView(job: Job | null, ocrPercent: number | null): Progre
       current = next;
     }
   }
-  if (current && copying) current = { ...current, label: "Playback Copy", doing: "making the smaller copy of the recording that the report plays; the analysis itself is done" };
+  if (current && copying) current = { ...current, label: "Playback Copy", doing: "making the smaller copy of the recording that the report plays" };
   if (current && stage === FETCH_STAGE) current = { ...current, label: "Fetching the Recording", doing: "bringing the recording to the worker" };
   return { phases, overall: Math.min(copying ? 99 : 100, Math.round(overall)), current, lastDone: copying ? "Complete" : doneIndex >= 0 ? stageWords(ORDER[doneIndex]) : "" };
 }

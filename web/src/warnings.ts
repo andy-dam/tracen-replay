@@ -51,22 +51,22 @@ export interface Warning {
 // is looking at the recording beside these words, so every step names what
 // to look for on screen.
 const ADVICE = {
-  conflict: "Two frames showed different numbers for this entry, so the report kept both instead of picking one. Seek to it, read the number the game shows, and type it into the amount; then mark it Reviewed.",
-  notAccepted: "The report saw this award but did not count it, usually because it could not prove it was applied. If the log or the stat bar shows it took effect, add the stat with its amount; if it never applied, mark it Reviewed and move on.",
-  referenceOnly: "This line repeats an award that another entry already counts, so it adds nothing to the totals. Nothing to do unless the game shows it as a separate award; then add the stat with its amount.",
-  rewardLink: "This race's reward was read from a receipt that could not be tied to the result screen. Seek to the result and the receipt after it and check they describe the same race; if the amounts are right, mark it Reviewed, otherwise correct them.",
-  assignedBy: "This entry was placed in this turn by its time, not by a calendar frame around it. If it clearly belongs to the previous or next turn, mark it Not real here and add it there as a missed event.",
-  ambiguous: "The receipt named an effect but the report could not decide what it changed. Seek to it and read the line in the game's log; add the stat it changed with the amount, then mark it Reviewed.",
-  unparsed: "A receipt appeared that the analyzer could not read at all. Seek to it and read the line in the game's log. If it changed a stat or a performance point, add that stat with its amount; if it was text only, mark it Reviewed.",
+  conflict: "Two frames showed different numbers for this entry, and the report kept both. Seek to it, read the number the game shows, type it into the amount, then press Looks Right.",
+  notAccepted: "The report saw this award but did not count it, usually because it could not prove the award was applied. If the log or the stat bar shows it took effect, add the stat with its amount. If it never applied, press Looks Right.",
+  referenceOnly: "This line repeats an award that another entry already counts, so it adds nothing to the totals. If the game shows it as a separate award, add the stat with its amount.",
+  rewardLink: "This race's reward was read from a receipt that could not be tied to the result screen. Seek to the result and the receipt after it and check that they describe the same race. Press Looks Right if the amounts are right, otherwise correct them.",
+  assignedBy: "This entry was placed in this turn by its time, not by a calendar frame around it. If it belongs to the previous or next turn, press Didn't Happen here and add it there as a missed event.",
+  ambiguous: "The receipt named an effect but the report could not decide what it changed. Seek to it and read the line in the game's log. Add the stat it changed with the amount, then press Looks Right.",
+  unparsed: "The analyzer could not read this receipt. Seek to it and read the line in the game's log. If it changed a stat or a performance point, add that stat with its amount. If it was text only, press Looks Right.",
   lessonUnresolved: "The lesson was bought but its price was never observed, so the performance points it cost are unknown. Seek to the purchase, read the price on the card or the balance before and after, and enter the cost as negative performance amounts.",
   lessonDerived: "The lesson's price was worked out from surrounding evidence rather than read from the balance. If the card in the recording shows a different price, correct the amounts.",
   balanceAfter: "The balance after this purchase was never on screen, so the price could not be confirmed against it. If a later menu visit shows the balance, compare it and correct the amounts if needed.",
-  songName: "The song's name was read two different ways. Nothing changes in the totals; add a note with the right title if you want it recorded.",
+  songName: "The song's name was read two different ways. The totals are not affected. A note can record the right title.",
   skillList: "The list of purchased skills was cut off and the points charged were not read, so some skills or their point costs may be missing. Seek to the skill screen and add any purchase the report lacks as a missed event.",
-  skillNames: "The points charged were read, so the totals are right; the list of purchased skills scrolled and only some names were seen. Nothing to do unless you want the missing names on record.",
-  failed: "The training failed, so its displayed gains were not applied. Nothing to do unless the stat bar shows they were.",
-  settledReads: "The badge was read as more than one number while the card animated, and the stat bars before and after the turn settle it at the amount shown, which the card showed too. Nothing to do; seek to the card if you want to see it.",
-  derived: "This amount was not read from a badge; the report worked it out from other observations. Seek to the result screen: if the badge shows a different number, type that number in; if it matches, mark it Reviewed.",
+  skillNames: "The points charged were read, so the totals are right. The list of purchased skills scrolled and only some names were seen. A missed event can record the missing names.",
+  failed: "The training failed, so its displayed gains were not applied. If the stat bar shows they were applied, add them.",
+  settledReads: "The badge was read as more than one number while the card animated. The stat bars before and after the turn settle it at the amount shown, which the card also showed.",
+  derived: "This amount was not read from a badge. The report worked it out from other observations. Seek to the result screen. If the badge shows a different number, type that number in. If it matches, press Looks Right.",
 } as const;
 
 export function turnWarnings(t: TurnSummary): Warning[] {
@@ -152,8 +152,8 @@ export const FLAG_GUIDE: { text: string; serious: boolean; advice: string }[] = 
 export function gapAdvice(field: string, amount: number, workedOut: boolean, window: string): string {
   const what = `${field.replace("_", " ")} ${amount > 0 ? "went up" : "went down"} by ${Math.abs(amount)}`;
   const where = window ? ` between ${window}` : "";
-  if (workedOut) return `${what}${where}, and the report has already put it on the one event that could have caused it. Seek there and check the number on screen: press Looks right if it matches, or pick another way to explain it if it does not.`;
-  return `${what}${where}, and no event in the report accounts for it. Seek there and watch for what changed it. If it was one of the events listed below, choose Belongs to an event. If the game showed something the report has no entry for, choose Missed event. If you can read the number but cannot tell which event, choose Enter amount.`;
+  if (workedOut) return `${what}${where}, and the report put it on the one event that could have caused it. Seek there and check the number on screen. Press Correct if it matches. Otherwise pick another explanation.`;
+  return `${what}${where}, and no event in the report accounts for it. Seek there and watch for what changed it. If it was one of the events listed below, choose Belongs to an Event. If the game showed something the report has no entry for, choose Missed Event. If the number is readable but its event is not clear, choose Enter Amount.`;
 }
 
 /** The turn's decision as the report read it: the first committed action that is not the scheduled race. */

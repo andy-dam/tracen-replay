@@ -363,7 +363,7 @@ func (s *Store) MarkInterrupted(ctx context.Context, at time.Time) ([]jobs.Job, 
 	for i := range running {
 		running[i].Status = jobs.Interrupted
 		running[i].FinishedAt = at
-		running[i].Error = &jobs.Failure{Code: "interrupted", Message: "the service restarted while this job was running; submit a new attempt to analyze the recording again"}
+		running[i].Error = &jobs.Failure{Code: "interrupted", Message: "The service restarted while this analysis was running. Analyze the recording again."}
 		if err := s.UpdateJob(ctx, running[i]); err != nil {
 			return nil, err
 		}

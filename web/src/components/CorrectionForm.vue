@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { api, ApiError, type AddedEvent, type Correction, type CorrectionChange, type Entry, type EntryEdit, type Turn, type TurnSummary, type Verification } from "../api";
-import { clock } from "../format";
+import { clock, titleCase } from "../format";
 import { entryName, entryWarnings, gapAdvice } from "../warnings";
 
 // The review editor for one turn. The report keeps its own reading; the
@@ -500,7 +500,7 @@ async function remove() {
   <div class="rv">
     <header class="rv-head">
       <div class="rv-title">
-        <span class="overline" style="margin: 0">{{ guided ? "Your Check" : "Check" }}</span>
+        <span class="overline" style="margin: 0">{{ guided ? "Guided Check" : "Check" }}</span>
         <span class="pill" :class="live.cls">{{ live.text }}</span>
       </div>
       <button v-if="!guided" class="icon-btn small" title="Close the review" @click="emit('close')">✕</button>
@@ -514,7 +514,7 @@ async function remove() {
     </ol>
 
     <section v-if="gaps.length" class="rv-section">
-      <h4 class="rv-h">Numbers that don't add up <span class="rv-count">{{ gaps.length }}</span></h4>
+      <h4 class="rv-h">Numbers That Don't Add Up <span class="rv-count">{{ gaps.length }}</span></h4>
       <div v-for="g in gaps" :key="g.key" class="gap" :class="[gapState(g).cls, { resolved: gapState(g).cls === 'ok' }]">
         <div class="gap-top">
           <i class="sd" :class="g.field"></i>
@@ -529,10 +529,10 @@ async function remove() {
         <p v-else-if="g.workedOut" class="gap-note">The report worked {{ signed(g.workedOut) }} onto {{ OWNER_WORD[g.owner] ?? "its only possible source" }} from the difference between turns. Confirm it, or say where it really came from.</p>
         <p class="gap-q">{{ g.workedOut ? "Is the report's guess right?" : "Where did this come from?" }}</p>
         <div class="seg">
-          <button v-if="g.workedOut" :class="{ on: confirmed[g.key] }" @click="confirmWorkedOut(g)">Yes, that's right</button>
-          <button :class="{ on: mode[g.key] === 'entry' }" :disabled="!assignable.length" @click="chooseMode(g, 'entry')">One of the lines in the log</button>
-          <button :class="{ on: mode[g.key] === 'added' }" @click="chooseMode(g, 'added')">Something Not in the Log</button>
-          <button :class="{ on: mode[g.key] === 'amount' }" @click="chooseMode(g, 'amount')">I just know the number</button>
+          <button v-if="g.workedOut" :class="{ on: confirmed[g.key] }" @click="confirmWorkedOut(g)">Correct</button>
+          <button :class="{ on: mode[g.key] === 'entry' }" :disabled="!assignable.length" @click="chooseMode(g, 'entry')">Belongs to an Event</button>
+          <button :class="{ on: mode[g.key] === 'added' }" @click="chooseMode(g, 'added')">Missed Event</button>
+          <button :class="{ on: mode[g.key] === 'amount' }" @click="chooseMode(g, 'amount')">Enter Amount</button>
         </div>
         <div v-if="mode[g.key] === 'entry'" class="gap-detail">
           <select :value="assigned[g.key] ?? ''" @change="assignTo(g, ($event.target as HTMLSelectElement).value)">
@@ -545,13 +545,13 @@ async function remove() {
           <label class="amt"><span>{{ LABEL[g.field] }}</span><input v-model="amounts[g.key]" type="text" inputmode="numeric" placeholder="amount" /></label>
           <input v-model="notes[g.key]" type="text" class="grow" placeholder="where you saw it (optional)" maxlength="500" />
         </div>
-        <div v-else-if="mode[g.key] === 'added'" class="gap-detail muted small">Fill in what happened in the box at the bottom; its {{ LABEL[g.field] }} is already set to {{ signed(gapAmount(g)) }}.</div>
+        <div v-else-if="mode[g.key] === 'added'" class="gap-detail muted small">Fill in the event under Events Missing from the Log. Its {{ LABEL[g.field] }} is set to {{ signed(gapAmount(g)) }}.</div>
       </div>
     </section>
 
     <section v-if="canFillAction" class="rv-section">
-      <h4 class="rv-h">What did you play this turn?</h4>
-      <p v-if="reportAction" class="gap-q" style="margin-top: 0">The report saw <b>{{ reportAction.text }}</b>. If that's right, leave it; if not, pick what you really did.</p>
+      <h4 class="rv-h">Action Played This Turn</h4>
+      <p v-if="reportAction" class="gap-q" style="margin-top: 0">The report saw <b>{{ reportAction.text }}</b>. Pick another action only if that is wrong.</p>
       <p v-else class="gap-q" style="margin-top: 0">The report didn't see what you played. Pick it.</p>
       <div class="seg">
         <button :class="{ on: actionKind === '' }" @click="actionKind = ''">{{ reportAction ? "As the Report Says" : "Leave It Blank" }}</button>
@@ -571,7 +571,7 @@ async function remove() {
 
     <section class="rv-section">
       <h4 class="rv-h">
-        Lines to check <span class="rv-count">{{ shownEntries.length }}<template v-if="shownEntries.length !== editableEntries.length"> of {{ editableEntries.length }}</template></span>
+        Lines to Check <span class="rv-count">{{ shownEntries.length }}<template v-if="shownEntries.length !== editableEntries.length"> of {{ editableEntries.length }}</template></span>
         <button v-if="editableEntries.length > shownEntries.length || showAllEntries" class="linkish small" style="margin-left: auto" @click="showAllEntries = !showAllEntries">{{ showAllEntries ? "Only the Flagged Ones" : "Show Every Line" }}</button>
       </h4>
       <p v-if="!shownEntries.length" class="muted small">No line in this turn needs a look. "Show Every Line" lists each one with a number, in case you want to fix one.</p>
@@ -579,8 +579,8 @@ async function remove() {
         <div class="rv-entry-head">
           <button class="tchip" :disabled="e.first_seen_ms === null" @click="e.first_seen_ms !== null && emit('seek', e.first_seen_ms)">{{ clock(e.first_seen_ms) }}</button>
           <b class="rv-entry-name">{{ entryName(e) }}</b>
-          <span v-for="w in entryWarnings(e)" :key="w.text" class="tag small" :class="w.serious ? 'pink' : 'grey'">{{ w.text }}</span>
-          <span v-if="entryRows[e.id]?.deleted" class="tag grey small">removed</span>
+          <span v-for="w in entryWarnings(e)" :key="w.text" class="tag small" :class="w.serious ? 'pink' : 'grey'">{{ titleCase(w.text) }}</span>
+          <span v-if="entryRows[e.id]?.deleted" class="tag grey small">Removed</span>
         </div>
         <ul v-if="guided && entryWarnings(e).some((w) => w.advice)" class="advice">
           <li v-for="w in entryWarnings(e).filter((w) => w.advice)" :key="w.text">{{ w.advice }}</li>
@@ -594,14 +594,14 @@ async function remove() {
             <button v-if="reportedAmount(e, split(key).channel, split(key).field) === null" class="step x" title="remove this stat" @click="dropField(entryRows[e.id], key)">✕</button>
           </label>
           <select class="add-field" :disabled="entryRows[e.id].deleted" @change="addField(entryRows[e.id], ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
-            <option value="">+ stat</option>
+            <option value="">+ Stat</option>
             <option v-for="f in STAT_FIELDS" :key="f" :value="'stats:' + f">{{ LABEL[f] }}</option>
             <option v-for="f in PERF_FIELDS" :key="f" :value="'performance:' + f">{{ LABEL[f] }}</option>
           </select>
         </div>
         <div v-if="entryRows[e.id]" class="rv-entry-foot">
-          <button class="toggle" :class="{ on: entryRows[e.id].reviewed }" @click="entryRows[e.id].reviewed = !entryRows[e.id].reviewed">✓ Looks right</button>
-          <button class="toggle danger" :class="{ on: entryRows[e.id].deleted }" @click="entryRows[e.id].deleted = !entryRows[e.id].deleted">Didn't happen</button>
+          <button class="toggle" :class="{ on: entryRows[e.id].reviewed }" @click="entryRows[e.id].reviewed = !entryRows[e.id].reviewed">✓ Looks Right</button>
+          <button class="toggle danger" :class="{ on: entryRows[e.id].deleted }" @click="entryRows[e.id].deleted = !entryRows[e.id].deleted">Didn't Happen</button>
           <button v-if="!openNotes[e.id] && !entryRows[e.id].note" class="linkish small" @click="openNotes[e.id] = true">Add a Note</button>
           <input v-else v-model="entryRows[e.id].note" type="text" class="grow" placeholder="note" maxlength="500" />
         </div>
@@ -609,7 +609,7 @@ async function remove() {
     </section>
 
     <section class="rv-section">
-      <h4 class="rv-h">Something the game showed that isn't in the log <span v-if="added.length" class="rv-count">{{ added.length }}</span><button class="btn small" style="margin-left: auto" @click="newAdded()">+ Add it</button></h4>
+      <h4 class="rv-h">Events Missing from the Log <span v-if="added.length" class="rv-count">{{ added.length }}</span><button class="btn small" style="margin-left: auto" @click="newAdded()">+ Add Event</button></h4>
       <p v-if="!added.length" class="muted small">An event, a race, a lesson the report has no line for? Add it with the time it happened and what it changed.</p>
       <div v-for="a in added" :id="'review-' + a.id" :key="a.id" class="rv-entry added">
         <div class="seg small">
@@ -618,7 +618,7 @@ async function remove() {
         <div class="rv-entry-head">
           <input v-model="a.title" type="text" class="grow" placeholder="what the game called it" maxlength="80" />
           <label class="amt time"><span>at</span><input v-model="a.time" type="text" placeholder="m:ss" /></label>
-          <button class="btn small quiet" :disabled="videoMs == null" title="use the recording's current time" @click="useVideoTime(a)">It's where the video is now</button>
+          <button class="btn small quiet" :disabled="videoMs == null" title="use the recording's current time" @click="useVideoTime(a)">Use the Video's Time</button>
         </div>
         <div class="rv-amounts">
           <label v-for="key in Object.keys(a.amounts)" :key="key" class="amt changed">
@@ -629,7 +629,7 @@ async function remove() {
             <button class="step x" title="remove this stat" @click="dropField(a, key)">✕</button>
           </label>
           <select class="add-field" @change="addField(a, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
-            <option value="">+ stat</option>
+            <option value="">+ Stat</option>
             <option v-for="f in STAT_FIELDS" :key="f" :value="'stats:' + f">{{ LABEL[f] }}</option>
             <option v-for="f in PERF_FIELDS" :key="f" :value="'performance:' + f">{{ LABEL[f] }}</option>
           </select>
@@ -646,7 +646,7 @@ async function remove() {
       <div class="rv-foot-actions">
         <label class="rv-resolved" title="Removes the turn from the Check list even when its numbers cannot be proven from the recording."><input v-model="resolved" type="checkbox" /> Resolved</label>
         <span v-if="error" class="warn-text small">{{ error }}</span>
-        <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Undo All My Answers</button>
+        <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Undo All Answers</button>
         <button class="btn primary" :disabled="busy" @click="save">Save</button>
       </div>
     </footer>
@@ -660,7 +660,7 @@ async function remove() {
           <span v-if="f.status === 'balanced'" class="vs ok">= {{ f.after }} ✓</span>
           <span v-else-if="f.status === 'off'" class="vs off">≠ {{ f.after }}, off by {{ signed((f.residual ?? 0) - f.supplied) }}</span>
           <span v-else-if="f.status === 'open'" class="vs warn">{{ signed(f.residual ?? 0) }} still not covered<template v-if="windowText(f.window_start_ms, f.window_end_ms)"> · {{ windowText(f.window_start_ms, f.window_end_ms) }}</template></span>
-          <span v-else-if="f.status === 'turn_difference'" class="vs na">{{ signed(f.turn_difference) }} worked out by the report; enter your own amount to replace it</span>
+          <span v-else-if="f.status === 'turn_difference'" class="vs na">{{ signed(f.turn_difference) }} worked out by the report. An entered amount replaces it.</span>
           <span v-else class="vs na">a value before or after was not observed</span>
         </li>
       </ul>

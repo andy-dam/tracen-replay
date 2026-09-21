@@ -135,7 +135,7 @@ func (m *Manager) takeable(ctx context.Context, message queue.Message) bool {
 	switch {
 	case job.Status == Running && message.Dequeued > 1:
 		job.Status, job.FinishedAt = Interrupted, now
-		job.Error = &Failure{Code: "interrupted", Message: "the worker running this job stopped answering; submit a new attempt"}
+		job.Error = &Failure{Code: "interrupted", Message: "The worker running this analysis stopped answering. Analyze the recording again."}
 		m.store.UpdateJob(ctx, job)
 		m.publish(job, nil)
 		m.log.Warn("job left running by a dead worker", "job", job.ID)
@@ -237,7 +237,7 @@ func (m *Manager) Follow(ctx context.Context) {
 				m.mu.Lock()
 				if fresh, err := m.store.GetJob(ctx, job.ID); err == nil && fresh.Status == Running {
 					fresh.Status, fresh.FinishedAt = Interrupted, m.cfg.Clock()
-					fresh.Error = &Failure{Code: "interrupted", Message: "the worker running this job stopped answering; submit a new attempt"}
+					fresh.Error = &Failure{Code: "interrupted", Message: "The worker running this analysis stopped answering. Analyze the recording again."}
 					m.store.UpdateJob(ctx, fresh)
 					job = fresh
 				}

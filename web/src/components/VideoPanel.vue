@@ -226,6 +226,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
     </div>
     <p v-if="failed" class="error small">{{ failed }}. Showing extracted frames instead.</p>
     <p v-else-if="!available" class="muted small">This report's recording is not on this machine, so the panel shows the analyzer's extracted frame at each moment.</p>
-    <p v-else class="muted small">Scrub or play the recording and the turn on the right follows it. Space plays and pauses; picking a turn or a log entry seeks the recording there.</p>
+    <p v-else class="muted small">Scrubbing or playing the recording moves the turn on the right with it. Space plays and pauses. Picking a turn or a log entry seeks the recording there.</p>
   </div>
 </template>

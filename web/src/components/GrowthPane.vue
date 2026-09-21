@@ -59,12 +59,12 @@ const performanceSeen = computed(() => performance.value.some((s) => s.values.so
 
 <template>
   <h3 class="pane-h" style="margin-top: 0">Stats Across the Run</h3>
-  <p class="muted small" style="margin-bottom: 8px">Opening value at every turn. Click anywhere on the chart to open that turn; a hollow point is a turn whose opening was never on screen (a race day) and shows the value carried from the previous turn's entries; a gap is a turn with neither.</p>
+  <p class="muted small" style="margin-bottom: 8px">Opening value at every turn. A click on the chart opens that turn. A hollow point is a turn whose opening was never on screen (a race day) and shows the value carried from the previous turn's entries. A gap is a turn with neither.</p>
   <StatChart :turns="turns" :selected="selected" @select="(id) => emit('select', id)" />
 
   <template v-if="growthSeen">
     <h3 class="pane-h">Growth Each Turn</h3>
-    <p class="muted small" style="margin-bottom: 8px">How much each turn added to the five stats, stacked. A tall bar is a good training or a race; an empty slot is a rest, an outing, or a turn whose next opening was never on screen.</p>
+    <p class="muted small" style="margin-bottom: 8px">How much each turn added to the five stats, stacked. A tall bar is a good training or a race. An empty slot is a rest, an outing, or a turn whose next opening was never on screen.</p>
     <RunChart :turns="plotted" :series="growth" :selected="selected" mode="bars" :floor="20" @select="(id) => emit('select', id)" />
   </template>
 
@@ -76,7 +76,7 @@ const performanceSeen = computed(() => performance.value.some((s) => s.values.so
 
   <template v-if="performanceSeen">
     <h3 class="pane-h">Performance Points Across the Run</h3>
-    <p class="muted small" style="margin-bottom: 8px">The five performance stats at the start of every turn, as read from the Grand Concert bar. Lessons and songs spend them; training earns them.</p>
+    <p class="muted small" style="margin-bottom: 8px">The five performance stats at the start of every turn, as read from the Grand Concert bar. Lessons and songs spend them. Training earns them.</p>
     <RunChart :turns="plotted" :series="performance" :selected="selected" mode="lines" :floor="50" @select="(id) => emit('select', id)" />
   </template>
 </template>

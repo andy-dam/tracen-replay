@@ -315,7 +315,7 @@ const noteCount = computed(() => {
       <div class="run-final">
         <div class="run-final-label">At the End of the Run</div>
         <StatBar :stats="finalStats" :open="finalOpen" />
-        <div v-if="finalOpen.length" class="muted small" style="margin-top: 6px">≈ the last value read for it; the run's end was not on a screen the report reads.</div>
+        <div v-if="finalOpen.length" class="muted small" style="margin-top: 6px">≈ the last value read for it. The run's end was not on a screen the report reads.</div>
       </div>
     </header>
 
