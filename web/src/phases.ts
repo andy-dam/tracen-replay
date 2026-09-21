@@ -17,8 +17,8 @@ export interface Phase {
 
 export const PHASES: Phase[] = [
   { id: "read", label: "Capture & OCR", doing: "sampling the recording and running OCR on every frame", stages: ["capture", "ocr"], weight: 48 },
-  { id: "understand", label: "Base Readings & Refinement", doing: "classifying every frame and refining weak readings", stages: ["base_readings", "automatic_refinement", "race_quantity_refinement", "currency_refinement", "reload_readings", "hint_card_preparation", "inspections_merged", "numeric_receipt_recovery"], weight: 12 },
-  { id: "closer", label: "Recovery Rereads", doing: "re-reading result animations and receipts at 60 fps where a number was unclear", stages: ["training_gain_recovery", "receipt_inspection", "inspection_loads", "occluded_receipt_recovery"], weight: 20 },
+  { id: "understand", label: "Base Readings & Refinement", doing: "classifying every frame and refining weak readings", stages: ["base_readings", "automatic_refinement", "race_quantity_refinement", "currency_refinement", "currency_refinement_complete", "currency_padding_refinement_complete", "reload_readings", "hint_card_preparation", "inspections_merged"], weight: 12 },
+  { id: "closer", label: "Recovery Rereads", doing: "re-reading result animations and receipts at 60 fps where a number was unclear", stages: ["receipt_inspection", "numeric_receipt_recovery", "training_gain_recovery", "inspection_loads", "occluded_receipt_recovery"], weight: 20 },
   { id: "assemble", label: "Assembly & Accounting", doing: "assembling turns, events and purchases, then balancing the accounting", stages: ["assemble", "boundary_state_recovery", "assemble_after_boundary", "validate_output"], weight: 10 },
   { id: "finish", label: "Report & Timeline", doing: "validating and saving the report, the timeline and the viewer page", stages: ["save_report", "timeline_document", "viewer", "complete"], weight: 10 },
 ];
@@ -78,7 +78,10 @@ export function progressView(job: Job | null, ocrPercent: number | null): Progre
     if (p.id === "read" && state !== "done") {
       // Capture takes seconds and OCR the rest of the phase: the frame count
       // is the measure, and a finished capture alone is only the first sliver.
-      fill = reading && ocrPercent !== null ? ocrPercent / 100 : finished > 0 ? 0.02 : 0;
+      // The sliver stays when the reading starts, with the frame count on
+      // top of it, so the number never steps back from 1% to 0%.
+      const sliver = 0.02;
+      fill = reading ? sliver + (1 - sliver) * ((ocrPercent ?? 0) / 100) : finished > 0 ? sliver : 0;
       if (reading) state = "active";
     }
     if (state === "active" && current === null) current = { id: p.id, label: p.label, doing: p.doing, weight: p.weight, state, fill };

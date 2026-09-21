@@ -31,6 +31,36 @@ const (
 	StageOCR    = "ocr"
 )
 
+// StageOrder is the analyzer's stages in the order an analysis first reaches
+// them; every finished analysis on record follows it, some without the
+// optional ones. The analyzer also names a stage again when a later step
+// reuses it (receipt_inspection after assemble), and names a few that are
+// not steps at all, so a job's recorded stage only ever moves forward along
+// this list (StageRank): the progress a viewer sees never steps back. The
+// client lays its progress bar out from the same list (web/src/phases.ts),
+// and a test keeps the two equal.
+var StageOrder = []string{
+	"capture", "ocr",
+	"base_readings", "automatic_refinement", "race_quantity_refinement", "currency_refinement",
+	"currency_refinement_complete", "currency_padding_refinement_complete", "reload_readings",
+	"hint_card_preparation", "inspections_merged",
+	"receipt_inspection", "numeric_receipt_recovery", "training_gain_recovery", "inspection_loads",
+	"occluded_receipt_recovery",
+	"assemble", "boundary_state_recovery", "assemble_after_boundary", "validate_output",
+	"save_report", "timeline_document", "viewer", "complete",
+}
+
+// StageRank is a stage's place in StageOrder, or -1 for a name that is not
+// one of its steps.
+func StageRank(stage string) int {
+	for i, name := range StageOrder {
+		if name == stage {
+			return i
+		}
+	}
+	return -1
+}
+
 // ParseProgress decodes one stderr line. It returns false for anything that
 // is not a JSON object carrying a "stage" field: library warnings, tracebacks
 // and blank lines are expected on the same stream and are not errors.
