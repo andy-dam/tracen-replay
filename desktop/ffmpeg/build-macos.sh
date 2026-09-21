@@ -34,7 +34,7 @@ PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" ./configure \
 	--prefix="$prefix" --pkg-config-flags=--static \
 	--enable-static --disable-shared --disable-debug --disable-doc \
 	--disable-ffplay --disable-network --disable-autodetect \
-	--enable-libdav1d \
+	--enable-libdav1d --enable-zlib \
 	--extra-version="tracen-slim"
 make -j"$jobs" >/dev/null
 make install >/dev/null
@@ -53,6 +53,8 @@ if otool -L "$pack/ffmpeg" "$pack/ffprobe" | grep -v ':$' | grep -v -E '^\s*(/us
 	exit 1
 fi
 "$pack/ffmpeg" -hide_banner -version | head -1
+# zlib comes with macOS; without it configure succeeds and PNG silently goes.
+"$pack/ffmpeg" -hide_banner -decoders | grep -q " png " || { echo "the build has no PNG decoder (zlib not found)" >&2; exit 1; }
 {
 	echo "ffmpeg $FFMPEG_VERSION with dav1d $DAV1D_VERSION, built by desktop/ffmpeg/build-macos.sh of Tracen Replay."
 	echo "Licensed under the GNU Lesser General Public License, version 2.1 or later; the text follows."
