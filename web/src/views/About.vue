@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { hosted } from "../api";
-import { desktop } from "../mode";
+import { desktop, openExternal } from "../mode";
+import { NOTICES_URL, REPO_URL } from "../legal";
 // What this application is, in a page: the parts, what the analyzer reads,
 // where the data lives, and where the details are.
 </script>
@@ -55,7 +56,7 @@ import { desktop } from "../mode";
     <section class="guide-section">
       <div class="overline">Project</div>
       <h2>Source and License</h2>
-      <p class="muted">Source code: github.com/andy-dam/tracen-replay. Licensed under PolyForm Noncommercial 1.0.0. Not affiliated with Cygames.</p>
+      <p class="muted">Source code: <a :href="REPO_URL" target="_blank" rel="noopener noreferrer" @click="openExternal($event, REPO_URL)">github.com/andy-dam/tracen-replay</a>. Licensed under PolyForm Noncommercial 1.0.0. Third-party components and their licenses are in the <a :href="NOTICES_URL" target="_blank" rel="noopener noreferrer" @click="openExternal($event, NOTICES_URL)">Third-Party Notices</a>. Not affiliated with Cygames, Inc. See the <a href="#/privacy">Privacy Policy</a> and the <a href="#/terms">Terms of Use</a>.</p>
     </section>
   </div>
 </template>

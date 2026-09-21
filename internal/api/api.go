@@ -99,6 +99,8 @@ type Auth interface {
 	Login(ctx context.Context, email, password, address string) (auth.User, string, error)
 	Authenticate(ctx context.Context, token string) (auth.User, error)
 	Logout(ctx context.Context, token string) error
+	CheckPassword(ctx context.Context, userID, password string) error
+	DeleteAccount(ctx context.Context, userID string) error
 	TTL() time.Duration
 }
 
@@ -280,6 +282,7 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/auth/login", s.login)
 	m.HandleFunc("POST /api/auth/logout", s.logout)
 	m.HandleFunc("GET /api/auth/me", s.me)
+	m.HandleFunc("POST /api/auth/delete", s.deleteAccount)
 	m.HandleFunc("GET /api/recordings", s.listRecordings)
 	m.HandleFunc("POST /api/recordings", s.uploadRecording)
 	m.HandleFunc("POST /api/recordings/uploads", s.beginUpload)
@@ -1119,11 +1122,18 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request) {
 		writeNotFoundOr(w, err)
 		return
 	}
+	s.removeReportFiles(r.Context(), report)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// removeReportFiles deletes what a report's record named: the run's files,
+// the cached document and the cached frames.
+func (s *Server) removeReportFiles(ctx context.Context, report jobs.Report) {
 	s.docs.forget(report.ID)
 	if s.cfg.Objects != nil && report.Origin == "job" && report.EvidenceRoot != "" {
-		if objects, err := s.cfg.Objects.List(r.Context(), report.EvidenceRoot+"/"); err == nil {
+		if objects, err := s.cfg.Objects.List(ctx, report.EvidenceRoot+"/"); err == nil {
 			for _, object := range objects {
-				s.cfg.Objects.Delete(r.Context(), object.Key)
+				s.cfg.Objects.Delete(ctx, object.Key)
 			}
 		}
 	} else if s.cfg.ArtifactsDir != "" && report.Origin == "job" {
@@ -1132,7 +1142,6 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.cfg.Frames.Forget(report.ID)
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) ownReport(w http.ResponseWriter, r *http.Request) (jobs.Report, bool) {

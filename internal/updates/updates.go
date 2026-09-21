@@ -27,7 +27,11 @@ const ReleasesURL = "https://api.github.com/repos/andy-dam/tracen-replay/release
 
 // ReleasePage is where every release page of this project begins; nothing
 // else is ever offered as a download.
-const ReleasePage = "https://github.com/andy-dam/tracen-replay/releases/"
+const ReleasePage = ProjectPage + "/releases/"
+
+// ProjectPage is the project's repository: its source, license files and
+// issue tracker. The desktop application opens no other outside address.
+const ProjectPage = "https://github.com/andy-dam/tracen-replay"
 
 // Checker knows the newest release, when asked to look.
 type Checker struct {

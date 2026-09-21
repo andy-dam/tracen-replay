@@ -40,6 +40,12 @@ type Store interface {
 	DeleteSession(ctx context.Context, tokenHash string) error
 }
 
+// UserDeleter is a Store that can delete an account and every record kept
+// under it.
+type UserDeleter interface {
+	DeleteUser(ctx context.Context, id string) error
+}
+
 // Errors the API translates into status codes.
 var (
 	ErrInvalidEmail    = errors.New("enter a valid email address")
@@ -212,6 +218,31 @@ func (s *Service) Authenticate(ctx context.Context, token string) (User, error) 
 		return User{}, err
 	}
 	return user, nil
+}
+
+// CheckPassword reports whether password is the account's own; deleting an
+// account asks for it again.
+func (s *Service) CheckPassword(ctx context.Context, userID, password string) error {
+	user, err := s.store.UserByID(ctx, userID)
+	if err != nil {
+		return ErrBadCredentials
+	}
+	_, hash, err := s.store.UserByEmail(ctx, user.Email)
+	if err != nil || !VerifyPassword(hash, password) {
+		return ErrBadCredentials
+	}
+	return nil
+}
+
+// DeleteAccount deletes the user, its sessions and every record the store
+// keeps under it. The files those records name are the caller's to delete
+// first: once the records are gone nothing names them.
+func (s *Service) DeleteAccount(ctx context.Context, userID string) error {
+	deleter, ok := s.store.(UserDeleter)
+	if !ok {
+		return errors.New("this store cannot delete accounts")
+	}
+	return deleter.DeleteUser(ctx, userID)
 }
 
 // Logout ends a session; an unknown token is not an error.

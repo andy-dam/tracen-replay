@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, type User } from "./api";
-import { desktop } from "./mode";
+import { desktop, openExternal } from "./mode";
 import Home from "./views/Home.vue";
 import Runs from "./views/Runs.vue";
 import ReportView from "./views/ReportView.vue";
@@ -12,6 +12,9 @@ import CheckQueue from "./views/CheckQueue.vue";
 import Guide from "./views/Guide.vue";
 import About from "./views/About.vue";
 import Settings from "./views/Settings.vue";
+import Privacy from "./views/Privacy.vue";
+import Terms from "./views/Terms.vue";
+import { REPO_URL } from "./legal";
 import Logo from "./components/Logo.vue";
 import CloseDialog from "./components/CloseDialog.vue";
 
@@ -31,6 +34,8 @@ const route = computed(() => {
   if (parts[0] === "guide") return { name: "guide", id: "", turn: "" };
   if (parts[0] === "about") return { name: "about", id: "", turn: "" };
   if (parts[0] === "settings") return { name: "settings", id: "", turn: "" };
+  if (parts[0] === "privacy") return { name: "privacy", id: "", turn: "" };
+  if (parts[0] === "terms") return { name: "terms", id: "", turn: "" };
   if (parts[0] === "signin") return { name: "signin", id: "", turn: "" };
   if (parts[0] === "signup") return { name: "signup", id: "", turn: "" };
   return { name: "home", id: "", turn: "" };
@@ -61,6 +66,13 @@ onMounted(loadUser);
 function signedIn(u: User) {
   user.value = u;
   window.location.hash = "#/runs";
+}
+
+// The account is gone, and the session with it.
+function accountDeleted() {
+  user.value = null;
+  notice.value = "The account and everything stored under it were deleted.";
+  window.location.hash = "#/";
 }
 
 async function signOut() {
@@ -132,6 +144,8 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
       <Runs v-else-if="route.name === 'home'" />
       <Guide v-else-if="route.name === 'guide'" />
       <About v-else-if="route.name === 'about'" />
+      <Privacy v-else-if="route.name === 'privacy'" :user="accounts ? user : null" @deleted="accountDeleted" />
+      <Terms v-else-if="route.name === 'terms'" />
       <Settings v-else-if="route.name === 'settings' && !accounts" />
       <SignInView v-else-if="!user || route.name === 'signin' || route.name === 'signup'" :mode="route.name === 'signup' ? 'create' : 'signin'" @signed-in="signedIn" />
       <Runs v-else-if="route.name === 'runs'" />
@@ -140,6 +154,14 @@ const initial = computed(() => (user.value?.display_name?.trim().charAt(0) || "?
       <ReviewView v-else-if="route.name === 'review'" :report-id="route.id" :turn-id="route.turn" />
       <JobView v-else-if="route.name === 'job'" :job-id="route.id" />
     </main>
+    <footer v-if="checked" class="site-footer">
+      <span>Tracen Replay is an unofficial fan project, not affiliated with Cygames, Inc.</span>
+      <nav>
+        <a href="#/privacy">Privacy</a>
+        <a href="#/terms">Terms</a>
+        <a :href="REPO_URL" target="_blank" rel="noopener noreferrer" @click="openExternal($event, REPO_URL)">GitHub</a>
+      </nav>
+    </footer>
   </div>
   <CloseDialog v-if="checked && !accounts" />
 </template>

@@ -397,8 +397,11 @@ func (w *window) Open(address string) error {
 	w.mu.Lock()
 	own := w.own
 	w.mu.Unlock()
-	if !strings.HasPrefix(address, updates.ReleasePage) && (own == "" || !strings.HasPrefix(address, own)) {
-		return errors.New("only a release page or a page of this application is opened")
+	// The project's own pages on GitHub (a release, the source, the license
+	// files, the issue tracker) and pages of this application, nothing else.
+	project := address == updates.ProjectPage || strings.HasPrefix(address, updates.ProjectPage+"/")
+	if !project && (own == "" || !strings.HasPrefix(address, own)) {
+		return errors.New("only a page of the project or of this application is opened")
 	}
 	if w.ctx == nil {
 		return errors.New("the window is not ready")
