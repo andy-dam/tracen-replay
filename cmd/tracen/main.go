@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -78,7 +79,8 @@ func run() error {
 	trustedProxies := flag.String("trusted-proxy", "", "comma-separated networks (CIDR) of reverse proxies in front of the service; their X-Forwarded-For names the client for the sign-in and registration limits")
 	registration := flag.String("registration", "open", "who may create an account: open, invite (a code from -invite-code) or closed")
 	inviteCodes := flag.String("invite-code", "", "comma-separated invite codes accepted with -registration invite")
-	ffprobe := flag.String("ffprobe", "ffprobe", "ffprobe executable; every upload is probed with it and refused when it is not a video or is longer, larger or faster than the limits below")
+	analyzerVersionFile := flag.String("analyzer-version-file", "", "a file holding the analyzer's --worker-version answer, for an image that serves the site without an interpreter (with -shared-queue)")
+	ffprobe := flag.String("ffprobe", "ffprobe","ffprobe executable; every upload is probed with it and refused when it is not a video or is longer, larger or faster than the limits below")
 	uploadLimit := flag.Int64("upload-limit-gb", 3, "largest upload accepted, in GB (a 1080p career of an hour is about 1.5 GB)")
 	maxRecordings := flag.Int("max-recordings", 5, "uploads one user may keep at once; 0 for no limit")
 	maxRecordingBytes := flag.Int64("max-recording-gb", 8, "space one user's uploads may take together, in GB; 0 for no limit")
@@ -141,6 +143,16 @@ func run() error {
 			Memory: *workerMemory, CPUs: *workerCPUs, PidsLimit: *workerPids, Network: *workerNetwork}
 		jobRunner = *container
 		analyzerQuery = container.VersionQuery()
+	}
+	// An image that serves the site and runs no analyses has no interpreter
+	// to ask; the analyzer's answer was written to a file when the image was
+	// built, from the same analyzer the workers of that build run.
+	if *analyzerVersionFile != "" {
+		if analysisQueue == nil {
+			return errors.New("-analyzer-version-file is for a service whose analyses run in tracen worker processes (-shared-queue)")
+		}
+		path := *analyzerVersionFile
+		analyzerQuery = func(context.Context) ([]byte, error) { return os.ReadFile(path) }
 	}
 	manager, err := jobs.NewManager(jobs.Config{DataDir: *dataDir, Python: *python, WorkDir: workDirAbs, ModelDir: *modelDir,
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,

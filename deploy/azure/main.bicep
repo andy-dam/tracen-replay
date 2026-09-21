@@ -27,8 +27,11 @@ param apiHost string = ''
 @description('Name of the container app that serves the application; it is the first part of the Azure hostname.')
 param appName string = 'tracen-replay'
 
-@description('The service image the API runs (the Dockerfile app stage), for example ghcr.io/andy-dam/tracen-replay:<sha>.')
+@description('The whole application image (the Dockerfile app stage), which the analysis job runs, for example ghcr.io/andy-dam/tracen-replay:<sha>.')
 param apiImage string
+
+@description('The image the website runs: the small site stage of the same build (ghcr.io/andy-dam/tracen-replay:site-<sha>), which starts in seconds after scaling to nothing. The whole application image works too.')
+param siteImage string = apiImage
 
 @description('PostgreSQL administrator login.')
 param postgresAdmin string = 'tracen'
@@ -241,7 +244,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'api'
-          image: apiImage
+          image: siteImage
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: [
             { name: 'PORT', value: '8765' }

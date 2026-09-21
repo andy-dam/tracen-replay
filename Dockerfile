@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
 
-# Two images from one file. The last stage, app, is the whole application:
+# Three images from one file. The last stage, app, is the whole application:
 # the Go service with the browser client embedded, the Python analyzer,
 # ffmpeg and the OCR models. The worker stage underneath it is the analyzer
 # alone, for a service that starts each analysis as a container
-# (`docker build --target worker`). OCR runs on the CPU provider, which is
+# (`docker build --target worker`). The site stage is the service without
+# an analyzer, for a deployment whose analyses run elsewhere
+# (`docker build --target site`). OCR runs on the CPU provider, which is
 # several times slower per frame than a GPU; build with OCR_RUNTIME=cuda for
 # the CUDA wheel instead.
 
@@ -64,6 +66,76 @@ RUN mkdir -p /opt/tracen/models \
 	&& sha256sum -c /opt/tracen/models.sha256
 WORKDIR /opt/tracen/analyzer
 ENTRYPOINT ["python", "-X", "utf8", "-m", "tracen_replay.analysis_job"]
+
+# The site alone (`docker build --target site`), for a deployment whose
+# analyses run in `tracen worker` processes elsewhere (-shared-queue): the
+# service with the client, ffmpeg and ffprobe for the upload check and the
+# viewer's frames, and nothing of Python. It is a tenth of the app image, so
+# a container that was scaled to nothing answers in seconds instead of half
+# a minute. Two helper stages feed it.
+
+# What the analyzer of this build says it is. The site reads the answer from
+# a file (-analyzer-version-file), so a report is still compared with the
+# analyzer the workers run, without an interpreter in the image.
+FROM worker AS identity
+RUN python -X utf8 -m tracen_replay.analysis_job --worker-version > /analyzer-version.json \
+	&& grep -q code_digest /analyzer-version.json
+
+# ffmpeg and ffprobe as two static programs: everything that is part of
+# ffmpeg itself, zlib, dav1d for AV1, and TLS, because with an object store
+# the service hands them a signed https address of the recording, for the
+# upload check and for the viewer's frames. No external encoder libraries.
+# Debian's package would bring 400 MB of libraries with it. Built on Alpine:
+# a static program made with musl still resolves host names, one made with
+# glibc does not. The sources are checked against their hashes, and the
+# build cache keeps this stage until one of these lines changes.
+FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 AS ffmpeg
+ARG FFMPEG_VERSION=9.0.1
+ARG FFMPEG_SHA256=cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635
+ARG DAV1D_VERSION=1.5.1
+ARG DAV1D_SHA256=401813f1f89fa8fd4295805aa5284d9aed9bc7fc1fdbe554af4292f64cbabe21
+RUN apk add --no-cache build-base curl xz nasm pkgconf meson ca-certificates \
+	zlib-dev zlib-static openssl-dev openssl-libs-static linux-headers
+WORKDIR /build
+RUN curl -fsSL -o dav1d.tar.xz "https://downloads.videolan.org/pub/videolan/dav1d/${DAV1D_VERSION}/dav1d-${DAV1D_VERSION}.tar.xz" \
+	&& echo "${DAV1D_SHA256}  dav1d.tar.xz" | sha256sum -c - \
+	&& curl -fsSL -o ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+	&& echo "${FFMPEG_SHA256}  ffmpeg.tar.xz" | sha256sum -c - \
+	&& tar xJf dav1d.tar.xz && tar xJf ffmpeg.tar.xz
+RUN cd "dav1d-${DAV1D_VERSION}" \
+	&& meson setup build --prefix /build/prefix --libdir lib --buildtype release --default-library static \
+		-Denable_tools=false -Denable_tests=false \
+	&& meson install -C build
+RUN cd "ffmpeg-${FFMPEG_VERSION}" \
+	&& PKG_CONFIG_PATH=/build/prefix/lib/pkgconfig ./configure --prefix=/build/prefix --pkg-config-flags=--static \
+		--enable-static --disable-shared --disable-debug --disable-doc --disable-ffplay \
+		--disable-autodetect --enable-libdav1d --enable-zlib --enable-openssl --enable-version3 \
+		--extra-version=tracen-site --extra-ldflags=-static \
+	&& make -j"$(nproc)" && make install \
+	&& strip /build/prefix/bin/ffmpeg /build/prefix/bin/ffprobe \
+	&& /build/prefix/bin/ffmpeg -hide_banner -decoders | grep -q " png " \
+	&& /build/prefix/bin/ffmpeg -hide_banner -protocols | grep -q "^ *https$" \
+	&& { echo "ffmpeg ${FFMPEG_VERSION} with dav1d ${DAV1D_VERSION}, zlib and OpenSSL, built by this repository's Dockerfile."; \
+		echo "GNU Lesser General Public License, version 3 or later; source https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"; \
+		echo "dav1d: BSD 2-clause. OpenSSL: Apache License 2.0 (https://www.openssl.org). zlib: zlib license."; \
+		echo; cat COPYING.LGPLv3; echo; cat "../dav1d-${DAV1D_VERSION}/COPYING"; } > /build/prefix/FFMPEG-LICENSE.txt
+
+# The three programs are fully static, so the base only has to bring a shell
+# for the entrypoint and the certificates for TLS to Azure.
+FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 AS site
+ENV PORT=8765 \
+	TRACEN_DATA=/data
+RUN apk add --no-cache ca-certificates \
+	&& mkdir -p /data /opt/tracen
+COPY --from=ffmpeg /build/prefix/bin/ffmpeg /build/prefix/bin/ffprobe /usr/local/bin/
+COPY --from=ffmpeg /build/prefix/FFMPEG-LICENSE.txt /opt/tracen/
+COPY --from=identity /analyzer-version.json /opt/tracen/analyzer-version.json
+COPY --from=service /out/tracen /usr/local/bin/tracen
+COPY docker/entrypoint-site.sh /usr/local/bin/tracen-entrypoint
+RUN chmod +x /usr/local/bin/tracen-entrypoint
+VOLUME /data
+EXPOSE 8765
+ENTRYPOINT ["/usr/local/bin/tracen-entrypoint"]
 
 # The whole application on top of the worker: the service, with the client
 # embedded, starts the same analyzer as a child process.

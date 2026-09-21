@@ -67,6 +67,27 @@ jobs:
             ${{ env.APP_IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The site alone, a tenth of the size, so the scaled-to-nothing website
+      # starts in seconds. It is a tag of the same package rather than a
+      # package of its own: a new package would start private, and Azure
+      # pulls without credentials. Its cache has its own scope so the ffmpeg
+      # stage, which takes minutes to compile, is kept between runs.
+      - name: Site image (the website on Azure)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: site
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+          push: true
+          tags: |
+            ${{ env.APP_IMAGE }}:site-${{ github.sha }}
+            ${{ env.APP_IMAGE }}:site-latest
+          cache-from: |
+            type=gha,scope=site
+            type=gha
+          cache-to: type=gha,scope=site,mode=max
 
   bundle:
     name: Windows bundle
@@ -149,7 +170,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Point the container app at this commit's image
-        run: az containerapp update --name tracen-replay --resource-group ${{ vars.TRACEN_RG }} --image ${{ env.APP_IMAGE }}:${{ github.sha }} --output none
+        run: az containerapp update --name tracen-replay --resource-group ${{ vars.TRACEN_RG }} --image ${{ env.APP_IMAGE }}:site-${{ github.sha }} --output none
       # The analyses run as a job from the same image; without this the site
       # moves on and the analyzer stays where the last manual deploy left it.
       # An execution already running keeps the image it started with.

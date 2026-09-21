@@ -259,7 +259,15 @@ Azure, one resource group, one region (North Central US: the one US region the s
    Contributor on the storage account, the Postgres password and the
    Oracle API key as secrets); a container app job for the worker (4 vCPU /
    8 GiB, event trigger on the `analyses` queue, max one parallel
-   execution, the same identity and secrets).
+   execution, the same identity and secrets). The two run different
+   images of one build: the job the whole application (`:<sha>`), the API
+   the site stage (`:site-<sha>`), the service with a small static ffmpeg
+   that reads signed https addresses and no Python. The API scales to
+   nothing, and what a first visitor waits for is mostly the image pull:
+   about half a minute with the whole application (417 MB compressed), a
+   few seconds with the site image. The analyzer's identity, which the
+   API compares reports against, is written into the site image when it is
+   built (`-analyzer-version-file`).
 4. Static Web App (free) bound to the `web/` build; custom domain
    `app.<domain>`; the API's custom domain `api.<domain>` with the managed
    certificate.
