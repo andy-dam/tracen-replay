@@ -44,7 +44,7 @@ onMounted(load);
         <div>
           <h2>Use the graphics card</h2>
           <p class="muted small">
-            {{ settings.gpu_available ? `Found: ${settings.device}. On, a career analyzes in a fraction of the time the processor needs.` : `Not available: ${settings.device}. The switch turns on when a supported card is found (a DirectX 12 card on Windows, Apple silicon on Mac).` }}
+            {{ settings.gpu_available ? `Found: ${settings.device}. On, analyses run on it instead of the processor.` : `Not available: ${settings.device}. The switch turns on when a supported card is found (a DirectX 12 card on Windows, Apple silicon on Mac).` }}
           </p>
         </div>
         <label class="switch" :class="{ off: !settings.gpu, disabled: !settings.gpu_available || saving }">
