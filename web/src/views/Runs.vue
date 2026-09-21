@@ -14,6 +14,8 @@ const reports = ref<Report[]>([]);
 const jobs = ref<Job[]>([]);
 const recordings = ref<Recording[]>([]);
 const error = ref("");
+// True once the recordings list has really been read.
+const loaded = ref(false);
 const busy = ref("");
 // The local application says what the analyzer will run on and whether a
 // newer release exists; the hosted service has neither to say.
@@ -148,11 +150,14 @@ const dashboard = computed(() => {
 
 async function load() {
   try {
-    const [r, j, u] = await Promise.all([api.reports(), api.jobs(), api.recordings().catch(() => [])]);
+    // A failed recordings request keeps the list already shown: an empty
+    // list would say "nothing here" about recordings that are there.
+    const [r, j, u] = await Promise.all([api.reports(), api.jobs(), api.recordings().catch(() => null)]);
     reports.value = r;
     jobs.value = j;
-    recordings.value = u;
-    error.value = "";
+    if (u) recordings.value = u;
+    loaded.value = u !== null || loaded.value;
+    error.value = u === null && !loaded.value ? "The list of recordings could not be loaded; trying again." : "";
     for (const report of r) loadFacts(report);
   } catch (e) {
     error.value = (e as Error).message;
@@ -277,7 +282,7 @@ function hideBroken(e: Event) {
 
   <UploadBox @uploaded="load" />
 
-  <p v-if="!runs.length" class="muted" style="margin-top: 28px">Nothing here yet. Your first upload appears in this list.</p>
+  <p v-if="loaded && !runs.length" class="muted" style="margin-top: 28px">Nothing here yet. Your first upload appears in this list.</p>
   <ul v-else class="runs">
     <li v-for="run in runs" :key="run.key" class="run">
       <a class="run-thumb" :href="run.report ? `#/reports/${encodeURIComponent(run.report.id)}` : run.job ? `#/jobs/${encodeURIComponent(run.job.id)}` : undefined">

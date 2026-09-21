@@ -24,6 +24,9 @@ export const PHASES: Phase[] = [
 ];
 
 const ORDER: string[] = PHASES.flatMap((p) => p.stages);
+// Stage names the hosted worker sets itself (internal/jobs/remote.go).
+const COPY_STAGE = "keeping a playback copy";
+const FETCH_STAGE = "fetching the recording";
 
 export interface PhaseView {
   id: string;
@@ -56,6 +59,12 @@ export function progressView(job: Job | null, ocrPercent: number | null): Progre
   // The index of the last finished stage; "ocr" is in progress rather than finished.
   let doneIndex = ORDER.indexOf(stage);
   if (reading) doneIndex = ORDER.indexOf("capture");
+  // The hosted worker names two steps of its own around the analysis: it
+  // fetches the recording before, and makes the smaller playback copy after.
+  // The copy comes when every analysis stage is done, so the bar stays at
+  // the end instead of falling back to the start.
+  const copying = stage === COPY_STAGE && job?.status === "running";
+  if (copying) doneIndex = ORDER.indexOf("viewer");
   if (job?.status && !["queued", "running"].includes(job.status) && job.status !== "failed" && job.status !== "cancelled" && job.status !== "interrupted") doneIndex = ORDER.length - 1;
   let cursor = 0;
   let overall = 0;
@@ -84,5 +93,7 @@ export function progressView(job: Job | null, ocrPercent: number | null): Progre
       current = next;
     }
   }
-  return { phases, overall: Math.min(100, Math.round(overall)), current, lastDone: doneIndex >= 0 ? stageWords(ORDER[doneIndex]) : "" };
+  if (current && copying) current = { ...current, label: "Playback Copy", doing: "making the smaller copy of the recording that the report plays; the analysis itself is done" };
+  if (current && stage === FETCH_STAGE) current = { ...current, label: "Fetching the Recording", doing: "bringing the recording to the worker" };
+  return { phases, overall: Math.min(copying ? 99 : 100, Math.round(overall)), current, lastDone: copying ? "Complete" : doneIndex >= 0 ? stageWords(ORDER[doneIndex]) : "" };
 }
