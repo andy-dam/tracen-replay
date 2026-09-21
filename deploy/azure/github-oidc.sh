@@ -24,8 +24,17 @@ if ! az ad sp show --id "$appId" --output none 2>/dev/null; then
 	az ad sp create --id "$appId" --output none
 fi
 objectId=$(az ad sp show --id "$appId" --query id -o tsv)
-az role assignment create --assignee-object-id "$objectId" --assignee-principal-type ServicePrincipal \
-	--role Contributor --scope "/subscriptions/$subscription/resourceGroups/$rg" --output none 2>/dev/null || true
+# Git Bash on Windows rewrites an argument that starts with a slash into a
+# Windows path, which turns the scope into nonsense; the two variables stop
+# that. The assignment is checked afterwards, because without it the sign-in
+# works and the deploy still fails with "No subscriptions found".
+scope="/subscriptions/$subscription/resourceGroups/$rg"
+MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' az role assignment create --assignee-object-id "$objectId" \
+	--assignee-principal-type ServicePrincipal --role Contributor --scope "$scope" --output none
+if [ -z "$(MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' az role assignment list --assignee "$appId" --scope "$scope" --query "[0].id" -o tsv)" ]; then
+	echo "the deploy identity has no role on $scope; the role assignment did not take" >&2
+	exit 1
+fi
 if ! az ad app federated-credential list --id "$appId" --query "[?name=='github-main']" -o tsv | grep -q github-main; then
 	az ad app federated-credential create --id "$appId" --parameters "{
 		\"name\": \"github-main\",
