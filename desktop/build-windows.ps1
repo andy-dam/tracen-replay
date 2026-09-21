@@ -14,7 +14,10 @@ param(
     [string]$Out = "dist/windows",
     [switch]$Installer,
     [string]$PythonVersion = "3.13.7",
-    [string]$FfmpegZip = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+    # The project's own 25 MB ffmpeg (desktop/ffmpeg/build.sh, published by
+    # the "Slim ffmpeg" workflow); any zip holding ffmpeg.exe, ffprobe.exe
+    # and the libraries next to them works here.
+    [string]$FfmpegZip = "https://github.com/andy-dam/tracen-replay/releases/download/ffmpeg-slim-9.0.1/ffmpeg-slim-win64.zip"
 )
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -78,14 +81,24 @@ Get-Content (Join-Path $root "docker/models.sha256") | ForEach-Object {
 Pop-Location
 
 Write-Host "== ffmpeg"
-$ffZip = Join-Path $cache "ffmpeg.zip"
-if (-not (Test-Path $ffZip)) { curl.exe -sSL -o $ffZip $FfmpegZip }
+# The cached file is named after the address, so another build of ffmpeg
+# is never mistaken for the one asked for.
+$ffName = ($FfmpegZip -replace '^https?://', '' -replace '[^A-Za-z0-9.\-]+', '_')
+$ffZip = Join-Path $cache $ffName
+if (-not (Test-Path $ffZip)) {
+    curl.exe -fsSL -o $ffZip $FfmpegZip
+    if ($LASTEXITCODE -ne 0) { Remove-Item -Force $ffZip -ErrorAction SilentlyContinue; throw "ffmpeg could not be downloaded from $FfmpegZip" }
+}
 $ffTmp = Join-Path $cache "ffmpeg"
 if (Test-Path $ffTmp) { Remove-Item -Recurse -Force $ffTmp }
 Expand-Archive -Path $ffZip -DestinationPath $ffTmp -Force
 $ffBin = Get-ChildItem $ffTmp -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
 New-Item -ItemType Directory -Force (Join-Path $bundle "ffmpeg") | Out-Null
 Copy-Item (Join-Path $ffBin.DirectoryName "ffmpeg.exe"), (Join-Path $ffBin.DirectoryName "ffprobe.exe") (Join-Path $bundle "ffmpeg")
+# A shared build keeps its codecs in libraries beside the two programs.
+Get-ChildItem $ffBin.DirectoryName -Filter "*.dll" | Copy-Item -Destination (Join-Path $bundle "ffmpeg")
+& (Join-Path $bundle "ffmpeg/ffmpeg.exe") -hide_banner -version | Select-Object -First 1
+if ($LASTEXITCODE -ne 0) { throw "the bundled ffmpeg does not start" }
 Get-ChildItem $ffTmp -Recurse -Filter "LICENSE*" | Select-Object -First 1 | Copy-Item -Destination (Join-Path $bundle "ffmpeg/LICENSE.txt")
 
 Write-Host "== notices"
