@@ -99,6 +99,7 @@ func run() error {
 	workerPids := flag.Int("worker-pids", 512, "docker run --pids-limit for the worker container; 0 for no bound")
 	workerNetwork := flag.String("worker-network", "none", "docker run --network for the worker container; the analyzer needs none")
 	recordingRetention := flag.Duration("recording-retention", 14*24*time.Hour, "uploads older than this that no analysis is using are deleted (their reports stay); 0 keeps uploads forever")
+	originalLifetime := flag.Duration("original-lifetime", 0, "how long after its upload an original can still be analyzed, when an object store's lifecycle deletes originals (Azure: 2160h); a later analysis is refused up front and the recording says until when; 0 for no limit")
 	frameCache := flag.Int64("frame-cache-gb", 2, "space the extracted-frame cache may take, in GB, the oldest frames going first; 0 for no bound")
 	storage := addStorageFlags(flag.CommandLine)
 	flag.Parse()
@@ -141,7 +142,8 @@ func run() error {
 		Workers: *workers, DenseWorkers: *denseWorkers, OCRDevice: *ocrDevice, LearnedReader: *learnedReader, Parallel: *parallel,
 		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
 		MaxActivePerUser: *maxActive, DailyPerUser: *dailyPerUser, DailyTotal: *dailyTotal, MonthlyTotal: *monthlyTotal, MaxDuration: *maxAnalysis,
-		Recordings: db, Queue: analysisQueue, Objects: objects, Logger: logger}, db, jobRunner)
+		OriginalLifetime: *originalLifetime,
+		Recordings:       db, Queue: analysisQueue, Objects: objects, Logger: logger}, db, jobRunner)
 	if err != nil {
 		return err
 	}
@@ -287,9 +289,9 @@ func run() error {
 	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
 		Objects:       objects,
-		RemoteOrigins: remoteOrigins,
-		Analyzer:      analyzer.Version,
-		ArtifactsDir:  filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
+		RemoteOrigins: remoteOrigins, OriginalLifetime: *originalLifetime,
+		Analyzer:     analyzer.Version,
+		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       frames,
 		AllowedHosts: hosts, AllowedOrigins: origins, CookieSameSite: sameSite, Static: static,
 		TrustedProxies: proxies, Registration: *registration, InviteCodes: invites,

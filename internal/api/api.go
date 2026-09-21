@@ -125,6 +125,10 @@ type Config struct {
 	// reports are read from it, and a recording plays from a URL it signs
 	// (or from its own file when it is a local directory).
 	Objects objectstore.Store
+	// OriginalLifetime is how long after its upload an original recording
+	// can still be analyzed; zero means for good. Served with each
+	// recording as original_until.
+	OriginalLifetime time.Duration
 	// RemoteOrigins are origins the browser must be allowed to reach
 	// besides this service: the object store's, for direct uploads and for
 	// playback by signed URL. They are added to the page's content
@@ -621,6 +625,9 @@ func (s *Server) listRecordings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	list, err := s.cfg.Recordings.ListRecordingsForUser(r.Context(), userFrom(r).ID)
+	for i := range list {
+		list[i] = s.withOriginalUntil(list[i])
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "store_error", err.Error())
 		return
@@ -667,6 +674,15 @@ func (s *Server) deleteRecording(w http.ResponseWriter, r *http.Request) {
 		os.Remove(path)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// withOriginalUntil says until when the recording's original can be
+// analyzed, when the deployment does not keep originals for good.
+func (s *Server) withOriginalUntil(recording jobs.Recording) jobs.Recording {
+	if s.cfg.OriginalLifetime > 0 {
+		recording.OriginalUntil = recording.CreatedAt.Add(s.cfg.OriginalLifetime)
+	}
+	return recording
 }
 
 // recordingInput is where ffmpeg reads a recording named by a record: its

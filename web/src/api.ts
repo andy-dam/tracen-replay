@@ -16,6 +16,8 @@ export interface Recording {
   size: number;
   sha256: string;
   created_at: string;
+  /** Until when the original can be analyzed again; absent when it is kept for good. */
+  original_until?: string;
 }
 
 export interface Failure {

@@ -146,6 +146,10 @@ type Recording struct {
 	// worker after an analysis) when there is one; the original at Path
 	// is what analyses read.
 	KeptPath string `json:"-"`
+	// OriginalUntil is when the original stops being available for another
+	// analysis (the store's lifecycle deletes it); zero when it is kept for
+	// good. It is computed when the record is served, not stored.
+	OriginalUntil time.Time `json:"original_until,omitzero"`
 }
 
 // Recordings resolves uploaded recordings; a job may analyze one of them
