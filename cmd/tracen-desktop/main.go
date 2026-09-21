@@ -252,6 +252,14 @@ func start(logger *slog.Logger) (string, func(), error) {
 	if err := os.MkdirAll(l.data, 0o755); err != nil {
 		return "", nil, err
 	}
+	// The analyzer calls ffmpeg and ffprobe by name. With the bundled ones
+	// first on this process's PATH it finds them on a machine that has no
+	// ffmpeg of its own, and uses the same ones on a machine that has.
+	if filepath.IsAbs(l.ffmpeg) {
+		if _, err := os.Stat(l.ffmpeg); err == nil {
+			os.Setenv("PATH", filepath.Dir(l.ffmpeg)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		}
+	}
 	db, err := store.Open(filepath.Join(l.data, "tracen.db"))
 	if err != nil {
 		return "", nil, err
