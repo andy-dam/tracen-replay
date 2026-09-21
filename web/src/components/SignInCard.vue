@@ -37,6 +37,7 @@ async function submit() {
       <label class="field"><span>Password</span><input v-model="password" type="password" :autocomplete="mode === 'create' ? 'new-password' : 'current-password'" required minlength="8" /></label>
       <p v-if="error" class="error small">{{ error }}</p>
       <button class="btn primary" type="submit" :disabled="busy">{{ mode === "signin" ? "Sign In" : "Create Account" }}</button>
+      <p v-if="mode === 'create' && hosted" class="muted small" style="margin-top: 14px">Creating an account accepts the <a href="#/terms">Terms of Use</a> and the <a href="#/privacy">Privacy Policy</a>.</p>
       <p class="muted small" style="margin-top: 14px">
         {{ mode === "create" ? (hosted ? "Passwords need at least 8 characters." : "Passwords need at least 8 characters. Accounts live on this machine only.") : "New here? Create an account to upload a recording." }}
       </p>

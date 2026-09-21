@@ -604,6 +604,36 @@ func (s *Store) UserByEmail(ctx context.Context, email string) (auth.User, strin
 	return u, hash, nil
 }
 
+// DeleteUser deletes an account and every record kept under it: its
+// corrections, reports, jobs, recordings and sessions.
+func (s *Store) DeleteUser(ctx context.Context, id string) error {
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, query := range []string{
+		`DELETE FROM corrections WHERE user_id=?`,
+		`DELETE FROM corrections WHERE report_id IN (SELECT id FROM reports WHERE user_id=?)`,
+		`DELETE FROM reports WHERE user_id=?`,
+		`DELETE FROM jobs WHERE user_id=?`,
+		`DELETE FROM recordings WHERE user_id=?`,
+		`DELETE FROM sessions WHERE user_id=?`,
+	} {
+		if _, err := tx.exec(ctx, query, id); err != nil {
+			return err
+		}
+	}
+	res, err := tx.exec(ctx, `DELETE FROM users WHERE id=?`, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return auth.ErrNotFound
+	}
+	return tx.Commit()
+}
+
 // UserByID returns an account.
 func (s *Store) UserByID(ctx context.Context, id string) (auth.User, error) {
 	var u auth.User

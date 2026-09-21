@@ -346,6 +346,7 @@ export const api = {
   jobs: () => request<{ jobs: Job[] }>("/api/jobs").then((r) => r.jobs),
   job: (id: string) => request<Job>(`/api/jobs/${enc(id)}`),
   submit: (sourceId: string) => request<Job>("/api/jobs", { method: "POST", body: JSON.stringify({ source_id: sourceId }) }),
+  deleteAccount: (password: string) => request<void>("/api/auth/delete", { method: "POST", body: JSON.stringify({ password }) }),
   cancel: (id: string) => request<Job>(`/api/jobs/${enc(id)}/cancel`, { method: "POST" }),
   pause: (id: string) => request<Job>(`/api/jobs/${enc(id)}/pause`, { method: "POST" }),
   resume: (id: string) => request<Job>(`/api/jobs/${enc(id)}/resume`, { method: "POST" }),

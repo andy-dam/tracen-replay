@@ -117,3 +117,57 @@ func TestUpdateRecordingTakesBackHashAndKeptCopy(t *testing.T) {
 		t.Fatal("updating an unknown recording must fail")
 	}
 }
+
+// Deleting a user deletes every record kept under it and leaves another
+// user's records alone.
+func TestDeleteUserDeletesEverythingKeptUnderIt(t *testing.T) {
+	s, _ := open(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	for _, id := range []string{"u1", "u2"} {
+		if err := s.CreateUser(ctx, auth.User{ID: id, Email: id + "@example.com", DisplayName: id, CreatedAt: now}, "hash"); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.CreateSession(ctx, "tok-"+id, id, now, now.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.CreateRecording(ctx, jobs.Recording{ID: "rec-" + id, UserID: id, Name: "a.mp4", Path: "a", Size: 1, SHA256: "x", CreatedAt: now}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.CreateJob(ctx, jobs.Job{ID: "job-" + id, UserID: id, SourceID: "rec-" + id, Status: jobs.Succeeded, CreatedAt: now, OutputDir: "o"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.CreateReport(ctx, jobs.Report{ID: "rep-" + id, UserID: id, JobID: "job-" + id, Origin: "job", SourceName: "a", CreatedAt: now}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DeleteUser(ctx, "u1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteUser(ctx, "u1"); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("a second delete: %v", err)
+	}
+	if _, err := s.UserByID(ctx, "u1"); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("the user is still there: %v", err)
+	}
+	if _, err := s.SessionUser(ctx, "tok-u1", now); err == nil {
+		t.Fatal("the session is still there")
+	}
+	if _, err := s.GetRecording(ctx, "rec-u1"); err == nil {
+		t.Fatal("the recording is still there")
+	}
+	if _, err := s.GetJob(ctx, "job-u1"); err == nil {
+		t.Fatal("the job is still there")
+	}
+	if _, err := s.GetReport(ctx, "rep-u1"); err == nil {
+		t.Fatal("the report is still there")
+	}
+	for name, err := range map[string]error{"user": second(s.UserByID(ctx, "u2")), "recording": second(s.GetRecording(ctx, "rec-u2")),
+		"job": second(s.GetJob(ctx, "job-u2")), "report": second(s.GetReport(ctx, "rep-u2"))} {
+		if err != nil {
+			t.Fatalf("the other user's %s went too: %v", name, err)
+		}
+	}
+}
+
+func second[T any](_ T, err error) error { return err }
