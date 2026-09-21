@@ -1,0 +1,45 @@
+name: Slim ffmpeg
+
+# Builds the small ffmpeg the desktop application ships
+# (desktop/ffmpeg/build.sh) and publishes it as a release asset that the
+# desktop build scripts download. It runs when the build recipe changes and
+# on request. The release is marked a pre-release so that "the latest
+# release", which the application's update check asks for, stays the
+# application's own.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - desktop/ffmpeg/**
+      - .github/workflows/ffmpeg-slim.yml
+
+permissions:
+  contents: write
+
+env:
+  FFMPEG_VERSION: "9.0.1"
+  DAV1D_VERSION: "1.5.1"
+
+jobs:
+  windows:
+    name: Windows (cross-compiled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends make nasm pkg-config meson ninja-build gcc libc6-dev \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 zip xz-utils bzip2
+      - name: Build
+        run: sh desktop/ffmpeg/build.sh out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="ffmpeg-slim-${FFMPEG_VERSION}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --prerelease --target "$GITHUB_SHA" \
+            --title "Slim ffmpeg ${FFMPEG_VERSION}" \
+            --notes "The ffmpeg the desktop application bundles: every built-in decoder, container and filter, no external encoder libraries, dav1d for AV1. LGPL. Built by desktop/ffmpeg/build.sh; not an application release."
+          gh release upload "$tag" out/ffmpeg-slim-win64.zip --clobber
