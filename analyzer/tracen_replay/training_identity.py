@@ -12,8 +12,98 @@ _TRAINING_OPTIONS = ('Speed', 'Stamina', 'Power', 'Guts', 'Wit')
 # unbounded recording for a matching name.
 _MAX_RESULT_CONTINUITY_GAP_MS = 500
 
+# The name the game prints under the heading belongs to one option only.
+# Every pair here was read, heading and name together, in earlier careers,
+# and no name appeared under two options. A name that is not listed proves
+# nothing; it is never guessed.
+_TRAINING_NAMES = {
+    'Turf': 'Speed', 'Treadmill': 'Speed', 'Running': 'Speed', 'Exercise Bike': 'Speed',
+    'Floor Cleaning': 'Speed', 'Volleyball Dive': 'Speed',
+    'Breaststroke': 'Stamina', 'Freestyle': 'Stamina', 'Long-Distance Swimming': 'Stamina',
+    'Dirt': 'Power', 'Squats': 'Power', 'Resistance Training': 'Power',
+    'Incline': 'Guts', 'Bunny-Hop': 'Guts', 'Dance Practice': 'Guts', 'Stair Dash': 'Guts',
+    'Beach Tire Pull': 'Guts', 'Tire Pull': 'Guts',
+    'Shogi': 'Wit', 'Reading': 'Wit', 'Video Research': 'Wit', 'Studying': 'Wit',
+    'Push-Button Quiz': 'Wit', 'Quiz': 'Wit',
+}
+# The small "Lvl" is the part of the heading the text reader gets wrong most:
+# "Lvi", "LvI", "Lv1". Those spellings cannot be any other word on this line.
+_HEADING_RE = re.compile(r'([A-Za-z]{2,8})\s*Lv[lIi1|!]\s*(\d{1,2})?')
+_HEADING_BOX = (210, 160, 420, 200)
 
-def _read_identity(lines, screen, option, minimum_confidence):
+
+def _one_edit(a, b):
+    """True when ``a`` and ``b`` differ by at most one letter."""
+    if a == b:
+        return True
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) == 1
+    short, long_ = sorted((a, b), key=len)
+    return any(long_[:i] + long_[i + 1:] == short for i in range(len(long_)))
+
+
+def parse_heading(text, exact=True):
+    """``(option, level)`` of an "Option Lvl N" heading, or ``None``.
+
+    ``exact`` requires the option word as printed; without it one wrong
+    letter is allowed ("Wil"), which the caller must back with other proof.
+    """
+    match = _HEADING_RE.fullmatch(str(text or '').strip())
+    if not match:
+        return None
+    word = match[1].casefold()
+    options = [item for item in _TRAINING_OPTIONS
+               if (word == item.casefold() if exact else _one_edit(word, item.casefold()))]
+    if len(options) != 1:
+        return None
+    return options[0], int(match[2]) if match[2] else None
+
+
+def _names_below(lines, heading, minimum_confidence):
+    left, _, _, bottom = heading['box']
+    names = []
+    for line in lines:
+        if (not isinstance(line, dict) or line is heading or len(line.get('box', [])) != 4
+                or line.get('confidence', 0) < minimum_confidence):
+            continue
+        x, y, xx, yy = line['box']
+        if (bottom - 6 <= y <= bottom + 24 and 0 < yy - y <= 50 and abs(x - left) <= 24
+                and xx > x and xx <= 650):
+            names.append(line)
+    return names
+
+
+def heading_option(lines):
+    """The option the training heading names, lower-case, or ``None``.
+
+    A heading read with confidence names its option by itself. A weaker or
+    one-letter-off heading counts only when the name printed under it was
+    read clearly and is a known name of that same option.
+    """
+    found = set()
+    for line in lines:
+        if not isinstance(line, dict) or len(line.get('box', [])) != 4:
+            continue
+        left, top, right, bottom = line['box']
+        if not (_HEADING_BOX[0] <= (left + right) / 2 <= _HEADING_BOX[2]
+                and _HEADING_BOX[1] <= (top + bottom) / 2 <= _HEADING_BOX[3]):
+            continue
+        confidence = line.get('confidence', 0)
+        parsed = parse_heading(line.get('text'), exact=True)
+        if parsed and confidence >= 90:
+            found.add(parsed[0])
+            continue
+        parsed = parse_heading(line.get('text'), exact=False)
+        if parsed and confidence >= 70 and any(
+                _TRAINING_NAMES.get(name.get('text', '').strip()) == parsed[0]
+                for name in _names_below(lines, line, 97)):
+            found.add(parsed[0])
+    return found.pop().lower() if len(found) == 1 else None
+
+
+def _read_identity(lines, screen, option, minimum_confidence, corroborated=False):
     """Attach a nearby name to a matching option/level heading in one frame.
 
     The caller owns screen classification and action commitment. This reader
@@ -28,10 +118,10 @@ def _read_identity(lines, screen, option, minimum_confidence):
                 and len(line.get('box', [])) == 4]
     headings = []
     for line in eligible:
-        match = re.fullmatch(r'(Speed|Stamina|Power|Guts|Wit)\s+Lvl\s*(\d+)?', line.get('text', '').strip())
+        parsed = parse_heading(line.get('text'), exact=not corroborated)
         x, y, xx, yy = line['box']
-        if match and match[1] == option and 200 <= x <= 330 and 155 <= y <= 200 and yy > y:
-            headings.append((line, int(match[2]) if match[2] else None))
+        if parsed and parsed[0] == option and 200 <= x <= 330 and 155 <= y <= 200 and yy > y:
+            headings.append((line, parsed[1]))
     if len(headings) != 1:
         return {}
     heading, level = headings[0]
@@ -46,9 +136,16 @@ def _read_identity(lines, screen, option, minimum_confidence):
             names.append(line)
     if len(names) != 1:
         return {}
+    basis = 'same_frame_training_heading_and_name'
+    if corroborated:
+        # A weak heading stands only on a clearly read, known name of the
+        # same option.
+        if names[0].get('confidence', 0) < 97 or _TRAINING_NAMES.get(names[0]['text'].strip()) != option:
+            return {}
+        basis = 'weak_heading_corroborated_by_known_training_name'
     return {'training_name': names[0]['text'].strip(), 'training_level': level,
             'training_identity_evidence': {'heading': deepcopy(heading), 'name': deepcopy(names[0]),
-                                           'basis': 'same_frame_training_heading_and_name'}}
+                                           'basis': basis}}
 
 
 def read_identity(lines, screen, option):
@@ -57,7 +154,9 @@ def read_identity(lines, screen, option):
     if accepted:
         return accepted
     candidate = _read_identity(lines, screen, option, 90)
-    return {'training_identity_candidate': candidate} if candidate else {}
+    if candidate:
+        return {'training_identity_candidate': candidate}
+    return _read_identity(lines, screen, option, 70, corroborated=True)
 
 
 def _canonical_option(value):
