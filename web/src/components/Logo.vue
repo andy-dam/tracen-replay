@@ -1,21 +1,11 @@
 <script setup lang="ts">
-// The Tracen Replay mark: a rounded green tile, a white loop for the track
-// with its home straight left open, and a pink play mark inside. Drawn for
-// this app; it borrows no game artwork.
+// The Tracen Replay mark: the green hat on a green rounded tile. The picture
+// and every icon made from it come from desktop/icon/make_icons.py.
+import logo from "../assets/logo.png";
+
 withDefaults(defineProps<{ size?: number }>(), { size: 28 });
 </script>
 
 <template>
-  <svg :width="size" :height="size" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs>
-      <linearGradient id="tr-tile" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#93e04a" />
-        <stop offset="1" stop-color="#3a9e1f" />
-      </linearGradient>
-    </defs>
-    <rect x="3" y="3" width="58" height="58" rx="17" fill="url(#tr-tile)" />
-    <rect x="6.5" y="6.5" width="51" height="51" rx="14" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" />
-    <path d="M19 15.5 V33 a13 13 0 0 0 26 0 V15.5" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" />
-    <path d="M27.5 26.5 L40.5 33.8 L27.5 41.1 Z" fill="#ee5fa4" stroke="#fff" stroke-width="2" stroke-linejoin="round" />
-  </svg>
+  <img :src="logo" :width="size" :height="size" alt="" aria-hidden="true" draggable="false" />
 </template>

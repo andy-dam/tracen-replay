@@ -11,6 +11,8 @@ InstallDirRegKey HKLM "Software\Tracen Replay" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
+!define MUI_ICON "${__FILEDIR__}\icon\icon.ico"
+!define MUI_UNICON "${__FILEDIR__}\icon\icon.ico"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Tracen Replay.exe"
 !insertmacro MUI_PAGE_LICENSE "${BUNDLE}\LICENSE.md"
