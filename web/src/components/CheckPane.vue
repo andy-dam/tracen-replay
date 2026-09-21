@@ -82,7 +82,7 @@ const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value
       <p class="muted small" style="margin: 4px 0 6px">
         <template v-if="checks.length">{{ checks.length }} turn{{ checks.length === 1 ? "" : "s" }} to check: a number that does not add up, or a line the report is not sure of.</template>
         <template v-else>Nothing to check: every number adds up and no line is in doubt.</template>
-        <template v-if="noteCount">{{ " " }}{{ noteCount }} note{{ noteCount === 1 ? "" : "s" }} the report is confident about {{ noteCount === 1 ? "is" : "are" }} kept below, so nothing is hidden.</template>
+        <template v-if="noteCount">{{ " " }}{{ noteCount }} note{{ noteCount === 1 ? "" : "s" }} the report is confident about {{ noteCount === 1 ? "is" : "are" }} listed under Notes.</template>
         <template v-if="unassigned.length">{{ " " }}{{ unassigned.length }} entr{{ unassigned.length === 1 ? "y sits" : "ies sit" }} outside every turn.</template>
         {{ " " }}Click a line to go there.
       </p>
@@ -100,14 +100,14 @@ const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value
           <div class="check-turn">
             <button class="linkish strong" @click="emit('select', g.turn.id)">{{ fullLabel(g.turn.label, g.turn.phase) }}</button>
             <span class="muted small">{{ clock(g.turn.start_ms) }}</span>
-            <span class="tag pink">check</span>
+            <span class="tag pink">Check</span>
             <a class="btn small" style="margin-left: auto" :href="reviewHref(g.turn.id)">Review</a>
           </div>
           <div v-if="g.notes.length" class="small warn-text">{{ g.notes.map((n) => n.text).join(" · ") }}</div>
           <ul v-if="g.items.length" class="check-items">
             <li v-for="it in g.items" :key="it.entry.id">
               <button class="linkish" @click="emit('select', g.turn.id, it.entry.first_seen_ms)"><span class="tabular">{{ clock(it.entry.first_seen_ms) }}</span> {{ it.name }}</button>
-              <span class="small warn-text"> — {{ it.notes.join("; ") }}</span>
+              <span class="small warn-text"> — {{ it.notes.join(", ") }}</span>
             </li>
           </ul>
         </li>
@@ -120,16 +120,16 @@ const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value
             <div class="check-turn">
               <button class="linkish strong" @click="emit('select', g.turn.id)">{{ fullLabel(g.turn.label, g.turn.phase) }}</button>
               <span class="muted small">{{ clock(g.turn.start_ms) }}</span>
-              <span class="tag green">resolved</span>
+              <span class="tag green">Resolved</span>
               <a class="btn small" style="margin-left: auto" :href="reviewHref(g.turn.id)">Open Review</a>
             </div>
-            <div class="small muted">{{ [...g.notes.map((n) => n.text), ...g.items.map((it) => `${it.name}: ${it.notes.join("; ")}`)].join(" · ") }}</div>
+            <div class="small muted">{{ [...g.notes.map((n) => n.text), ...g.items.map((it) => `${it.name}: ${it.notes.join(", ")}`)].join(" · ") }}</div>
           </li>
         </ul>
       </details>
 
       <details v-if="noteCount" class="notes-fold">
-        <summary><span class="pane-h">Notes</span> <span class="muted small">{{ noteCount }} · what the report is confident about and says anyway; nothing to do</span></summary>
+        <summary><span class="pane-h">Notes</span> <span class="muted small">{{ noteCount }} · readings the report is confident about</span></summary>
         <ul class="checklist">
           <li v-for="g in notes" :key="g.turn.id">
             <div class="check-turn">
@@ -141,7 +141,7 @@ const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value
             <ul v-if="g.items.length" class="check-items">
               <li v-for="it in g.items" :key="it.entry.id">
                 <button class="linkish" @click="emit('select', g.turn.id, it.entry.first_seen_ms)"><span class="tabular">{{ clock(it.entry.first_seen_ms) }}</span> {{ it.name }}</button>
-                <span class="small muted"> — {{ it.notes.join("; ") }}</span>
+                <span class="small muted"> — {{ it.notes.join(", ") }}</span>
               </li>
             </ul>
           </li>
@@ -155,7 +155,7 @@ const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value
       </template>
       <template v-if="outside.length">
         <h3 class="pane-h">Outside Every Observed Turn</h3>
-        <p class="muted small">Seen at times no turn window covers. They stay separate; they are never folded into a neighbouring turn.</p>
+        <p class="muted small">Seen at times no turn window covers. They are not added to a neighbouring turn.</p>
         <EntryList :entries="outside" @seek="(ms) => emit('seek', ms)" />
       </template>
     </div>

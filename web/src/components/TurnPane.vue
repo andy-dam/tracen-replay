@@ -47,7 +47,7 @@ watch(() => props.turn.id, () => (showAll.value = false));
 const warnings = computed(() => {
   let turnNotes = props.summaryTurn ? turnWarnings(props.summaryTurn) : [];
   if (props.correction?.action && props.verification?.verified)
-    turnNotes = turnNotes.map((w) => (w.text === "no action seen in this window" ? { text: "no action seen by the report; filled in by you and verified", serious: false } : w));
+    turnNotes = turnNotes.map((w) => (w.text === "no action seen in this window" ? { text: "no action seen by the report, filled in by a verified review", serious: false } : w));
   const items = props.entries
     .map((e) => ({ entry: e, name: entryName(e), notes: entryWarnings(e) }))
     .filter((x) => x.notes.length)
@@ -126,7 +126,7 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
         <div v-for="(w, i) in warnings.turnNotes" :key="'t' + i" class="small">{{ w.text }}</div>
         <div v-for="it in shownItems" :key="it.entry.id" class="small">
           <button class="linkish" :disabled="it.entry.first_seen_ms === null" @click="it.entry.first_seen_ms !== null && emit('seek', it.entry.first_seen_ms)"><span class="tabular">{{ clock(it.entry.first_seen_ms) }}</span> {{ it.name }}</button>
-          — {{ it.notes.map((w) => w.text).join("; ") }}
+          — {{ it.notes.map((w) => w.text).join(", ") }}
         </div>
       </div>
 

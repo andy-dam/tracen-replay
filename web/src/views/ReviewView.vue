@@ -99,7 +99,7 @@ function perfAfter(field: string): number | null {
     <div class="review-grid">
       <aside class="review-side">
         <VideoPanel :report-id="reportId" :ms="seekMs" :available="summary.video_available" :duration-ms="summary.source.duration_ms" />
-        <h3 class="pane-h" style="margin-top: 10px">Stats at the start of the turn</h3>
+        <h3 class="pane-h" style="margin-top: 10px">Stats at the Start of the Turn</h3>
         <p v-if="!turn.opening.stats" class="muted small">No opening observation for this turn. Unknown values are not zeros.</p>
         <StatBar :stats="turn.opening.stats" :after="turn.accounting.stats" compact />
         <div v-if="turn.opening.performance || turn.accounting.performance" class="perf">
@@ -110,10 +110,10 @@ function perfAfter(field: string): number | null {
         <div class="howto">
           <b>How This Works</b>
           <ol>
-            <li>The report read your recording. Where a number doesn't add up between two turns, it asks you to look.</li>
-            <li>Press a ▶ chip to jump the video there and watch what happened. Then answer the question under it.</li>
-            <li>Say what you played this turn if the report didn't see it, tick the lines that look right, and add anything the game showed that isn't in the log.</li>
-            <li>The badge at the top turns green when it all adds up. Save when you're done; you can always come back.</li>
+            <li>Each gap is a number that doesn't add up between two turns.</li>
+            <li>A ▶ chip seeks the video to the gap. The options under it explain the change.</li>
+            <li>Action Played This Turn sets the action when the report saw none. Looks Right confirms a line. Events Missing from the Log adds what the report has no entry for.</li>
+            <li>The badge at the top turns green once the turn adds up. Save stores the review.</li>
           </ol>
         </div>
       </aside>

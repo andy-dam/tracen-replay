@@ -249,7 +249,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
             <div class="choice-legend">
               <span v-for="k in CHOICE_ORDER" :key="k" v-show="choices.all[k]"><i :class="k"></i>{{ CHOICE_LABELS[k] }} <b class="tabular">{{ choices.all[k] }}</b> <span class="muted">{{ share(choices.all[k]) }}%</span></span>
             </div>
-            <p class="muted small" style="margin-top: 10px">{{ trainingTurns }} of {{ choices.total }} turns went to training; the most trained stat was {{ CHOICE_LABELS[OPTIONS.slice().sort((a, b) => choices.all[b] - choices.all[a])[0]] }}.</p>
+            <p class="muted small" style="margin-top: 10px">{{ trainingTurns }} of {{ choices.total }} turns went to training. The most trained stat was {{ CHOICE_LABELS[OPTIONS.slice().sort((a, b) => choices.all[b] - choices.all[a])[0]] }}.</p>
           </div>
           <table class="ledger years">
             <thead><tr><th></th><th v-for="k in OPTIONS" :key="k" class="num"><span class="dot" :class="k" style="margin-right: 3px"></span>{{ CHOICE_LABELS[k][0] }}</th><th class="num">Race</th><th class="num">Rest</th><th class="num">Out</th></tr></thead>
@@ -396,7 +396,7 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
           <div v-if="energy.recovered !== null" class="tile"><b class="tabular up">+{{ energy.recovered }}</b><span>energy from rests</span></div>
           <div v-if="energy.infirmary" class="tile"><b class="tabular">{{ energy.infirmary }}</b><span>infirmary</span></div>
         </div>
-        <p class="muted small" style="margin-top: 10px">A rest is a turn the ledger recorded as rest; the energy is what the rest's own message stated.</p>
+        <p class="muted small" style="margin-top: 10px">A rest is a turn the ledger recorded as rest. The energy is what the rest's own message stated.</p>
       </div>
     </div>
 

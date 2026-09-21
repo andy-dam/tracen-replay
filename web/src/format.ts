@@ -142,11 +142,16 @@ export function stripPosition(turn: TurnSummary): { row: number; col: number } |
   return null;
 }
 
-const SMALL_WORDS = new Set(["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to", "vs", "with"]);
+const SMALL_WORDS = new Set(["a", "an", "and", "as", "at", "by", "for", "from", "in", "of", "on", "or", "per", "the", "to", "vs", "with"]);
 
-/** Title Case for headings: every word capitalised except short joining words inside the phrase. */
+/**
+ * Title Case, the way every label in the application is written: every word
+ * capitalised except short joining words inside the phrase. An underscore in
+ * a status or a stage name reads as a space.
+ */
 export function titleCase(text: string): string {
   return text
+    .replaceAll("_", " ")
     .split(" ")
     .map((word, i) => (i > 0 && SMALL_WORDS.has(word.toLowerCase()) ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1)))
     .join(" ");

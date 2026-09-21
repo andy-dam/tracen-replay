@@ -349,7 +349,7 @@ func (m *Manager) withinLimits(ctx context.Context, userID string) error {
 		}
 		if n >= m.cfg.DailyTotal {
 			return &LimitError{Code: "daily_limit", Limit: m.cfg.DailyTotal,
-				Message: "the service has started as many analyses as it runs in a day; try again tomorrow"}
+				Message: "The service has started as many analyses as it runs in a day. Try again tomorrow."}
 		}
 	}
 	if m.cfg.MonthlyTotal > 0 {
@@ -359,7 +359,7 @@ func (m *Manager) withinLimits(ctx context.Context, userID string) error {
 		}
 		if n >= m.cfg.MonthlyTotal {
 			return &LimitError{Code: "monthly_limit", Limit: m.cfg.MonthlyTotal,
-				Message: "the service has started as many analyses as it runs in a month; try again in a few days"}
+				Message: "The service has started as many analyses as it runs in a month. Try again in a few days."}
 		}
 	}
 	return nil
@@ -374,7 +374,7 @@ func (m *Manager) resolve(ctx context.Context, userID, sourceID string) (Source,
 	}
 	if m.cfg.OriginalLifetime > 0 && m.cfg.Clock().After(recording.CreatedAt.Add(m.cfg.OriginalLifetime)) {
 		return Source{}, &LimitError{Code: "original_expired",
-			Message: "the original recording is past the time it is kept for and cannot be analyzed again; upload it again to analyze it"}
+			Message: "The original recording is past the time it is kept for. Upload it again to analyze it."}
 	}
 	return Source{ID: recording.ID, Name: recording.Name, Path: recording.Path, Size: recording.Size}, nil
 }
@@ -605,10 +605,10 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 			j.Error = &Failure{Code: "timed_out", Message: fmt.Sprintf("the analysis ran longer than %s and was stopped", m.cfg.MaxDuration)}
 		case jobCtx.Err() != nil && ctx.Err() == nil:
 			j.Status = Cancelled
-			j.Error = &Failure{Code: "cancelled", Message: "cancelled while the analysis was running; the worker process tree was stopped"}
+			j.Error = &Failure{Code: "cancelled", Message: "Cancelled while the analysis was running."}
 		case ctx.Err() != nil:
 			j.Status = Interrupted
-			j.Error = &Failure{Code: "interrupted", Message: "the service stopped while this job was running; submit a new attempt"}
+			j.Error = &Failure{Code: "interrupted", Message: "The service stopped while this analysis was running. Analyze the recording again."}
 		case runErr != nil:
 			j.Status = Failed
 			j.Error = &Failure{Code: "worker_start_failed", Message: runErr.Error()}

@@ -9,14 +9,14 @@ defineProps<{ user: User | null }>();
 <template>
   <section class="hero">
     <div class="hero-copy">
-      <h1>Your career run, turn by turn.</h1>
+      <h1>Your Career Run, Turn by Turn</h1>
       <p class="lede">Upload a recording of a career. Get every turn's stats with their rank letters, every training, race, purchase and event, and the video at the moment each one happened.</p>
       <div class="row" style="gap: 10px; margin-top: 24px">
         <a v-if="user" class="btn primary big" href="#/runs">Open Runs</a>
         <a v-else class="btn primary big" href="#/signup">Get Started</a>
         <a class="btn big" href="#tour">See What You Get</a>
       </div>
-      <p class="muted small" style="margin-top: 14px">{{ hosted ? "Your recording is analyzed on the service's own worker; the original is kept for 90 days for a re-analysis." : "Runs on this computer. Nothing leaves it." }}</p>
+      <p class="muted small" style="margin-top: 14px">{{ hosted ? "Recordings are analyzed on the service's worker. The original is kept for 90 days for a re-analysis." : "Runs on this computer. Nothing leaves it." }}</p>
     </div>
     <div class="hero-shot">
       <img :src="'/shots/game-home.jpg'" alt="A training turn in the recording: the stat bar and the log panel" />

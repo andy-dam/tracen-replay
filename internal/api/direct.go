@@ -178,7 +178,7 @@ func (s *Server) completeUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	object, err := s.cfg.Objects.Stat(ctx, key)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "upload_missing", "no upload with this id has arrived; upload the file to the URL you were given first")
+		writeError(w, http.StatusNotFound, "upload_missing", "No upload with this id has arrived. The file goes to the upload URL first.")
 		return
 	}
 	if object.Size == 0 || object.Size > s.cfg.UploadLimit {
