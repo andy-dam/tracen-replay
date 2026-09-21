@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { api, ApiError, type OnClose, type Settings, type SettingsChange } from "../api";
+import { openExternal } from "../mode";
 
 const settings = ref<Settings | null>(null);
 const error = ref("");
 const saving = ref(false);
 
+const version = ref<{ version: string; latest?: string; url?: string } | null>(null);
+
 async function load() {
+  api.version().then((v) => (version.value = v)).catch(() => {});
   try {
     settings.value = await api.settings();
   } catch (e) {
@@ -31,7 +35,7 @@ const recommended = computed(() => {
   const s = settings.value;
   return !!s && s.parallel === s.recommended.parallel && s.memory_limit_gb === s.recommended.memory_limit_gb;
 });
-const backgroundLabel = computed(() => (settings.value?.background === "dock" ? "Keep running in the Dock" : "Keep running in the tray"));
+const backgroundLabel = computed(() => (settings.value?.background === "dock" ? "Keep Running in the Dock" : "Keep Running in the Tray"));
 
 onMounted(load);
 </script>
@@ -52,7 +56,7 @@ onMounted(load);
             <h2>Graphics Acceleration</h2>
             <p class="muted small">Runs text recognition on the graphics hardware instead of the processor. Off, the processor runs it.</p>
             <p v-if="settings.gpu_available" class="muted small">Detected: <strong>{{ settings.device }}</strong></p>
-            <p v-else class="muted small" :title="settings.device">No supported hardware detected. Requires a DirectX 12 graphics card (Windows) or Apple silicon (Mac).</p>
+            <p v-else class="muted small" :title="settings.device">No supported hardware detected. Requires a DirectX 12 graphics card (Windows) or Apple Silicon (Mac).</p>
           </div>
           <label class="switch" :class="{ off: !settings.gpu, disabled: !settings.gpu_available || saving }">
             <input type="checkbox" :checked="settings.gpu" :disabled="!settings.gpu_available || saving" @change="change({ gpu: ($event.target as HTMLInputElement).checked })" />
@@ -100,14 +104,30 @@ onMounted(load);
         <div class="setting">
           <div>
             <h2>Closing the Window</h2>
-            <p class="muted small">Action of the window's close button. {{ backgroundLabel }}: the window closes, analyses continue.</p>
+            <p class="muted small">Action of the window's close button. {{ backgroundLabel }} closes the window and leaves analyses running.</p>
           </div>
           <label class="field" style="margin: 0; min-width: 240px">
             <select :value="settings.on_close" :disabled="saving" aria-label="Closing the window" @change="change({ on_close: ($event.target as HTMLSelectElement).value as OnClose })">
-              <option value="ask">Ask every time</option>
+              <option value="ask">Ask Every Time</option>
               <option value="background">{{ backgroundLabel }}</option>
               <option value="exit">Exit</option>
             </select>
+          </label>
+        </div>
+
+        <div class="setting">
+          <div>
+            <h2>Update Check</h2>
+            <p class="muted small">Asks GitHub once a day for the newest release. Sends the installed version and nothing else.</p>
+            <p class="muted small">
+              Installed: <strong>{{ version?.version ?? "unknown" }}</strong>.
+              <template v-if="version?.latest && version.url"> Available: <strong>{{ version.latest }}</strong>. <a :href="version.url" target="_blank" rel="noopener noreferrer" @click="openExternal($event, version.url)">Download</a></template>
+            </p>
+          </div>
+          <label class="switch" :class="{ off: !settings.update_check, disabled: saving }">
+            <input type="checkbox" :checked="settings.update_check" :disabled="saving" @change="change({ update_check: ($event.target as HTMLInputElement).checked })" />
+            <span class="track"><span class="knob"></span></span>
+            <span class="state">{{ settings.update_check ? "On" : "Off" }}</span>
           </label>
         </div>
       </div>

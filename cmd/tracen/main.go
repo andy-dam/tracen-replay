@@ -27,6 +27,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/maintenance"
 	"github.com/andy-dam/tracen-replay/internal/objectstore"
 	"github.com/andy-dam/tracen-replay/internal/runner"
+	"github.com/andy-dam/tracen-replay/internal/updates"
 	"github.com/andy-dam/tracen-replay/internal/webassets"
 )
 
@@ -293,9 +294,14 @@ func run() error {
 	if *registration == api.RegistrationInvite && len(invites) == 0 {
 		return fmt.Errorf("-registration invite needs at least one -invite-code")
 	}
-	var releases *updates
-	if *updateCheck {
-		releases = &updates{log: logger}
+	// A newer release is news for someone who installed this build and has
+	// to replace it by hand. The hosted service (a shared queue) is
+	// redeployed from main by itself and its visitors install nothing, so it
+	// never looks, whatever the flag says; nor does a build that is not a
+	// release (internal/updates).
+	var releases *updates.Checker
+	if *updateCheck && analysisQueue == nil {
+		releases = &updates.Checker{Current: version, Log: logger}
 		go releases.Run(ctx)
 	}
 	// The analyzer names itself, so a report can say whether the analyzer that
@@ -317,7 +323,7 @@ func run() error {
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
 		Objects:       objects,
 		RemoteOrigins: remoteOrigins, OriginalLifetime: *originalLifetime,
-		Version:      releases.Info,
+		Version:      func() api.VersionInfo { return versionInfo(releases) },
 		Analyzer:     analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       frames,

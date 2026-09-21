@@ -266,6 +266,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/settings", s.getSettings)
 	m.HandleFunc("PUT /api/settings", s.putSettings)
 	m.HandleFunc("POST /api/desktop/close", s.desktopClose)
+	m.HandleFunc("POST /api/desktop/open", s.desktopOpen)
 	m.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		info := VersionInfo{Version: "dev"}
 		if s.cfg.Version != nil {
@@ -516,7 +517,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 	address := s.clientAddress(r)
 	if !s.registrations.Allow(address) {
-		writeError(w, http.StatusTooManyRequests, "too_many_attempts", "too many accounts from this address; wait an hour")
+		writeError(w, http.StatusTooManyRequests, "too_many_attempts", "Too many accounts were created from this address. Wait an hour.")
 		return
 	}
 	if s.cfg.Registration == RegistrationInvite && !s.inviteAccepted(body.Invite) {
@@ -697,7 +698,7 @@ func (s *Server) deleteRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if inUse {
-		writeError(w, http.StatusConflict, "recording_in_use", "an analysis of this recording is queued or running; cancel it first")
+		writeError(w, http.StatusConflict, "recording_in_use", "An analysis of this recording is queued or running. Cancel it first.")
 		return
 	}
 	if err := s.cfg.Recordings.DeleteRecording(r.Context(), recording.ID); err != nil {
@@ -1344,7 +1345,7 @@ func (s *Server) frameAllowed(w http.ResponseWriter, r *http.Request) bool {
 	if s.frames.Allow(key) {
 		return true
 	}
-	writeError(w, http.StatusTooManyRequests, "too_many_requests", "too many frame requests; slow down for a minute")
+	writeError(w, http.StatusTooManyRequests, "too_many_requests", "Too many frame requests. Slow down for a minute.")
 	return false
 }
 

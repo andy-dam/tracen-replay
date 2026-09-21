@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { hosted } from "../api";
+import { desktop } from "../mode";
 // What this application is, in a page: the parts, what the analyzer reads,
 // where the data lives, and where the details are.
 </script>
@@ -39,7 +40,7 @@ import { hosted } from "../api";
       <h2>What Is Read</h2>
       <ul class="guide-list">
         <li><b>Read.</b> The calendar and stat bar, training previews and results, support events and choices, award popups, race results, the Grand Concert lesson menu and receipts, concert bonuses, skill purchases, energy, mood and friendship receipts, rests and outings.</li>
-        <li><b>Not read.</b> Story text, supporter introductions, and anything without a number or a named effect. Recordings other than the English game at 1080p with the log panel open are not supported.</li>
+        <li><b>Not Read.</b> Story text, supporter introductions, and anything without a number or a named effect. Recordings other than the English game at 1080p with the log panel open are not supported.</li>
       </ul>
     </section>
 
@@ -47,7 +48,7 @@ import { hosted } from "../api";
       <div class="overline">Privacy</div>
       <h2>Where the Data Is Kept</h2>
       <p v-if="hosted" class="muted">Recordings are uploaded to the service and analyzed there. The original is kept for 90 days so the recording can be analyzed again. The smaller playback copy stays with its report.</p>
-      <p v-else class="muted">Recordings and reports are stored in this computer's data folder, and the service accepts connections from this computer only. Nothing is uploaded. Once a day the application asks GitHub for the latest release number. The -update-check=false flag turns that off.</p>
+      <p v-else class="muted">Recordings and reports are stored in this computer's data folder, and the service accepts connections from this computer only. Nothing is uploaded. A released build asks GitHub once a day for the newest release, sending its own version and nothing else. {{ desktop ? "Update Check in Settings turns that off." : "The -update-check=false flag turns that off." }}</p>
       <p class="muted">Recording requirements and the review steps are in the <a href="#/guide">Guide</a>.</p>
     </section>
 

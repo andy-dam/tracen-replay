@@ -26,6 +26,9 @@ type Settings struct {
 	// OnClose is what closing the window does: "ask", "background" (keep
 	// running without a window) or "exit".
 	OnClose string `json:"on_close"`
+	// UpdateCheck is whether the application asks GitHub once a day for
+	// the newest release. It is the only thing the application ever sends.
+	UpdateCheck bool `json:"update_check"`
 
 	// ParallelMax is the most analyses the memory limit and the processor
 	// allow. Read-only.
@@ -55,6 +58,7 @@ type SettingsChange struct {
 	Parallel      *int    `json:"parallel"`
 	MemoryLimitGB *int    `json:"memory_limit_gb"`
 	OnClose       *string `json:"on_close"`
+	UpdateCheck   *bool   `json:"update_check"`
 }
 
 // SettingsStore keeps the settings and applies them. Change clamps numbers
@@ -70,6 +74,11 @@ type Desktop interface {
 	// "exit" or "background", and whether to remember it; "cancel" keeps
 	// the window as it is.
 	Close(action string, remember bool) error
+	// Open shows an address in the system's browser. The application's own
+	// window cannot open a new tab, so a link that leaves the application
+	// (a release's page) or wants a page of its own (a worker log) goes
+	// through here. The desktop refuses any address that is neither.
+	Open(address string) error
 }
 
 // getSettings answers GET /api/settings.
@@ -113,6 +122,27 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// desktopOpen answers POST /api/desktop/open: an address the desktop
+// application shows in the system's browser.
+func (s *Server) desktopOpen(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Desktop == nil {
+		writeError(w, http.StatusNotFound, "not_desktop", "this service is not the desktop application")
+		return
+	}
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil || body.URL == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "send {\"url\": \"...\"}")
+		return
+	}
+	if err := s.cfg.Desktop.Open(body.URL); err != nil {
+		writeError(w, http.StatusBadRequest, "not_opened", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // desktopClose answers POST /api/desktop/close: the page's answer to the

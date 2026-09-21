@@ -881,6 +881,10 @@ img.dark { display: none; }
 .rv-resolved { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-size: 14px; font-weight: 700; color: var(--ink-2); cursor: pointer; user-select: none; }
 .rv-resolved input { width: 16px; height: 16px; accent-color: var(--green); }
 
+/* a newer release of an installed application */
+.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 18px; margin: 0 0 16px; border-radius: 14px; background: var(--green-soft); border: 1px solid var(--green); }
+.update-banner b { display: block; font-family: var(--font-display); font-weight: 800; color: var(--ink); }
+
 /* dialogs the page draws itself (ConfirmDialog, CloseDialog) */
 .dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(8, 10, 16, 0.6); backdrop-filter: blur(2px); }
 .dialog { width: min(460px, calc(100vw - 32px)); padding: 24px 26px; border-radius: 18px; background: var(--bg-2); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); animation: rise 180ms var(--ease) both; }

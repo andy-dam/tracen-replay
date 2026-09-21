@@ -16,7 +16,9 @@ Anyway".)
 
 **What stays here:** everything. Recordings, reports and the frames the
 viewer shows live under `~/Library/Application Support/TracenReplay`. The
-application never sends anything anywhere.
+one thing the application sends is a question to GitHub once a day: which
+release is the newest. It carries the installed version and nothing else,
+and Update Check in Settings turns it off.
 
 **Graphics acceleration:** most of an analysis is reading text off the
 frames, and the graphics and neural hardware in an Apple chip (through
@@ -24,8 +26,8 @@ CoreML) is quicker at that than the processor. The application uses it
 from the start. It is new on the Mac: if an analysis fails or reads worse,
 turn the switch off in Settings and analyze again.
 
-**Updating:** drag the newer version onto Applications and replace; your
-data stays where it is.
+**Updating:** the Runs page says when a newer version exists and links to
+it. Drag it onto Applications and replace; your data stays where it is.
 
 **Removing:** drag the application to the Trash; your data under
 `~/Library/Application Support/TracenReplay` stays unless you delete it too.
