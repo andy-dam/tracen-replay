@@ -10,7 +10,7 @@ import inspect as inspection
 from importlib.metadata import version
 import re
 from pathlib import Path
-from .pipeline import PipelineError, decode_frames
+from .pipeline import PipelineError, clear_partial_capture, decode_frames
 from .full_recording import save_json
 
 
@@ -105,7 +105,7 @@ def inspect(source,report_path,root):
             if not seal.exists() or json.loads(seal.read_text(encoding='utf-8'))!=expected:
                 raise PipelineError('Recovery capture manifest changed or is unsealed.')
         else:
-            if any(frames_dir.iterdir()):raise PipelineError('Incomplete recovery capture has no frame manifest.')
+            clear_partial_capture(frames_dir)
             frames=decode_frames(source,frames_dir,window['start_ms']/1000,
                 (window['end_ms']-window['start_ms'])/1000,60,report['source']['timeline_origin_seconds'])
             save_json(manifest,frames)

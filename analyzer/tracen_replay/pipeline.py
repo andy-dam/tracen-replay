@@ -66,6 +66,20 @@ def probe(source):
     return info, video, duration, origin
 
 
+def clear_partial_capture(directory):
+    """Delete the images of a decode that was stopped before its manifest was written.
+
+    A capture exists once its caller has written the manifest, after
+    ``decode_frames`` returned. Images without one were left by a decode that
+    was interrupted: the analysis was paused, or its process ended. They name
+    no frame of any report, so the decode starts over on an empty directory
+    and an analysis that is started again on its own output continues.
+    """
+    for path in Path(directory).iterdir():
+        if path.is_file():
+            path.unlink()
+
+
 def decode_frames(source, directory, start, duration, fps, origin, attempts=2):
     """Decode one bounded interval into ``directory`` and return its frame rows.
 

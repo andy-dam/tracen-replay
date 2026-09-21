@@ -179,7 +179,7 @@ def inspect(source_path, root, start_ms, end_ms, fps=60, model_dir='.local/model
     reproduce an older inspection policy; the generated sidecar still records
     whichever policy was selected and is validated before application.
     """
-    from .pipeline import decode_frames
+    from .pipeline import clear_partial_capture, decode_frames
     from .vision import NeuralReader
     from .race_quantity_refinement import generate
     from .full_recording import save_json
@@ -205,8 +205,7 @@ def inspect(source_path, root, start_ms, end_ms, fps=60, model_dir='.local/model
         if capture['source'] != source or capture['scope'] != scope:
             raise ValueError('Existing race inspection capture identity changed.')
     else:
-        if any((directory / 'frames').iterdir()):
-            raise ValueError('Incomplete race inspection capture has unregistered frames.')
+        clear_partial_capture(directory / 'frames')
         frames = decode_frames(source_path, directory / 'frames', start_ms / 1000,
                                (end_ms - start_ms) / 1000, fps, source.get('timeline_origin_seconds', 0))
         capture = dict(source=source, frames=frames, scope=scope,
