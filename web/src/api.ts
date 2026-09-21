@@ -289,6 +289,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const enc = encodeURIComponent;
 
 export const api = {
+  version: () => request<{ version: string; latest?: string; url?: string }>("/api/version"),
   ready: () => request<Readiness>("/readyz").catch((e) => (e instanceof ApiError && e.status === 503 ? ({ ready: false, checks: [] } as Readiness) : Promise.reject(e))),
   me: () => request<{ user: User }>("/api/auth/me").then((r) => r.user),
   login: (email: string, password: string) => request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }).then((r) => r.user),

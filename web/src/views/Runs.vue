@@ -14,6 +14,10 @@ const jobs = ref<Job[]>([]);
 const recordings = ref<Recording[]>([]);
 const error = ref("");
 const busy = ref("");
+// The local application says what the analyzer will run on and whether a
+// newer release exists; the hosted service has neither to say.
+const device = ref("");
+const update = ref<{ latest: string; url: string } | null>(null);
 let timer: number | undefined;
 
 // What each finished report says about its run: the stats at the end, how
@@ -195,6 +199,10 @@ async function cancel(id: string) {
 onMounted(() => {
   load();
   timer = window.setInterval(load, 5000);
+  if (!hosted) {
+    api.ready().then((r) => { device.value = r.checks.find((c) => c.name === "ocr-device")?.note ?? ""; }).catch(() => {});
+    api.version().then((v) => { if (v.latest && v.url) update.value = { latest: v.latest, url: v.url }; }).catch(() => {});
+  }
 });
 onUnmounted(() => window.clearInterval(timer));
 
@@ -238,6 +246,8 @@ function hideBroken(e: Event) {
     <div>
       <h1>Runs</h1>
       <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "The server runs a few analyses at a time and queues the rest." }}</p>
+      <p v-if="device" class="muted small">Analyses run on: {{ device }}.</p>
+      <p v-if="update" class="muted small">A newer version, {{ update.latest }}, is available: <a :href="update.url" target="_blank" rel="noopener noreferrer">download it</a>.</p>
     </div>
   </div>
   <p v-if="error" class="error">{{ error }}</p>
