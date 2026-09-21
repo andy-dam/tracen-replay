@@ -880,6 +880,13 @@ img.dark { display: none; }
 .rv-foot-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .rv-resolved { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-size: 14px; font-weight: 700; color: var(--ink-2); cursor: pointer; user-select: none; }
 .rv-resolved input { width: 16px; height: 16px; accent-color: var(--green); }
+
+/* dialogs the page draws itself (ConfirmDialog, CloseDialog) */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(8, 10, 16, 0.6); backdrop-filter: blur(2px); }
+.dialog { width: min(460px, calc(100vw - 32px)); padding: 24px 26px; border-radius: 18px; background: var(--bg-2); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); animation: rise 180ms var(--ease) both; }
+.dialog h2 { margin: 0 0 10px; font-size: 22px; overflow-wrap: anywhere; }
+.dialog p { margin: 0 0 10px; color: var(--ink-2); overflow-wrap: anywhere; }
+.dialog-actions { gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .verify { margin: 0 14px 14px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg); }
 .verify.ok { border-color: var(--green); background: var(--green-soft); }
 .verify.off { border-color: var(--pink); background: var(--pink-soft); }
