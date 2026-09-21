@@ -61,6 +61,9 @@ type Config struct {
 	// Each analysis holds a few GB and its OCR workers' share of the CPU, so
 	// the number is set per machine.
 	Parallel int
+	// PausedLifetime is how long a paused job's progress is kept before the
+	// job is cancelled and its working files deleted; zero keeps it for good.
+	PausedLifetime time.Duration
 	// KeepWorkingData keeps the analyzer's OCR caches, crops and recovery
 	// inputs in the job directory (about 1 GB per analysis). By default only
 	// the report, the timeline, the viewer page and the log are kept.
@@ -76,7 +79,9 @@ type Config struct {
 	// is not used. Objects then holds every file: the recording under
 	// Job.SourcePath (an object key), the outputs under Job.OutputDir (a
 	// key prefix) and the log under Job.LogPath. Scratch is the worker's
-	// directory for the downloaded recording and the run.
+	// directory for the downloaded recording and the run. A paused job's
+	// scratch directory is kept, so a resume finds it when the workers
+	// share the directory (a file share) or the same worker takes the job.
 	Queue   queue.Queue
 	Objects objectstore.Store
 	Scratch string
@@ -141,6 +146,8 @@ type Manager struct {
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
 	done    map[string]chan struct{}
+	// pausing names the runs whose cancellation is a pause.
+	pausing map[string]bool
 	wake    chan struct{}
 	// active counts the analyses Run has started and not yet seen finish.
 	active int
@@ -179,7 +186,7 @@ func NewManager(cfg Config, store Store, runner Runner) (*Manager, error) {
 		cfg.Logger = slog.Default()
 	}
 	return &Manager{cfg: cfg, store: store, runner: runner, hub: NewHub(), log: cfg.Logger,
-		cancels: map[string]context.CancelFunc{}, done: map[string]chan struct{}{}, wake: make(chan struct{}, 1)}, nil
+		cancels: map[string]context.CancelFunc{}, done: map[string]chan struct{}{}, pausing: map[string]bool{}, wake: make(chan struct{}, 1)}, nil
 }
 
 func randomID() string {
@@ -245,11 +252,18 @@ func (m *Manager) release() {
 func (m *Manager) Hub() *Hub { return m.hub }
 
 // Get returns one job.
-func (m *Manager) Get(ctx context.Context, id string) (Job, error) { return m.store.GetJob(ctx, id) }
+func (m *Manager) Get(ctx context.Context, id string) (Job, error) {
+	job, err := m.store.GetJob(ctx, id)
+	return m.served(job), err
+}
 
 // List returns the user's jobs (and unowned ones), newest first.
 func (m *Manager) List(ctx context.Context, userID string) ([]Job, error) {
-	return m.store.ListJobsForUser(ctx, userID)
+	list, err := m.store.ListJobsForUser(ctx, userID)
+	for i := range list {
+		list[i] = m.served(list[i])
+	}
+	return list, err
 }
 
 // Recover marks jobs left running by a previous process as interrupted. It
@@ -328,7 +342,7 @@ func (m *Manager) withinLimits(ctx context.Context, userID string) error {
 		}
 		if active >= m.cfg.MaxActivePerUser {
 			return &LimitError{Code: "too_many_jobs", Limit: m.cfg.MaxActivePerUser,
-				Message: fmt.Sprintf("you already have %d analysis queued or running; wait for it to finish", active)}
+				Message: fmt.Sprintf("You already have %d analysis queued, running or paused. Wait for it to finish, or cancel it.", active)}
 		}
 	}
 	since := m.cfg.Clock().Add(-24 * time.Hour)
@@ -379,7 +393,8 @@ func (m *Manager) resolve(ctx context.Context, userID, sourceID string) (Source,
 	return Source{ID: recording.ID, Name: recording.Name, Path: recording.Path, Size: recording.Size}, nil
 }
 
-// Cancel stops a queued or running job. For a running job it kills the
+// Cancel stops a queued, running or paused job; a paused job's working
+// files are deleted with it. For a running job it kills the
 // worker's process tree and waits, within a bound, for the record to reach
 // its final state; the returned job carries whatever state was reached.
 func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
@@ -397,6 +412,17 @@ func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
 		err := m.store.UpdateJob(ctx, job)
 		m.mu.Unlock()
 		if err == nil {
+			m.publish(job, nil)
+		}
+		return job, err
+	case Paused:
+		job.Status = Cancelled
+		job.FinishedAt = m.cfg.Clock()
+		job.Error = &Failure{Code: "cancelled", Message: "Cancelled while paused."}
+		err := m.store.UpdateJob(ctx, job)
+		m.mu.Unlock()
+		if err == nil {
+			m.discard(job)
 			m.publish(job, nil)
 		}
 		return job, err
@@ -435,6 +461,7 @@ func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
 func (m *Manager) Run(ctx context.Context) error {
 	var running sync.WaitGroup
 	defer running.Wait()
+	go m.expireLoop(ctx)
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -511,24 +538,36 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	// shared queue, a scratch directory the recording is fetched into and
 	// the outputs are uploaded from.
 	place := placement{source: job.SourcePath, output: job.OutputDir, log: job.LogPath}
+	// A paused run keeps its scratch files for the worker that resumes it.
+	keepScratch := false
 	if m.remote() {
 		var err error
 		if place, err = m.fetch(jobCtx, job); err != nil {
+			paused := m.wasPaused(id)
 			m.finish(ctx, id, func(j *Job) {
+				if paused && ctx.Err() == nil {
+					m.markPaused(j)
+					return
+				}
 				j.Status = Failed
 				j.Error = &Failure{Code: "source_unavailable", Message: "the recording could not be fetched: " + err.Error()}
 			})
 			cancel()
 			return
 		}
-		defer os.RemoveAll(filepath.Dir(place.output))
+		defer func() {
+			if !keepScratch {
+				os.RemoveAll(filepath.Dir(place.output))
+			}
+		}()
 	}
 	workers, denseWorkers := m.load()
 	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: place.source, Output: place.output,
 		ModelDir: m.cfg.ModelDir, Workers: workers, DenseWorkers: denseWorkers, OCRDevice: m.ocrDevice(),
 		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
 		PruneWorkingData: !m.cfg.KeepWorkingData, OwnerPID: os.Getpid()}
-	logs, err := os.Create(place.log)
+	// Appended to, so a resumed job's log still holds what ran before the pause.
+	logs, err := os.OpenFile(place.log, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		m.finish(ctx, id, func(j *Job) { j.Status = Failed; j.Error = &Failure{Code: "log_unwritable", Message: err.Error()} })
 		cancel()
@@ -597,12 +636,16 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		}
 	}
 
+	paused := m.wasPaused(id)
 	m.finish(ctx, id, func(j *Job) {
 		applyProgress(j)
 		switch {
 		case errors.Is(jobCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil:
 			j.Status = Failed
 			j.Error = &Failure{Code: "timed_out", Message: fmt.Sprintf("the analysis ran longer than %s and was stopped", m.cfg.MaxDuration)}
+		case paused && jobCtx.Err() != nil && ctx.Err() == nil:
+			m.markPaused(j)
+			keepScratch = true
 		case jobCtx.Err() != nil && ctx.Err() == nil:
 			j.Status = Cancelled
 			j.Error = &Failure{Code: "cancelled", Message: "Cancelled while the analysis was running."}
@@ -617,6 +660,16 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		}
 	})
 	cancel()
+}
+
+// markPaused records a run stopped by a pause: how long it ran is added to
+// what earlier starts ran, and nothing about it is an error.
+func (m *Manager) markPaused(j *Job) {
+	now := m.cfg.Clock()
+	if !j.StartedAt.IsZero() && now.After(j.StartedAt) {
+		j.RanSeconds += int64(now.Sub(j.StartedAt) / time.Second)
+	}
+	j.Status, j.PausedAt, j.PauseRequested, j.Error = Paused, now, false, nil
 }
 
 // conclude turns the worker's exit code and stdout into the job's final state.
@@ -709,7 +762,9 @@ func (m *Manager) finish(ctx context.Context, id string, apply func(*Job)) {
 	job, err := m.store.GetJob(context.WithoutCancel(ctx), id)
 	if err == nil {
 		apply(&job)
-		job.FinishedAt = m.cfg.Clock()
+		if job.Status != Paused {
+			job.FinishedAt = m.cfg.Clock()
+		}
 		job.PID = 0
 		if err := m.store.UpdateJob(context.WithoutCancel(ctx), job); err != nil {
 			m.log.Error("could not record job outcome", "job", id, "error", err)

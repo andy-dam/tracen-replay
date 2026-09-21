@@ -83,6 +83,25 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
   then kills the worker's whole process tree and waits up to its kill grace
   (five seconds by default) before returning, and `runner.Container.Run`
   removes the worker container by name.
+- **Pause and resume.** `Manager.Pause` stops a running job the way a
+  cancellation does and records it as `paused` with its run directory
+  kept (a queued job is paused in place). `Manager.Resume` makes it
+  `queued` again, and the analyzer started on the same directory picks up
+  its capture manifest and per-frame OCR rows. The analyzer clears a
+  capture directory a stop left without its manifest and decodes it again
+  (`pipeline.clear_partial_capture`). Six stops spread over a two-minute
+  clip (during capture, mid-OCR, in refinement, twice in the training
+  gain recovery and at the occluded receipt recovery) were each resumed
+  on 2026-09-21: every timeline equals the
+  uninterrupted run's, and the reports differ only in their own counts of
+  what the last start wrote against what it found on disk. `Config.PausedLifetime`
+  bounds how long a paused job is kept. `Manager.ExpirePaused`, run every
+  minute, cancels an older one as `pause_expired` and deletes its files.
+  With a shared queue the pause crosses machines through
+  `pause_requested` on the record, the worker keeps the job's scratch
+  directory, and a job given up while paused has its id queued once more
+  so a worker deletes that directory (`dropSettled`). A worker also sweeps
+  the scratch directories of settled jobs when it starts.
 - **Interruption recovery on restart.** `Manager.Recover` runs once at
   startup and marks every job still `running` from a previous process as
   `interrupted` (`internal/store.MarkInterrupted`); an interrupted job is

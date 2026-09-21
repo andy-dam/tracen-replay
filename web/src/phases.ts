@@ -65,7 +65,7 @@ export function progressView(job: Job | null, ocrPercent: number | null): Progre
   // the end instead of falling back to the start.
   const copying = stage === COPY_STAGE && job?.status === "running";
   if (copying) doneIndex = ORDER.indexOf("viewer");
-  if (job?.status && !["queued", "running"].includes(job.status) && job.status !== "failed" && job.status !== "cancelled" && job.status !== "interrupted") doneIndex = ORDER.length - 1;
+  if (job?.status && !["queued", "running", "paused"].includes(job.status) && job.status !== "failed" && job.status !== "cancelled" && job.status !== "interrupted") doneIndex = ORDER.length - 1;
   let cursor = 0;
   let overall = 0;
   let current: PhaseView | null = null;

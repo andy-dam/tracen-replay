@@ -35,6 +35,8 @@ import (
 type Jobs interface {
 	Submit(ctx context.Context, userID, sourceID string) (jobs.Job, error)
 	Cancel(ctx context.Context, id string) (jobs.Job, error)
+	Pause(ctx context.Context, id string) (jobs.Job, error)
+	Resume(ctx context.Context, id string) (jobs.Job, error)
 	Get(ctx context.Context, id string) (jobs.Job, error)
 	List(ctx context.Context, userID string) ([]jobs.Job, error)
 	Hub() *jobs.Hub
@@ -289,6 +291,8 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/jobs", s.submitJob)
 	m.HandleFunc("GET /api/jobs/{id}", s.getJob)
 	m.HandleFunc("POST /api/jobs/{id}/cancel", s.cancelJob)
+	m.HandleFunc("POST /api/jobs/{id}/pause", s.pauseJob)
+	m.HandleFunc("POST /api/jobs/{id}/resume", s.resumeJob)
 	m.HandleFunc("POST /api/jobs/{id}/recover", s.recoverJob)
 	m.HandleFunc("GET /api/jobs/{id}/events", s.jobEvents)
 	m.HandleFunc("GET /api/jobs/{id}/log", s.jobLog)
@@ -698,7 +702,7 @@ func (s *Server) deleteRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if inUse {
-		writeError(w, http.StatusConflict, "recording_in_use", "An analysis of this recording is queued or running. Cancel it first.")
+		writeError(w, http.StatusConflict, "recording_in_use", "An analysis of this recording is queued, running or paused. Cancel it first.")
 		return
 	}
 	if err := s.cfg.Recordings.DeleteRecording(r.Context(), recording.ID); err != nil {
@@ -944,6 +948,37 @@ func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, job)
 }
 
+// pauseJob answers POST /api/jobs/{id}/pause: a queued or running analysis
+// stops and keeps what it has done.
+func (s *Server) pauseJob(w http.ResponseWriter, r *http.Request) {
+	s.moveJob(w, r, s.cfg.Jobs.Pause, "not_pausable")
+}
+
+// resumeJob answers POST /api/jobs/{id}/resume: a paused analysis goes back
+// to the queue and continues from the files it kept.
+func (s *Server) resumeJob(w http.ResponseWriter, r *http.Request) {
+	s.moveJob(w, r, s.cfg.Jobs.Resume, "not_resumable")
+}
+
+// moveJob applies one state change to the caller's own job. A change that
+// does not apply to the job's state answers 409 with the job as it is.
+func (s *Server) moveJob(w http.ResponseWriter, r *http.Request, move func(context.Context, string) (jobs.Job, error), refusal string) {
+	if _, ok := s.ownJob(w, r); !ok {
+		return
+	}
+	job, err := move(r.Context(), r.PathValue("id"))
+	if err != nil {
+		var te *jobs.TransitionError
+		if errors.As(err, &te) {
+			writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]string{"code": refusal, "message": err.Error()}, "job": job})
+			return
+		}
+		writeNotFoundOr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
 // recoverJob answers POST /api/jobs/{id}/recover: an analysis that ran to
 // the end and whose result could not be read gets its report from the
 // output it wrote, without being run again.
@@ -1000,7 +1035,10 @@ func (s *Server) jobEvents(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 	send("job", job)
-	if job.Status.Terminal() {
+	// A paused job says nothing more until it is resumed, and a stream left
+	// open would keep a service that scales to nothing awake. The page
+	// opens a new stream when it resumes the job.
+	if job.Status.Terminal() || job.Status == jobs.Paused {
 		return
 	}
 	keepalive := time.NewTicker(15 * time.Second)
@@ -1017,7 +1055,7 @@ func (s *Server) jobEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			send("progress", e)
-			if e.Terminal {
+			if e.Terminal || e.Status == jobs.Paused {
 				if final, err := s.cfg.Jobs.Get(r.Context(), id); err == nil {
 					send("job", final)
 				}

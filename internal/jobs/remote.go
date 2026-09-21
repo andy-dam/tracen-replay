@@ -67,6 +67,7 @@ func (m *Manager) Work(ctx context.Context) error {
 	if err := os.MkdirAll(m.cfg.Scratch, 0o755); err != nil {
 		return err
 	}
+	m.sweepScratch(ctx)
 	slots := make(chan struct{}, max(1, m.cfg.Parallel))
 	var running sync.WaitGroup
 	defer running.Wait()
@@ -99,6 +100,7 @@ func (m *Manager) Work(ctx context.Context) error {
 		id := message.Body
 		if !m.takeable(ctx, message) {
 			m.cfg.Queue.Delete(ctx, message)
+			m.dropSettled(ctx, id)
 			<-slots
 			continue
 		}
@@ -192,6 +194,8 @@ func (m *Manager) watch(ctx context.Context, id string, message queue.Message) {
 			lookCtx, done := context.WithTimeout(ctx, 30*time.Second)
 			if job, err := m.store.GetJob(lookCtx, id); err == nil && job.CancelRequested {
 				m.stop(id)
+			} else if err == nil && job.PauseRequested {
+				m.pauseLocal(id)
 			}
 			done()
 		}
@@ -218,6 +222,7 @@ func (m *Manager) Follow(ctx context.Context) {
 		processed, total int
 	}
 	last := map[string]seen{}
+	go m.expireLoop(ctx)
 	ticker := time.NewTicker(m.poll())
 	defer ticker.Stop()
 	for {
@@ -329,12 +334,23 @@ func (m *Manager) keepCopy(ctx context.Context, job Job, place placement) string
 	return key
 }
 
+// fetchedMarker is written beside a recording once all of it has arrived.
+const fetchedMarker = ".fetched"
+
 // fetch downloads the job's recording into its scratch directory and says
-// where the run reads and writes.
+// where the run reads and writes. A resumed job whose scratch directory is
+// still there (the workers share it, or the same worker takes it again)
+// keeps the recording and the run it already has.
 func (m *Manager) fetch(ctx context.Context, job Job) (placement, error) {
 	dir := filepath.Join(m.cfg.Scratch, job.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return placement{}, err
+	}
+	kept := placement{source: filepath.Join(dir, "source"+path.Ext(job.SourcePath)), output: filepath.Join(dir, "run"), log: filepath.Join(dir, "worker.log")}
+	if _, err := os.Stat(filepath.Join(dir, fetchedMarker)); err == nil {
+		if _, err := os.Stat(kept.source); err == nil {
+			return kept, nil
+		}
 	}
 	m.mu.Lock()
 	if current, err := m.store.GetJob(ctx, job.ID); err == nil {
@@ -346,7 +362,7 @@ func (m *Manager) fetch(ctx context.Context, job Job) (placement, error) {
 	} else {
 		m.mu.Unlock()
 	}
-	place := placement{source: filepath.Join(dir, "source"+path.Ext(job.SourcePath)), output: filepath.Join(dir, "run"), log: filepath.Join(dir, "worker.log")}
+	place := kept
 	reader, err := m.cfg.Objects.Open(ctx, job.SourcePath)
 	if err != nil {
 		os.RemoveAll(dir)
@@ -365,6 +381,9 @@ func (m *Manager) fetch(ctx context.Context, job Job) (placement, error) {
 	if copyErr != nil {
 		os.RemoveAll(dir)
 		return placement{}, copyErr
+	}
+	if err := os.WriteFile(filepath.Join(dir, fetchedMarker), nil, 0o644); err != nil {
+		m.log.Warn("fetched recording not marked", "job", job.ID, "error", err)
 	}
 	return place, nil
 }

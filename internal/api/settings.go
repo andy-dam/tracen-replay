@@ -29,6 +29,10 @@ type Settings struct {
 	// UpdateCheck is whether the application asks GitHub once a day for
 	// the newest release. It is the only thing the application ever sends.
 	UpdateCheck bool `json:"update_check"`
+	// PausedLifetimeDays is how many days a paused analysis keeps its
+	// progress before it is cancelled and its files deleted; zero keeps it
+	// for good.
+	PausedLifetimeDays int `json:"paused_lifetime_days"`
 
 	// ParallelMax is the most analyses the memory limit and the processor
 	// allow. Read-only.
@@ -54,12 +58,16 @@ type Settings struct {
 // SettingsChange is a request to change settings; a nil field is left as
 // it is.
 type SettingsChange struct {
-	GPU           *bool   `json:"gpu"`
-	Parallel      *int    `json:"parallel"`
-	MemoryLimitGB *int    `json:"memory_limit_gb"`
-	OnClose       *string `json:"on_close"`
-	UpdateCheck   *bool   `json:"update_check"`
+	GPU                *bool   `json:"gpu"`
+	Parallel           *int    `json:"parallel"`
+	MemoryLimitGB      *int    `json:"memory_limit_gb"`
+	OnClose            *string `json:"on_close"`
+	UpdateCheck        *bool   `json:"update_check"`
+	PausedLifetimeDays *int    `json:"paused_lifetime_days"`
 }
+
+// MaxPausedLifetimeDays is the longest lifetime a paused analysis can be given.
+const MaxPausedLifetimeDays = 365
 
 // SettingsStore keeps the settings and applies them. Change clamps numbers
 // to what the machine allows and returns the settings as they then are.
@@ -98,7 +106,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	var change SettingsChange
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&change); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "send any of gpu, parallel, memory_limit_gb, on_close")
+		writeError(w, http.StatusBadRequest, "bad_request", "send any of gpu, parallel, memory_limit_gb, on_close, update_check, paused_lifetime_days")
 		return
 	}
 	current := s.cfg.Settings.Get()
@@ -114,6 +122,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	case change.OnClose != nil && *change.OnClose != "ask" && *change.OnClose != "background" && *change.OnClose != "exit":
 		writeError(w, http.StatusBadRequest, "bad_request", "on_close is ask, background or exit")
+		return
+	case change.PausedLifetimeDays != nil && (*change.PausedLifetimeDays < 0 || *change.PausedLifetimeDays > MaxPausedLifetimeDays):
+		writeError(w, http.StatusBadRequest, "bad_request", "paused_lifetime_days is 0 (kept for good) to 365")
 		return
 	}
 	updated, err := s.cfg.Settings.Change(change)

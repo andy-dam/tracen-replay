@@ -35,6 +35,19 @@ const recommended = computed(() => {
   const s = settings.value;
   return !!s && s.parallel === s.recommended.parallel && s.memory_limit_gb === s.recommended.memory_limit_gb;
 });
+// The choices for how long a paused analysis keeps its progress. A number of
+// days saved by hand in the settings file is shown as it is.
+const pausedOptions = computed(() => {
+  const options = [
+    { days: 0, label: "Never Delete" },
+    { days: 1, label: "Delete After 1 Day" },
+    { days: 7, label: "Delete After 7 Days" },
+    { days: 30, label: "Delete After 30 Days" },
+  ];
+  const days = settings.value?.paused_lifetime_days ?? 0;
+  if (!options.some((o) => o.days === days)) options.push({ days, label: `Delete After ${days} Days` });
+  return options;
+});
 const backgroundLabel = computed(() => (settings.value?.background === "dock" ? "Keep Running in the Dock" : "Keep Running in the Tray"));
 
 onMounted(load);
@@ -111,6 +124,18 @@ onMounted(load);
               <option value="ask">Ask Every Time</option>
               <option value="background">{{ backgroundLabel }}</option>
               <option value="exit">Exit</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="setting">
+          <div>
+            <h2>Paused Analyses</h2>
+            <p class="muted small">Time a paused analysis keeps its progress. Past it the progress is deleted and the recording is analyzed from the start.</p>
+          </div>
+          <label class="field" style="margin: 0; min-width: 240px">
+            <select :value="settings.paused_lifetime_days" :disabled="saving" aria-label="Paused analyses" @change="change({ paused_lifetime_days: Number(($event.target as HTMLSelectElement).value) })">
+              <option v-for="o in pausedOptions" :key="o.days" :value="o.days">{{ o.label }}</option>
             </select>
           </label>
         </div>

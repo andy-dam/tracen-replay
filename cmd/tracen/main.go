@@ -102,11 +102,19 @@ func run() error {
 	workerPids := flag.Int("worker-pids", 512, "docker run --pids-limit for the worker container; 0 for no bound")
 	workerNetwork := flag.String("worker-network", "none", "docker run --network for the worker container; the analyzer needs none")
 	recordingRetention := flag.Duration("recording-retention", 14*24*time.Hour, "uploads older than this that no analysis is using are deleted (their reports stay); 0 keeps uploads forever")
+	pausedLifetime := flag.Duration("paused-lifetime", 0, "how long a paused analysis keeps its progress before it is cancelled and its working files are deleted (the hosted service: 24h); 0 keeps it for good. TRACEN_PAUSED_LIFETIME sets it when the flag is absent: an image older than the flag ignores the variable, where it would stop at the flag")
 	originalLifetime := flag.Duration("original-lifetime", 0, "how long after its upload an original can still be analyzed, when an object store's lifecycle deletes originals (Azure: 2160h); a later analysis is refused up front and the recording says until when; 0 for no limit")
 	frameCache := flag.Int64("frame-cache-gb", 2, "space the extracted-frame cache may take, in GB, the oldest frames going first; 0 for no bound")
 	updateCheck := flag.Bool("update-check", true, "ask GitHub once a day for the newest release, so the client can say one exists; nothing else is sent")
 	storage := addStorageFlags(flag.CommandLine)
 	flag.Parse()
+	if value := os.Getenv("TRACEN_PAUSED_LIFETIME"); value != "" && !flagGiven("paused-lifetime") {
+		lifetime, err := time.ParseDuration(value)
+		if err != nil || lifetime < 0 {
+			return fmt.Errorf("TRACEN_PAUSED_LIFETIME %q is not a duration such as 24h", value)
+		}
+		*pausedLifetime = lifetime
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
 	objects, analysisQueue, err := storage.open(context.Background())
@@ -160,6 +168,7 @@ func run() error {
 		QueueLimit: *queue, KeepWorkingData: *keepWorkingData,
 		MaxActivePerUser: *maxActive, DailyPerUser: *dailyPerUser, DailyTotal: *dailyTotal, MonthlyTotal: *monthlyTotal, MaxDuration: *maxAnalysis,
 		OriginalLifetime: *originalLifetime,
+		PausedLifetime:   *pausedLifetime,
 		Recordings:       db, Queue: analysisQueue, Objects: objects, Logger: logger}, db, jobRunner)
 	if err != nil {
 		return err
@@ -368,4 +377,11 @@ func check(name, note string, probe func() error) api.Check {
 		return api.Check{Name: name, OK: false, Note: note + ": " + err.Error()}
 	}
 	return api.Check{Name: name, OK: true, Note: note}
+}
+
+// flagGiven reports whether the command line set the flag.
+func flagGiven(name string) bool {
+	given := false
+	flag.Visit(func(f *flag.Flag) { given = given || f.Name == name })
+	return given
 }

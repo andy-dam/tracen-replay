@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Report } from "../api";
-import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
+import { bytes, clock, runTime, STAT_NAMES, when } from "../format";
 import { reviewSettles, turnWarnings } from "../warnings";
 import { progressView } from "../phases";
 import { openExternal } from "../mode";
@@ -99,6 +99,10 @@ interface Run {
 }
 
 const active = (j: Job) => j.status === "queued" || j.status === "running";
+const paused = (j: Job | null) => j?.status === "paused";
+// An analysis left paused until its progress was deleted: the recording
+// reads as never analyzed, so the job is left out of the list.
+const expiredPause = (j: Job) => j.status === "cancelled" && j.error?.code === "pause_expired";
 const newestFirst = (a: { created_at: string }, b: { created_at: string }) => b.created_at.localeCompare(a.created_at);
 
 const runs = computed<Run[]>(() => {
@@ -106,7 +110,7 @@ const runs = computed<Run[]>(() => {
   const used = new Set<string>();
   const reportById = new Map(reports.value.map((r) => [r.id, r]));
   for (const u of recordings.value) {
-    const analyses = jobs.value.filter((j) => j.source_id === u.id).sort(newestFirst);
+    const analyses = jobs.value.filter((j) => j.source_id === u.id && !expiredPause(j)).sort(newestFirst);
     const made = analyses
       .filter((j) => j.report_id && reportById.has(j.report_id))
       .map((j) => ({ job: j, report: reportById.get(j.report_id!)! }))
@@ -224,6 +228,20 @@ async function cancel(id: string) {
   }
 }
 
+// Pause keeps what the analysis has done. Resume queues it again, and it
+// continues from there.
+async function move(id: string, to: "pause" | "resume") {
+  busy.value = id;
+  try {
+    await api[to](id);
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : (e as Error).message;
+  } finally {
+    busy.value = "";
+    await load();
+  }
+}
+
 onMounted(() => {
   load();
   timer = window.setInterval(load, 5000);
@@ -259,6 +277,7 @@ function status(run: Run): { text: string; cls: string } | null {
     const pct = run.job.status === "running" ? ` ${Math.round(progressView(run.job, ocr).overall)}%` : "";
     return { text: run.job.status === "queued" ? "Queued" : `Analyzing${pct}`, cls: "warn" };
   }
+  if (paused(run.job)) return { text: "Paused", cls: "" };
   if (run.report) return run.madeBy?.status === "completed_with_stage_failures" ? { text: "Some Stages Were Skipped", cls: "warn" } : null;
   if (run.job?.status === "failed") return { text: "Analysis Failed", cls: "bad" };
   if (run.job?.status === "interrupted") return { text: "Analysis Interrupted", cls: "bad" };
@@ -271,7 +290,8 @@ function meta(run: Run): string[] {
   if (run.date) parts.push(`${run.analyzed ? "Analyzed" : "Uploaded"} ${when(run.date)}`);
   if (run.report) parts.push(clock(run.report.duration_ms), `${run.report.turns} turns`, `${run.report.entries} entries`);
   if (run.size !== null) parts.push(bytes(run.size));
-  if (run.job && active(run.job) && run.job.started_at) parts.push(`running ${elapsed(run.job.started_at)}`);
+  if (run.job && active(run.job) && run.job.started_at) parts.push(`running ${runTime(run.job)}`);
+  if (paused(run.job) && run.job!.paused_until) parts.push(`progress kept until ${when(run.job!.paused_until)}`);
   if (run.recording?.original_until) parts.push(expired(run) ? "original no longer kept" : `can be analyzed again until ${when(run.recording.original_until)}`);
   return parts;
 }
@@ -362,6 +382,12 @@ function hideBroken(e: Event) {
         <div class="run-actions">
           <a v-if="run.report" class="btn small primary" :href="`#/reports/${encodeURIComponent(run.report.id)}`">Open</a>
           <template v-if="run.job && active(run.job)">
+            <a class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Progress</a>
+            <button class="btn small" :disabled="busy === run.job.id || run.job.pause_requested" @click="move(run.job.id, 'pause')">{{ run.job.pause_requested ? "Pausing" : "Pause" }}</button>
+            <button class="btn small" @click="cancel(run.job.id)">Cancel</button>
+          </template>
+          <template v-else-if="run.job && paused(run.job)">
+            <button class="btn small primary" :disabled="busy === run.job.id" @click="move(run.job.id, 'resume')">Resume</button>
             <a class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Progress</a>
             <button class="btn small" @click="cancel(run.job.id)">Cancel</button>
           </template>
