@@ -72,3 +72,9 @@ CI, so a green local run on Windows is not the whole suite.
 
 Repository conventions for contributors and coding agents are in
 [AGENTS.md](AGENTS.md).
+
+## License
+
+Tracen Replay is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md): you may use, change and share it for personal, academic, hobby and other noncommercial purposes; commercial use is not permitted. The models it downloads and the libraries it depends on keep their own licenses (RapidOCR and the PP-OCR models under Apache 2.0, ONNX Runtime under MIT, OpenCV under Apache 2.0).
+
+Tracen Replay is a fan-made tool. It is not affiliated with, endorsed by or connected to Cygames; Umamusume and its characters are the property of their owners.
