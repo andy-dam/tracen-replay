@@ -346,3 +346,38 @@ func TestWorkExitsWhenIdle(t *testing.T) {
 		t.Fatalf("the queued job ran first: %+v", got)
 	}
 }
+
+// A run longer than one renewal of its message's hold ends with the message
+// deleted: each renewal changes the receipt, and the worker deletes with the
+// latest one. With the first receipt the message stayed in the queue.
+func TestFinishedJobMessageIsDeletedAfterRenewals(t *testing.T) {
+	h := newRemoteHarness(t)
+	runner := &scriptedRunner{started: make(chan string, 1)}
+	runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+		time.Sleep(200 * time.Millisecond)
+		return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
+	}
+	renewing, err := jobs.NewManager(jobs.Config{Python: "python", WorkDir: h.scratch, Workers: 1, QueueLimit: 4, Recordings: h.upload,
+		Queue: h.queue, Objects: h.objects, Scratch: h.scratch, Poll: 10 * time.Millisecond, HoldRenew: 20 * time.Millisecond}, h.store, runner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stopped := make(chan struct{})
+	go func() { renewing.Work(ctx); close(stopped) }()
+	job, err := h.api.Submit(context.Background(), "u1", "src-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.waitStatus(job.ID, jobs.Succeeded)
+	deadline := time.Now().Add(5 * time.Second)
+	for h.queue.Len() != 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	<-stopped
+	if n := h.queue.Len(); n != 0 {
+		t.Fatalf("%d message left in the queue after the job finished", n)
+	}
+}

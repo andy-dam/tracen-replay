@@ -51,7 +51,7 @@ type Memory struct {
 
 type memoryMessage struct {
 	id, body, receipt string
-	dequeued          int
+	dequeued, renewed int
 	visibleAt         time.Time
 }
 
@@ -99,7 +99,13 @@ func (q *Memory) Extend(ctx context.Context, m Message, visibility time.Duration
 			if held.receipt != m.Receipt {
 				return Message{}, ErrStale
 			}
+			// A renewed hold has a new receipt and the old one stops
+			// working, as on an Azure queue: a caller that keeps using the
+			// receipt it took the message with fails here as it would there.
+			held.renewed++
+			held.receipt = itoa(q.next + held.dequeued*1_000_003 + held.renewed*7_919)
 			held.visibleAt = q.clock().Add(visibility)
+			m.Receipt = held.receipt
 			return m, nil
 		}
 	}

@@ -109,10 +109,19 @@ func (m *Manager) Work(ctx context.Context) error {
 		go func() {
 			defer running.Done()
 			defer func() { <-slots }()
+			// Every renewal of the hold gives the message a new receipt, and
+			// only the latest one deletes it. The watch hands back the
+			// message as it last held it. Deleting with the receipt the
+			// message was taken with failed after any run longer than one
+			// renewal: the message stayed, hidden, for the rest of its hold,
+			// and the queue-length trigger started an idle worker every
+			// minute until it came back and was dropped.
 			watchCtx, stopWatch := context.WithCancel(context.Background())
-			go m.watch(watchCtx, id, message)
+			latest := make(chan queue.Message, 1)
+			go func() { latest <- m.watch(watchCtx, id, message) }()
 			m.runOne(ctx, id, claimed)
 			stopWatch()
+			message := <-latest
 			if err := m.cfg.Queue.Delete(context.WithoutCancel(ctx), message); err != nil {
 				m.log.Warn("finished job message not deleted", "job", id, "error", err)
 			}
@@ -156,8 +165,13 @@ func (m *Manager) takeable(ctx context.Context, message queue.Message) bool {
 
 // watch keeps a running job's message held and its heartbeat fresh, and
 // stops the run when a cancellation was requested or the message was lost.
-func (m *Manager) watch(ctx context.Context, id string, message queue.Message) {
-	renew := time.NewTicker(holdRenew)
+// It returns the message with the receipt of its latest renewal.
+func (m *Manager) watch(ctx context.Context, id string, message queue.Message) queue.Message {
+	every := m.cfg.HoldRenew
+	if every <= 0 {
+		every = holdRenew
+	}
+	renew := time.NewTicker(every)
 	defer renew.Stop()
 	beat := time.NewTicker(heartbeatEvery)
 	defer beat.Stop()
@@ -166,13 +180,17 @@ func (m *Manager) watch(ctx context.Context, id string, message queue.Message) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return message
 		case <-renew.C:
-			extended, err := m.cfg.Queue.Extend(ctx, message, hold)
+			// Not bound to ctx: a renewal cut off half way by the end of
+			// the run could leave the queue with a receipt nobody holds.
+			extendCtx, done := context.WithTimeout(context.Background(), 30*time.Second)
+			extended, err := m.cfg.Queue.Extend(extendCtx, message, hold)
+			done()
 			if errors.Is(err, queue.ErrStale) {
 				m.log.Warn("job message lost while running; stopping", "job", id)
 				m.stop(id)
-				return
+				return message
 			}
 			if err == nil {
 				message = extended
