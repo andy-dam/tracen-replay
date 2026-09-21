@@ -5,6 +5,21 @@ and the HTTP API, keeps a SQLite database of jobs and reports, and runs the
 Python analyzer as a child process for each submitted recording. Nothing
 leaves the machine; the server listens on the loopback interface only.
 
+## The Windows bundle
+
+The way in without any of the prerequisites below: a zip attached to each
+release, built by `desktop/build-windows.ps1`, holding the service with
+the client inside it, an embeddable Python with the analyzer and its
+pinned wheels (the DirectML build of ONNX Runtime, so any DirectX 12
+card is used), the OCR models, the learned card reader and ffmpeg. Unzip
+it anywhere and start `Tracen Replay.cmd`: the data lives under
+`%LOCALAPPDATA%\TracenReplay`, the browser opens on
+http://127.0.0.1:8765/, and the runs page says which device analyses run
+on. The service asks GitHub once a day whether a newer release exists
+(`-update-check=false` turns it off) and sends nothing else. Updating is
+unzipping the newer one next to the old. `desktop/README-bundle.md` is
+the note inside the zip.
+
 ## Prerequisites
 
 - Go 1.25 (`go.mod` pins the toolchain; `GOTOOLCHAIN=local` avoids a download).
@@ -60,7 +75,9 @@ directory, so no user path is hardcoded):
 | `-dense-workers` | `0` (= workers minus one) | processes for the dense re-read passes; each stays near 2 GB |
 | `-queue` | `4` | maximum queued jobs, beyond those running |
 | `-parallel` | `1` | analyses run at once, in queue order; each holds about 4 GB resident (7 GB committed) and its OCR workers' share of the CPU, so two fit a 32 GB machine that is also in use, and the number is set per machine |
-| `-ocr-device` | `auto` | `auto` (DirectML, then CUDA, then CPU), `cpu`, `dml`, `cuda` |
+| `-ocr-device` | `auto` | `auto` (DirectML, then CUDA, then CPU), `cpu`, `dml`, `cuda`; `/readyz` reports which the interpreter has |
+| `-update-check` | `true` | ask GitHub once a day for the newest release, shown on the runs page when it differs from this build |
+| `-learned-reader` | the reader shipped with the analyzer | the exported result-card reader; `tracen_replay/data/reader.onnx` when it exists |
 | `-learned-reader` | unset | an exported learned result-card reader (ONNX) passed to every analysis; an amount it read is marked ✦ in the log, and the ready check reports whether the file exists |
 | `-web` | unset | serve the browser client from this built directory instead of the embedded copy; a rebuild is picked up on the next page load without a restart |
 | `-api-only` | off | serve the API only; the client is hosted elsewhere |
