@@ -35,7 +35,7 @@ onMounted(load);
     <div class="page-head">
       <div>
         <h1>Settings</h1>
-        <p>How analyses run on this computer. A change applies to the next analysis you start.</p>
+        <p>Changes apply to the next analysis started.</p>
       </div>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
@@ -43,18 +43,9 @@ onMounted(load);
       <div class="setting">
         <div>
           <h2>Graphics Acceleration</h2>
-          <template v-if="settings.gpu_available">
-            <p class="muted small">
-              Most of an analysis is reading text off the recording's frames. Your <strong>{{ settings.device }}</strong> can do that reading, and it is a lot quicker at it than the processor.
-            </p>
-            <p class="muted small">Switch it off if an analysis fails, or if the computer gets too sluggish to use while one runs. The processor does the reading then.</p>
-          </template>
-          <template v-else>
-            <p class="muted small" :title="settings.device">
-              Most of an analysis is reading text off the recording's frames. On this computer the processor does that, because no graphics hardware the app can use was found.
-            </p>
-            <p class="muted small">It needs a graphics card that supports DirectX 12 on Windows, or a Mac with an Apple chip (M1 or later).</p>
-          </template>
+          <p class="muted small">Runs text recognition on the graphics hardware instead of the processor. Off, the processor runs it.</p>
+          <p v-if="settings.gpu_available" class="muted small">Detected: <strong>{{ settings.device }}</strong></p>
+          <p v-else class="muted small" :title="settings.device">No supported hardware detected. Requires a DirectX 12 graphics card (Windows) or Apple silicon (Mac).</p>
         </div>
         <label class="switch" :class="{ off: !settings.gpu, disabled: !settings.gpu_available || saving }">
           <input type="checkbox" :checked="settings.gpu" :disabled="!settings.gpu_available || saving" @change="toggle(($event.target as HTMLInputElement).checked)" />
