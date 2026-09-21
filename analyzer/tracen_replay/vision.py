@@ -1,4 +1,5 @@
 """Local neural OCR observations; visual evidence and semantic parsing stay separate."""
+import contextlib
 import copy
 import hashlib
 import json
@@ -436,6 +437,29 @@ def _strip_saturation(colors):
     return float(((spread>40)&(colors.max(axis=2)>120)).mean())
 
 
+@contextlib.contextmanager
+def _engine_build_lock():
+    """One reader at a time builds its engine when the device is CoreML.
+
+    CoreML compiles each model into a cache folder shared by every process
+    the first time a session is made. Reader processes start together, and
+    one of them would read the package another is still writing ("a valid
+    manifest does not exist"). Behind the lock the first compiles and the
+    rest load what it left. Other devices build as before.
+    """
+    if OCR_DEVICE != 'coreml':
+        yield
+        return
+    import fcntl
+    import tempfile
+    with open(Path(tempfile.gettempdir())/'tracen-replay-coreml.lock','w') as handle:
+        fcntl.flock(handle,fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle,fcntl.LOCK_UN)
+
+
 class NeuralReader:
     def __init__(self,model_dir='.local/models/rapidocr'):
         from rapidocr import RapidOCR,OCRVersion,ModelType,LangRec
@@ -443,8 +467,9 @@ class NeuralReader:
         from PIL import Image,ImageOps
         from rapidocr.ch_ppocr_rec import TextRecInput
         self.np,self.Image,self.ImageOps,self.TextRecInput=np,Image,ImageOps,TextRecInput
-        self.engine=CompactInputEngine(RapidOCR(params=dict(PARAMS,**{'Global.model_root_dir':str(model_dir),
-            'Rec.lang_type':LangRec.EN,'Rec.ocr_version':OCRVersion.PPOCRV5,'Rec.model_type':ModelType.MOBILE})))
+        with _engine_build_lock():
+            self.engine=CompactInputEngine(RapidOCR(params=dict(PARAMS,**{'Global.model_root_dir':str(model_dir),
+                'Rec.lang_type':LangRec.EN,'Rec.ocr_version':OCRVersion.PPOCRV5,'Rec.model_type':ModelType.MOBILE})))
         self.models={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(model_dir).glob('*.onnx') if p.name in ('PP-OCRv6_det_small.onnx','en_PP-OCRv5_rec_mobile.onnx')}
         self.lean=os.environ.get('TRACEN_REPLAY_OCR_LEAN','').strip().lower()
         self._reuse_prev=None
