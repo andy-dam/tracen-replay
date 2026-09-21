@@ -51,13 +51,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="open" class="close-backdrop" @click.self="answer('cancel')">
-    <div class="close-dialog" role="dialog" aria-modal="true" aria-labelledby="close-title">
+  <div v-if="open" class="dialog-backdrop" @click.self="answer('cancel')">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="close-title">
       <h2 id="close-title">Close Tracen Replay</h2>
       <p v-if="running" class="close-warn">{{ running }} {{ running === 1 ? "analysis is" : "analyses are" }} running or queued. Exit stops {{ running === 1 ? "it" : "them" }}.</p>
       <p class="muted small">{{ background === "dock" ? "Keep Running closes the window and leaves the application in the Dock." : "Keep Running closes the window and leaves the application in the tray." }} Analyses continue.</p>
       <label class="close-remember"><input v-model="remember" type="checkbox" /> Remember this choice</label>
-      <div class="row close-actions">
+      <div class="row dialog-actions" style="margin-top: 0">
         <button class="btn primary" :disabled="busy" @click="answer('background')">Keep Running</button>
         <button class="btn" :disabled="busy" @click="answer('exit')">Exit</button>
         <button class="btn quiet" :disabled="busy" @click="answer('cancel')">Cancel</button>
@@ -68,12 +68,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.close-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(8, 10, 16, 0.6); backdrop-filter: blur(2px); }
-.close-dialog { width: min(460px, calc(100vw - 32px)); padding: 24px 26px; border-radius: 18px; background: var(--bg-1, var(--bg-2)); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); }
-.close-dialog h2 { margin: 0 0 10px; font-size: 22px; }
-.close-dialog p { margin: 0 0 10px; }
-.close-warn { color: var(--warn-ink); font-weight: 700; }
+.dialog .close-warn { color: var(--warn-ink); font-weight: 700; }
 .close-remember { display: flex; align-items: center; gap: 8px; margin: 14px 0 16px; cursor: pointer; user-select: none; }
 .close-remember input { width: 16px; height: 16px; accent-color: var(--green); }
-.close-actions { gap: 10px; flex-wrap: wrap; }
 </style>

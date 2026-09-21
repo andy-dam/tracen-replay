@@ -7,6 +7,7 @@ import { progressView } from "../phases";
 import RankBadge from "../components/RankBadge.vue";
 import StatBar from "../components/StatBar.vue";
 import UploadBox from "../components/UploadBox.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 // One list. A run is a recording, the analysis made from it and the report
 // that came out, shown as one row from upload to result.
@@ -180,18 +181,36 @@ async function analyze(sourceId: string) {
 
 // Deleting a run removes the recording and every report made from it; a
 // run that is only a report (its recording already gone) removes the report.
-async function remove(run: Run) {
+// The question is a dialog of the page's own (ConfirmDialog): the desktop
+// application's web view on a Mac never shows the browser's confirm().
+const deleting = ref<Run | null>(null);
+const deleteBusy = ref(false);
+const deleteQuestion = computed(() => {
+  const run = deleting.value;
+  if (!run) return { title: "", message: "" };
   const reports = run.report ? [run.report, ...run.earlier] : [];
-  const what = run.recording
-    ? `Delete ${run.name}? The recording${reports.length ? ` and ${reports.length === 1 ? "its report" : `its ${reports.length} reports`}` : ""} will be removed.`
-    : `Delete the report for ${run.name}? Getting it back means analyzing the recording again.`;
-  if (!window.confirm(what)) return;
+  return run.recording
+    ? { title: `Delete ${run.name}?`, message: `Removes the recording${reports.length ? ` and ${reports.length === 1 ? "its report" : `its ${reports.length} reports`}` : ""}. This cannot be undone.` }
+    : { title: `Delete the report for ${run.name}?`, message: "Removes the report. Getting it back means analyzing the recording again." };
+});
+
+function remove(run: Run) {
+  deleting.value = run;
+}
+
+async function confirmRemove() {
+  const run = deleting.value;
+  if (!run || deleteBusy.value) return;
+  deleteBusy.value = true;
   try {
-    for (const r of reports) await api.deleteReport(r.id);
+    for (const r of run.report ? [run.report, ...run.earlier] : []) await api.deleteReport(r.id);
     if (run.recording) await api.deleteRecording(run.recording.id);
     await load();
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : (e as Error).message;
+  } finally {
+    deleteBusy.value = false;
+    deleting.value = null;
   }
 }
 
@@ -334,4 +353,5 @@ function hideBroken(e: Event) {
       </div>
     </li>
   </ul>
+  <ConfirmDialog v-if="deleting" :title="deleteQuestion.title" :message="deleteQuestion.message" confirm-label="Delete" danger :busy="deleteBusy" @confirm="confirmRemove" @cancel="deleting = null" />
 </template>
