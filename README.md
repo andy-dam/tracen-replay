@@ -97,6 +97,10 @@ Repository conventions for contributors and coding agents are in
 
 ## License
 
-Tracen Replay is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md): you may use, change and share it for personal, academic, hobby and other noncommercial purposes; commercial use is not permitted. The models it downloads and the libraries it depends on keep their own licenses (RapidOCR and the PP-OCR models under Apache 2.0, ONNX Runtime under MIT, OpenCV under Apache 2.0).
+Tracen Replay is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md): you may use, change and share it for personal, academic, hobby and other noncommercial purposes; commercial use is not permitted. The models it downloads and the libraries it depends on keep their own licenses. Every third-party component it ships is listed with its license in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), which `python scripts/third_party_notices.py` rewrites after a dependency changes. FFmpeg is an LGPL build without GPL or nonfree parts, made from the unmodified release by the scripts in `desktop/ffmpeg` and the Dockerfile.
+
+Tracen Replay is an unofficial fan project. It is not affiliated with, endorsed by or sponsored by Cygames, Inc. Umamusume: Pretty Derby, its characters, names, images and footage belong to Cygames, Inc. and their respective owners.
+
+The website's Privacy Policy and Terms of Use are its Privacy and Terms pages (`web/src/views/Privacy.vue`, `web/src/views/Terms.vue`). An account can be deleted there with everything stored under it.
 
 Tracen Replay is a fan-made tool. It is not affiliated with, endorsed by or connected to Cygames; Umamusume and its characters are the property of their owners.

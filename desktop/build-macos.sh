@@ -75,7 +75,7 @@ chmod +x "$res/ffmpeg/ffmpeg" "$res/ffmpeg/ffprobe"
 "$res/ffmpeg/ffmpeg" -hide_banner -version | head -1
 
 echo "== notices"
-cp LICENSE.md README.md "$res/"
+cp LICENSE.md THIRD-PARTY-NOTICES.md README.md "$res/"
 echo "$version" > "$res/VERSION"
 find "$res" -name "__pycache__" -type d -prune -exec rm -rf {} +
 

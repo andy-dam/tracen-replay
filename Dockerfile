@@ -47,7 +47,7 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ffmpeg \
 	&& rm -rf /var/lib/apt/lists/*
 COPY analyzer/ /opt/tracen/analyzer/
-COPY docker/constraints.txt docker/models.sha256 /opt/tracen/
+COPY docker/constraints.txt docker/models.sha256 LICENSE.md THIRD-PARTY-NOTICES.md /opt/tracen/
 # Installed in place: one copy of the package, and the worker still starts
 # with /opt/tracen/analyzer as its working directory. The constraints pin
 # every package to the version the image was last built with.
@@ -129,6 +129,7 @@ RUN apk add --no-cache ca-certificates \
 	&& mkdir -p /data /opt/tracen
 COPY --from=ffmpeg /build/prefix/bin/ffmpeg /build/prefix/bin/ffprobe /usr/local/bin/
 COPY --from=ffmpeg /build/prefix/FFMPEG-LICENSE.txt /opt/tracen/
+COPY LICENSE.md THIRD-PARTY-NOTICES.md /opt/tracen/
 COPY --from=identity /analyzer-version.json /opt/tracen/analyzer-version.json
 COPY --from=service /out/tracen /usr/local/bin/tracen
 COPY docker/entrypoint-site.sh /usr/local/bin/tracen-entrypoint
