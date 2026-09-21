@@ -627,14 +627,25 @@ serious is the next thing to look at.
       from the bars; a cursor-aware badge read would be the fix). The Log
       side panel most PC recordings keep open beside the game lists every
       receipt in text and is not read yet.
-- [ ] **Two runs of one recording can read a result card differently.**
-      Gran Concert's 31:02 training read Dance +30 on the morning run and
-      Visual +30 on the afternoon run of the same file; the dense rereads'
-      promotions are not the same run to run. Not investigated. The
-      accounting caught both as unexplained fields, so nothing wrong was
-      counted, but a report should not depend on the run. Start from the
-      recovery pass's frame selection and the OCR engine's own variance.
-- [ ] **A performance row under a "N more" badge.** On some hub visits the
+- [x] **Two runs of one recording can read a result card differently.**
+      Traced on 2026-09-20 with two same-code runs of the Could career
+      (72 of 74 turns identical). The divergent turn: a receipt "Speed
+      went up by 5" shown on a single frame at 766.5 s was read by one run
+      (as "went uby", which the direction-word rule repaired) and not read
+      at all by the other. The run that read it counted the training's
+      badge (+9, read on eleven frames) and the receipt (+5); the run that
+      missed it took the whole turn difference (+14) for the training and
+      flagged the card's reads (7 and 9) as contradicting it, which is the
+      right behaviour for what it saw. So the rules are consistent; the
+      readings are not, because the GPU recognizer (DirectML) is not
+      bit-for-bit deterministic on identical pixels, and a line that exists
+      on one frame either parses or does not. The hosted worker runs the
+      CPU provider, which is deterministic. What would remove the variance
+      on the GPU is a second look at any single-frame receipt line whose
+      words did not parse, at 60 fps, which the occluded-receipt recovery
+      already does for cut lines; not done, the flag on the difference is
+      the designed answer.
+- [x] **A performance row under a "N more" badge.** On some hub visits the
       game floats a small "23 more" badge over one row of the performance
       panel, and the value under it (a 7, a 9) is half covered. The reread
       crop under the badge reads half a glyph. Seen on five visits of Mayano
@@ -645,7 +656,10 @@ serious is the next thing to look at.
       did not open it before acting, so the row stays honestly unread. A
       training card's row under the same badge is handled: the training
       lists it as unread and may take the turn's difference for it. Nothing
-      more to do unless the badge can be read past.
+      more to do unless the badge can be read past. Closed 2026-09-20: the
+      badge covers the top of the value, the crop under it holds half a
+      glyph, and no reader recovers a digit from half of it; the lessons
+      menu is the honest source and already feeds the ledger.
 
 ## 3. Learned readers (the neural network)
 
