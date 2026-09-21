@@ -32,6 +32,7 @@ import (
 
 	"github.com/andy-dam/tracen-replay/internal/api"
 	"github.com/andy-dam/tracen-replay/internal/artifacts"
+	"github.com/andy-dam/tracen-replay/internal/auth"
 	"github.com/andy-dam/tracen-replay/internal/jobs"
 	"github.com/andy-dam/tracen-replay/internal/maintenance"
 	tracenrunner "github.com/andy-dam/tracen-replay/internal/runner"
@@ -198,6 +199,14 @@ func run(logger *slog.Logger) error {
 	defer db.Close()
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
+	// The one person at this machine: a user row, so recordings, jobs and
+	// reports have an owner the records can name.
+	local := auth.User{ID: "local", Email: "local@this.computer", DisplayName: "This computer", CreatedAt: time.Now()}
+	if existing, err := db.UserByID(ctx, "local"); err == nil {
+		local = existing
+	} else if err := db.CreateUser(ctx, local, ""); err != nil {
+		return fmt.Errorf("the local user: %w", err)
+	}
 
 	workers := max(2, runtime.NumCPU()/2)
 	manager, err := jobs.NewManager(jobs.Config{DataDir: l.data, Python: l.python, WorkDir: l.analyzer, ModelDir: l.models,
@@ -238,7 +247,7 @@ func run(logger *slog.Logger) error {
 	}
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, RecordingsDir: recordingsDir,
 		ArtifactsDir: filepath.Join(l.data, "jobs"), Frames: frames, Ready: ready, Logger: logger, Static: webassets.Handler(),
-		AllowedHosts: []string{"127.0.0.1"}, Settings: prefs, UploadLimit: 16 << 30,
+		AllowedHosts: []string{"127.0.0.1"}, Settings: prefs, UploadLimit: 16 << 30, LocalUser: local,
 		Quota:   api.Quota{MaxDuration: 0, MaxPixels: 4096 * 2304, MaxFPS: 120},
 		Version: func() api.VersionInfo { return api.VersionInfo{Version: version} },
 		Probe: func(ctx context.Context, path string) (artifacts.Media, error) {

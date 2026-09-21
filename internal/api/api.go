@@ -123,8 +123,11 @@ type Config struct {
 	// Corrections stores what viewers fill in per turn; nil disables the feature.
 	Corrections Corrections
 	Frames      artifacts.Frames
-	// Auth gates every /api route; nil (tests) serves an anonymous user.
-	Auth Auth
+	// Auth gates every /api route; nil (tests, the desktop application)
+	// serves LocalUser to every request: the one person at this machine,
+	// whose row the desktop application creates so records can name it.
+	Auth      Auth
+	LocalUser auth.User
 	// RecordingsDir receives uploads, one subdirectory per user; with
 	// Objects it only holds each upload while it is probed.
 	RecordingsDir string
@@ -375,7 +378,7 @@ func (s *Server) securityHeaders(w http.ResponseWriter, r *http.Request) {
 // request is the anonymous user.
 func (s *Server) currentUser(r *http.Request) (auth.User, error) {
 	if s.cfg.Auth == nil {
-		return auth.User{}, nil
+		return s.cfg.LocalUser, nil
 	}
 	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
@@ -580,7 +583,11 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Auth == nil {
 		// Without accounts the one user is whoever sits at this machine.
-		writeJSON(w, http.StatusOK, map[string]any{"user": auth.User{DisplayName: "This computer"}, "accounts": false})
+		local := s.cfg.LocalUser
+		if local.DisplayName == "" {
+			local.DisplayName = "This computer"
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"user": local, "accounts": false})
 		return
 	}
 	user, err := s.currentUser(r)
