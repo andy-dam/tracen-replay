@@ -2729,6 +2729,9 @@ def outcome_events(readings):
         # damaged; the rest stay candidates for the reader to decide.
         collapse_uncorroborated_recipient_variants(event,name_sightings,vocabulary)
         collapse_uncorroborated_circle_base_variants(event,name_sightings)
+        # One line of a scrolling list read three ways is still one award.
+        from .receipt_names import collapse_same_list_item_hint_variants
+        collapse_same_list_item_hint_variants(event,rows_by_evidence)
         ambiguous={c['field'] for c in event['conflicting_readings']}
         event['deltas']={e['field']:e['amount'] for e in event['effects'] if e['kind']=='stat_change' and f'stat_change|{e["field"]}|' not in ambiguous}
         attach_inheritance_occurrences(event,rows_by_evidence)
