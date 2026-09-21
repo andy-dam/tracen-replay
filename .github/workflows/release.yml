@@ -102,6 +102,31 @@ jobs:
             dist/windows/tracen-replay-windows-${{ github.ref_name }}.zip
             dist/windows/TracenReplay-Setup-${{ github.ref_name }}.exe
 
+  bundle-macos:
+    name: macOS bundle
+    if: github.ref_type == 'tag'
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wails
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Build the application and the disk image
+        run: sh desktop/build-macos.sh "${{ github.ref_name }}" dist/macos
+      - name: Attach it to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/macos/TracenReplay-macos-arm64-${{ github.ref_name }}.dmg
+
   api:
     name: Deploy the API
     needs: images
