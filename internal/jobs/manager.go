@@ -500,9 +500,15 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	}
 	onProgress := func(p worker.Progress) {
 		m.mu.Lock()
-		latest.stage, latest.at = p.Label(), m.cfg.Clock()
+		// The recorded stage only moves forward along the analyzer's order:
+		// a stage named again by a later step, or a name that is not a step,
+		// is a sign of life (the time moves) but not a step back.
+		latest.at = m.cfg.Clock()
+		if label := p.Label(); latest.stage == "" || worker.StageRank(label) > worker.StageRank(latest.stage) {
+			latest.stage = label
+		}
 		var percent *float64
-		if p.Stage == worker.StageOCR {
+		if p.Stage == worker.StageOCR && latest.stage == worker.StageOCR {
 			latest.processed, latest.total = p.Processed, p.Total
 			if v, ok := p.Percent(); ok {
 				percent = &v

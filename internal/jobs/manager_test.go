@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -167,6 +168,53 @@ func TestSuccessfulJobProducesAReportRecord(t *testing.T) {
 	}
 	if log, _ := os.ReadFile(done.LogPath); string(log) != "some stderr\n" {
 		t.Fatalf("worker log: %q", log)
+	}
+}
+
+// The analyzer names receipt_inspection again after assemble and names a few
+// stages that are not steps; the recorded stage never goes back for them.
+func TestRecordedStageOnlyMovesForward(t *testing.T) {
+	h := newHarness(t, 4)
+	named := []string{"capture", "currency_refinement", "currency_refinement_complete", "not_a_step",
+		"receipt_inspection", "assemble", "receipt_inspection", "training_gain_recovery"}
+	listening := make(chan struct{})
+	h.runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+		<-listening
+		for _, name := range named {
+			onProgress(worker.Progress{Stage: worker.StageDone, Name: name})
+		}
+		// A later step reads frames too; its count is not the OCR stage's.
+		onProgress(worker.Progress{Stage: worker.StageOCR, Processed: 1, Total: 2})
+		return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
+	}
+	h.start()
+	job, err := h.manager.Submit(context.Background(), "u1", "src-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, unsubscribe := h.manager.Hub().Subscribe(job.ID)
+	defer unsubscribe()
+	close(listening)
+	done := h.waitStatus(job.ID, jobs.Succeeded)
+	// Every progress line published the stage the record held after it.
+	var got []string
+	for len(got) < len(named) {
+		select {
+		case event := <-events:
+			if event.Status == jobs.Running && event.Stage != "" {
+				got = append(got, event.Stage)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("only %d stage events arrived: %v", len(got), got)
+		}
+	}
+	want := []string{"capture", "currency_refinement", "currency_refinement_complete", "currency_refinement_complete",
+		"receipt_inspection", "assemble", "assemble", "assemble"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("recorded stages %v, wanted %v", got, want)
+	}
+	if done.Stage != "assemble" || done.OCRTotal != 0 {
+		t.Fatalf("finished job: stage %q, ocr total %d", done.Stage, done.OCRTotal)
 	}
 }
 
