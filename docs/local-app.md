@@ -15,7 +15,11 @@ it picks itself, and the window shows it; nothing is exposed and nothing
 is sent anywhere. Settings has the switch for the graphics card, which
 can be on only when a supported accelerator is found (a DirectX 12 card
 on Windows through DirectML, CUDA on Linux, Apple silicon on Mac through
-CoreML; the interpreter is asked which providers it has). The data lives
+CoreML; the interpreter is asked which providers it has, and the machine
+which graphics hardware, because DirectML is in every Windows build of
+the runtime and runs in software where there is no card). Until the
+person sets the switch it follows what was found: on with real hardware,
+off without. The data lives
 under the user's application folder (`%APPDATA%\TracenReplay` on
 Windows). Each release carries a zip of the folder and an installer,
 built by `desktop/build-windows.ps1` (the embeddable Python with the

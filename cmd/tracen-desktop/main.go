@@ -111,6 +111,10 @@ type settings struct {
 	mu        sync.Mutex
 	path      string
 	gpu       bool
+	// chosen is whether the person has set the switch themselves. Until
+	// they have, the switch follows what was found: on with a supported
+	// accelerator, off without.
+	chosen    bool
 	available bool
 	device    string
 	provider  string
@@ -126,7 +130,7 @@ func (s *settings) load() {
 		GPU bool `json:"gpu"`
 	}
 	if json.Unmarshal(data, &saved) == nil {
-		s.gpu = saved.GPU
+		s.gpu, s.chosen = saved.GPU, true
 	}
 }
 
@@ -139,7 +143,7 @@ func (s *settings) Get() api.Settings {
 func (s *settings) Set(v api.Settings) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.gpu = v.GPU && s.available
+	s.gpu, s.chosen = v.GPU && s.available, true
 	s.apply()
 	data, _ := json.Marshal(map[string]bool{"gpu": s.gpu})
 	return os.WriteFile(s.path, data, 0o644)
@@ -159,21 +163,47 @@ func (s *settings) apply() {
 func (s *settings) detect(python string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, python, "-c", "import onnxruntime; print(','.join(onnxruntime.get_available_providers()))").Output()
+	ask := exec.CommandContext(ctx, python, "-c", "import onnxruntime; print(','.join(onnxruntime.get_available_providers()))")
+	quiet(ask)
+	out, err := ask.Output()
+	providers := strings.TrimSpace(string(out))
+	provider, kind := "", ""
+	switch {
+	case err != nil:
+	case strings.Contains(providers, "DmlExecutionProvider"):
+		provider, kind = "dml", "DirectX 12"
+	case strings.Contains(providers, "CUDAExecutionProvider"):
+		provider, kind = "cuda", "CUDA"
+	case strings.Contains(providers, "CoreMLExecutionProvider"):
+		provider, kind = "coreml", "CoreML"
+	}
+	// The runtime having a provider is not the machine having the hardware:
+	// DirectML is in every Windows build of the runtime and runs in software
+	// where there is no card, slower than the processor.
+	name, known := "", false
+	if provider != "" {
+		name, known = hardwareAccelerator(provider)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	providers := strings.TrimSpace(string(out))
 	switch {
 	case err != nil:
 		s.device = "the analyzer's runtime could not be asked"
-	case strings.Contains(providers, "DmlExecutionProvider"):
-		s.available, s.provider, s.device = true, "dml", "a DirectX 12 graphics card"
-	case strings.Contains(providers, "CUDAExecutionProvider"):
-		s.available, s.provider, s.device = true, "cuda", "an NVIDIA graphics card (CUDA)"
-	case strings.Contains(providers, "CoreMLExecutionProvider"):
-		s.available, s.provider, s.device = true, "coreml", "Apple silicon (CoreML)"
-	default:
+	case provider == "":
 		s.device = "CPU only, no supported graphics card"
+	case known && name == "":
+		s.device = "CPU only, no graphics hardware found"
+	case known:
+		s.available, s.provider, s.device = true, provider, name+" ("+kind+")"
+	default:
+		// The machine could not be asked what it has. The switch can be
+		// used, but it is not turned on for anyone.
+		s.available, s.provider, s.device = true, provider, "a "+kind+" device"
+	}
+	// Until the person sets the switch themselves it follows what was
+	// found: on with real graphics hardware, off without.
+	if !s.chosen {
+		s.gpu = s.available && known
 	}
 	s.apply()
 }

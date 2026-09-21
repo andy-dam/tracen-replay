@@ -42,10 +42,19 @@ onMounted(load);
     <div v-if="settings" class="card">
       <div class="setting">
         <div>
-          <h2>Use the graphics card</h2>
-          <p class="muted small">
-            {{ settings.gpu_available ? `Found: ${settings.device}. On, analyses run on it instead of the processor.` : `Not available: ${settings.device}. The switch turns on when a supported card is found (a DirectX 12 card on Windows, Apple silicon on Mac).` }}
-          </p>
+          <h2>Graphics Acceleration</h2>
+          <template v-if="settings.gpu_available">
+            <p class="muted small">
+              Most of an analysis is reading text off the recording's frames. Your <strong>{{ settings.device }}</strong> can do that reading, and it is a lot quicker at it than the processor.
+            </p>
+            <p class="muted small">Switch it off if an analysis fails, or if the computer gets too sluggish to use while one runs. The processor does the reading then.</p>
+          </template>
+          <template v-else>
+            <p class="muted small" :title="settings.device">
+              Most of an analysis is reading text off the recording's frames. On this computer the processor does that, because no graphics hardware the app can use was found.
+            </p>
+            <p class="muted small">It needs a graphics card that supports DirectX 12 on Windows, or a Mac with an Apple chip (M1 or later).</p>
+          </template>
         </div>
         <label class="switch" :class="{ off: !settings.gpu, disabled: !settings.gpu_available || saving }">
           <input type="checkbox" :checked="settings.gpu" :disabled="!settings.gpu_available || saving" @change="toggle(($event.target as HTMLInputElement).checked)" />
@@ -60,6 +69,9 @@ onMounted(load);
 <style scoped>
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .setting h2 { margin: 0 0 6px; font-size: 18px; }
+.setting p { margin: 0 0 6px; max-width: 64ch; }
+.setting p:last-child { margin-bottom: 0; }
+.setting strong { color: var(--ink); font-weight: 700; }
 .switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
 .switch.disabled { cursor: not-allowed; opacity: 0.55; }
 .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
