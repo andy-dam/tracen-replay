@@ -117,7 +117,9 @@ function description(e: Entry): string {
   switch (e.kind) {
     case "outcome": {
       const effects = Array.isArray(d.effects) ? (d.effects as Effect[]) : [];
-      for (const eff of effects) if (eff.kind !== "stat_change" && eff.raw_text) parts.push(eff.raw_text);
+      // A hint has its own entry right after this one; repeating its line
+      // here only makes a wall of text.
+      for (const eff of effects) if (eff.kind !== "stat_change" && eff.kind !== "skill_hint_change" && eff.raw_text) parts.push(eff.raw_text);
       break;
     }
     case "lesson_purchases":
