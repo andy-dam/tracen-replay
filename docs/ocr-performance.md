@@ -101,7 +101,7 @@ guarantee for another machine or recording.
 
 ## Memory
 
-Measured on Windows on 2026-09-21, sampling the whole process tree once a
+Measured on Windows, sampling the whole process tree once a
 second. The analyzer's own process holds about 1.3 GB while frames are read,
 3.4 GB while it assembles a full career and 4.8 GB at its peak, writing the
 viewer page. A reader process holds about half a gigabyte. The tree committed

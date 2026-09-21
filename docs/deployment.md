@@ -372,19 +372,14 @@ Still to do, none of it blocking a first deployment:
 - The job's scratch space is an Azure file share (`scratch`, 100 GB
   quota, transaction optimized, billed for what is on it), mounted at
   `/scratch`. A replica's own disk is 8 GiB at most and a full career
-  writes 12 to 15 GB of frames and crops before it prunes them: on
-  2026-09-21 a 9,329-frame career failed five hours in with "No space
-  left on device" in `training_gain_recovery`. The share is also what a
-  resumed analysis finds its files on, since each execution is a new
-  container. It is slower than a local disk. Measured from a job on
-  2026-09-21: 53 ms to write a 700 KB file (13 MB/s one at a time), 28 ms
+  writes 12 to 15 GB of frames and crops before it prunes them. The
+  share is also what a resumed analysis finds its files on, since each
+  execution is a new container. It is slower than a local disk. Measured
+  from a job: 53 ms to write a 700 KB file (13 MB/s one at a time), 28 ms
   to read one, 70 ms to write and rename a small JSON file, 14 ms to
   delete a file. For the about 50,000 files of a career that is some tens
   of minutes spread over the run. The first full career on the share
-  gives the real figure and the transaction cost. The share was created
-  and the live job patched by hand that day (`az storage share-rm
-  create`, `az containerapp env storage set`, a PATCH of the job's
-  template). The Bicep carries the same.
+  gives the real figure and the transaction cost.
 - The Container Apps job is in the Bicep (`tracen-analysis`, 4 vCPU /
   8 GiB, one execution per waiting message, `-exit-when-idle`), added on
   2026-09-20 when the Oracle A1 shape stayed out of capacity; the
