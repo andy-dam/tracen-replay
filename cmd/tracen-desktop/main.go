@@ -55,6 +55,13 @@ func find() (layout, error) {
 		return layout{}, err
 	}
 	root := filepath.Dir(exe)
+	// In a macOS application the executable is Contents/MacOS/<name> and
+	// everything it ships sits in Contents/Resources.
+	if resources := filepath.Join(root, "..", "Resources"); runtime.GOOS == "darwin" {
+		if _, err := os.Stat(filepath.Join(resources, "analyzer", "tracen_replay")); err == nil {
+			root = filepath.Clean(resources)
+		}
+	}
 	if _, err := os.Stat(filepath.Join(root, "analyzer", "tracen_replay")); err != nil {
 		// A development run from the repository: the checked-out tree.
 		if wd, err := os.Getwd(); err == nil {
@@ -67,6 +74,10 @@ func find() (layout, error) {
 		ffmpeg: filepath.Join(root, "ffmpeg", "ffmpeg"+exeSuffix()), ffprobe: filepath.Join(root, "ffmpeg", "ffprobe"+exeSuffix()),
 		reader: filepath.Join(root, "analyzer", "tracen_replay", "data", "reader.onnx")}
 	l.python = filepath.Join(root, "python", "python"+exeSuffix())
+	if runtime.GOOS != "windows" {
+		// The standalone interpreter the Mac build ships keeps the Unix layout.
+		l.python = filepath.Join(root, "python", "bin", "python3")
+	}
 	if _, err := os.Stat(l.python); err != nil {
 		// The repository's virtual environment, for development.
 		l.python = filepath.Join(root, ".venv", "Scripts", "python.exe")

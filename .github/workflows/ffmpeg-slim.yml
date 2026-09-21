@@ -43,3 +43,19 @@ jobs:
             --title "Slim ffmpeg ${FFMPEG_VERSION}" \
             --notes "The ffmpeg the desktop application bundles: every built-in decoder, container and filter, no external encoder libraries, dav1d for AV1. LGPL. Built by desktop/ffmpeg/build.sh; not an application release."
           gh release upload "$tag" out/ffmpeg-slim-win64.zip --clobber
+
+  macos:
+    name: macOS (Apple silicon)
+    # After the Windows job, which makes the release both upload to.
+    needs: windows
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: brew install meson ninja pkg-config
+      - name: Build
+        run: sh desktop/ffmpeg/build-macos.sh out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "ffmpeg-slim-${FFMPEG_VERSION}" out/ffmpeg-slim-macos-arm64.zip --clobber

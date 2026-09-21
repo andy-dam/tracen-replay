@@ -1,0 +1,81 @@
+name: Desktop test build
+
+# A desktop application built from any branch, on request, to try on a real
+# machine before a release exists. The result is a workflow artifact (kept
+# two weeks), not a release: download it from the run's page, or with
+#   gh run download <run-id> -n tracen-replay-macos
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which application to build
+        type: choice
+        options: [macos, windows]
+        default: macos
+
+jobs:
+  macos:
+    name: macOS (Apple silicon)
+    if: inputs.platform == 'macos'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wails
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Build the application and the disk image
+        run: sh desktop/build-macos.sh "test-${GITHUB_SHA::8}" dist/macos
+      - name: The application starts far enough to answer
+        # The window cannot open on a runner; the analyzer inside the bundle
+        # can be asked for its version, which proves the interpreter, the
+        # wheels and the package are in place.
+        run: |
+          res="dist/macos/Tracen Replay.app/Contents/Resources"
+          cd "$res/analyzer" && ../python/bin/python3 -m tracen_replay.analysis_job --worker-version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tracen-replay-macos
+          path: dist/macos/*.dmg
+          retention-days: 14
+          compression-level: 0
+
+  windows:
+    name: Windows
+    if: inputs.platform == 'windows'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Wails and NSIS
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          choco install nsis --no-progress -y
+          Add-Content $env:GITHUB_PATH "$(go env GOPATH)\bin"
+          Add-Content $env:GITHUB_PATH "C:\Program Files (x86)\NSIS"
+      - name: Build the application, the zip and the installer
+        shell: pwsh
+        run: ./desktop/build-windows.ps1 -Version "test-$($env:GITHUB_SHA.Substring(0,8))" -Out dist/windows -Installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tracen-replay-windows
+          path: |
+            dist/windows/*.zip
+            dist/windows/TracenReplay-Setup-*.exe
+          retention-days: 14
+          compression-level: 0
