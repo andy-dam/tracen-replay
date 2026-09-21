@@ -51,6 +51,22 @@ paths:
         "200": {description: cancelled (or the state reached within the wait bound), content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
         "409": {description: not cancellable in its current state; the job is included}
         "404": {$ref: "#/components/responses/Error"}
+  /api/jobs/{id}/pause:
+    post:
+      summary: Pause a queued or running job; its working files are kept
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: paused (or the state reached within the wait bound), content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "409": {description: not pausable in its current state; the job is included}
+        "404": {$ref: "#/components/responses/Error"}
+  /api/jobs/{id}/resume:
+    post:
+      summary: Put a paused job back in the queue; it continues from its kept files
+      parameters: [{$ref: "#/components/parameters/id"}]
+      responses:
+        "200": {description: queued, content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "409": {description: not paused, or paused past the time its progress was kept for; the job is included}
+        "404": {$ref: "#/components/responses/Error"}
   /api/jobs/{id}/events:
     get:
       summary: Server-sent events for one job
@@ -170,7 +186,7 @@ components:
         checks: {type: array, items: {type: object, properties: {name: {type: string}, ok: {type: boolean}, note: {type: string}}}}
     Job:
       type: object
-      description: "One analysis attempt. Status values: queued, running, succeeded, completed_with_stage_failures, failed, cancelled, interrupted."
+      description: "One analysis attempt. Status values: queued, running, succeeded, completed_with_stage_failures, failed, cancelled, interrupted, paused. A job cancelled with error code pause_expired stayed paused past the time its progress was kept for."
       properties:
         id: {type: string}
         source_id: {type: string}
@@ -179,6 +195,9 @@ components:
         created_at: {type: string, format: date-time}
         started_at: {type: string, format: date-time}
         finished_at: {type: string, format: date-time}
+        paused_at: {type: string, format: date-time}
+        paused_until: {type: string, format: date-time, description: when a paused job's progress is deleted; absent when it is kept for good}
+        ran_seconds: {type: integer, description: how long the job ran before its latest start}
         stage: {type: string, description: latest worker stage name}
         ocr_processed: {type: integer}
         ocr_total: {type: integer}

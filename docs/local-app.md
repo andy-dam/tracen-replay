@@ -25,7 +25,10 @@ the machine's memory and processors (`internal/loadplan`; the figures are
 in [OCR performance](ocr-performance.md#memory)), and what the window's
 close button does: ask, exit, or keep running without a window (in the
 notification area on Windows, in the Dock on a Mac), so an analysis is not
-lost to a click on the X. A released build asks GitHub once a day for the
+lost to a click on the X. Paused Analyses in Settings is how long a paused
+analysis keeps its progress: for good unless the person picks 1, 7 or 30
+days, after which the progress is deleted and the recording reads as never
+analyzed. A released build asks GitHub once a day for the
 newest release (`internal/updates`) and says so on the Runs page and in
 Settings when one exists, with a link the application opens in the system's
 browser; Update Check in Settings turns the question off. The hosted site
@@ -291,7 +294,18 @@ recording:
   time: the first phase moves with the frame count, the others fill as the
   worker finishes their stages, the caption names the last stage finished,
   and a rough time left is shown once the analysis is far enough in. It can be
-  cancelled, and the page links back to Runs.
+  paused, resumed and cancelled, and the page links back to Runs.
+- **Pause and Resume.** Pause stops the analyzer and keeps its run
+  directory. Resume puts the same job back in the queue, and the analyzer,
+  started on that directory again, reads back the frames it captured and
+  every frame's OCR row instead of making them again. A stage that was
+  under way starts over from its own kept files. The service's
+  `-paused-lifetime` (0, for good, by default, 24h on the hosted site) is
+  how long a paused job is kept: past it the job is cancelled with the
+  code `pause_expired`, its working files are deleted, and the Runs page
+  shows the recording with Analyze and Delete only, as it was after the
+  upload. A paused job counts as one of the account's active analyses, and
+  its recording cannot be deleted until it is cancelled.
 - **Dashboard.** Above the list, once a report exists: careers analyzed and
   their turns, minutes of recording read, the share of stat changes the
   reports fully explain, the number of turns waiting for a review, and the
@@ -462,12 +476,13 @@ message next to the control that caused it.
 | the credentials are wrong or the session expired | `bad_credentials`, `unauthenticated` (HTTP 401) | sign in again; after repeated failures the address is held off for a while (`too_many_attempts`, HTTP 429) |
 | the email is already registered | `email_taken` (HTTP 409) | sign in with it instead |
 | the upload is not a video or is too large | `unsupported_recording`, `upload_too_large` (HTTP 413) | the accepted extensions and the size limit are stated in the message; ffprobe found no video stream, or the recording is longer, larger or faster than the service analyzes |
-| the upload is being analyzed | `recording_in_use` (HTTP 409) | cancel or wait for the analysis before deleting it |
+| the upload is being analyzed, or its analysis is paused | `recording_in_use` (HTTP 409) | cancel or wait for the analysis before deleting it |
+| the analysis cannot be paused or resumed from the state it is in | `not_pausable`, `not_resumable` (HTTP 409) | the answer carries the job as it is; a job paused past `-paused-lifetime` is cancelled and cannot be resumed |
 | the account keeps as many uploads, or as many bytes, as it may | `quota_exceeded` (HTTP 403) | delete a recording first (its reports stay) |
 | the service is out of upload space | `storage_full` (HTTP 503) | try again later; the operator raises `-max-storage-gb` or the sweep frees space |
 | registration is closed or needs an invite | `registration_closed`, `invite_required` (HTTP 403) | ask the operator for an invite code |
 | too many accounts from one address | `too_many_attempts` (HTTP 429) | wait an hour |
-| the account already has an analysis queued or running | `too_many_jobs` (HTTP 429) | wait for it to finish |
+| the account already has an analysis queued, running or paused | `too_many_jobs` (HTTP 429) | wait for it to finish, or cancel it |
 | the account, or the service, has started its day's analyses | `daily_limit` (HTTP 429) | try again tomorrow |
 | the analysis ran past its bound | job status `failed` with `timed_out` | the recording is longer than the service is set for; the operator raises `-max-analysis` |
 | too many frame requests | `too_many_requests` (HTTP 429) | slow down for a minute |

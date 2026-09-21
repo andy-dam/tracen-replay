@@ -8,6 +8,11 @@ video, and anything the analyzer flags can be checked and corrected there.
 
 Recordings must be the English game at 1920×1080 with the log panel open.
 
+An analysis of a full career takes from under an hour on a graphics card to
+several hours on a processor. It can be paused and resumed. The website
+keeps the progress of a paused analysis for 24 hours, and the desktop
+application keeps it until it is resumed unless Settings says otherwise.
+
 ## Ways to use it
 
 | | What it is | Where the recording goes |

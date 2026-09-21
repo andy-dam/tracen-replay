@@ -53,6 +53,31 @@ func (f *fakeJobs) Cancel(ctx context.Context, id string) (jobs.Job, error) {
 	return job, nil
 }
 
+func (f *fakeJobs) Pause(ctx context.Context, id string) (jobs.Job, error) {
+	return f.move(id, jobs.Paused, "pause", jobs.Queued, jobs.Running)
+}
+
+func (f *fakeJobs) Resume(ctx context.Context, id string) (jobs.Job, error) {
+	return f.move(id, jobs.Queued, "resume", jobs.Paused)
+}
+
+func (f *fakeJobs) move(id string, to jobs.Status, action string, from ...jobs.Status) (jobs.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	job, ok := f.jobs[id]
+	if !ok {
+		return jobs.Job{}, &jobs.NotFoundError{Kind: "job", ID: id}
+	}
+	for _, status := range from {
+		if job.Status == status {
+			job.Status = to
+			f.jobs[id] = job
+			return job, nil
+		}
+	}
+	return job, &jobs.TransitionError{ID: id, Status: job.Status, Action: action}
+}
+
 func (f *fakeJobs) Get(ctx context.Context, id string) (jobs.Job, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -216,6 +241,21 @@ func TestJobsEndpoints(t *testing.T) {
 	}
 	if code, _ := do(t, srv, "GET", "/api/jobs/missing", ""); code != 404 {
 		t.Fatalf("missing job %d", code)
+	}
+	if code, body := do(t, srv, "POST", "/api/jobs/job-1/resume", ""); code != 409 || body["error"].(map[string]any)["code"] != "not_resumable" {
+		t.Fatalf("resume of a queued job %d %v", code, body)
+	}
+	if code, body := do(t, srv, "POST", "/api/jobs/job-1/pause", ""); code != 200 || body["status"] != "paused" {
+		t.Fatalf("pause %d %v", code, body)
+	}
+	if code, body := do(t, srv, "POST", "/api/jobs/job-1/pause", ""); code != 409 || body["error"].(map[string]any)["code"] != "not_pausable" {
+		t.Fatalf("second pause %d %v", code, body)
+	}
+	if code, body := do(t, srv, "POST", "/api/jobs/job-1/resume", ""); code != 200 || body["status"] != "queued" {
+		t.Fatalf("resume %d %v", code, body)
+	}
+	if code, _ := do(t, srv, "POST", "/api/jobs/missing/pause", ""); code != 404 {
+		t.Fatalf("pause of a missing job %d", code)
 	}
 	if code, body := do(t, srv, "POST", "/api/jobs/job-1/cancel", ""); code != 200 || body["status"] != "cancelled" {
 		t.Fatalf("cancel %d %v", code, body)

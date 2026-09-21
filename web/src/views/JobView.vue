@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, type Job } from "../api";
-import { elapsed, statusClass, titleCase, when } from "../format";
+import { runTime, statusClass, titleCase, when } from "../format";
 import { progressView } from "../phases";
 import { openExternal } from "../mode";
 
@@ -16,6 +16,8 @@ let tick: number | undefined;
 function apply(j: Job) {
   job.value = j;
   if (j.ocr_total && j.stage === "ocr") percent.value = (100 * (j.ocr_processed ?? 0)) / j.ocr_total;
+  // A paused analysis sends nothing more. The stream opens again on Resume.
+  if (j.status === "paused") stream?.close();
 }
 
 function listen() {
@@ -42,7 +44,7 @@ function listen() {
 onMounted(async () => {
   try {
     apply(await api.job(props.jobId));
-    if (job.value && !terminal.value) listen();
+    if (job.value && !terminal.value && !paused.value) listen();
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -53,8 +55,9 @@ onUnmounted(() => {
   window.clearInterval(tick);
 });
 
-const terminal = computed(() => !!job.value && !["queued", "running"].includes(job.value.status));
-const running = computed(() => (now.value ? elapsed(job.value?.started_at, job.value?.finished_at) : ""));
+const terminal = computed(() => !!job.value && !["queued", "running", "paused"].includes(job.value.status));
+const paused = computed(() => job.value?.status === "paused");
+const running = computed(() => (now.value && job.value ? runTime(job.value) : ""));
 
 // The five phases of an analysis and how far each has come; the reading
 // phase moves with the frame count, the others with the stages finished.
@@ -65,6 +68,24 @@ async function cancel() {
     apply(await api.cancel(props.jobId));
   } catch (e) {
     error.value = (e as Error).message;
+  }
+}
+
+// Pause stops the analysis and keeps its files. Resume puts it back in the
+// queue, where it continues from them.
+const moving = ref(false);
+async function move(to: "pause" | "resume") {
+  moving.value = true;
+  error.value = "";
+  try {
+    apply(await api[to](props.jobId));
+    // A pause that another machine carries out arrives through the stream.
+    if (!terminal.value && !paused.value && (!stream || stream.readyState === EventSource.CLOSED)) listen();
+  } catch (e) {
+    error.value = (e as Error).message;
+    api.job(props.jobId).then(apply).catch(() => {});
+  } finally {
+    moving.value = false;
   }
 }
 
@@ -93,15 +114,15 @@ async function recover() {
         <a class="back" href="#/runs">‹ Runs</a>
         <div class="overline" style="margin-top: 8px">Analysis</div>
         <h1 style="font-size: 30px">{{ job.source_name }}</h1>
-        <p class="muted">Queued {{ when(job.created_at) }}<span v-if="job.started_at"> · running {{ running }}</span></p>
+        <p class="muted">Queued {{ when(job.created_at) }}<span v-if="running"> · {{ job.status === "running" ? "running" : "ran" }} {{ running }}</span></p>
       </div>
-      <span :class="['pill', statusClass(job.status), { live: !terminal }]" style="font-size: 13px">{{ titleCase(job.status) }}</span>
+      <span :class="['pill', statusClass(job.status), { live: !terminal && !paused }]" style="font-size: 13px">{{ titleCase(job.status) }}</span>
     </div>
 
     <div class="card" style="max-width: 720px">
       <template v-if="!terminal">
         <div class="row between" style="align-items: baseline">
-          <p class="display" style="font-size: 22px; margin: 0">{{ view.current?.label ?? (job.status === "running" ? "Starting" : "Waiting for a Free Worker") }}</p>
+          <p class="display" style="font-size: 22px; margin: 0">{{ paused ? "Paused" : (view.current?.label ?? (job.status === "running" ? "Starting" : "Waiting for a Free Worker")) }}</p>
           <span class="display num" style="font-size: 22px; color: var(--ink-2)">{{ view.overall }}%</span>
         </div>
         <div class="phases" style="margin: 12px 0 8px" role="progressbar" :aria-valuenow="view.overall" aria-valuemin="0" aria-valuemax="100">
@@ -112,12 +133,21 @@ async function recover() {
         <ol class="phase-legend">
           <li v-for="p in view.phases" :key="p.id" :class="p.state"><i></i>{{ p.label }}</li>
         </ol>
-        <p class="muted small" style="margin-top: 10px">
+        <p v-if="paused" class="muted small" style="margin-top: 10px">
+          Paused {{ when(job.paused_at) }}.
+          <template v-if="job.paused_until"> Progress is kept until {{ when(job.paused_until) }}. After that the recording is analyzed from the start.</template>
+        </p>
+        <p v-else class="muted small" style="margin-top: 10px">
           <template v-if="view.current">Now {{ view.current.doing }}. </template>
           <template v-if="job.stage === 'ocr' && job.ocr_total">{{ job.ocr_processed }} of {{ job.ocr_total }} frames read. </template>
           <template v-else-if="view.lastDone">Last stage finished: {{ view.lastDone }}. </template>
         </p>
-        <p style="margin-top: 16px" class="row"><button class="btn" @click="cancel">Cancel Analysis</button><a class="btn quiet" href="#/runs">Back to Runs</a></p>
+        <p style="margin-top: 16px" class="row">
+          <button v-if="paused" class="btn primary" :disabled="moving" @click="move('resume')">Resume</button>
+          <button v-else class="btn" :disabled="moving || job.pause_requested" @click="move('pause')">{{ job.pause_requested ? "Pausing" : "Pause" }}</button>
+          <button class="btn" @click="cancel">Cancel Analysis</button>
+          <a class="btn quiet" href="#/runs">Back to Runs</a>
+        </p>
       </template>
       <template v-else>
         <p v-if="job.error" class="error">{{ job.error.message }} <span class="muted small">({{ job.error.code }})</span></p>

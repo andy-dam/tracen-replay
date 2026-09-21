@@ -109,6 +109,11 @@ var migrations = []string{
 	ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT;`,
 	// The copy kept for playback once a worker has made one.
 	`ALTER TABLE recordings ADD COLUMN kept_path TEXT;`,
+	// A paused analysis: the request to the worker that runs it, when it
+	// was paused, and how long it had run before its latest start.
+	`ALTER TABLE jobs ADD COLUMN pause_requested INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE jobs ADD COLUMN paused_at TEXT;
+	ALTER TABLE jobs ADD COLUMN ran_seconds INTEGER NOT NULL DEFAULT 0;`,
 }
 
 // Open opens or creates the database file and applies migrations.
@@ -218,20 +223,23 @@ func nullable(s string) any {
 // ---- jobs ----
 
 const jobColumns = `id, source_id, source_path, source_name, status, created_at, started_at, finished_at, output_dir, log_path, pid,
-	stage, stage_at, ocr_processed, ocr_total, error_json, stage_failures_json, report_id, result_json, user_id, cancel_requested, heartbeat_at`
+	stage, stage_at, ocr_processed, ocr_total, error_json, stage_failures_json, report_id, result_json, user_id, cancel_requested, heartbeat_at,
+	pause_requested, paused_at, ran_seconds`
 
 func scanJob(row interface{ Scan(...any) error }) (jobs.Job, error) {
 	var j jobs.Job
 	var status string
-	var created, started, finished, logPath, stage, stageAt, errJSON, failuresJSON, reportID, resultJSON, userID, heartbeat sql.NullString
-	var cancelRequested int
+	var created, started, finished, logPath, stage, stageAt, errJSON, failuresJSON, reportID, resultJSON, userID, heartbeat, pausedAt sql.NullString
+	var cancelRequested, pauseRequested int
 	if err := row.Scan(&j.ID, &j.SourceID, &j.SourcePath, &j.SourceName, &status, &created, &started, &finished, &j.OutputDir, &logPath, &j.PID,
-		&stage, &stageAt, &j.OCRProcessed, &j.OCRTotal, &errJSON, &failuresJSON, &reportID, &resultJSON, &userID, &cancelRequested, &heartbeat); err != nil {
+		&stage, &stageAt, &j.OCRProcessed, &j.OCRTotal, &errJSON, &failuresJSON, &reportID, &resultJSON, &userID, &cancelRequested, &heartbeat,
+		&pauseRequested, &pausedAt, &j.RanSeconds); err != nil {
 		return jobs.Job{}, err
 	}
 	j.Status = jobs.Status(status)
 	j.CreatedAt, j.StartedAt, j.FinishedAt = parseStamp(created), parseStamp(started), parseStamp(finished)
 	j.CancelRequested, j.HeartbeatAt = cancelRequested != 0, parseStamp(heartbeat)
+	j.PauseRequested, j.PausedAt = pauseRequested != 0, parseStamp(pausedAt)
 	j.LogPath, j.Stage, j.ReportID, j.UserID = logPath.String, stage.String, reportID.String, userID.String
 	j.StageAt = parseStamp(stageAt)
 	if errJSON.Valid {
@@ -254,20 +262,22 @@ func scanJob(row interface{ Scan(...any) error }) (jobs.Job, error) {
 
 // CreateJob inserts a new job record.
 func (s *Store) CreateJob(ctx context.Context, j jobs.Job) error {
-	_, err := s.exec(ctx, `INSERT INTO jobs (`+jobColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	_, err := s.exec(ctx, `INSERT INTO jobs (`+jobColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		j.ID, j.SourceID, j.SourcePath, j.SourceName, string(j.Status), stamp(j.CreatedAt), stamp(j.StartedAt), stamp(j.FinishedAt),
 		j.OutputDir, nullable(j.LogPath), j.PID, nullable(j.Stage), stamp(j.StageAt), j.OCRProcessed, j.OCRTotal,
-		marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result), nullable(j.UserID), boolInt(j.CancelRequested), stamp(j.HeartbeatAt))
+		marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result), nullable(j.UserID), boolInt(j.CancelRequested), stamp(j.HeartbeatAt),
+		boolInt(j.PauseRequested), stamp(j.PausedAt), j.RanSeconds)
 	return err
 }
 
 // UpdateJob rewrites every mutable column of an existing job.
 func (s *Store) UpdateJob(ctx context.Context, j jobs.Job) error {
 	res, err := s.exec(ctx, `UPDATE jobs SET status=?, started_at=?, finished_at=?, log_path=?, pid=?, stage=?, stage_at=?,
-		ocr_processed=?, ocr_total=?, error_json=?, stage_failures_json=?, report_id=?, result_json=?, cancel_requested=?, heartbeat_at=? WHERE id=?`,
+		ocr_processed=?, ocr_total=?, error_json=?, stage_failures_json=?, report_id=?, result_json=?, cancel_requested=?, heartbeat_at=?,
+		pause_requested=?, paused_at=?, ran_seconds=? WHERE id=?`,
 		string(j.Status), stamp(j.StartedAt), stamp(j.FinishedAt), nullable(j.LogPath), j.PID, nullable(j.Stage), stamp(j.StageAt),
 		j.OCRProcessed, j.OCRTotal, marshal(j.Error), marshal(j.StageFailure), nullable(j.ReportID), marshal(j.Result),
-		boolInt(j.CancelRequested), stamp(j.HeartbeatAt), j.ID)
+		boolInt(j.CancelRequested), stamp(j.HeartbeatAt), boolInt(j.PauseRequested), stamp(j.PausedAt), j.RanSeconds, j.ID)
 	if err != nil {
 		return err
 	}
@@ -330,6 +340,11 @@ func (s *Store) ListActiveJobs(ctx context.Context) ([]jobs.Job, error) {
 	return s.queryJobs(ctx, `SELECT `+jobColumns+` FROM jobs WHERE status IN (?, ?) ORDER BY created_at, id`, string(jobs.Queued), string(jobs.Running))
 }
 
+// ListPausedJobs returns the paused jobs, oldest first.
+func (s *Store) ListPausedJobs(ctx context.Context) ([]jobs.Job, error) {
+	return s.queryJobs(ctx, `SELECT `+jobColumns+` FROM jobs WHERE status=? ORDER BY created_at, id`, string(jobs.Paused))
+}
+
 // CountByStatus counts jobs in one state.
 func (s *Store) CountByStatus(ctx context.Context, status jobs.Status) (int, error) {
 	var n int
@@ -337,10 +352,11 @@ func (s *Store) CountByStatus(ctx context.Context, status jobs.Status) (int, err
 	return n, err
 }
 
-// CountActiveForUser counts a user's queued and running jobs.
+// CountActiveForUser counts a user's queued, running and paused jobs. A
+// paused job holds its working files, so it takes a place like a running one.
 func (s *Store) CountActiveForUser(ctx context.Context, userID string) (int, error) {
 	var n int
-	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE user_id=? AND status IN (?, ?)`, userID, string(jobs.Queued), string(jobs.Running)).Scan(&n)
+	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE user_id=? AND status IN (?, ?, ?)`, userID, string(jobs.Queued), string(jobs.Running), string(jobs.Paused)).Scan(&n)
 	return n, err
 }
 
@@ -555,10 +571,10 @@ func (s *Store) DeleteRecording(ctx context.Context, id string) error {
 	return nil
 }
 
-// RecordingInUse reports whether a queued or running job analyzes the upload.
+// RecordingInUse reports whether a queued, running or paused job analyzes the upload.
 func (s *Store) RecordingInUse(ctx context.Context, id string) (bool, error) {
 	var n int
-	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE source_id=? AND status IN (?, ?)`, id, string(jobs.Queued), string(jobs.Running)).Scan(&n)
+	err := s.queryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE source_id=? AND status IN (?, ?, ?)`, id, string(jobs.Queued), string(jobs.Running), string(jobs.Paused)).Scan(&n)
 	return n > 0, err
 }
 

@@ -14,7 +14,9 @@ import (
 
 // Status is a job state. Transitions: queued -> running -> succeeded |
 // completed_with_stage_failures | failed; queued | running -> cancelled;
-// running -> interrupted when the service restarts over an unfinished run.
+// running -> interrupted when the service restarts over an unfinished run;
+// queued | running -> paused -> queued (resumed) | cancelled (given up, or
+// left paused past the time paused progress is kept for).
 type Status string
 
 const (
@@ -25,7 +27,15 @@ const (
 	Failed                     Status = "failed"
 	Cancelled                  Status = "cancelled"
 	Interrupted                Status = "interrupted"
+	// Paused is an analysis stopped on request with its working files kept:
+	// resumed, it goes back to the queue and picks those files up.
+	Paused Status = "paused"
 )
+
+// CodePauseExpired is the failure code of a job cancelled because it stayed
+// paused past the time paused progress is kept for. Its recording reads as
+// never analyzed.
+const CodePauseExpired = "pause_expired"
 
 // Terminal reports whether no further transition is possible.
 func (s Status) Terminal() bool {
@@ -78,6 +88,15 @@ type Job struct {
 	// worker that died.
 	CancelRequested bool      `json:"cancel_requested,omitempty"`
 	HeartbeatAt     time.Time `json:"heartbeat_at,omitzero"`
+	// PauseRequested asks the worker that runs the job to pause it, the
+	// way CancelRequested asks it to stop. PausedAt is when the job was
+	// paused, and RanSeconds how long it had run before its latest start.
+	PauseRequested bool      `json:"pause_requested,omitempty"`
+	PausedAt       time.Time `json:"paused_at,omitzero"`
+	RanSeconds     int64     `json:"ran_seconds,omitempty"`
+	// PausedUntil is when a paused job's progress is deleted, zero when it
+	// is kept for good. It is computed when the record is served, not stored.
+	PausedUntil time.Time `json:"paused_until,omitzero"`
 }
 
 // Report is a validated, immutable analyzer output: produced by a job or
@@ -112,8 +131,10 @@ type Store interface {
 	NextQueued(ctx context.Context) (Job, bool, error)
 	// ListActiveJobs returns the queued and running jobs, oldest first.
 	ListActiveJobs(ctx context.Context) ([]Job, error)
+	// ListPausedJobs returns the paused jobs, oldest first.
+	ListPausedJobs(ctx context.Context) ([]Job, error)
 	CountByStatus(ctx context.Context, status Status) (int, error)
-	// CountActiveForUser counts a user's queued and running jobs.
+	// CountActiveForUser counts a user's queued, running and paused jobs.
 	CountActiveForUser(ctx context.Context, userID string) (int, error)
 	// CountJobsSince counts jobs created at or after since, for one user or
 	// ("") everyone, leaving out jobs cancelled before they started: those

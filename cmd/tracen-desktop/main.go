@@ -131,6 +131,9 @@ type settings struct {
 	// noUpdateCheck turns off the daily question to GitHub about a newer
 	// release; the check is on until the person turns it off.
 	noUpdateCheck bool
+	// pausedDays is how many days a paused analysis keeps its progress.
+	// Zero, the default, keeps it for good.
+	pausedDays int
 	// cores and totalGB are what the machine has.
 	cores, totalGB int
 }
@@ -142,6 +145,7 @@ type saved struct {
 	MemoryLimitGB int    `json:"memory_limit_gb,omitempty"`
 	OnClose       string `json:"on_close,omitempty"`
 	NoUpdateCheck bool   `json:"no_update_check,omitempty"`
+	PausedDays    int    `json:"paused_lifetime_days,omitempty"`
 }
 
 func (s *settings) load() {
@@ -158,6 +162,7 @@ func (s *settings) load() {
 		s.gpu, s.chosen = *file.GPU, true
 	}
 	s.parallel, s.memoryGB, s.noUpdateCheck = file.Parallel, file.MemoryLimitGB, file.NoUpdateCheck
+	s.pausedDays = min(max(0, file.PausedDays), api.MaxPausedLifetimeDays)
 	if file.OnClose == "background" || file.OnClose == "exit" {
 		s.onClose = file.OnClose
 	}
@@ -165,7 +170,7 @@ func (s *settings) load() {
 
 // save writes what the person has chosen, and only that.
 func (s *settings) save() error {
-	file := saved{Parallel: s.parallel, MemoryLimitGB: s.memoryGB, NoUpdateCheck: s.noUpdateCheck}
+	file := saved{Parallel: s.parallel, MemoryLimitGB: s.memoryGB, NoUpdateCheck: s.noUpdateCheck, PausedDays: s.pausedDays}
 	if s.chosen {
 		file.GPU = &s.gpu
 	}
@@ -205,7 +210,7 @@ func (s *settings) view() api.Settings {
 	memoryGB, parallel := s.inForce()
 	plan := m.Fit(memoryGB, parallel)
 	out := api.Settings{GPU: s.gpu && s.available, GPUAvailable: s.available, Device: s.device,
-		Parallel: plan.Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose, UpdateCheck: !s.noUpdateCheck,
+		Parallel: plan.Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose, UpdateCheck: !s.noUpdateCheck, PausedLifetimeDays: s.pausedDays,
 		ParallelMax: m.MaxParallel(memoryGB), Workers: plan.Workers,
 		MemoryTotalGB: s.totalGB, MemoryMinGB: loadplan.MinMemoryGB, Cores: s.cores, Background: background}
 	out.Recommended.MemoryLimitGB, out.Recommended.Parallel = m.Recommend()
@@ -230,6 +235,9 @@ func (s *settings) Change(c api.SettingsChange) (api.Settings, error) {
 	if c.UpdateCheck != nil {
 		s.noUpdateCheck = !*c.UpdateCheck
 	}
+	if c.PausedLifetimeDays != nil {
+		s.pausedDays = min(max(0, *c.PausedLifetimeDays), api.MaxPausedLifetimeDays)
+	}
 	// A parallel count the memory no longer allows is lowered to what fits,
 	// and stays lowered if the memory is raised again later.
 	if s.parallel > 0 {
@@ -241,7 +249,8 @@ func (s *settings) Change(c api.SettingsChange) (api.Settings, error) {
 }
 
 // apply tells the manager which device the next analysis uses, how many
-// analyses run at once and how many readers each starts.
+// analyses run at once, how many readers each starts and how long a paused
+// analysis is kept.
 func (s *settings) apply() {
 	device := "cpu"
 	if s.gpu && s.available {
@@ -251,6 +260,7 @@ func (s *settings) apply() {
 	memoryGB, parallel := s.inForce()
 	plan := s.machine().Fit(memoryGB, parallel)
 	s.manager.SetLoad(plan.Parallel, plan.Workers, plan.DenseWorkers)
+	s.manager.SetPausedLifetime(time.Duration(s.pausedDays) * 24 * time.Hour)
 }
 
 // detect asks the interpreter which ONNX Runtime providers it has and

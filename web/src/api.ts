@@ -30,6 +30,8 @@ export interface Settings {
   memory_limit_gb: number;
   on_close: OnClose;
   update_check: boolean;
+  /** Days a paused analysis keeps its progress. 0 keeps it for good. */
+  paused_lifetime_days: number;
   /** Read-only: what the machine has and what the settings allow. */
   parallel_max: number;
   workers: number;
@@ -41,7 +43,7 @@ export interface Settings {
   background: "tray" | "dock";
 }
 
-export type SettingsChange = Partial<Pick<Settings, "gpu" | "parallel" | "memory_limit_gb" | "on_close" | "update_check">>;
+export type SettingsChange = Partial<Pick<Settings, "gpu" | "parallel" | "memory_limit_gb" | "on_close" | "update_check" | "paused_lifetime_days">>;
 
 export interface Failure {
   code: string;
@@ -57,6 +59,13 @@ export interface Job {
   created_at: string;
   started_at?: string;
   finished_at?: string;
+  /** When the analysis was paused, and when its kept progress is deleted (absent when it is kept for good). */
+  paused_at?: string;
+  paused_until?: string;
+  /** Set while a worker on another machine has been asked to pause and has not stopped yet. */
+  pause_requested?: boolean;
+  /** Seconds the analysis ran before its latest start. */
+  ran_seconds?: number;
   stage?: string;
   ocr_processed?: number;
   ocr_total?: number;
@@ -336,6 +345,8 @@ export const api = {
   job: (id: string) => request<Job>(`/api/jobs/${enc(id)}`),
   submit: (sourceId: string) => request<Job>("/api/jobs", { method: "POST", body: JSON.stringify({ source_id: sourceId }) }),
   cancel: (id: string) => request<Job>(`/api/jobs/${enc(id)}/cancel`, { method: "POST" }),
+  pause: (id: string) => request<Job>(`/api/jobs/${enc(id)}/pause`, { method: "POST" }),
+  resume: (id: string) => request<Job>(`/api/jobs/${enc(id)}/resume`, { method: "POST" }),
   /** A finished analysis whose result could not be read gets its report from the files it wrote. */
   recover: (id: string) => request<Job>(`/api/jobs/${enc(id)}/recover`, { method: "POST" }),
   reports: () => request<{ reports: Report[] }>("/api/reports").then((r) => r.reports),

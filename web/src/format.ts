@@ -44,6 +44,21 @@ export function elapsed(start?: string, end?: string): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+/**
+ * How long an analysis has run, pauses left out: the time before its latest
+ * start plus, once it has started again, the time since.
+ */
+export function runTime(job: { status: string; started_at?: string; finished_at?: string; ran_seconds?: number }): string {
+  let total = job.ran_seconds ?? 0;
+  if (job.status !== "paused" && job.status !== "queued" && job.started_at) {
+    const a = new Date(job.started_at).getTime();
+    const b = job.finished_at ? new Date(job.finished_at).getTime() : Date.now();
+    if (!Number.isNaN(a) && !Number.isNaN(b)) total += Math.max(0, Math.floor((b - a) / 1000));
+  }
+  if (!total && !job.started_at) return "";
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 /** The pill class for a job status. */
 export function statusClass(status: string): string {
   switch (status) {
