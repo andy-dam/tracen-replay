@@ -184,28 +184,91 @@ func main() {
 	}
 }
 
+// run opens the window. Nothing touches the data folder here: the build
+// tool runs this program once to read its bindings, and a second launch
+// must not either, so the service starts only when a real window does
+// (OnStartup), behind a single-instance lock. A startup that marked
+// unfinished jobs interrupted from any other place once stamped a live
+// analysis as interrupted.
 func run(logger *slog.Logger) error {
+	app := &App{}
+	var windowCtx context.Context
+	var shutdown func()
+	loading, _ := fs.Sub(frontend, "frontend")
+	return wails.Run(&options.App{
+		Title:            "Tracen Replay",
+		Width:            1320,
+		Height:           880,
+		MinWidth:         960,
+		MinHeight:        640,
+		BackgroundColour: &options.RGBA{R: 15, G: 18, B: 24, A: 1},
+		AssetServer:      &assetserver.Options{Assets: loading},
+		Bind:             []any{app},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "tracen-replay-desktop-0f6b2c9e",
+			OnSecondInstanceLaunch: func(options.SecondInstanceData) {
+				if windowCtx != nil {
+					wailsruntime.WindowUnminimise(windowCtx)
+					wailsruntime.WindowShow(windowCtx)
+				}
+			},
+		},
+		OnStartup: func(ctx context.Context) {
+			windowCtx = ctx
+			wailsruntime.WindowSetTitle(ctx, "Tracen Replay")
+			url, stop, err := start(logger)
+			if err != nil {
+				logger.Error("the application could not start", "error", err)
+				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{Type: wailsruntime.ErrorDialog,
+					Title: "Tracen Replay", Message: "The application could not start: " + err.Error()})
+				wailsruntime.Quit(ctx)
+				return
+			}
+			app.url, shutdown = url, stop
+		},
+		// The service is listening by the time the window's page is up, and
+		// the window goes there. Navigating from Go avoids a cross-origin
+		// request from the loading page, which the engine would refuse.
+		OnDomReady: func(ctx context.Context) {
+			if app.url != "" {
+				wailsruntime.WindowExecJS(ctx, "window.location.replace("+jsString(app.url)+")")
+			}
+		},
+		OnShutdown: func(context.Context) {
+			if shutdown != nil {
+				shutdown()
+			}
+		},
+	})
+}
+
+// start brings the service up on a loopback port it picks and returns the
+// address the window shows and what stops it all.
+func start(logger *slog.Logger) (string, func(), error) {
 	l, err := find()
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 	if err := os.MkdirAll(l.data, 0o755); err != nil {
-		return err
+		return "", nil, err
 	}
 	db, err := store.Open(filepath.Join(l.data, "tracen.db"))
 	if err != nil {
-		return err
+		return "", nil, err
 	}
-	defer db.Close()
 	ctx, stop := context.WithCancel(context.Background())
-	defer stop()
+	fail := func(err error) (string, func(), error) {
+		stop()
+		db.Close()
+		return "", nil, err
+	}
 	// The one person at this machine: a user row, so recordings, jobs and
 	// reports have an owner the records can name.
 	local := auth.User{ID: "local", Email: "local@this.computer", DisplayName: "This computer", CreatedAt: time.Now()}
 	if existing, err := db.UserByID(ctx, "local"); err == nil {
 		local = existing
 	} else if err := db.CreateUser(ctx, local, ""); err != nil {
-		return fmt.Errorf("the local user: %w", err)
+		return fail(fmt.Errorf("the local user: %w", err))
 	}
 
 	workers := max(2, runtime.NumCPU()/2)
@@ -213,13 +276,13 @@ func run(logger *slog.Logger) error {
 		Workers: min(workers, 4), DenseWorkers: max(1, min(workers, 4)-1), OCRDevice: "cpu", LearnedReader: l.reader,
 		Parallel: 1, QueueLimit: 8, Recordings: db, Logger: logger}, db, tracenrunner.Exec{Logger: logger})
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	prefs := &settings{path: filepath.Join(l.data, "settings.json"), manager: manager}
 	prefs.load()
 	go prefs.detect(l.python)
 	if _, err := manager.Recover(ctx); err != nil {
-		return err
+		return fail(err)
 	}
 	go manager.Run(ctx)
 
@@ -230,7 +293,7 @@ func run(logger *slog.Logger) error {
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	addr := listener.Addr().String()
 	ready := func() []api.Check {
@@ -255,34 +318,12 @@ func run(logger *slog.Logger) error {
 		}})
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	go server.Serve(listener)
-	defer server.Close()
 	logger.Info("tracen desktop", "url", "http://"+addr, "data", l.data, "version", version)
-
-	app := &App{url: "http://" + addr + "/#/runs"}
-	loading, _ := fs.Sub(frontend, "frontend")
-	return wails.Run(&options.App{
-		Title:            "Tracen Replay",
-		Width:            1320,
-		Height:           880,
-		MinWidth:         960,
-		MinHeight:        640,
-		BackgroundColour: &options.RGBA{R: 15, G: 18, B: 24, A: 1},
-		AssetServer:      &assetserver.Options{Assets: loading},
-		Bind:             []any{app},
-		OnStartup: func(ctx context.Context) {
-			wailsruntime.WindowSetTitle(ctx, "Tracen Replay")
-		},
-		// The service is listening before the window exists; once the
-		// window's page is up, it goes there. Navigating from Go avoids a
-		// cross-origin request from the loading page, which the engine
-		// would refuse.
-		OnDomReady: func(ctx context.Context) {
-			wailsruntime.WindowExecJS(ctx, "window.location.replace("+jsString(app.url)+")")
-		},
-		OnShutdown: func(context.Context) {
-			stop()
-		},
-	})
+	return "http://" + addr + "/#/runs", func() {
+		stop()
+		server.Close()
+		db.Close()
+	}, nil
 }
 
 // jsString quotes a string for a script.
