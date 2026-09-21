@@ -108,9 +108,9 @@ func exeSuffix() string {
 // settings is the desktop's one choice, kept as a file in the data folder,
 // and the manager it applies to.
 type settings struct {
-	mu        sync.Mutex
-	path      string
-	gpu       bool
+	mu   sync.Mutex
+	path string
+	gpu  bool
 	// chosen is whether the person has set the switch themselves. Until
 	// they have, the switch follows what was found: on with a supported
 	// accelerator, off without.
