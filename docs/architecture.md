@@ -91,8 +91,8 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
   capture directory a stop left without its manifest and decodes it again
   (`pipeline.clear_partial_capture`). Six stops spread over a two-minute
   clip (during capture, mid-OCR, in refinement, twice in the training
-  gain recovery and at the occluded receipt recovery) were each resumed
-  on 2026-09-21: every timeline equals the
+  gain recovery and at the occluded receipt recovery) were each resumed:
+  every timeline equals the
   uninterrupted run's, and the reports differ only in their own counts of
   what the last start wrote against what it found on disk. `Config.PausedLifetime`
   bounds how long a paused job is kept. `Manager.ExpirePaused`, run every

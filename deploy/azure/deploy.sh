@@ -16,6 +16,7 @@
 #   TRACEN_WORKER_IPS   comma-separated public addresses of the worker instances (optional)
 #   TRACEN_TRUSTED_PROXIES  the ingress networks, once known (optional)
 #   TRACEN_DAILY_TOTAL, TRACEN_MONTHLY_TOTAL  analyses everyone may start in a day and in 30 days
+#   TRACEN_DAILY_PER_USER  analyses one account may start in a day
 #                       (defaults in main.bicep; the month is the fence on the credit)
 #
 # The first run creates everything; later runs change only what differs.
@@ -53,6 +54,7 @@ az deployment group create \
 	--parameters location="$location" appOrigin="${TRACEN_APP_ORIGIN:-}" apiHost="${TRACEN_API_HOST:-}" apiImage="$TRACEN_API_IMAGE" \
 		postgresPassword="$TRACEN_PG_PASSWORD" workerAddresses="$workers" trustedProxies="${TRACEN_TRUSTED_PROXIES:-}" \
 		${TRACEN_DAILY_TOTAL:+dailyTotal=$TRACEN_DAILY_TOTAL} ${TRACEN_MONTHLY_TOTAL:+monthlyTotal=$TRACEN_MONTHLY_TOTAL} \
+		${TRACEN_DAILY_PER_USER:+dailyPerUser=$TRACEN_DAILY_PER_USER} \
 		${TRACEN_SITE_IMAGE:+siteImage=$TRACEN_SITE_IMAGE} \
 	--query properties.outputs --output yaml
 

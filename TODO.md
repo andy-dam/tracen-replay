@@ -891,23 +891,26 @@ hosting choice.
       owner set up. A career on the job takes about seven hours and about
       $3 beyond the free grant, so the fences are 2 a day and 3 a month
       until a free worker exists.
-- [x] **The hosted job ran out of disk** (2026-09-21). A 9,329-frame
-      career failed five hours in with "No space left on device": a run
-      writes 12 to 15 GB before it prunes and a Container Apps replica has
-      8 GiB at most. The job's scratch directory is now an Azure file share
-      (`scratch`, mounted at `/scratch`), in the Bicep and applied to the
-      live job the same day. The share is slower than a local disk (the
-      figures are in docs/deployment.md).
+- [x] **The hosted job's scratch space is a file share.** A run writes
+      12 to 15 GB before it prunes and a Container Apps replica has 8 GiB
+      at most. The share is slower than a local disk (the figures are in
+      docs/deployment.md).
+- [x] **A finished job's queue message was never deleted.**
+      Each renewal of the hold changes the message's receipt and the worker
+      deleted with the first one, so after any run longer than four minutes
+      the message stayed hidden for ten more and the queue-length trigger
+      started an idle worker every minute. The worker now deletes with the
+      latest receipt, and the in-memory queue changes receipts the way
+      Azure does, so the tests see it.
 - [ ] **The first full career on the scratch share.** Read its run time
       against the 5 h 51 min of the career that fitted the local disk, and
       the month's file transaction cost, and write both into
       docs/deployment.md.
-- [x] **Pause and resume** (2026-09-21). Pause stops the analyzer and keeps
+- [x] **Pause and resume.** Pause stops the analyzer and keeps
       its run directory, Resume queues the same job again and the analyzer
       continues from its kept frames and OCR rows. On the hosted site the
       progress of a paused analysis is deleted after 24 hours
-      (`TRACEN_PAUSED_LIFETIME=24h`, set on the live container app the same
-      day, which the image from before the setting ignores), the job is
+      (`TRACEN_PAUSED_LIFETIME=24h`), the job is
       cancelled as `pause_expired` and the recording reads as never
       analyzed. In the desktop application the
       time is a setting, never by default. The analyzer clears a capture

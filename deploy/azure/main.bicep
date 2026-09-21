@@ -50,6 +50,9 @@ param trustedProxies string = '10.0.0.0/8,100.64.0.0/10,172.16.0.0/12,192.168.0.
 param dailyTotal int = 2
 param monthlyTotal int = 3
 
+@description('Analyses one account may start in 24 hours.')
+param dailyPerUser int = 2
+
 @description('OCR worker processes of one analysis on the job (4 vCPU, 8 GiB): two, or one if the job runs out of memory.')
 param jobWorkers int = 2
 
@@ -302,7 +305,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             '-max-recordings', '10'
             '-max-recording-gb', '20'
             '-max-storage-gb', '400'
-            '-daily-per-user', '2'
+            '-daily-per-user', string(dailyPerUser)
             '-daily-total', string(dailyTotal)
             '-monthly-total', string(monthlyTotal)
             '-max-analysis', '10h'
