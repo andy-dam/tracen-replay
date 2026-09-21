@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Report } from "../api";
-import { bytes, clock, runTime, STAT_NAMES, when } from "../format";
+import { bytes, clock, runTime, skillPointsEarned, STAT_NAMES, when } from "../format";
 import { reviewSettles, turnWarnings } from "../warnings";
 import { progressView } from "../phases";
 import { openExternal } from "../mode";
@@ -35,6 +35,8 @@ interface RunFacts {
   explained: number;
   total: number;
   toCheck: number;
+  /** Skill points the whole run earned, when the report's entries say. */
+  earned: number | null;
 }
 const STATS = ["speed", "stamina", "power", "guts", "wit", "skill_points"] as const;
 const facts = ref<Record<string, RunFacts>>({});
@@ -69,7 +71,8 @@ async function loadFacts(report: Report) {
         // the opening of the last observed turn stands, marked as such
       }
     }
-    facts.value = { ...facts.value, [report.id]: { final, open, explained, total, toCheck } };
+    const earned = skillPointsEarned(summary.skill_points, open.includes("skill_points") ? null : final?.skill_points);
+    facts.value = { ...facts.value, [report.id]: { final, open, explained, total, toCheck, earned } };
   } catch {
     // a report that cannot be summarized simply has no facts on the dashboard
   } finally {
@@ -336,7 +339,7 @@ function hideBroken(e: Event) {
         <span class="overline" style="margin: 0">Best Run</span>
         <a class="best-name" :href="`#/reports/${encodeURIComponent(dashboard.best.report.id)}`" :title="dashboard.best.report.source_name">{{ dashboard.best.report.source_name }}</a>
       </div>
-      <StatBar :stats="dashboard.best.facts.final" :open="dashboard.best.facts.open" compact />
+      <StatBar :stats="dashboard.best.facts.final" :open="dashboard.best.facts.open" :earned="dashboard.best.facts.earned" compact />
       <div class="best-foot">{{ statTotal(dashboard.best.facts) }} across the five stats at the end of the run · {{ dashboard.best.report.turns }} turns · {{ clock(dashboard.best.report.duration_ms) }}</div>
     </div>
     <div v-else class="best"><span class="overline" style="margin: 0">Best Run</span><span class="muted small">Reading the reports…</span></div>
@@ -361,8 +364,8 @@ function hideBroken(e: Event) {
         <div v-if="run.report && facts[run.report.id]?.final" class="run-final">
           <span v-for="s in STATS" :key="s" class="rf">
             <RankBadge v-if="s !== 'skill_points'" :value="facts[run.report.id].final![s]" small />
-            <b>{{ facts[run.report.id].final![s] ?? "?" }}</b>
-            <small>{{ STAT_NAMES[s] }}</small>
+            <b :title="s === 'skill_points' && facts[run.report.id].earned !== null ? `${facts[run.report.id].final![s] ?? '?'} left at the end` : undefined">{{ s === "skill_points" && facts[run.report.id].earned !== null ? facts[run.report.id].earned : (facts[run.report.id].final![s] ?? "?") }}</b>
+            <small>{{ s === "skill_points" && facts[run.report.id].earned !== null ? "Skill Pts Earned" : STAT_NAMES[s] }}</small>
           </span>
           <span class="rf total"><b>{{ statTotal(facts[run.report.id]) }}</b><small>total</small></span>
         </div>

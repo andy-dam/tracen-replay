@@ -343,10 +343,10 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 
 /* timeline scrubber */
 .timeline { padding: 14px 0 6px; position: relative; }
-.tl-years { display: grid; grid-template-columns: repeat(3, 24fr) 3fr; gap: 3px; font-family: var(--font-display); font-weight: 800; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+.tl-years { display: grid; grid-template-columns: 23fr 24fr 24fr 3fr; gap: 3px; font-family: var(--font-display); font-weight: 800; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
 .tl-years span { padding-left: 2px; border-left: 2px solid var(--line); }
-.tl-cells { display: grid; grid-template-columns: repeat(75, 1fr); gap: 3px; }
-@media (max-width: 760px) { .tl-years { display: none; } .tl-cells { grid-template-columns: repeat(24, 1fr); } }
+.tl-cells { display: grid; grid-template-columns: repeat(74, 1fr); gap: 3px; }
+@media (max-width: 760px) { .tl-years { display: none; } .tl-cells { grid-template-columns: repeat(24, 1fr); } .tl-cells .cell.row-start { grid-column-start: 1; } }
 .cell { height: 26px; border-radius: 5px; background: var(--bg-3); border: 0; padding: 0; cursor: pointer; position: relative; transition: transform 160ms var(--ease), box-shadow 160ms; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.35); }
 .cell:hover { transform: translateY(-3px) scale(1.12); z-index: 2; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.35), var(--shadow-lift); }
 .cell.empty { background: transparent; border: 1.5px dashed var(--line); cursor: default; box-shadow: none; }
@@ -443,9 +443,10 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 .phase.done > i { background: var(--green); }
 .phase.active > i { background-size: 200% 100%; animation: shimmer 2.4s linear infinite; }
 .phase.active { box-shadow: inset 0 0 0 1.5px var(--green); }
-.phase-legend { display: flex; gap: 6px 14px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; font-size: 12px; font-weight: 700; color: var(--ink-3); }
+.phase-legend { display: flex; gap: 6px 12px; justify-content: space-between; white-space: nowrap; list-style: none; margin: 0; padding: 0; font-size: 12px; font-weight: 700; color: var(--ink-3); }
 .phase-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .phase-legend li i { width: 9px; height: 9px; border-radius: 50%; background: var(--bg-4); box-shadow: inset 0 0 0 1px var(--line); }
+@media (max-width: 860px) { .phase-legend { flex-wrap: wrap; justify-content: flex-start; } }
 .phase-legend li.done { color: var(--ink-2); }
 .phase-legend li.done i { background: var(--green); box-shadow: none; }
 .phase-legend li.active { color: var(--green-ink); }
@@ -655,6 +656,7 @@ button.ms-cell:hover { transform: translateY(-1px); border-color: var(--ink-3); 
 .choice-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 5px; }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .tiles.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tiles.three .tile b { font-size: 20px; }
 .tile { padding: 12px 14px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line-2); min-width: 0; transition: transform 160ms var(--ease); }
 .tile:hover { transform: translateY(-2px); }
 .tile b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -785,7 +787,7 @@ img.dark { display: none; }
 .steps-wrap { margin-top: 44px; }
 .steps { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
-.steps li { position: relative; padding: 14px 16px 14px 56px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; color: var(--ink-2); font-size: 14px; }
+.steps li { position: relative; padding: 14px 16px 14px 56px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; color: var(--ink-2); font-size: 14px; text-wrap: balance; }
 .steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 14px; top: 12px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-weight: 900; color: #fff; background: linear-gradient(180deg, var(--green-2), var(--green)); }
 .steps b { color: var(--ink); font-family: var(--font-display); font-weight: 800; }
 .start { margin-top: 44px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: 32px; align-items: center; padding: 28px; border-radius: 18px; background: var(--bg-3); }

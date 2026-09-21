@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { api, type Correction, type Entry, type Summary, type Turn, type TurnSummary, type Verification } from "../api";
 import { replaceHash } from "../route";
-import { clock, PERFORMANCE_FIELDS, statusText, when } from "../format";
+import { clock, PERFORMANCE_FIELDS, skillPointsEarned, statusText, when } from "../format";
 import { entryWarnings, settledTurns, turnWarnings, type SavedReview } from "../warnings";
 import Timeline from "../components/Timeline.vue";
 import StatBar from "../components/StatBar.vue";
@@ -314,7 +314,7 @@ const noteCount = computed(() => {
       </div>
       <div class="run-final">
         <div class="run-final-label">At the End of the Run</div>
-        <StatBar :stats="finalStats" :open="finalOpen" />
+        <StatBar :stats="finalStats" :open="finalOpen" :earned="skillPointsEarned(summary.skill_points, finalStats?.skill_points)" />
         <div v-if="finalOpen.length" class="muted small" style="margin-top: 6px">≈ the last value read for it. The run's end was not on a screen the report reads.</div>
       </div>
     </header>
@@ -353,7 +353,7 @@ const noteCount = computed(() => {
     </div>
 
     <section class="growth-wide">
-      <GrowthPane :turns="turns" :selected="current" @select="select" />
+      <GrowthPane :turns="turns" :entries="allEntries" :selected="current" @select="select" />
     </section>
 
     <section class="growth-wide">

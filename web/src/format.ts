@@ -59,6 +59,16 @@ export function runTime(job: { status: string; started_at?: string; finished_at?
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
+/**
+ * The skill points a career earned. The balance left at the end plus what was
+ * spent is the figure a player means, and it holds even where a gain went
+ * unread. Without an end balance it is the gains the entries add up to.
+ */
+export function skillPointsEarned(totals: { earned: number; spent: number } | null | undefined, left: number | null | undefined): number | null {
+  if (!totals) return null;
+  return typeof left === "number" ? left + totals.spent : totals.earned;
+}
+
 /** The pill class for a job status. */
 export function statusClass(status: string): string {
   switch (status) {
@@ -133,18 +143,23 @@ export function statRank(value: number | null | undefined): StatRank | null {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const MONTH_LABELS = MONTHS;
 
-/** Where a turn sits on the calendar: year row (0 junior, 1 classic, 2 senior), column 0-23 (half months), or the finale row 3 (0-2). */
+/** The cells of each strip row. A junior year is 23 turns: 11 before the debut, then Early July to Late December. */
+export const STRIP_ROWS = [23, 24, 24, 3];
+
+/** Where a turn sits on the calendar: year row (0 junior, 1 classic, 2 senior) and its column, or the finale row 3 (0-2). */
 export function stripPosition(turn: TurnSummary): { row: number; col: number } | null {
   const label = turn.label;
   const dated = /^(Junior|Classic|Senior) Year (Early|Late) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.exec(label);
   if (dated) {
     const row = { Junior: 0, Classic: 1, Senior: 2 }[dated[1]] ?? 0;
-    return { row, col: MONTHS.indexOf(dated[3]) * 2 + (dated[2] === "Late" ? 1 : 0) };
+    const half = MONTHS.indexOf(dated[3]) * 2 + (dated[2] === "Late" ? 1 : 0);
+    // The junior year has no Early January turn: its first dated turn, Early July, is the twelfth cell.
+    return { row, col: row === 0 ? Math.max(0, half - 1) : half };
   }
   if (label.startsWith("Junior Year Pre-Debut")) {
-    // The intro turn has no countdown; then 11 turns to goal ... 1 turn to goal fill January to June.
+    // The run opens on "11 turns to goal", the first cell, and counts down to 1.
     const value = typeof turn.calendar_value === "number" ? turn.calendar_value : null;
-    return { row: 0, col: value === null ? 0 : Math.max(0, Math.min(11, 12 - value)) };
+    return { row: 0, col: value === null ? 0 : Math.max(0, Math.min(10, 11 - value)) };
   }
   if (label.startsWith("Finale Underway")) {
     // "Finale" itself contains "Final", so the last race is matched as a whole word.

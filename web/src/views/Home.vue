@@ -82,9 +82,9 @@ defineProps<{ user: User | null }>();
   <section class="steps-wrap">
     <h2>Three Steps</h2>
     <ol class="steps">
-      <li><b>Record</b> the career at 1080p with the log panel open.</li>
-      <li><b>Upload</b> the file. A full career is about 1 GB.</li>
-      <li><b>Read</b> the report, with the recording beside it.</li>
+      <li><b>Record</b> at 1080p with the log panel open.</li>
+      <li><b>Upload</b> the file, about 1 GB for a career.</li>
+      <li><b>Read</b> the report beside the recording.</li>
     </ol>
   </section>
 

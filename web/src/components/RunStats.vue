@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Entry, TurnSummary } from "../api";
-import { clock, CORE_STATS, gradeClass, shortLabel, STAT_NAMES, statRank, yearOf } from "../format";
+import { clock, CORE_STATS, gradeClass, shortLabel, skillPointsEarned, STAT_NAMES, statRank, yearOf } from "../format";
 import RankBadge from "./RankBadge.vue";
 
 // How the run was played, counted from what the ledger recorded: the
 // turns' committed actions, the trainings' observed gains, the races, the
-// shop, the events. Every item opens its turn. Nothing is estimated.
+// shop. Every item opens its turn. Nothing is estimated.
 const props = defineProps<{ turns: TurnSummary[]; entries: Entry[]; final: Record<string, number | null> | null }>();
 const emit = defineEmits<{ select: [id: string, ms?: number | null] }>();
 
@@ -168,6 +168,8 @@ const skills = computed(() => {
     else hintMap.set(name, { levels, entry: e });
   }
   const hints = [...hintMap.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.levels - a.levels);
+  // The figure the report's header leads with: what is left plus what was spent.
+  earned = skillPointsEarned({ earned, spent }, props.final?.skill_points) ?? earned;
   return { earned, spent, left: props.final?.skill_points ?? null, bought, hints, hintLevels: hints.reduce((n, h) => n + h.levels, 0) };
 });
 
@@ -195,26 +197,6 @@ const energy = computed(() => {
     if (streak > longest) longest = streak;
   }
   return { rests, outings, infirmary, recovered: recoveredKnown ? recovered : null, longest };
-});
-
-// 8. Events: outcomes and what they gave.
-const events = computed(() => {
-  const list = props.entries.filter((e) => e.kind === "outcome");
-  let statTotal = 0;
-  let skillTotal = 0;
-  const scored = list.map((e) => {
-    let total = 0;
-    for (const [field, c] of Object.entries(e.changes?.stats ?? {})) {
-      if (c.amount === null) continue;
-      if (field === "skill_points") skillTotal += c.amount;
-      else {
-        total += c.amount;
-        statTotal += c.amount;
-      }
-    }
-    return { entry: e, title: e.context_title || "event", total };
-  });
-  return { count: list.length, statTotal, skillTotal, top: scored.filter((s) => s.total > 0).sort((a, b) => b.total - a.total).slice(0, 8) };
 });
 
 // 9. The scenario's own economy, only when the ledger recorded it.
@@ -397,24 +379,6 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
           <div v-if="energy.infirmary" class="tile"><b class="tabular">{{ energy.infirmary }}</b><span>infirmary</span></div>
         </div>
         <p class="muted small" style="margin-top: 10px">A rest is a turn the ledger recorded as rest. The energy is what the rest's own message stated.</p>
-      </div>
-    </div>
-
-    <div class="an-card">
-      <h3>Events</h3>
-      <div class="an-body">
-        <div class="tiles three">
-          <div class="tile"><b class="tabular">{{ events.count }}</b><span>outcomes</span></div>
-          <div class="tile"><b class="tabular up">+{{ events.statTotal }}</b><span>stat points</span></div>
-          <div class="tile"><b class="tabular up">+{{ events.skillTotal }}</b><span>skill points</span></div>
-        </div>
-        <ul v-if="events.top.length" class="event-list">
-          <li v-for="t in events.top" :key="t.entry.id">
-            <button class="linkish clip" :title="`${t.title} · ${where(t.entry)}`" @click="go(t.entry)">{{ t.title }}</button>
-            <span class="muted small clip">{{ where(t.entry) }}</span>
-            <span class="gain">+{{ t.total }}</span>
-          </li>
-        </ul>
       </div>
     </div>
 

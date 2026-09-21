@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { TurnSummary } from "../api";
+import type { Entry, TurnSummary } from "../api";
 import { CORE_STATS, PERFORMANCE_FIELDS, STAT_NAMES, titleCase } from "../format";
 import RunChart, { type Series } from "./RunChart.vue";
 import StatChart from "./StatChart.vue";
 
 // The opening value of every stat at every turn as one wide, clickable
 // chart, then three more views over the same turns: how much each turn
-// added, the skill point balance, and the performance points of a Grand
-// Concert run.
-const props = defineProps<{ turns: TurnSummary[]; selected: string }>();
+// added, the skill points earned and held, and the performance points of a
+// Grand Concert run.
+const props = defineProps<{ turns: TurnSummary[]; entries: Entry[]; selected: string }>();
 const emit = defineEmits<{ select: [id: string] }>();
 
 const plotted = computed(() => props.turns.filter((t) => t.window_kind !== "unresolved_phase"));
@@ -38,10 +38,34 @@ const growth = computed<Series[]>(() =>
 );
 const growthSeen = computed(() => growth.value.some((s) => s.values.some((v) => v !== null && v !== 0)));
 
-const skillPoints = computed<Series[]>(() => [
-  { key: "skill_points", name: STAT_NAMES.skill_points, color: "var(--stat-skill_points)", values: plotted.value.map((t) => opening(t, "skill_points")) },
-]);
-const skillSeen = computed(() => skillPoints.value[0].values.some((v) => v !== null));
+// Two lines over the same turns: the balance at the start of the turn, and
+// the skill points earned by then, which is that balance plus everything
+// spent before the turn. Until the first purchase the two are the same
+// number, and many runs buy nothing until the end. So the earned line is
+// drawn first as a wide, soft band and the balance as a thin line on top of
+// it: where they coincide both are still seen, one inside the other.
+const skillPoints = computed<Series[]>(() => {
+  const spentIn = new Map<string, number>();
+  for (const e of props.entries) {
+    if (e.accounting_role === "reference_only_not_an_additional_award" || !e.turn_id) continue;
+    const amount = e.changes?.stats?.skill_points?.amount ?? 0;
+    if (amount < 0) spentIn.set(e.turn_id, (spentIn.get(e.turn_id) ?? 0) - amount);
+  }
+  let spent = 0;
+  const balance: (number | null)[] = [];
+  const earned: (number | null)[] = [];
+  for (const t of plotted.value) {
+    const held = opening(t, "skill_points");
+    balance.push(held);
+    earned.push(held === null ? null : held + spent);
+    spent += spentIn.get(t.id) ?? 0;
+  }
+  return [
+    { key: "earned", name: "Earned So Far", color: "var(--orange)", values: earned, width: 8, opacity: 0.55 },
+    { key: "skill_points", name: "Held", color: "var(--stat-skill_points)", values: balance, width: 2.25 },
+  ];
+});
+const skillSeen = computed(() => skillPoints.value[1].values.some((v) => v !== null));
 
 const performance = computed<Series[]>(() =>
   PERFORMANCE_FIELDS.map((field) => ({
@@ -70,7 +94,7 @@ const performanceSeen = computed(() => performance.value.some((s) => s.values.so
 
   <template v-if="skillSeen">
     <h3 class="pane-h">Skill Points Across the Run</h3>
-    <p class="muted small" style="margin-bottom: 8px">The balance at the start of every turn. It climbs with training and races and drops where skills were bought.</p>
+    <p class="muted small" style="margin-bottom: 8px">At the start of every turn: the skill points earned so far (the wide band) and the skill points held (the line). The line runs inside the band until skills are bought, then drops below it.</p>
     <RunChart :turns="plotted" :series="skillPoints" :selected="selected" mode="lines" :floor="100" @select="(id) => emit('select', id)" />
   </template>
 

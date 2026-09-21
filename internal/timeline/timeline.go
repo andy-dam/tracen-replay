@@ -250,6 +250,34 @@ func (d *Document) Unassigned() []Entry {
 	return out
 }
 
+// SkillPointTotals is what the run's entries did to the skill points.
+type SkillPointTotals struct {
+	Earned int `json:"earned"`
+	Spent  int `json:"spent"`
+}
+
+// SkillPointTotals adds up every entry's change to the skill points: gains
+// as earned, purchases as spent. An entry that only refers to an award
+// counted elsewhere is left out, as the accounting leaves it out.
+func (d *Document) SkillPointTotals() SkillPointTotals {
+	var totals SkillPointTotals
+	for _, entry := range d.Entries {
+		if entry.AccountingRole == "reference_only_not_an_additional_award" {
+			continue
+		}
+		change, ok := entry.Changes["stats"]["skill_points"]
+		if !ok || change.Amount == nil {
+			continue
+		}
+		if *change.Amount > 0 {
+			totals.Earned += *change.Amount
+		} else {
+			totals.Spent -= *change.Amount
+		}
+	}
+	return totals
+}
+
 // TurnSummary is what a turn navigator needs without the entries.
 type TurnSummary struct {
 	ID               string          `json:"id"`

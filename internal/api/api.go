@@ -1210,7 +1210,7 @@ func (s *Server) reportSummary(w http.ResponseWriter, r *http.Request) {
 		"report": report, "source": doc.Source, "recognition": doc.Recognition, "summary": doc.Summary,
 		"turns": len(doc.Turns), "entries": len(doc.Entries), "unassigned": len(doc.Unassigned()),
 		"schema_version": doc.SchemaVersion, "note": doc.Note, "video_available": hasVideo,
-		"analyzer": s.analyzerLedger(r, report),
+		"analyzer": s.analyzerLedger(r, report), "skill_points": doc.SkillPointTotals(),
 	})
 }
 
