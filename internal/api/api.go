@@ -100,6 +100,14 @@ type Auth interface {
 	TTL() time.Duration
 }
 
+// VersionInfo is what /api/version answers: this build, and, when the
+// service checks for releases and a newer one exists, its tag and page.
+type VersionInfo struct {
+	Version string `json:"version"`
+	Latest  string `json:"latest,omitempty"`
+	URL     string `json:"url,omitempty"`
+}
+
 // Check is one readiness probe.
 type Check struct {
 	Name string `json:"name"`
@@ -147,6 +155,8 @@ type Config struct {
 	Probe func(ctx context.Context, path string) (artifacts.Media, error)
 	// Ready runs the readiness probes; nil means always ready.
 	Ready func() []Check
+	// Version answers /api/version; nil answers "dev".
+	Version func() VersionInfo
 	// Analyzer reports the installed analyzer's identity, so a report can say
 	// whether the analyzer that made it is still the one on disk. nil leaves
 	// the comparison out rather than guessing at it.
@@ -244,6 +254,13 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	m.HandleFunc("GET /readyz", s.ready)
+	m.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
+		info := VersionInfo{Version: "dev"}
+		if s.cfg.Version != nil {
+			info = s.cfg.Version()
+		}
+		writeJSON(w, http.StatusOK, info)
+	})
 	m.HandleFunc("POST /api/auth/register", s.register)
 	m.HandleFunc("POST /api/auth/login", s.login)
 	m.HandleFunc("POST /api/auth/logout", s.logout)

@@ -45,8 +45,8 @@ import { hosted } from "../api";
 
     <section class="guide-section">
       <div class="overline">Privacy</div>
-      <h2>Local by Design</h2>
-      <p class="muted">{{ hosted ? "Recordings are analyzed on the service's worker; originals are kept for 90 days so a report can be made again, and the playback copy stays with its report." : "Recordings, reports and accounts live in the data folder on this machine and the service listens on this machine only. Nothing is uploaded anywhere." }} See the <a href="#/guide">Guide</a> for recording tips and how reviewing works.</p>
+      <h2>{{ hosted ? "Your Data" : "Local by Design" }}</h2>
+      <p class="muted">{{ hosted ? "Recordings are analyzed on the service's worker; originals are kept for 90 days so a report can be made again, and the playback copy stays with its report." : "Recordings, reports and accounts live in the data folder on this machine and the service listens on this machine only. Nothing is uploaded anywhere." }} {{ hosted ? "" : " The only thing it ever sends is a once-a-day request to GitHub for the newest release number, which the -update-check=false flag turns off." }} See the <a href="#/guide">Guide</a> for recording tips and how reviewing works.</p>
     </section>
   </div>
 </template>

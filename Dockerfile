@@ -22,13 +22,14 @@ RUN npm run build
 
 # One static binary; go:embed takes the client bundle with it.
 FROM golang:1.25-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437 AS service
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 COPY --from=client /src/internal/webassets/dist/ ./internal/webassets/dist/
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/tracen ./cmd/tracen
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/tracen ./cmd/tracen
 
 # The analyzer alone. A container of this stage takes the analyzer's own
 # command line (docs/analysis-job.md), source first, with the recording and

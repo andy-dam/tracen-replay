@@ -50,7 +50,12 @@ if (-not (Test-Path $getPip)) { curl.exe -sSL -o $getPip "https://bootstrap.pypa
 Write-Host "== analyzer and its wheels"
 Copy-Item -Recurse analyzer (Join-Path $bundle "analyzer")
 Remove-Item -Recurse -Force (Join-Path $bundle "analyzer/lab"), (Join-Path $bundle "analyzer/tests") -ErrorAction SilentlyContinue
-& (Join-Path $py "python.exe") -m pip install --no-warn-script-location -c docker/constraints-windows.txt (Join-Path $bundle "analyzer") "$(Join-Path $bundle 'analyzer')[vision]"
+# The embeddable interpreter has no setuptools and cannot make the isolated
+# build environment pip would otherwise use, so setuptools goes in first
+# and the analyzer is built in place.
+& (Join-Path $py "python.exe") -m pip install --no-warn-script-location setuptools wheel
+& (Join-Path $py "python.exe") -m pip install --no-warn-script-location --no-build-isolation -c docker/constraints-windows.txt "$(Join-Path $bundle 'analyzer')[vision]"
+if ($LASTEXITCODE -ne 0) { throw "pip install of the analyzer failed" }
 
 Write-Host "== OCR models"
 $models = Join-Path $bundle "models"

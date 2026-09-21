@@ -101,6 +101,7 @@ func run() error {
 	recordingRetention := flag.Duration("recording-retention", 14*24*time.Hour, "uploads older than this that no analysis is using are deleted (their reports stay); 0 keeps uploads forever")
 	originalLifetime := flag.Duration("original-lifetime", 0, "how long after its upload an original can still be analyzed, when an object store's lifecycle deletes originals (Azure: 2160h); a later analysis is refused up front and the recording says until when; 0 for no limit")
 	frameCache := flag.Int64("frame-cache-gb", 2, "space the extracted-frame cache may take, in GB, the oldest frames going first; 0 for no bound")
+	updateCheck := flag.Bool("update-check", true, "ask GitHub once a day for the newest release, so the client can say one exists; nothing else is sent")
 	storage := addStorageFlags(flag.CommandLine)
 	flag.Parse()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -184,6 +185,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("bad -addr: %w", err)
 	}
+	deviceCheck := ocrDeviceCheck(*python, *ocrDevice)
+	if container != nil {
+		deviceCheck = func() api.Check {
+			return api.Check{Name: "ocr-device", OK: true, Note: *ocrDevice + " inside the worker container"}
+		}
+	}
 	ready := func() []api.Check {
 		var checks []api.Check
 		if analysisQueue != nil {
@@ -223,7 +230,7 @@ func run() error {
 		if analysisQueue != nil {
 			return checks
 		}
-		checks = append(checks, api.Check{Name: "ocr-device", OK: true, Note: *ocrDevice + " (the resolved device is reported by each analysis in its recognition record)"})
+		checks = append(checks, deviceCheck())
 		if *learnedReader != "" {
 			checks = append(checks, check("learned-reader", *learnedReader, func() error { _, err := os.Stat(*learnedReader); return err }))
 		}
@@ -274,6 +281,11 @@ func run() error {
 	if *registration == api.RegistrationInvite && len(invites) == 0 {
 		return fmt.Errorf("-registration invite needs at least one -invite-code")
 	}
+	var releases *updates
+	if *updateCheck {
+		releases = &updates{log: logger}
+		go releases.Run(ctx)
+	}
 	// The analyzer names itself, so a report can say whether the analyzer that
 	// made it is still the one installed. Asked on first use, not at startup:
 	// serving must not wait on an interpreter or a container, and a missing
@@ -293,6 +305,7 @@ func run() error {
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, Auth: accounts, RecordingsDir: recordingsDir,
 		Objects:       objects,
 		RemoteOrigins: remoteOrigins, OriginalLifetime: *originalLifetime,
+		Version:      releases.Info,
 		Analyzer:     analyzer.Version,
 		ArtifactsDir: filepath.Join(*dataDir, "jobs"), Ready: ready, Logger: logger,
 		Frames:       frames,
@@ -311,7 +324,7 @@ func run() error {
 	server := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 64 << 10}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.ListenAndServe() }()
-	logger.Info("tracen listening", "addr", "http://"+*addr, "data", *dataDir)
+	logger.Info("tracen listening", "addr", "http://"+*addr, "data", *dataDir, "version", version)
 
 	select {
 	case err := <-serveErr:
