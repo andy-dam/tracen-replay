@@ -751,7 +751,7 @@ reading small fixed crops. The accounting labels them for free. Order:
 - [ ] **Later:** boundary and animation-state detection, using the current
       rules' decisions as labels.
 
-- [ ] **Faster analyses.** A full career took 48 minutes on this machine;
+- [x] **Faster analyses.** A full career took 48 minutes on this machine;
       with the same 3 workers and 2 dense workers it now takes 32, and with 5
       and 4 it takes 24, every report identical (docs/ocr-performance.md).
       In place: the OCR engine gets compact images, a pane's PNG is written
@@ -850,10 +850,33 @@ hosting choice.
       retention, expired sessions, frame cache) and resource bounds on the
       worker container. The numbers and their reasoning are in
       [docs/deployment.md](docs/deployment.md) under "Abuse and limits".
-- [ ] The four changes in [docs/deployment.md](docs/deployment.md): accounts
-      beyond one machine, an object store for uploads and job outputs, a
-      queue that outlives one process, and GPU workers that are addressed
-      rather than spawned. No provider is chosen yet.
+- [x] **Hosted** (2026-09-20). Azure for Students, North Central US: the
+      application at
+      https://tracen-replay.bluebay-878de3c5.northcentralus.azurecontainerapps.io
+      (the container app serves the client), PostgreSQL, Blob storage for
+      originals (cold after a day, gone after 90), kept 720p copies and
+      analysis files, an Azure Storage Queue, and a Container Apps job (4
+      vCPU / 8 GiB) that takes analyses from the queue; a worker on any
+      other machine (`tracen worker`, deploy/oracle) takes from the same
+      queue. Uploads go straight to Blob by signed URL. Everything is in
+      [docs/deployment.md](docs/deployment.md), section 11 lists what the
+      owner set up. A career on the job takes about seven hours and about
+      $3 beyond the free grant, so the fences are 2 a day and 3 a month
+      until a free worker exists.
+- [ ] **A free unlimited worker.** Oracle's A1 shape (2 OCPU / 12 GB free,
+      placed reliably only on an upgraded account) or an on-demand
+      DigitalOcean droplet on the GitHub Student Pack credit. The
+      on-demand shape needs one piece of code: start the machine when a
+      job is queued, stop it when the queue is empty (the worker already
+      exits when idle).
+- [ ] **Automatic deploys.** An app registration with a federated
+      credential for GitHub, so a merge to main deploys itself
+      (deploy/azure/github-oidc.sh prints what to set).
+- [ ] **A domain.** The Student Pack's free .me; then `app.` and `api.`
+      records and one rerun of deploy.sh.
+- [ ] **The recording page says until when the original can be analyzed
+      again**, and a re-analysis after that is refused up front rather
+      than failing in the worker.
 
 ## 7. Desktop version
 
