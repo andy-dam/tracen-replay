@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -130,6 +131,29 @@ func TestDecodeTerminalAcceptsTheRealSucceededObject(t *testing.T) {
 	var ce *ContractError
 	if _, err := Interpret(ExitProducer, testdata(t, "succeeded.stdout.json")); !errors.As(err, &ce) || ce.Code != CodeStatusExitMismatch {
 		t.Fatalf("success object with exit 1 must be %s, got %v", CodeStatusExitMismatch, err)
+	}
+}
+
+// A native library's log line ahead of the object once failed a finished
+// analysis on a Mac ("invalid character 'E'"). The last line is the answer
+// when it is a terminal object; noise without one is still refused, and so
+// is noise after the object.
+func TestDecodeTerminalSurvivesNoiseAheadOfTheObject(t *testing.T) {
+	object := bytes.TrimSpace(testdata(t, "succeeded.stdout.json"))
+	if bytes.ContainsRune(object, '\n') {
+		t.Skip("the fixture is not a single line")
+	}
+	noisy := append([]byte("E5RT encountered an unknown exception\nanother line\n"), object...)
+	r, err := DecodeTerminal(append(noisy, '\n'))
+	if err != nil || r.Status != StatusSucceeded {
+		t.Fatalf("noise ahead of the object: %+v %v", r, err)
+	}
+	var ce *ContractError
+	if _, err := DecodeTerminal([]byte("E5RT noise\nmore noise\n")); !errors.As(err, &ce) || ce.Code != CodeBadTerminalOutput {
+		t.Fatalf("noise alone: %v", err)
+	}
+	if _, err := DecodeTerminal(append(append([]byte{}, object...), []byte("\nE5RT after the object\n")...)); err == nil {
+		t.Fatal("noise after the object must still be refused")
 	}
 }
 
