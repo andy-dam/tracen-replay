@@ -18,10 +18,11 @@ Anyway".)
 viewer shows live under `~/Library/Application Support/TracenReplay`. The
 application never sends anything anywhere.
 
-**Speed:** Settings has a switch to use the Apple silicon neural and
-graphics hardware (CoreML). It is off to begin with, and the processor
-does the reading. The switch is new on the Mac: if an analysis fails or
-reads worse with it on, turn it off and analyze again.
+**Graphics acceleration:** most of an analysis is reading text off the
+frames, and the graphics and neural hardware in an Apple chip (through
+CoreML) is quicker at that than the processor. The application uses it
+from the start. It is new on the Mac: if an analysis fails or reads worse,
+turn the switch off in Settings and analyze again.
 
 **Updating:** drag the newer version onto Applications and replace; your
 data stays where it is.

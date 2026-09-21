@@ -8,10 +8,11 @@ machine.
 viewer shows live under `%APPDATA%\TracenReplay`. The application never
 sends anything anywhere.
 
-**Speed:** Settings has a switch to use your graphics card. It can be
-turned on when a supported card is found (any DirectX 12 card on Windows,
-Apple silicon on Mac); on, a career analyzes in a fraction of the time the
-processor needs. Off, the processor does it and takes much longer.
+**Graphics acceleration:** most of an analysis is reading text off the
+frames, and a graphics card is a lot quicker at that than the processor.
+If your computer has a card that supports DirectX 12, the application uses
+it from the start. Settings has the switch: turn it off if an analysis
+fails or the computer gets too sluggish while one runs.
 
 **Updating:** install the newer version over this one; your data stays
 where it is.
