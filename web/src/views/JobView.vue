@@ -58,16 +58,6 @@ const running = computed(() => (now.value ? elapsed(job.value?.started_at, job.v
 // The five phases of an analysis and how far each has come; the reading
 // phase moves with the frame count, the others with the stages finished.
 const view = computed(() => progressView(job.value, percent.value));
-// A rough time left, from how long the finished share took; only once the
-// analysis is far enough in for the share to mean something.
-const remaining = computed(() => {
-  const j = job.value;
-  if (!j?.started_at || j.status !== "running" || view.value.overall < 8) return "";
-  const elapsedMs = now.value - new Date(j.started_at).getTime();
-  const left = (elapsedMs * (100 - view.value.overall)) / view.value.overall;
-  const minutes = Math.max(1, Math.round(left / 60000));
-  return `roughly ${minutes} min left`;
-});
 
 async function cancel() {
   try {
@@ -109,7 +99,6 @@ async function cancel() {
           <template v-if="view.current">Now {{ view.current.doing }}. </template>
           <template v-if="job.stage === 'ocr' && job.ocr_total">{{ job.ocr_processed }} of {{ job.ocr_total }} frames read. </template>
           <template v-else-if="view.lastDone">Last stage finished: {{ view.lastDone }}. </template>
-          <template v-if="remaining">{{ remaining[0].toUpperCase() + remaining.slice(1) }}, going by the time so far. </template>
           You can leave this page; the analysis keeps running.
         </p>
         <p style="margin-top: 16px" class="row"><button class="btn" @click="cancel">Cancel Analysis</button><a class="btn quiet" href="#/runs">Back to Runs</a></p>
