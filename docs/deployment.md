@@ -235,6 +235,7 @@ The service already carries every bound below as a flag
 | Analyses per account per day | `-daily-per-user` | 2 | a career and a retry |
 | Analyses for everyone per day | `-daily-total` | 4 | what the Always Free worker finishes in a day; queued work past this waits until tomorrow |
 | Analysis wall clock | `-max-analysis` | 10h | the slowest worker's time with margin |
+| Paused progress | `-paused-lifetime` (set through `TRACEN_PAUSED_LIFETIME`) | 24h | a paused analysis holds 12 to 15 GB on the scratch share; past a day it is cancelled, its files deleted, and the recording reads as never analyzed |
 | Original retention | lifecycle rule on `originals` | 90 days, cold after a day | re-analysis within them, a new upload after |
 | Kept-copy retention | `-recording-retention` | 0 (kept for the year) | the credit pays for it; the report and its video stay together |
 | Frame cache | `-frame-cache-gb` | 2 | |
@@ -336,7 +337,9 @@ listed under "Still to do" and section 11 says what the owner sets up.
    its scratch directory, runs the analyzer, uploads the report, the
    timeline and the log. The hold on the message is renewed every four
    minutes, a heartbeat is written every minute, a cancellation crosses
-   machines through `cancel_requested` on the record, and a job whose
+   machines through `cancel_requested` on the record (a pause through
+   `pause_requested`, and the worker then keeps the job's scratch
+   directory for the resume), and a job whose
    worker died is settled as interrupted by the API after 15 silent
    minutes or by the next worker that gets the message back.
 4. **Upload by signed URL.** Done: `POST /api/recordings/uploads` gives
@@ -366,6 +369,22 @@ Still to do, none of it blocking a first deployment:
   `TRACEN_TEST_AZURE_STORAGE=<connection string> go test
   ./internal/objectstore ./internal/queue` when the store or queue code
   changes.
+- The job's scratch space is an Azure file share (`scratch`, 100 GB
+  quota, transaction optimized, billed for what is on it), mounted at
+  `/scratch`. A replica's own disk is 8 GiB at most and a full career
+  writes 12 to 15 GB of frames and crops before it prunes them: on
+  2026-09-21 a 9,329-frame career failed five hours in with "No space
+  left on device" in `training_gain_recovery`. The share is also what a
+  resumed analysis finds its files on, since each execution is a new
+  container. It is slower than a local disk. Measured from a job on
+  2026-09-21: 53 ms to write a 700 KB file (13 MB/s one at a time), 28 ms
+  to read one, 70 ms to write and rename a small JSON file, 14 ms to
+  delete a file. For the about 50,000 files of a career that is some tens
+  of minutes spread over the run. The first full career on the share
+  gives the real figure and the transaction cost. The share was created
+  and the live job patched by hand that day (`az storage share-rm
+  create`, `az containerapp env storage set`, a PATCH of the job's
+  template). The Bicep carries the same.
 - The Container Apps job is in the Bicep (`tracen-analysis`, 4 vCPU /
   8 GiB, one execution per waiting message, `-exit-when-idle`), added on
   2026-09-20 when the Oracle A1 shape stayed out of capacity; the

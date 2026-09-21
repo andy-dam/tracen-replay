@@ -103,6 +103,27 @@ resource blobContainers 'Microsoft.Storage/storageAccounts/blobServices/containe
   properties: { publicAccess: 'None' }
 }]
 
+// The analysis job's scratch space. An analysis writes 12 to 15 GB of frames
+// and crops before it prunes them, and a Container Apps replica has 8 GiB
+// of disk of its own at most: a full career ran out of it ("No space left on
+// device") five hours in. A file share has no such bound, is billed for what
+// is on it while it is there, and outlives an execution, which is what lets
+// a paused analysis be resumed by the next one. A job's files are deleted
+// when it ends, or when it is given up while paused.
+resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource scratchShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = {
+  parent: fileService
+  name: 'scratch'
+  properties: {
+    accessTier: 'TransactionOptimized'
+    shareQuota: 100
+  }
+}
+
 resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-05-01' = {
   parent: storage
   name: 'default'
@@ -194,6 +215,22 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: '${name}-apps'
 }
 
+// The share as the environment knows it; a volume of the job names it. A
+// share is mounted with the account key: Container Apps has no identity
+// sign-in for file shares.
+resource scratchStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
+  parent: environment
+  name: 'scratch'
+  properties: {
+    azureFile: {
+      accountName: storage.name
+      accountKey: storage.listKeys().keys[0].value
+      shareName: scratchShare.name
+      accessMode: 'ReadWrite'
+    }
+  }
+}
+
 // The API signs in to storage as this identity: it reads and writes blobs
 // and the queue, and signs URLs on the account's behalf (Blob Delegator).
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -252,6 +289,10 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'TRACEN_STORAGE_ACCOUNT', value: storage.name }
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'TRACEN_DATABASE_URL', secretRef: 'database-url' }
+            // A paused analysis holds 12 to 15 GB on the scratch share. A
+            // variable, not an argument: an image from before the setting
+            // ignores it, and would not start with an argument it does not know.
+            { name: 'TRACEN_PAUSED_LIFETIME', value: '24h' }
           ]
           args: concat([
             '-database', 'postgres'
@@ -346,7 +387,7 @@ resource analysisJob 'Microsoft.App/jobs@2024-03-01' = {
             '-database', 'postgres'
             '-object-store', 'azure'
             '-shared-queue', 'azure'
-            '-scratch', '/tmp/tracen-scratch'
+            '-scratch', '/scratch'
             '-workers', string(jobWorkers)
             '-dense-workers', '1'
             '-ocr-device', 'cpu'
@@ -361,7 +402,13 @@ resource analysisJob 'Microsoft.App/jobs@2024-03-01' = {
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'TRACEN_DATABASE_URL', secretRef: 'database-url' }
           ]
+          volumeMounts: [
+            { volumeName: 'scratch', mountPath: '/scratch' }
+          ]
         }
+      ]
+      volumes: [
+        { name: 'scratch', storageType: 'AzureFile', storageName: scratchStorage.name }
       ]
     }
   }
