@@ -220,7 +220,7 @@ func (s *Server) completeUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "store_error", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusCreated, recording)
+	writeJSON(w, http.StatusCreated, s.withOriginalUntil(recording))
 }
 
 // playbackKey is what a recording plays and extracts frames from: its

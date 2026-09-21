@@ -67,6 +67,10 @@ type Config struct {
 	KeepWorkingData bool
 	// Recordings resolves the uploaded recordings a job may analyze.
 	Recordings Recordings
+	// OriginalLifetime is how long after its upload an original can still
+	// be analyzed (the object store's lifecycle deletes it after); zero
+	// means for good. A submission past it is refused up front.
+	OriginalLifetime time.Duration
 	// Queue, when set, is shared with other processes: Submit puts the job
 	// id on it and a worker process takes ids from it with Work, while Run
 	// is not used. Objects then holds every file: the recording under
@@ -306,6 +310,10 @@ func (m *Manager) resolve(ctx context.Context, userID, sourceID string) (Source,
 	recording, rerr := m.cfg.Recordings.GetRecording(ctx, sourceID)
 	if rerr != nil || recording.UserID != userID {
 		return Source{}, &NotFoundError{Kind: "source", ID: sourceID}
+	}
+	if m.cfg.OriginalLifetime > 0 && m.cfg.Clock().After(recording.CreatedAt.Add(m.cfg.OriginalLifetime)) {
+		return Source{}, &LimitError{Code: "original_expired",
+			Message: "the original recording is past the time it is kept for and cannot be analyzed again; upload it again to analyze it"}
 	}
 	return Source{ID: recording.ID, Name: recording.Name, Path: recording.Path, Size: recording.Size}, nil
 }

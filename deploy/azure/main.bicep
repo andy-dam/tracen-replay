@@ -40,8 +40,8 @@ param postgresPassword string
 @description('Public IP addresses allowed to reach PostgreSQL besides Azure services: the Oracle worker instance.')
 param workerAddresses array = []
 
-@description('Networks of the ingress in front of the API, whose X-Forwarded-For names the client (-trusted-proxy). Set after the first deploy from the peer address the API logs.')
-param trustedProxies string = ''
+@description('Networks of the ingress in front of the API, whose X-Forwarded-For names the client (-trusted-proxy): the private ranges the Container Apps ingress lives in. The client is the rightmost address outside them, which a client cannot forge.')
+param trustedProxies string = '10.0.0.0/8,100.64.0.0/10,172.16.0.0/12,192.168.0.0/16'
 
 @description('Analyses everyone together may start in 24 hours and in 30 days. The month is the fence on the credit: a career on the job takes about seven hours and costs about $3 beyond the free grant, which covers about two a month.')
 param dailyTotal int = 2
@@ -263,6 +263,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             '-monthly-total', string(monthlyTotal)
             '-max-analysis', '10h'
             '-recording-retention', '0'
+            '-original-lifetime', '2160h'
             '-frame-cache-gb', '1'
           ], apiHost == '' ? [] : ['-allowed-host', apiHost],
             appOrigin == '' ? [] : ['-api-only', '-allowed-origin', appOrigin, '-cookie-samesite', 'lax'],

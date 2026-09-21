@@ -218,7 +218,14 @@ function meta(run: Run): string[] {
   if (run.report) parts.push(clock(run.report.duration_ms), `${run.report.turns} turns`, `${run.report.entries} entries`);
   if (run.size !== null) parts.push(bytes(run.size));
   if (run.job && active(run.job) && run.job.started_at) parts.push(`running ${elapsed(run.job.started_at)}`);
+  if (run.recording?.original_until) parts.push(expired(run) ? "original no longer kept" : `can be analyzed again until ${when(run.recording.original_until)}`);
   return parts;
+}
+
+/** Whether the recording's original is past the time it is kept for, so another analysis needs a new upload. */
+function expired(run: Run): boolean {
+  const until = run.recording?.original_until;
+  return !!until && new Date(until).getTime() < Date.now();
 }
 
 function hideBroken(e: Event) {
@@ -297,9 +304,9 @@ function hideBroken(e: Event) {
             <button class="btn small" @click="cancel(run.job.id)">Cancel</button>
           </template>
           <template v-else>
-            <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze</button>
+            <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId || expired(run)" @click="analyze(run.sourceId)">Analyze</button>
             <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
-            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId" @click="analyze(run.sourceId)">Analyze Again</button>
+            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId || expired(run)" :title="expired(run) ? 'The original is no longer kept; upload it again to analyze it' : ''" @click="analyze(run.sourceId)">Analyze Again</button>
             <button v-if="run.recording || run.report" class="btn small danger" @click="remove(run)">Delete</button>
           </template>
         </div>
