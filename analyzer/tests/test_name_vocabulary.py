@@ -24,8 +24,11 @@ class RepairTests(unittest.TestCase):
                 self.assertEqual(repair(read, run, 'supporter'), name)
         # A real supporter named once, far from every other name, is left alone.
         self.assertIsNone(repair('Seiun Sky', run, 'supporter'))
-        # Three letters gone is not a glyph off.
-        self.assertIsNone(repair('Light He!', run, 'supporter'))
+        # Three letters gone was once too far for the hand-set rule; the
+        # learned confusions know the recognizer does this to "Light Hello"
+        # (a cut line read with a stray mark), so it folds in, still with
+        # nothing else near.
+        self.assertEqual(repair('Light He!', run, 'supporter'), 'Light Hello')
         # A known name is never itself repaired.
         self.assertIsNone(repair('Light Hello', run, 'supporter'))
 

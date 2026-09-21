@@ -42,6 +42,17 @@ func addStorageFlags(fs *flag.FlagSet) *storageFlags {
 	}
 }
 
+// shippedReader is the learned result-card reader the analyzer ships with
+// (a network trained from scratch on this project's own frames), or ""
+// when the working directory has none.
+func shippedReader(workDir string) string {
+	path := filepath.Join(workDir, "tracen_replay", "data", "reader.onnx")
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+	return path
+}
+
 // openStore opens the database the flags name.
 func (f *storageFlags) openStore(ctx context.Context, dataDir string) (*store.Store, error) {
 	switch *f.database {

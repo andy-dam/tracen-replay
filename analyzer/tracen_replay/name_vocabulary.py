@@ -31,7 +31,10 @@ KNOWN_MIN = {'supporter': 3, 'skill': 2}
 # are two skills); a repair never crosses them.
 CIRCLE_MARKERS = '○◎'
 # A name within this many edits of a known name is that name, when no other
-# known name is within the margin.
+# known name is within the margin. These are the fallback numbers when the
+# learned confusion table (confusions.py, data/confusions.json) is absent;
+# with it, the limits and the margin are the learned ones and the distance
+# is the recognizer's own likelihood of the damage.
 MAX_EDITS = 2
 SHORT_NAME_LETTERS = 6
 SHORT_MAX_EDITS = 1
@@ -133,13 +136,15 @@ def repair(name, sightings, group, together=()):
     shape = letters(name)
     if not shape:
         return None
-    limit = SHORT_MAX_EDITS if len(shape) <= SHORT_NAME_LETTERS else MAX_EDITS
+    from . import confusions
+    limit, short_limit, short_letters, margin = confusions.limits()
+    limit = short_limit if len(shape) <= short_letters else limit
     near = []
     for known, count in sightings.items():
         if known == name or count < KNOWN_MIN[group] or known in together:
             continue
-        distance = edits(shape, letters(known))
-        if distance <= MARGIN_EDITS:
+        distance = confusions.distance(shape, letters(known))
+        if distance <= limit + margin:
             # A known name of the other circle grade within reach means the
             # grade of this spelling cannot be told: the reader may have
             # dropped the marker along with the letters it got wrong.
