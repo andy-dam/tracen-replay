@@ -10,6 +10,8 @@
 #                       leave it unset and the API serves the client itself at its Azure hostname
 #   TRACEN_API_HOST     the API's host name, e.g. api.example.com (optional)
 #   TRACEN_API_IMAGE    the service image, e.g. ghcr.io/andy-dam/tracen-replay:latest
+#   TRACEN_SITE_IMAGE   the small image the website runs, e.g. ghcr.io/andy-dam/tracen-replay:site-latest
+#                       (optional; without it the website runs the service image, which starts slowly)
 #   TRACEN_PG_PASSWORD  PostgreSQL administrator password
 #   TRACEN_WORKER_IPS   comma-separated public addresses of the worker instances (optional)
 #   TRACEN_TRUSTED_PROXIES  the ingress networks, once known (optional)
@@ -51,6 +53,7 @@ az deployment group create \
 	--parameters location="$location" appOrigin="${TRACEN_APP_ORIGIN:-}" apiHost="${TRACEN_API_HOST:-}" apiImage="$TRACEN_API_IMAGE" \
 		postgresPassword="$TRACEN_PG_PASSWORD" workerAddresses="$workers" trustedProxies="${TRACEN_TRUSTED_PROXIES:-}" \
 		${TRACEN_DAILY_TOTAL:+dailyTotal=$TRACEN_DAILY_TOTAL} ${TRACEN_MONTHLY_TOTAL:+monthlyTotal=$TRACEN_MONTHLY_TOTAL} \
+		${TRACEN_SITE_IMAGE:+siteImage=$TRACEN_SITE_IMAGE} \
 	--query properties.outputs --output yaml
 
 # The whole credit is this project's; the alert is the early warning that
