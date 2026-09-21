@@ -891,6 +891,28 @@ hosting choice.
       owner set up. A career on the job takes about seven hours and about
       $3 beyond the free grant, so the fences are 2 a day and 3 a month
       until a free worker exists.
+- [x] **The hosted job ran out of disk** (2026-09-21). A 9,329-frame
+      career failed five hours in with "No space left on device": a run
+      writes 12 to 15 GB before it prunes and a Container Apps replica has
+      8 GiB at most. The job's scratch directory is now an Azure file share
+      (`scratch`, mounted at `/scratch`), in the Bicep and applied to the
+      live job the same day. The share is slower than a local disk (the
+      figures are in docs/deployment.md).
+- [ ] **The first full career on the scratch share.** Read its run time
+      against the 5 h 51 min of the career that fitted the local disk, and
+      the month's file transaction cost, and write both into
+      docs/deployment.md.
+- [x] **Pause and resume** (2026-09-21). Pause stops the analyzer and keeps
+      its run directory, Resume queues the same job again and the analyzer
+      continues from its kept frames and OCR rows. On the hosted site the
+      progress of a paused analysis is deleted after 24 hours
+      (`TRACEN_PAUSED_LIFETIME=24h`, set on the live container app the same
+      day, which the image from before the setting ignores), the job is
+      cancelled as `pause_expired` and the recording reads as never
+      analyzed. In the desktop application the
+      time is a setting, never by default. The analyzer clears a capture
+      directory a stop left half written, and no longer fails on a
+      recording a hair longer than a whole number of two-minute parts.
 - [ ] **A free unlimited worker.** Oracle's A1 shape (2 OCPU / 12 GB free,
       placed reliably only on an upgraded account) or an on-demand
       DigitalOcean droplet on the GitHub Student Pack credit. The
