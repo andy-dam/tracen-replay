@@ -4,6 +4,7 @@ import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Repo
 import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
 import { reviewSettles, turnWarnings } from "../warnings";
 import { progressView } from "../phases";
+import { openExternal } from "../mode";
 import RankBadge from "../components/RankBadge.vue";
 import StatBar from "../components/StatBar.vue";
 import UploadBox from "../components/UploadBox.vue";
@@ -21,7 +22,7 @@ const busy = ref("");
 // The local application says what the analyzer will run on and whether a
 // newer release exists; the hosted service has neither to say.
 const device = ref("");
-const update = ref<{ latest: string; url: string } | null>(null);
+const update = ref<{ current: string; latest: string; url: string } | null>(null);
 let timer: number | undefined;
 
 // What each finished report says about its run: the stats at the end, how
@@ -228,10 +229,25 @@ onMounted(() => {
   timer = window.setInterval(load, 5000);
   if (!hosted) {
     api.ready().then((r) => { device.value = r.checks.find((c) => c.name === "ocr-device")?.note ?? ""; }).catch(() => {});
-    api.version().then((v) => { if (v.latest && v.url) update.value = { latest: v.latest, url: v.url }; }).catch(() => {});
+    // An installed application is told of a newer release. The service
+    // first looks a little after it starts, so the page asks again rather
+    // than once. The hosted site is never asked: it updates itself and its
+    // visitors install nothing.
+    checkVersion();
+    versionTimer = window.setInterval(checkVersion, 30000);
   }
 });
-onUnmounted(() => window.clearInterval(timer));
+onUnmounted(() => {
+  window.clearInterval(timer);
+  window.clearInterval(versionTimer);
+});
+
+let versionTimer: number | undefined;
+function checkVersion() {
+  api.version()
+    .then((v) => (update.value = v.latest && v.url ? { current: v.version, latest: v.latest, url: v.url } : null))
+    .catch(() => {});
+}
 
 // What a run is waiting on. A run whose report is ready says nothing here:
 // the Open button is the state.
@@ -275,10 +291,16 @@ function hideBroken(e: Event) {
   <div class="page-head">
     <div>
       <h1>Runs</h1>
-      <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "Analyses run one after another; the rest wait their turn." }}</p>
+      <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "Queued analyses start as running ones finish." }}</p>
       <p v-if="device" class="muted small">Analyses run on: {{ device }}.</p>
-      <p v-if="update" class="muted small">A newer version, {{ update.latest }}, is available: <a :href="update.url" target="_blank" rel="noopener noreferrer">download it</a>.</p>
     </div>
+  </div>
+  <div v-if="update" class="update-banner" role="status">
+    <div>
+      <b>Version {{ update.latest }} Is Available</b>
+      <span class="muted small">Installed: {{ update.current }}</span>
+    </div>
+    <a class="btn small primary" :href="update.url" target="_blank" rel="noopener noreferrer" @click="openExternal($event, update.url)">Download</a>
   </div>
   <p v-if="error" class="error">{{ error }}</p>
 
@@ -299,7 +321,7 @@ function hideBroken(e: Event) {
     </div>
     <div v-else class="best"><span class="overline" style="margin: 0">Best Run</span><span class="muted small">Reading the reports…</span></div>
   </div>
-  <div v-else class="dash-empty"><b>Your dashboard fills in with your first report:</b> the stats at the end of each run with their rank letters, how much of the career the report explains, and what still needs a look.</div>
+  <div v-else class="dash-empty"><b>Dashboard.</b> Filled in by the first report: the stats at the end of each run with their rank letters, how much of the career the report explains, and the turns to check.</div>
 
   <UploadBox @uploaded="load" />
 
@@ -313,7 +335,7 @@ function hideBroken(e: Event) {
         <div class="run-name">
           <a v-if="run.report" :href="`#/reports/${encodeURIComponent(run.report.id)}`">{{ run.name }}</a>
           <span v-else>{{ run.name }}</span>
-          <span v-if="run.report?.origin === 'imported'" class="tag grey">imported</span>
+          <span v-if="run.report?.origin === 'imported'" class="tag grey">Imported</span>
         </div>
         <div class="run-meta">{{ meta(run).join(" · ") }}</div>
         <div v-if="run.report && facts[run.report.id]?.final" class="run-final">
@@ -346,7 +368,7 @@ function hideBroken(e: Event) {
           <template v-else>
             <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId || expired(run)" @click="analyze(run.sourceId)">Analyze</button>
             <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
-            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId || expired(run)" :title="expired(run) ? 'The original is no longer kept; upload it again to analyze it' : ''" @click="analyze(run.sourceId)">Analyze Again</button>
+            <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId || expired(run)" :title="expired(run) ? 'The original is no longer kept. Upload it again to analyze it.' : ''" @click="analyze(run.sourceId)">Analyze Again</button>
             <button v-if="run.recording || run.report" class="btn small danger" @click="remove(run)">Delete</button>
           </template>
         </div>

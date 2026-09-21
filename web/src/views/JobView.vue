@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, type Job } from "../api";
-import { elapsed, statusClass, when } from "../format";
+import { elapsed, statusClass, titleCase, when } from "../format";
 import { progressView } from "../phases";
+import { openExternal } from "../mode";
 
 const props = defineProps<{ jobId: string }>();
 const job = ref<Job | null>(null);
@@ -94,7 +95,7 @@ async function recover() {
         <h1 style="font-size: 30px">{{ job.source_name }}</h1>
         <p class="muted">Queued {{ when(job.created_at) }}<span v-if="job.started_at"> · running {{ running }}</span></p>
       </div>
-      <span :class="['pill', statusClass(job.status), { live: !terminal }]" style="font-size: 13px">{{ job.status.replaceAll("_", " ") }}</span>
+      <span :class="['pill', statusClass(job.status), { live: !terminal }]" style="font-size: 13px">{{ titleCase(job.status) }}</span>
     </div>
 
     <div class="card" style="max-width: 720px">
@@ -115,7 +116,6 @@ async function recover() {
           <template v-if="view.current">Now {{ view.current.doing }}. </template>
           <template v-if="job.stage === 'ocr' && job.ocr_total">{{ job.ocr_processed }} of {{ job.ocr_total }} frames read. </template>
           <template v-else-if="view.lastDone">Last stage finished: {{ view.lastDone }}. </template>
-          You can leave this page; the analysis keeps running.
         </p>
         <p style="margin-top: 16px" class="row"><button class="btn" @click="cancel">Cancel Analysis</button><a class="btn quiet" href="#/runs">Back to Runs</a></p>
       </template>
@@ -124,13 +124,13 @@ async function recover() {
         <ul v-if="job.stage_failures?.length" class="small">
           <li v-for="f in job.stage_failures" :key="f.stage"><strong>{{ f.stage }}</strong> skipped: {{ f.error }}</li>
         </ul>
-        <p v-if="job.status === 'completed_with_stage_failures'" class="muted small">The stages above were skipped; the report is complete for the stages that ran.</p>
+        <p v-if="job.status === 'completed_with_stage_failures'" class="muted small">The stages above were skipped. The report covers the stages that ran.</p>
         <p v-if="job.status === 'interrupted'" class="muted small">The service restarted while this analysis was running. Queue it again to retry.</p>
-        <p v-if="recoverable" class="muted small">The analysis ran to the end; only its result message was unreadable. Recover Report reads the report from the files the analysis wrote. Nothing is analyzed again.</p>
+        <p v-if="recoverable" class="muted small">The analysis ran to the end and wrote its report. Only its result message was unreadable. Recover Report reads the report from the files the analysis wrote.</p>
         <div class="row" style="margin-top: 8px">
           <button v-if="recoverable" class="btn primary" :disabled="recovering" @click="recover">{{ recovering ? "Recovering" : "Recover Report" }}</button>
           <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the Report</a>
-          <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker Log</a>
+          <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener" @click="openExternal($event, api.logUrl(job.id))">Worker Log</a>
           <a class="btn quiet" href="#/runs">Back to Runs</a>
         </div>
       </template>

@@ -12,6 +12,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -38,6 +39,7 @@ import (
 	"github.com/andy-dam/tracen-replay/internal/maintenance"
 	tracenrunner "github.com/andy-dam/tracen-replay/internal/runner"
 	"github.com/andy-dam/tracen-replay/internal/store"
+	"github.com/andy-dam/tracen-replay/internal/updates"
 	"github.com/andy-dam/tracen-replay/internal/webassets"
 )
 
@@ -126,6 +128,9 @@ type settings struct {
 	parallel, memoryGB int
 	// onClose is what closing the window does: ask, background or exit.
 	onClose string
+	// noUpdateCheck turns off the daily question to GitHub about a newer
+	// release; the check is on until the person turns it off.
+	noUpdateCheck bool
 	// cores and totalGB are what the machine has.
 	cores, totalGB int
 }
@@ -136,6 +141,7 @@ type saved struct {
 	Parallel      int    `json:"parallel,omitempty"`
 	MemoryLimitGB int    `json:"memory_limit_gb,omitempty"`
 	OnClose       string `json:"on_close,omitempty"`
+	NoUpdateCheck bool   `json:"no_update_check,omitempty"`
 }
 
 func (s *settings) load() {
@@ -151,7 +157,7 @@ func (s *settings) load() {
 	if file.GPU != nil {
 		s.gpu, s.chosen = *file.GPU, true
 	}
-	s.parallel, s.memoryGB = file.Parallel, file.MemoryLimitGB
+	s.parallel, s.memoryGB, s.noUpdateCheck = file.Parallel, file.MemoryLimitGB, file.NoUpdateCheck
 	if file.OnClose == "background" || file.OnClose == "exit" {
 		s.onClose = file.OnClose
 	}
@@ -159,7 +165,7 @@ func (s *settings) load() {
 
 // save writes what the person has chosen, and only that.
 func (s *settings) save() error {
-	file := saved{Parallel: s.parallel, MemoryLimitGB: s.memoryGB}
+	file := saved{Parallel: s.parallel, MemoryLimitGB: s.memoryGB, NoUpdateCheck: s.noUpdateCheck}
 	if s.chosen {
 		file.GPU = &s.gpu
 	}
@@ -199,7 +205,7 @@ func (s *settings) view() api.Settings {
 	memoryGB, parallel := s.inForce()
 	plan := m.Fit(memoryGB, parallel)
 	out := api.Settings{GPU: s.gpu && s.available, GPUAvailable: s.available, Device: s.device,
-		Parallel: plan.Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose,
+		Parallel: plan.Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose, UpdateCheck: !s.noUpdateCheck,
 		ParallelMax: m.MaxParallel(memoryGB), Workers: plan.Workers,
 		MemoryTotalGB: s.totalGB, MemoryMinGB: loadplan.MinMemoryGB, Cores: s.cores, Background: background}
 	out.Recommended.MemoryLimitGB, out.Recommended.Parallel = m.Recommend()
@@ -220,6 +226,9 @@ func (s *settings) Change(c api.SettingsChange) (api.Settings, error) {
 	}
 	if c.OnClose != nil {
 		s.onClose = *c.OnClose
+	}
+	if c.UpdateCheck != nil {
+		s.noUpdateCheck = !*c.UpdateCheck
 	}
 	// A parallel count the memory no longer allows is lowered to what fits,
 	// and stays lowered if the memory is raised again later.
@@ -284,7 +293,7 @@ func (s *settings) detect(python string) {
 	default:
 		// The machine could not be asked what it has. The switch can be
 		// used, but it is not turned on for anyone.
-		s.available, s.provider, s.device = true, provider, "a "+kind+" device"
+		s.available, s.provider, s.device = true, provider, kind+" Device"
 	}
 	// Until the person sets the switch themselves it follows what was
 	// found: on with real graphics hardware, off without.
@@ -313,6 +322,8 @@ type window struct {
 	quitting bool
 	// asked is when the page was last asked and has not answered yet.
 	asked time.Time
+	// own is the address of this application's service, with its slash.
+	own string
 }
 
 func (w *window) show() {
@@ -367,6 +378,23 @@ func (w *window) beforeClose(ctx context.Context) bool {
 	w.asked = time.Now()
 	wailsruntime.WindowExecJS(ctx, "window.dispatchEvent(new CustomEvent('tracen:close-request'))")
 	return true
+}
+
+// Open shows an address in the system's browser (api.Desktop). Only a page
+// of the project's releases, or a page of this application's own service
+// (a worker log), is opened; the page cannot send the person anywhere else.
+func (w *window) Open(address string) error {
+	w.mu.Lock()
+	own := w.own
+	w.mu.Unlock()
+	if !strings.HasPrefix(address, updates.ReleasePage) && (own == "" || !strings.HasPrefix(address, own)) {
+		return errors.New("only a release page or a page of this application is opened")
+	}
+	if w.ctx == nil {
+		return errors.New("the window is not ready")
+	}
+	wailsruntime.BrowserOpenURL(w.ctx, address)
+	return nil
 }
 
 // Close is the page's answer (api.Desktop).
@@ -440,6 +468,9 @@ func run(logger *slog.Logger) error {
 			app.url, shutdown = url, stop
 			win.mu.Lock()
 			win.prefs = prefs
+			if cut := strings.Index(url, "/#"); cut > 0 {
+				win.own = url[:cut+1]
+			}
 			win.mu.Unlock()
 			startTray(win.show, win.quit)
 		},
@@ -524,6 +555,13 @@ func start(logger *slog.Logger, desk api.Desktop) (string, *settings, func(), er
 	}()
 	go manager.Run(ctx)
 
+	// Someone who installed this build has to replace it by hand, so they
+	// are told when a newer release exists: on the Runs page and in
+	// Settings. Once a day, one request to GitHub, which Settings turns off.
+	// A build that is not a release (a test build) never asks.
+	releases := &updates.Checker{Current: version, Log: logger, Enabled: func() bool { return prefs.Get().UpdateCheck }}
+	go releases.Run(ctx)
+
 	recordingsDir := filepath.Join(l.data, "recordings")
 	os.MkdirAll(recordingsDir, 0o755)
 	frames := artifacts.Frames{FFmpeg: l.ffmpeg, CacheDir: filepath.Join(l.data, "frames"), Gate: artifacts.NewGate(2), MaxCacheBytes: 2 << 30}
@@ -549,8 +587,12 @@ func start(logger *slog.Logger, desk api.Desktop) (string, *settings, func(), er
 	handler := api.New(api.Config{Jobs: manager, Reports: db, Recordings: db, Corrections: db, RecordingsDir: recordingsDir,
 		ArtifactsDir: filepath.Join(l.data, "jobs"), Frames: frames, Ready: ready, Logger: logger, Static: webassets.Handler(),
 		AllowedHosts: []string{"127.0.0.1"}, Settings: prefs, Desktop: desk, UploadLimit: 16 << 30, LocalUser: local,
-		Quota:   api.Quota{MaxDuration: 0, MaxPixels: 4096 * 2304, MaxFPS: 120},
-		Version: func() api.VersionInfo { return api.VersionInfo{Version: version} },
+		Quota: api.Quota{MaxDuration: 0, MaxPixels: 4096 * 2304, MaxFPS: 120},
+		Version: func() api.VersionInfo {
+			info := api.VersionInfo{Version: version}
+			info.Latest, info.URL = releases.Available()
+			return info
+		},
 		Probe: func(ctx context.Context, path string) (artifacts.Media, error) {
 			return artifacts.ProbeMedia(ctx, l.ffprobe, path)
 		}})

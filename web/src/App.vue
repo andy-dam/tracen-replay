@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, type User } from "./api";
+import { desktop } from "./mode";
 import Home from "./views/Home.vue";
 import Runs from "./views/Runs.vue";
 import ReportView from "./views/ReportView.vue";
@@ -47,6 +48,7 @@ async function loadUser() {
     const session = await api.me();
     user.value = session.user;
     accounts.value = session.accounts !== false;
+    desktop.value = !accounts.value;
   } catch (e) {
     user.value = null;
     if (e instanceof ApiError && e.status !== 401) notice.value = e.message;

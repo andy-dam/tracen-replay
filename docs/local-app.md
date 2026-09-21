@@ -25,7 +25,13 @@ the machine's memory and processors (`internal/loadplan`; the figures are
 in [OCR performance](ocr-performance.md#memory)), and what the window's
 close button does: ask, exit, or keep running without a window (in the
 notification area on Windows, in the Dock on a Mac), so an analysis is not
-lost to a click on the X. The data lives
+lost to a click on the X. A released build asks GitHub once a day for the
+newest release (`internal/updates`) and says so on the Runs page and in
+Settings when one exists, with a link the application opens in the system's
+browser; Update Check in Settings turns the question off. The hosted site
+never asks and never shows it: it redeploys itself from main and its
+visitors install nothing. A build that is not a release (a commit, a test
+build) never asks either. The data lives
 under the user's application folder (`%APPDATA%\TracenReplay` on
 Windows). Each release carries a zip of the folder and an installer,
 built by `desktop/build-windows.ps1` (the embeddable Python with the

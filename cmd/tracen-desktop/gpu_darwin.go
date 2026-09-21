@@ -26,7 +26,7 @@ func quiet(*exec.Cmd) {}
 // Neural Engine) are part of every Apple silicon chip, and only there.
 func hardwareAccelerator(string) (name string, known bool) {
 	if runtime.GOARCH == "arm64" {
-		return "Apple silicon", true
+		return "Apple Silicon", true
 	}
 	return "", true
 }

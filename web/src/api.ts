@@ -29,6 +29,7 @@ export interface Settings {
   parallel: number;
   memory_limit_gb: number;
   on_close: OnClose;
+  update_check: boolean;
   /** Read-only: what the machine has and what the settings allow. */
   parallel_max: number;
   workers: number;
@@ -40,7 +41,7 @@ export interface Settings {
   background: "tray" | "dock";
 }
 
-export type SettingsChange = Partial<Pick<Settings, "gpu" | "parallel" | "memory_limit_gb" | "on_close">>;
+export type SettingsChange = Partial<Pick<Settings, "gpu" | "parallel" | "memory_limit_gb" | "on_close" | "update_check">>;
 
 export interface Failure {
   code: string;
@@ -319,6 +320,8 @@ export const api = {
   me: () => request<{ user: User; accounts?: boolean }>("/api/auth/me"),
   settings: () => request<Settings>("/api/settings"),
   saveSettings: (s: SettingsChange) => request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(s) }),
+  /** The desktop application shows an address in the system's browser. */
+  desktopOpen: (url: string) => request<void>("/api/desktop/open", { method: "POST", body: JSON.stringify({ url }) }),
   /** The desktop window asked what closing should do; this is the answer. */
   desktopClose: (action: "exit" | "background" | "cancel", remember: boolean) =>
     request<void>("/api/desktop/close", { method: "POST", body: JSON.stringify({ action, remember }) }),

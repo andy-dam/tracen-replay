@@ -24,12 +24,21 @@ func (f *fakeSettings) Change(c SettingsChange) (Settings, error) {
 	if c.OnClose != nil {
 		f.now.OnClose = *c.OnClose
 	}
+	if c.UpdateCheck != nil {
+		f.now.UpdateCheck = *c.UpdateCheck
+	}
 	return f.now, nil
 }
 
 type fakeDesktop struct {
 	action   string
 	remember bool
+	opened   string
+}
+
+func (f *fakeDesktop) Open(address string) error {
+	f.opened = address
+	return nil
 }
 
 func (f *fakeDesktop) Close(action string, remember bool) error {
@@ -62,6 +71,12 @@ func TestSettingsChangesAndTheCloseAnswer(t *testing.T) {
 
 	if code, _ := do(t, srv, "POST", "/api/desktop/close", `{"action": "background", "remember": true}`); code != 204 || desk.action != "background" || !desk.remember {
 		t.Fatalf("the close answer: %d %+v", code, desk)
+	}
+	if code, _ := do(t, srv, "POST", "/api/desktop/open", `{"url": "https://github.com/andy-dam/tracen-replay/releases/tag/v0.3.0"}`); code != 204 || desk.opened == "" {
+		t.Fatalf("opening a release page: %d %+v", code, desk)
+	}
+	if code, body := do(t, srv, "PUT", "/api/settings", `{"update_check": true}`); code != 200 || body["update_check"] != true {
+		t.Fatalf("the update check switch: %d %v", code, body)
 	}
 	if code, _ := do(t, srv, "POST", "/api/desktop/close", `{"action": "sleep"}`); code != 400 {
 		t.Fatalf("an unknown close action was answered %d", code)
