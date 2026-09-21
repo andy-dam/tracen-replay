@@ -8,7 +8,7 @@ import EntryList from "./EntryList.vue";
 // The index of everything the report states with a caveat, grouped by turn.
 // Every line is a link: a turn line opens the turn, an entry line opens the
 // turn and seeks the recording to that entry.
-const props = defineProps<{ reportId: string; turns: TurnSummary[]; entries: Entry[]; unassigned: Entry[]; stageFailures: { stage: string; error: string }[] }>();
+const props = defineProps<{ reportId: string; turns: TurnSummary[]; entries: Entry[]; unassigned: Entry[]; stageFailures: { stage: string; error: string }[]; settled?: Set<string> }>();
 const reviewHref = (id: string) => `#/reports/${encodeURIComponent(props.reportId)}/${encodeURIComponent(id)}/review`;
 const emit = defineEmits<{ select: [id: string, ms?: number | null]; seek: [ms: number] }>();
 const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson", race: "race" };
@@ -62,7 +62,9 @@ function part(serious: boolean): Group[] {
     .map((g) => ({ turn: g.turn, notes: g.notes.filter((n) => n.serious === serious), items: g.items.filter((it) => it.serious === serious) }))
     .filter((g) => g.notes.length || g.items.length);
 }
-const checks = computed(() => part(true));
+// A turn whose saved review settles it moves from To Check to Resolved.
+const checks = computed(() => part(true).filter((g) => !props.settled?.has(g.turn.id)));
+const resolved = computed(() => part(true).filter((g) => props.settled?.has(g.turn.id)));
 const notes = computed(() => part(false));
 const noteCount = computed(() => notes.value.reduce((n, g) => n + g.notes.length + g.items.length, 0));
 
@@ -110,6 +112,21 @@ const outside = computed(() => props.unassigned.filter((e) => !beforeStart.value
           </ul>
         </li>
       </ul>
+
+      <details v-if="resolved.length" class="notes-fold">
+        <summary><span class="pane-h">Resolved</span> <span class="muted small">{{ resolved.length }} · settled by a saved review</span></summary>
+        <ul class="checklist">
+          <li v-for="g in resolved" :key="g.turn.id">
+            <div class="check-turn">
+              <button class="linkish strong" @click="emit('select', g.turn.id)">{{ fullLabel(g.turn.label, g.turn.phase) }}</button>
+              <span class="muted small">{{ clock(g.turn.start_ms) }}</span>
+              <span class="tag green">resolved</span>
+              <a class="btn small" style="margin-left: auto" :href="reviewHref(g.turn.id)">Open Review</a>
+            </div>
+            <div class="small muted">{{ [...g.notes.map((n) => n.text), ...g.items.map((it) => `${it.name}: ${it.notes.join("; ")}`)].join(" · ") }}</div>
+          </li>
+        </ul>
+      </details>
 
       <details v-if="noteCount" class="notes-fold">
         <summary><span class="pane-h">Notes</span> <span class="muted small">{{ noteCount }} · what the report is confident about and says anyway; nothing to do</span></summary>

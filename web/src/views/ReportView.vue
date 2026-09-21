@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { api, type Correction, type Entry, type Summary, type Turn, type TurnSummary, type Verification } from "../api";
 import { replaceHash } from "../route";
 import { clock, PERFORMANCE_FIELDS, statusText, when } from "../format";
-import { entryWarnings, turnWarnings } from "../warnings";
+import { entryWarnings, settledTurns, turnWarnings, type SavedReview } from "../warnings";
 import Timeline from "../components/Timeline.vue";
 import StatBar from "../components/StatBar.vue";
 import VideoPanel from "../components/VideoPanel.vue";
@@ -26,6 +26,16 @@ const verifiedFields = computed(() => (verification.value?.verified ? verificati
 const entries = ref<Entry[]>([]);
 const allEntries = ref<Entry[]>([]);
 const unassigned = ref<Entry[]>([]);
+// The viewer's saved reviews, and the turns they settle.
+const reviews = ref<SavedReview[]>([]);
+const settled = computed(() => settledTurns(reviews.value, allEntries.value));
+async function loadReviews() {
+  try {
+    reviews.value = await api.corrections(props.reportId);
+  } catch {
+    // Without the reviews every marked turn stays listed, as before.
+  }
+}
 const finalStats = ref<Record<string, number | null> | null>(null);
 // Fields whose end-of-run value was never read; the bar shows the last value read for them.
 const finalOpen = ref<string[]>([]);
@@ -135,7 +145,7 @@ onMounted(async () => {
     turns.value = t;
     unassigned.value = u;
     allEntries.value = all;
-    await Promise.all([loadTurn(current.value), loadFinal(), offerReanalysis()]);
+    await Promise.all([loadTurn(current.value), loadFinal(), offerReanalysis(), loadReviews()]);
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -257,6 +267,8 @@ const flagged = computed(() => {
   const set = new Set<string>();
   for (const t of turns.value) if (turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out)) set.add(t.id);
   for (const e of allEntries.value) if (e.turn_id && entryWarnings(e).some((w) => w.serious)) set.add(e.turn_id);
+  // A turn whose saved review settles it is no longer one to check.
+  for (const id of settled.value) set.delete(id);
   return set;
 });
 const checkCount = computed(() => {
@@ -334,7 +346,7 @@ const noteCount = computed(() => {
         <div class="pane-body">
           <Transition name="fade" mode="out-in">
             <TurnPane v-if="tab === 'turn' && turn" :key="'turn-' + turn.id" :turn="turn" :entries="entries" :training-names="trainingNames" :summary-turn="turns.find((t) => t.id === turn!.id) ?? null" :report-id="props.reportId" :correction="correction" :verification="verification" :video-ms="seekMs" @changed="loadTurn(current)" @seek="(ms) => (seekMs = ms)" />
-            <CheckPane v-else-if="tab === 'check'" key="check" :report-id="props.reportId" :turns="turns" :entries="allEntries" :unassigned="unassigned" :stage-failures="summary.summary.stage_failures" @select="select" @seek="(ms) => (seekMs = ms)" />
+            <CheckPane v-else-if="tab === 'check'" key="check" :report-id="props.reportId" :turns="turns" :entries="allEntries" :unassigned="unassigned" :stage-failures="summary.summary.stage_failures" :settled="settled" @select="select" @seek="(ms) => (seekMs = ms)" />
           </Transition>
         </div>
       </div>

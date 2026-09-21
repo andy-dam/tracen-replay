@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, elapsed, STAT_NAMES, when } from "../format";
-import { turnWarnings } from "../warnings";
+import { reviewSettles, turnWarnings } from "../warnings";
 import { progressView } from "../phases";
 import RankBadge from "../components/RankBadge.vue";
 import StatBar from "../components/StatBar.vue";
@@ -41,11 +41,13 @@ async function loadFacts(report: Report) {
   if (facts.value[report.id] || loadingFacts.has(report.id)) return;
   loadingFacts.add(report.id);
   try {
-    const [summary, turns] = await Promise.all([api.summary(report.id), api.turns(report.id)]);
+    const [summary, turns, reviews] = await Promise.all([api.summary(report.id), api.turns(report.id), api.corrections(report.id).catch(() => [])]);
     const counts = summary.summary.field_status_counts ?? {};
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     const explained = (counts.balanced_observations ?? 0) + (counts.balanced_with_derived_changes ?? 0);
-    const toCheck = turns.filter((t) => turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out)).length;
+    // A turn a saved review settles is not waiting any more.
+    const settled = new Set(reviews.filter((r) => reviewSettles(r, [])).map((r) => r.correction.turn_id));
+    const toCheck = turns.filter((t) => !settled.has(t.id) && (turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out))).length;
     let final: Record<string, number | null> | null = null;
     let open: string[] = [];
     const last = [...turns].reverse().find((t) => t.opening.stats);

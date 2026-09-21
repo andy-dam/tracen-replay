@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { api, type Report, type TurnSummary } from "../api";
 import { clock, fullLabel } from "../format";
-import { turnWarnings } from "../warnings";
+import { reviewSettles, turnWarnings } from "../warnings";
 
 // Everything across the viewer's reports that still asks for a look, grouped
 // by run and ordered with the most open turns first. Each line opens the
@@ -34,8 +34,10 @@ onMounted(async () => {
     await Promise.all(
       reports.map(async (report) => {
         try {
-          const turns = await api.turns(report.id);
-          const items = turns.map((turn) => ({ turn, notes: needs(turn) })).filter((i) => i.notes.length);
+          const [turns, reviews] = await Promise.all([api.turns(report.id), api.corrections(report.id).catch(() => [])]);
+          // A turn a saved review settles is not waiting any more.
+          const settled = new Set(reviews.filter((r) => reviewSettles(r, [])).map((r) => r.correction.turn_id));
+          const items = turns.filter((turn) => !settled.has(turn.id)).map((turn) => ({ turn, notes: needs(turn) })).filter((i) => i.notes.length);
           out.push({ report, items, turns: turns.length });
         } catch {
           // a report that cannot be listed is left out of the queue

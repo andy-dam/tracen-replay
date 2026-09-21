@@ -878,6 +878,8 @@ img.dark { display: none; }
 /* footer and the server's verdict */
 .rv-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-top: 1px solid var(--line-2); background: var(--bg-3); }
 .rv-foot-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.rv-resolved { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-size: 14px; font-weight: 700; color: var(--ink-2); cursor: pointer; user-select: none; }
+.rv-resolved input { width: 16px; height: 16px; accent-color: var(--green); }
 .verify { margin: 0 14px 14px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg); }
 .verify.ok { border-color: var(--green); background: var(--green-soft); }
 .verify.off { border-color: var(--pink); background: var(--pink-soft); }
