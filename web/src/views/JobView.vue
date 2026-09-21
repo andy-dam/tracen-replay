@@ -66,6 +66,22 @@ async function cancel() {
     error.value = (e as Error).message;
   }
 }
+
+// An analysis that ran to the end and whose result message could not be
+// read: the report is on disk and can be taken from there.
+const recoverable = computed(() => job.value?.status === "failed" && job.value.error?.code === "bad_terminal_output");
+const recovering = ref(false);
+async function recover() {
+  recovering.value = true;
+  error.value = "";
+  try {
+    apply(await api.recover(props.jobId));
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    recovering.value = false;
+  }
+}
 </script>
 
 <template>
@@ -110,7 +126,9 @@ async function cancel() {
         </ul>
         <p v-if="job.status === 'completed_with_stage_failures'" class="muted small">The stages above were skipped; the report is complete for the stages that ran.</p>
         <p v-if="job.status === 'interrupted'" class="muted small">The service restarted while this analysis was running. Queue it again to retry.</p>
+        <p v-if="recoverable" class="muted small">The analysis ran to the end; only its result message was unreadable. Recover Report reads the report from the files the analysis wrote. Nothing is analyzed again.</p>
         <div class="row" style="margin-top: 8px">
+          <button v-if="recoverable" class="btn primary" :disabled="recovering" @click="recover">{{ recovering ? "Recovering" : "Recover Report" }}</button>
           <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the Report</a>
           <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener">Worker Log</a>
           <a class="btn quiet" href="#/runs">Back to Runs</a>

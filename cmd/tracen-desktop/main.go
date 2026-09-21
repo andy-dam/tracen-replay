@@ -514,6 +514,14 @@ func start(logger *slog.Logger, desk api.Desktop) (string, *settings, func(), er
 	if _, err := manager.Recover(ctx); err != nil {
 		return fail(err)
 	}
+	// An analysis that ran to the end and whose result could not be read
+	// (a stray line on the worker's standard output) has its report taken
+	// from the output it wrote, rather than being run again.
+	go func() {
+		if n := manager.RescueAll(ctx, local.ID); n > 0 {
+			logger.Info("finished analyses recovered", "count", n)
+		}
+	}()
 	go manager.Run(ctx)
 
 	recordingsDir := filepath.Join(l.data, "recordings")
