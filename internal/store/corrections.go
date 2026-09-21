@@ -17,6 +17,8 @@ type correctionPayload struct {
 	Entries map[string]timeline.EntryEdit `json:"entries,omitempty"`
 	Added   []timeline.AddedEvent         `json:"added,omitempty"`
 	Note    string                        `json:"note,omitempty"`
+
+	Resolved bool `json:"resolved,omitempty"`
 }
 
 func scanCorrection(row interface{ Scan(...any) error }) (timeline.Correction, error) {
@@ -31,6 +33,7 @@ func scanCorrection(row interface{ Scan(...any) error }) (timeline.Correction, e
 		return timeline.Correction{}, err
 	}
 	c.Action, c.Changes, c.Entries, c.Added, c.Note = body.Action, body.Changes, body.Entries, body.Added, body.Note
+	c.Resolved = body.Resolved
 	if c.Changes == nil {
 		c.Changes = []timeline.CorrectionChange{}
 	}
@@ -55,7 +58,7 @@ func (s *Store) GetCorrection(ctx context.Context, reportID, turnID, userID stri
 
 // PutCorrection creates or replaces the viewer's correction for one turn.
 func (s *Store) PutCorrection(ctx context.Context, c timeline.Correction) error {
-	payload, err := json.Marshal(correctionPayload{Action: c.Action, Changes: c.Changes, Entries: c.Entries, Added: c.Added, Note: c.Note})
+	payload, err := json.Marshal(correctionPayload{Action: c.Action, Changes: c.Changes, Entries: c.Entries, Added: c.Added, Note: c.Note, Resolved: c.Resolved})
 	if err != nil {
 		return err
 	}

@@ -28,8 +28,22 @@ func TestCorrectionsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	list, err := s.ListCorrections(ctx, "rep", "u1")
-	if err != nil || len(list) != 1 || list[0].Changes[0].Amount != 31 {
+	if err != nil || len(list) != 1 || list[0].Changes[0].Amount != 31 || list[0].Resolved {
 		t.Fatalf("replace: %v %+v", err, list)
+	}
+	// The resolved mark alone is a correction, and it is kept.
+	mark := timeline.Correction{ReportID: "rep", TurnID: "turn-002", UserID: "u1", Resolved: true}
+	if err := mark.Validate(); err != nil {
+		t.Fatalf("a resolved mark alone: %v", err)
+	}
+	if err := s.PutCorrection(ctx, mark); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok, err := s.GetCorrection(ctx, "rep", "turn-002", "u1"); err != nil || !ok || !got.Resolved {
+		t.Fatalf("the resolved mark: %v %v %+v", ok, err, got)
+	}
+	if err := (&timeline.Correction{ReportID: "rep", TurnID: "turn-003", UserID: "u1"}).Validate(); err == nil {
+		t.Fatal("an empty correction is still refused")
 	}
 	if _, ok, _ := s.GetCorrection(ctx, "rep", "turn-001", "u2"); ok {
 		t.Fatal("corrections are per viewer")

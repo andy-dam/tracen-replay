@@ -2,8 +2,42 @@
 // per turn (accounting and observation gaps) and per entry (readings the
 // analyzer flagged, amounts it derived rather than observed). The wording
 // is the ledger's own status, made readable; nothing is judged here.
-import type { Entry, TurnSummary } from "./api";
+import type { Correction, Entry, TurnSummary, Verification } from "./api";
 import { BASIS_NOTE, signed, statusText } from "./format";
+
+export interface SavedReview {
+  correction: Correction;
+  verification: Verification;
+}
+
+/**
+ * Whether a saved review settles a turn, so it leaves the list of turns to
+ * check. Either the viewer marked it resolved, or the review closes what the
+ * report asked about: every number the review touches adds up, none is left
+ * open, and every entry the report doubted was reviewed, corrected or removed.
+ */
+export function reviewSettles(saved: SavedReview | undefined, doubtedEntryIds: string[]): boolean {
+  if (!saved) return false;
+  const { correction, verification } = saved;
+  if (correction.resolved) return true;
+  if (!verification.balanced || verification.fields.some((f) => f.status === "off" || f.status === "open")) return false;
+  return doubtedEntryIds.every((id) => {
+    const edit = correction.entries?.[id];
+    return !!edit && (edit.reviewed === true || edit.deleted === true || Object.keys(edit.changes ?? {}).length > 0);
+  });
+}
+
+/** The turns of a report that saved reviews settle. */
+export function settledTurns(saved: SavedReview[], entries: Entry[]): Set<string> {
+  const doubted = new Map<string, string[]>();
+  for (const e of entries) {
+    if (!e.turn_id || !entryWarnings(e).some((w) => w.serious)) continue;
+    doubted.set(e.turn_id, [...(doubted.get(e.turn_id) ?? []), e.id]);
+  }
+  const out = new Set<string>();
+  for (const s of saved) if (reviewSettles(s, doubted.get(s.correction.turn_id) ?? [])) out.add(s.correction.turn_id);
+  return out;
+}
 
 export interface Warning {
   text: string;

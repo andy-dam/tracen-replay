@@ -51,6 +51,8 @@ const mode = reactive<Record<Key, "" | "entry" | "added" | "amount">>({});
 const assigned = reactive<Record<Key, string>>({}); // gap -> entry id it was added to
 const confirmed = reactive<Record<Key, boolean>>({}); // worked-out gaps the viewer accepted
 const note = ref("");
+// The viewer's own mark that the turn needs no more checking.
+const resolved = ref(false);
 const busy = ref(false);
 const error = ref("");
 const result = ref<Verification | null>(props.verification);
@@ -194,6 +196,7 @@ function load() {
     note: a.note ?? "",
   }));
   note.value = c?.note ?? "";
+  resolved.value = c?.resolved ?? false;
   result.value = props.verification;
 }
 watch(() => props.correction, load, { immediate: true });
@@ -465,10 +468,10 @@ async function save() {
     if (a.time.trim() && ms === null) return void (error.value = `${a.title || "added event"}: time as m:ss`);
     addedOut.push({ id: a.id, kind: a.kind, title: a.title.trim() || undefined, time_ms: ms, changes: Object.keys(ch).length ? ch : undefined, note: a.note.trim() || undefined });
   }
-  if (!action && !changes.length && !Object.keys(entries).length && !addedOut.length) return void (error.value = "Nothing to save yet.");
+  if (!action && !changes.length && !Object.keys(entries).length && !addedOut.length && !resolved.value) return void (error.value = "Nothing to save yet.");
   busy.value = true;
   try {
-    const saved = await api.saveCorrection(props.reportId, props.turn.id, { action, changes, entries: Object.keys(entries).length ? entries : undefined, added: addedOut.length ? addedOut : undefined, note: note.value.trim() || undefined });
+    const saved = await api.saveCorrection(props.reportId, props.turn.id, { action, changes, entries: Object.keys(entries).length ? entries : undefined, added: addedOut.length ? addedOut : undefined, note: note.value.trim() || undefined, resolved: resolved.value || undefined });
     result.value = saved.verification;
     emit("saved");
   } catch (e) {
@@ -641,6 +644,7 @@ async function remove() {
     <footer class="rv-foot">
       <input v-model="note" type="text" class="grow" placeholder="anything else about this turn (optional)" maxlength="500" />
       <div class="rv-foot-actions">
+        <label class="rv-resolved" title="Removes the turn from the Check list even when its numbers cannot be proven from the recording."><input v-model="resolved" type="checkbox" /> Resolved</label>
         <span v-if="error" class="warn-text small">{{ error }}</span>
         <button v-if="correction" class="btn small" :disabled="busy" @click="remove">Undo All My Answers</button>
         <button class="btn primary" :disabled="busy" @click="save">Save</button>

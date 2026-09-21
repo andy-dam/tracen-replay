@@ -26,6 +26,11 @@ type Correction struct {
 	Note      string               `json:"note,omitempty"`
 	CreatedAt time.Time            `json:"created_at"`
 	UpdatedAt time.Time            `json:"updated_at"`
+
+	// Resolved is the viewer saying the turn needs no more checking, for a
+	// turn whose numbers cannot be proven from the recording. A review that
+	// closes everything the report asked about is resolved without it.
+	Resolved bool `json:"resolved,omitempty"`
 }
 
 // CorrectionAction names the turn's decision when the report has none.
@@ -115,8 +120,8 @@ func validChanges(changes map[string]map[string]int, what string) error {
 // Validate rejects anything that is not a plausible review entry: unknown
 // kinds, fields or options, absurd amounts, or nothing at all.
 func (c *Correction) Validate() error {
-	if c.Action == nil && len(c.Changes) == 0 && len(c.Entries) == 0 && len(c.Added) == 0 {
-		return errors.New("a correction needs an action, a change, an entry edit or an added event")
+	if c.Action == nil && len(c.Changes) == 0 && len(c.Entries) == 0 && len(c.Added) == 0 && !c.Resolved {
+		return errors.New("a correction needs an action, a change, an entry edit, an added event or the resolved mark")
 	}
 	if len(c.Changes) > maxCorrectionItems || len(c.Entries) > maxCorrectionItems || len(c.Added) > maxCorrectionItems {
 		return fmt.Errorf("at most %d items of each kind", maxCorrectionItems)
