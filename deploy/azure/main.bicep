@@ -271,9 +271,15 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           ], apiHost == '' ? [] : ['-allowed-host', apiHost],
             appOrigin == '' ? [] : ['-api-only', '-allowed-origin', appOrigin, '-cookie-samesite', 'lax'],
             trustedProxies == '' ? [] : ['-trusted-proxy', trustedProxies])
+          // The app scales to nothing, so a first visitor waits for a start.
+          // Without a startup probe the first readiness check ran before the
+          // service was listening, failed, and the next one was a whole
+          // period away: thirty seconds of a forty-four second wait. The
+          // startup probe asks every second, and readiness follows at once.
           probes: [
+            { type: 'Startup', httpGet: { path: '/healthz', port: 8765 }, periodSeconds: 1, timeoutSeconds: 1, failureThreshold: 90 }
             { type: 'Liveness', httpGet: { path: '/healthz', port: 8765 }, periodSeconds: 30 }
-            { type: 'Readiness', httpGet: { path: '/readyz', port: 8765 }, periodSeconds: 30, failureThreshold: 3 }
+            { type: 'Readiness', httpGet: { path: '/readyz', port: 8765 }, periodSeconds: 10, timeoutSeconds: 10, failureThreshold: 3 }
           ]
         }
       ]
