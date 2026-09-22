@@ -245,6 +245,8 @@ export interface CorrectionChange {
   channel?: string;
   amount: number;
   note?: string;
+  /** The amount is a number the report read wrongly, not a change the game made. The field is set aside. */
+  misread?: boolean;
 }
 export interface CorrectionAction {
   kind: string;

@@ -113,3 +113,33 @@ func TestVerifyAppliesEntryEditsAndAddedEvents(t *testing.T) {
 	}
 	_ = yes
 }
+
+// A change marked as a misread sets the field aside: nothing is supplied,
+// the field is neither open nor off, and a worked-out amount the report
+// put on an event is withdrawn with it.
+func TestVerifySetsAMisreadFieldAside(t *testing.T) {
+	turn := accountingTurn()
+	// The report worked +12 of skill points onto the training from the difference between turns.
+	turn.Accounting["stats"]["skill_points"] = FieldAccounting{Before: ip(436), After: ip(449), Direct: ip(13), Derived: ip(0), TurnDifference: ip(12), Status: "balanced_with_derived_changes"}
+	c := Correction{Changes: []CorrectionChange{{Field: "skill_points", Amount: 12, Misread: true, Note: "the card showed 437"}}}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	v := Verify(turn, nil, c)
+	var sp FieldVerification
+	for _, f := range v.Fields {
+		if f.Field == "skill_points" {
+			sp = f
+		}
+	}
+	if sp.Status != "misread" || sp.Supplied != 0 || sp.Recorded != 1 || !v.Balanced {
+		t.Fatalf("misread field: %+v (balanced %v)", sp, v.Balanced)
+	}
+	if !strings.Contains(v.Summary, "read wrongly by the report: skill_points") {
+		t.Fatalf("summary: %q", v.Summary)
+	}
+	// The other open field is still reported as open.
+	if !strings.Contains(v.Summary, "still unexplained: speed +30") {
+		t.Fatalf("summary: %q", v.Summary)
+	}
+}

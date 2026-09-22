@@ -133,7 +133,7 @@ paths:
               type: object
               properties:
                 action: { type: object, nullable: true, description: "kind (training|rest|outing|race), training_option, name, gains {field: amount}" }
-                changes: { type: array, items: { type: object, properties: { field: { type: string }, channel: { type: string }, amount: { type: integer }, note: { type: string } } } }
+                changes: { type: array, items: { type: object, properties: { field: { type: string }, channel: { type: string }, amount: { type: integer }, note: { type: string }, misread: { type: boolean, description: the amount is a number the report read wrongly, not a change; the field is set aside } } } }
                 note: { type: string }
       responses:
         "200": { description: "{correction, verification}" }
