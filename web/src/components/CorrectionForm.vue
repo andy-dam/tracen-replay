@@ -47,7 +47,7 @@ const name = ref("");
 const gains = reactive<Record<string, string>>({});
 const amounts = reactive<Record<Key, string>>({}); // the viewer's own amount per gap
 const notes = reactive<Record<Key, string>>({});
-const mode = reactive<Record<Key, "" | "entry" | "added" | "amount">>({});
+const mode = reactive<Record<Key, "" | "entry" | "added" | "amount" | "misread">>({});
 const assigned = reactive<Record<Key, string>>({}); // gap -> entry id it was added to
 const confirmed = reactive<Record<Key, boolean>>({}); // worked-out gaps the viewer accepted
 const note = ref("");
@@ -124,6 +124,17 @@ const gaps = computed<Gap[]>(() => {
   return out;
 });
 const gapAmount = (g: Gap) => (g.residual !== null ? g.residual : g.workedOut);
+// The whole change the report read across the turn, when both ends were read.
+const gapTotal = (g: Gap) => (g.before !== null && g.after !== null ? g.after - g.before : null);
+// The equation under a gap's name: the two readings, the whole change, the
+// part the log accounts for, and the part still to explain.
+function gapEquation(g: Gap): string {
+  const total = gapTotal(g);
+  let text = `${g.before ?? "?"} → ${g.after ?? "?"}`;
+  if (total !== null) text += ` is ${signed(total)}`;
+  if (g.recorded) text += ` · ${signed(g.recorded)} in the log · ${signed(gapAmount(g))} ${g.workedOut ? "guessed" : "unaccounted"}`;
+  return text;
+}
 
 function reportedAmount(e: Entry, channel: string, field: string): number | null {
   const c = e.changes?.[channel]?.[field];
@@ -175,7 +186,7 @@ function load() {
     const key = keyOf(ch.channel ?? "stats", ch.field);
     amounts[key] = String(ch.amount);
     notes[key] = ch.note ?? "";
-    mode[key] = "amount";
+    mode[key] = ch.misread ? "misread" : "amount";
   }
   for (const key of Object.keys(entryRows)) delete entryRows[key];
   for (const e of props.entries) {
@@ -229,14 +240,14 @@ function windowText(a: number | null | undefined, b: number | null | undefined) 
 }
 
 // ---- resolving a gap ----
-function chooseMode(g: Gap, m: "entry" | "added" | "amount") {
+function chooseMode(g: Gap, m: "entry" | "added" | "amount" | "misread") {
   if (mode[g.key] === m) {
     clearGap(g);
     return;
   }
   clearGap(g);
   mode[g.key] = m;
-  if (m === "amount") amounts[g.key] = signed(gapAmount(g)).replace("+", "");
+  if (m === "amount" || m === "misread") amounts[g.key] = signed(gapAmount(g)).replace("+", "");
   if (m === "added") {
     const row = newAdded();
     row.amounts[g.key] = String(gapAmount(g));
@@ -320,7 +331,7 @@ interface LiveField {
   recorded: number;
   supplied: number;
   residual: number | null;
-  status: "balanced" | "off" | "open" | "unverifiable" | "turn_difference";
+  status: "balanced" | "off" | "open" | "unverifiable" | "turn_difference" | "misread";
   off: number;
   /** what a reader saw on the training's own card while this amount was worked out */
   contradictedBy?: number[];
@@ -330,7 +341,10 @@ const live = computed(() => {
   const adjust: Record<Key, number> = {};
   const add = (map: Record<Key, number>, key: Key, n: number) => (map[key] = (map[key] ?? 0) + n);
   if (actionKind.value) for (const f of STAT_FIELDS) add(supplied, keyOf("stats", f), num(gains[f] ?? "") ?? 0);
-  for (const [key, text] of Object.entries(amounts)) add(supplied, key, num(text) ?? 0);
+  // A misread supplies nothing: the field is set aside, and a worked-out
+  // amount the report put on an event is withdrawn.
+  const misread = new Set(Object.keys(mode).filter((key) => mode[key] === "misread"));
+  for (const [key, text] of Object.entries(amounts)) if (!misread.has(key)) add(supplied, key, num(text) ?? 0);
   for (const a of added.value) for (const [key, text] of Object.entries(a.amounts)) add(supplied, key, num(text) ?? 0);
   for (const e of props.entries) {
     const row = entryRows[e.id];
@@ -372,13 +386,14 @@ const live = computed(() => {
       if (fa) {
         recorded = (fa.direct ?? 0) + (fa.derived ?? 0);
         extra = fa.turn_difference ?? 0;
-        if ((supplied[key] ?? 0) !== 0 && extra !== 0) recorded -= extra;
+        if (((supplied[key] ?? 0) !== 0 || misread.has(key)) && extra !== 0) recorded -= extra;
         if (fa.before !== null && fa.before !== undefined && fa.after !== null && fa.after !== undefined) residual = fa.after - fa.before - recorded;
       }
-      const touched = give !== 0 || touchedByEdit || (residual !== null && residual !== 0) || extra !== 0;
+      const touched = give !== 0 || touchedByEdit || (residual !== null && residual !== 0) || extra !== 0 || misread.has(key);
       if (!touched) continue;
       let status: LiveField["status"];
-      if (give === 0 && !touchedByEdit && extra !== 0 && residual === 0) status = "turn_difference";
+      if (misread.has(key)) status = "misread";
+      else if (give === 0 && !touchedByEdit && extra !== 0 && residual === 0) status = "turn_difference";
       else if (give === 0 && !touchedByEdit) status = "open";
       else if (residual === null) status = "unverifiable";
       else if (residual === give) {
@@ -399,8 +414,10 @@ const live = computed(() => {
       ? `${open.length} number${open.length === 1 ? "" : "s"} still off`
       : balanced && observed > 0
         ? "Adds Up"
-        : "Nothing to Check Yet";
-  const cls = off.length ? "off" : open.length ? "warn" : balanced && observed > 0 ? "ok" : "na";
+        : fields.some((f) => f.status === "misread")
+          ? "Set Aside"
+          : "Nothing to Check Yet";
+  const cls = off.length ? "off" : open.length ? "warn" : (balanced && observed > 0) || fields.some((f) => f.status === "misread") ? "ok" : "na";
   return { fields, text, cls, byKey: Object.fromEntries(fields.map((f) => [f.key, f])) as Record<Key, LiveField> };
 });
 function gapState(g: Gap): { text: string; cls: string } {
@@ -413,6 +430,7 @@ function gapState(g: Gap): { text: string; cls: string } {
       ? { text: `the report's guess; the card shows ${f.contradictedBy.map(signed).join(" or ")}`, cls: "warn" }
       : { text: "the report's guess", cls: "na" };
   if (f.status === "unverifiable") return { text: "cannot be checked", cls: "na" };
+  if (f.status === "misread") return { text: "set aside as a misread", cls: "ok" };
   return { text: "needs a look", cls: "warn" };
 }
 
@@ -423,7 +441,7 @@ async function save() {
     const { channel, field } = split(key);
     const n = num(text);
     if (text.trim() && n === null) return void (error.value = `${LABEL[field]}: enter a whole number`);
-    if (n) changes.push({ field, channel: channel === "stats" ? undefined : channel, amount: n, note: notes[key]?.trim() || undefined });
+    if (n) changes.push({ field, channel: channel === "stats" ? undefined : channel, amount: n, note: notes[key]?.trim() || undefined, misread: mode[key] === "misread" || undefined });
   }
   let action = null;
   if (actionKind.value) {
@@ -520,12 +538,12 @@ async function remove() {
           <i class="sd" :class="g.field"></i>
           <b class="gap-name">{{ LABEL[g.field] }}</b>
           <span class="gap-amt" :class="gapAmount(g) > 0 ? 'up' : 'down'">{{ signed(gapAmount(g)) }}</span>
-          <span class="gap-eq">{{ g.before ?? "?" }} → {{ g.after ?? "?" }}<template v-if="g.recorded"> · report explains {{ signed(g.recorded) }}</template></span>
+          <span class="gap-eq">{{ gapEquation(g) }}</span>
           <button v-if="windowText(g.windowStart, g.windowEnd)" class="gap-seek" title="Seek the recording to where the change happened" @click="emit('seek', g.windowStart!)">▶ {{ windowText(g.windowStart, g.windowEnd) }}</button>
           <span class="gap-state" :class="gapState(g).cls">{{ gapState(g).text }}</span>
         </div>
         <p v-if="g.residual === null && !g.workedOut" class="gap-note">A value before or after this turn was not observed, so this field cannot be checked.</p>
-        <p v-else-if="guided" class="gap-how">{{ gapAdvice(g.field, gapAmount(g), !!g.workedOut, windowText(g.windowStart, g.windowEnd)) }}<template v-if="g.workedOut"> The report put it on {{ OWNER_WORD[g.owner] ?? "its only possible source" }}.</template></p>
+        <p v-else-if="guided" class="gap-how">{{ gapAdvice(g.field, gapTotal(g), g.recorded, gapAmount(g), !!g.workedOut, windowText(g.windowStart, g.windowEnd), OWNER_WORD[g.owner] ?? "its only possible source") }}</p>
         <p v-else-if="g.workedOut" class="gap-note">The report worked {{ signed(g.workedOut) }} onto {{ OWNER_WORD[g.owner] ?? "its only possible source" }} from the difference between turns. Confirm it, or say where it really came from.</p>
         <p class="gap-q">{{ g.workedOut ? "Is the report's guess right?" : "Where did this come from?" }}</p>
         <div class="seg">
@@ -533,6 +551,7 @@ async function remove() {
           <button :class="{ on: mode[g.key] === 'entry' }" :disabled="!assignable.length" @click="chooseMode(g, 'entry')">Belongs to an Event</button>
           <button :class="{ on: mode[g.key] === 'added' }" @click="chooseMode(g, 'added')">Missed Event</button>
           <button :class="{ on: mode[g.key] === 'amount' }" @click="chooseMode(g, 'amount')">Enter Amount</button>
+          <button :class="{ on: mode[g.key] === 'misread' }" @click="chooseMode(g, 'misread')">Didn't Happen</button>
         </div>
         <div v-if="mode[g.key] === 'entry'" class="gap-detail">
           <select :value="assigned[g.key] ?? ''" @change="assignTo(g, ($event.target as HTMLSelectElement).value)">
@@ -546,6 +565,10 @@ async function remove() {
           <input v-model="notes[g.key]" type="text" class="grow" placeholder="where you saw it (optional)" maxlength="500" />
         </div>
         <div v-else-if="mode[g.key] === 'added'" class="gap-detail muted small">Fill in the event under Events Missing from the Log. Its {{ LABEL[g.field] }} is set to {{ signed(gapAmount(g)) }}.</div>
+        <div v-else-if="mode[g.key] === 'misread'" class="gap-detail">
+          <span class="muted small">{{ LABEL[g.field] }} did not change by {{ signed(gapAmount(g)) }}. The report read a number wrongly.{{ g.workedOut ? ` The ${signed(g.workedOut)} it put on ${OWNER_WORD[g.owner] ?? "the event"} is withdrawn.` : "" }}</span>
+          <input v-model="notes[g.key]" type="text" class="grow" placeholder="what the game showed (optional)" maxlength="500" />
+        </div>
       </div>
     </section>
 

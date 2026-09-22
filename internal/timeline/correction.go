@@ -42,12 +42,17 @@ type CorrectionAction struct {
 }
 
 // CorrectionChange attributes an amount of one field to something the viewer
-// saw that no entry carries.
+// saw that no entry carries. Marked Misread, it says the opposite: the
+// amount is not a change the game made but a number the report read
+// wrongly at one end of the turn, and the field is set aside rather than
+// explained. A worked-out amount the report put on an event is withdrawn
+// with it.
 type CorrectionChange struct {
 	Field   string `json:"field"`
 	Channel string `json:"channel,omitempty"` // stats (default) or performance
 	Amount  int    `json:"amount"`
 	Note    string `json:"note,omitempty"`
+	Misread bool   `json:"misread,omitempty"`
 }
 
 // EntryEdit is the viewer's edit of one of the report's own entries. Changes
@@ -220,7 +225,7 @@ type FieldVerification struct {
 	TurnDifference int    `json:"turn_difference"` // the part of the report's amount worked out from the difference between turns
 	Residual       *int   `json:"residual"`        // after - before - recorded; nil when an endpoint was not observed
 	Supplied       int    `json:"supplied"`        // what the correction adds for this field
-	Status         string `json:"status"`          // balanced, off, unverifiable, open, turn_difference
+	Status         string `json:"status"`          // balanced, off, unverifiable, open, turn_difference, misread
 	WindowStart    *int64 `json:"window_start_ms,omitempty"`
 	WindowEnd      *int64 `json:"window_end_ms,omitempty"`
 }
@@ -266,10 +271,15 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 			supplied["stats"][field] += amount
 		}
 	}
+	misread := map[string]map[string]bool{"stats": {}, "performance": {}}
 	for _, ch := range c.Changes {
 		channel := ch.Channel
 		if channel == "" {
 			channel = "stats"
+		}
+		if ch.Misread {
+			misread[channel][ch.Field] = true
+			continue
 		}
 		supplied[channel][ch.Field] += ch.Amount
 	}
@@ -316,7 +326,7 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 	var out Verification
 	out.Balanced = true
 	observed := 0
-	var off, unverifiable, open, extrapolated []string
+	var off, unverifiable, open, extrapolated, setAside []string
 	for _, channel := range []string{"stats", "performance"} {
 		fields := StatFields
 		if channel == "performance" {
@@ -331,8 +341,9 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 			if has {
 				recorded = deref(fa.Direct) + deref(fa.Derived)
 				extra = deref(fa.TurnDifference)
-				if supplied[channel][field] != 0 && extra != 0 {
-					// The viewer's own amount replaces the worked-out one.
+				if (supplied[channel][field] != 0 || misread[channel][field]) && extra != 0 {
+					// The viewer's own amount replaces the worked-out one, and
+					// a misread withdraws it.
 					recorded -= extra
 				}
 				if fa.Before != nil && fa.After != nil {
@@ -340,7 +351,7 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 					residual = &r
 				}
 			}
-			touched := give != 0 || touchedByEdit || (residual != nil && *residual != 0) || extra != 0
+			touched := give != 0 || touchedByEdit || (residual != nil && *residual != 0) || extra != 0 || misread[channel][field]
 			if !touched {
 				continue
 			}
@@ -349,6 +360,11 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 				fv.Before, fv.After, fv.WindowStart, fv.WindowEnd = fa.Before, fa.After, fa.WindowStartMS, fa.WindowEndMS
 			}
 			switch {
+			case misread[channel][field]:
+				// The difference is a reading, not a change: nothing to
+				// explain and nothing the screen can confirm.
+				fv.Status = "misread"
+				setAside = append(setAside, field)
 			case give == 0 && !touchedByEdit && extra != 0 && residual != nil && *residual == 0:
 				fv.Status = "turn_difference"
 				extrapolated = append(extrapolated, fmt.Sprintf("%s %+d", field, extra))
@@ -371,7 +387,7 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 			out.Fields = append(out.Fields, fv)
 		}
 	}
-	rank := map[string]int{"off": 0, "balanced": 1, "unverifiable": 2, "open": 3, "turn_difference": 4}
+	rank := map[string]int{"off": 0, "balanced": 1, "unverifiable": 2, "open": 3, "turn_difference": 4, "misread": 5}
 	sort.SliceStable(out.Fields, func(i, j int) bool { return rank[out.Fields[i].Status] < rank[out.Fields[j].Status] })
 	out.Verified = out.Balanced && observed > 0
 	switch {
@@ -391,6 +407,9 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 	}
 	if len(extrapolated) > 0 {
 		out.Summary += "; worked out from the difference between turns: " + strings.Join(extrapolated, ", ")
+	}
+	if len(setAside) > 0 {
+		out.Summary += "; read wrongly by the report: " + strings.Join(setAside, ", ")
 	}
 	return out
 }

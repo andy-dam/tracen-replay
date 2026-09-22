@@ -148,12 +148,23 @@ export const FLAG_GUIDE: { text: string; serious: boolean; advice: string }[] = 
   { text: "training failed", serious: false, advice: ADVICE.failed },
 ];
 
-/** How to explain a stat gap, in the order a viewer would try. */
-export function gapAdvice(field: string, amount: number, workedOut: boolean, window: string): string {
-  const what = `${field.replace("_", " ")} ${amount > 0 ? "went up" : "went down"} by ${Math.abs(amount)}`;
+const plus = (n: number) => (n > 0 ? `+${n}` : String(n));
+
+/**
+ * How to explain a stat gap. `total` is the whole change the report read
+ * across the turn (null when an end was not read), `recorded` the part its
+ * log accounts for, `rest` the part still to explain, and `owner` where the
+ * report put that part when it worked it out from the difference.
+ */
+export function gapAdvice(field: string, total: number | null, recorded: number, rest: number, workedOut: boolean, window: string, owner: string): string {
+  const name = field.replace("_", " ");
+  const cased = name.charAt(0).toUpperCase() + name.slice(1);
   const where = window ? ` between ${window}` : "";
-  if (workedOut) return `${what}${where}, and the report put it on the one event that could have caused it. Seek there and check the number on screen. Press Correct if it matches. Otherwise pick another explanation.`;
-  return `${what}${where}, and no event in the report accounts for it. Seek there and watch for what changed it. If it was one of the events listed below, choose Belongs to an Event. If the game showed something the report has no entry for, choose Missed Event. If the number is readable but its event is not clear, choose Enter Amount.`;
+  const moved = total !== null ? `${cased} went ${total > 0 ? "up" : "down"} by ${Math.abs(total)}${where}.` : `${cased} changed${where}.`;
+  const log = recorded ? ` The log accounts for ${plus(recorded)}.` : "";
+  const other = recorded ? `the other ${plus(rest)}` : plus(rest);
+  if (workedOut) return `${moved}${log} The report put ${other} on ${owner}. No reading confirms it. Seek there and check the number on the screen. Press Correct if it matches. Press Didn't Happen if the report misread a number.`;
+  return `${moved}${log} Nothing in the log accounts for ${other}. Seek there and watch for what changed it. Belongs to an Event puts it on a line below. Missed Event adds a line. Enter Amount records the number without an event. Didn't Happen says the report misread a number.`;
 }
 
 /** The turn's decision as the report read it: the first committed action that is not the scheduled race. */

@@ -58,7 +58,7 @@ import { FLAG_GUIDE } from "../warnings";
       <p class="muted">For each turn, the starting stats plus every change in the log should equal the next turn's starting stats. A turn where they don't is marked for review.</p>
       <ol class="guide-steps">
         <li><b>Watch the Gap.</b> Each gap lists the stat, the amount and the time range. The ▶ chip seeks the video there.</li>
-        <li><b>Explain It.</b> Assign the change to an event in the log, add an event the report missed, or enter the number seen.</li>
+        <li><b>Explain It.</b> Assign the change to an event in the log, add an event the report missed, or enter the number seen. Didn't Happen says the report misread a number and sets the gap aside.</li>
         <li><b>Check Flagged Lines.</b> Each flag comes with a description of what to look at. Press Looks Right on the line, or correct its amount.</li>
         <li><b>Save.</b> The verdict at the top turns green once the turn adds up. Corrections are saved separately. The report itself is not changed.</li>
       </ol>

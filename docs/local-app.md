@@ -236,19 +236,22 @@ applies on save. Every gap and every flag carries a sentence on what it means
 and what to do about it. The editor's parts:
 
 - **Gaps to explain.** One card per stat whose values at this turn and the
-  next do not add up: the amount, the values before and after, what the
-  report already explains, and a chip that seeks the recording to the window
-  between the two observations. Each gap offers three ways to explain it:
-  "Belongs to an event" adds the amount to one of the turn's events (chosen
-  from a list), "Missed event" creates a new event below with the amount
-  filled in, and "Enter amount" takes a number and a note. When the report has
-  already worked the difference out onto its only possible owner (the turn's
-  only training whose result was not read or whose badge was read clipped,
-  the one receipt that named the stat but lost its number, the one lesson
+  next do not add up: the part still to explain, the two readings with the
+  whole change between them, the part the log accounts for, and a chip
+  that seeks the recording to the window between the two readings. Each
+  gap offers four answers: "Belongs to an Event" adds the amount to one of
+  the turn's events (chosen from a list), "Missed Event" creates a new
+  event below with the amount filled in, "Enter Amount" takes a number and
+  a note, and "Didn't Happen" says the report read a number wrongly: the
+  field is set aside, nothing is added to the log, and the check no longer
+  waits on it (`misread` on the saved change). When the report has already
+  worked the difference out onto its only possible owner (the turn's only
+  training whose result was not read or whose badge was read clipped, the
+  one receipt that named the stat but lost its number, the one lesson
   whose cost was not observed, or the one race of a race turn for its skill
-  points), the card says so and offers "Looks right" beside the three ways;
-  a viewer's own amount replaces the worked-out one. A card turns green once
-  the live check covers it.
+  points), the card says so and offers "Correct" as well; a viewer's own
+  amount replaces the worked-out one, and "Didn't Happen" withdraws it. A
+  card turns green once the live check covers it.
 - **What did you play this turn?** On every turn, including the pre-debut
   ones: the report's own reading is shown and preselected when it saw one,
   and the viewer can pick training (with its option and gains), rest, outing
