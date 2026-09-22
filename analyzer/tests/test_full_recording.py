@@ -402,6 +402,22 @@ class FullRecordingTests(unittest.TestCase):
         report['gameplay_tracking']['readings'].pop()
         self.assertIn('unprocessed_base_frames',audit(report)['source_coverage_errors'])
 
+    def test_a_thirty_fps_source_samples_every_eighth_frame_without_a_gap(self):
+        # 4 fps sampling keeps a 30 fps source's frames 8 apart, 267 ms.
+        times=[round(n*8000/30) for n in range(15)]
+        frames=[dict(source_timestamp_ms=t,source_pts=n*8,time_base='1/30') for n,t in enumerate(times)]
+        report=dict(source=dict(sha256='test',duration_ms=times[-1]+200,frame_rate=30.0),sampling=dict(requested_fps=4),frames=frames,
+            gameplay_tracking=dict(readings=[dict(source_timestamp_ms=t,screen='unknown') for t in times],intervals=[]))
+        self.assertEqual(audit(report)['source_coverage_errors'],[])
+        # A gap longer than one step and one source frame is still a gap.
+        report['frames'][5:]=[dict(f,source_timestamp_ms=f['source_timestamp_ms']+34,source_pts=f['source_pts']+1) for f in frames[5:]]
+        report['gameplay_tracking']['readings']=[dict(source_timestamp_ms=f['source_timestamp_ms'],screen='unknown') for f in report['frames']]
+        report['source']['duration_ms']+=34
+        self.assertEqual(audit(report)['source_coverage_errors'],['base_sampling_gap'])
+        # A report from before the source's frame rate was recorded keeps the old bound.
+        report['source'].pop('frame_rate')
+        self.assertIn('base_sampling_gap',audit(report)['source_coverage_errors'])
+
 
 class FreshHintPreparationTests(unittest.TestCase):
     def setUp(self):

@@ -83,7 +83,7 @@ class RecordingRegressions(unittest.TestCase):
             source=root/'native.mp4';dest=root/'frames';dest.mkdir()
             subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-f','lavfi','-i',
                 'testsrc2=size=64x64:rate=60:duration=1','-c:v','libx264','-video_track_timescale','60000',str(source)],check=True,capture_output=True)
-            frames=decode_frames(source,dest,0,.8,60,0)
+            frames=decode_frames(source,dest,0,.8,60,0,scale='')
             self.assertEqual(len(frames),48)
             self.assertLessEqual(max(b['source_timestamp_ms']-a['source_timestamp_ms'] for a,b in zip(frames,frames[1:])),17)
 

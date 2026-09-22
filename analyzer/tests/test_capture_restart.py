@@ -28,12 +28,14 @@ def _rows(directory, start, count, fps):
 
 
 class CaptureRestart(unittest.TestCase):
-    def capture(self, root, source, duration, decoded):
-        def decode(src, directory, start, length, fps, origin):
+    def capture(self, root, source, duration, decoded, video=None, scales=None):
+        def decode(src, directory, start, length, fps, origin, *, scale):
             decoded.append((start, length, sorted(p.name for p in directory.iterdir())))
+            if scales is not None:
+                scales.append(scale)
             return _rows(directory, start, max(1, int(length * fps)), fps)
 
-        video = {"width": 1920, "height": 1080, "codec_name": "h264"}
+        video = video or {"width": 1920, "height": 1080, "codec_name": "h264"}
         with patch.object(full_recording, "probe", return_value=({}, video, duration, 0.0)), \
                 patch.object(full_recording, "decode_frames", side_effect=decode), \
                 patch.object(full_recording, "validate_output"):
@@ -84,6 +86,17 @@ class CaptureRestart(unittest.TestCase):
             decoded = []
             self.capture(root, source, 120.5, decoded)
             self.assertEqual([start for start, _, _ in decoded], [0, 120])
+
+    def test_a_720p_recording_is_decoded_to_1080p_frames_and_keeps_its_own_size(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, source = Path(tmp) / "run", Path(tmp) / "clip.mp4"
+            source.write_bytes(b"video")
+            video = {"width": 1280, "height": 720, "codec_name": "h264", "avg_frame_rate": "30/1"}
+            scales = []
+            report = self.capture(root, source, 200.0, [], video=video, scales=scales)
+            self.assertEqual(scales, ["scale=1920:1080:flags=lanczos"] * 2)
+            self.assertEqual((report["source"]["width"], report["source"]["height"]), (1280, 720))
+            self.assertEqual(report["source"]["frame_rate"], 30)
 
 
 if __name__ == "__main__":

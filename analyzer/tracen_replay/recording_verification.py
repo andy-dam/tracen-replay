@@ -49,7 +49,11 @@ def audit(report):
     frames=report['frames'];duration=report['source']['duration_ms'];fps=report['sampling']['requested_fps']
     data=report['gameplay_tracking'];readings=data['readings'];times=[f['source_timestamp_ms'] for f in frames]
     seen={r['source_timestamp_ms'] for r in readings};expected=set(times)
-    errors=[];maximum_interval=1000/fps+1
+    # The sampler keeps the first decoded frame at least one step after the
+    # last it kept. Where the source's frames do not land on that step (30 fps
+    # against 4 fps: every 267 ms), a gap runs up to one source frame longer.
+    source_rate=report['source'].get('frame_rate')
+    errors=[];maximum_interval=1000/fps+(1000/source_rate if source_rate else 0)+1
     if not times or times[0]>maximum_interval or duration-times[-1]>maximum_interval:errors.append('source_endpoint_gap')
     if any(b<=a for a,b in zip(times,times[1:])):errors.append('duplicate_or_out_of_order_source_timestamp')
     if any(b-a>maximum_interval for a,b in zip(times,times[1:])):errors.append('base_sampling_gap')

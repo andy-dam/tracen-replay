@@ -9,7 +9,7 @@ from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor,as_complet
 import threading
 import time
 import traceback
-from .pipeline import probe,decode_frames,clear_partial_capture,PipelineError
+from .pipeline import probe,decode_frames,clear_partial_capture,frame_rate,frame_scale,PipelineError
 from .proof_writer import save_while
 from .worker_memory import frame_done
 from .vision import NeuralReader,OCR_DEVICE,parse
@@ -438,7 +438,7 @@ def _write_partial_report(exc):
 def capture(source,root,fps):
     source=Path(source).resolve();root=Path(root)
     info,video,duration,origin=probe(source)
-    if (video['width'],video['height'])!=(1920,1080):raise PipelineError('Full-recording analysis requires the supported English 1080p layout.')
+    scale=frame_scale(video['width'],video['height'])
     if not 1<=fps<=8:raise PipelineError('Base sampling must be 1 to 8 FPS.')
     with source.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
     root.mkdir(parents=True,exist_ok=True)
@@ -462,13 +462,13 @@ def capture(source,root,fps):
         else:
             dest.mkdir(exist_ok=True)
             clear_partial_capture(dest)
-            rows=decode_frames(source,dest,start,length,fps,origin)
+            rows=decode_frames(source,dest,start,length,fps,origin,scale=scale)
             for row in rows:
                 row['id']=f'part-{index:03d}-'+row['id'];row['evidence']=f'part-{index:03d}/'+row['evidence'];row['clip_timestamp_ms']=row['source_timestamp_ms']
             save_json(manifest,rows)
         frames.extend(rows)
         print(json.dumps(dict(stage='capture',part=index,through_seconds=start+length,frames=len(frames))),flush=True)
-    report=dict(schema_version=FULL_RECORDING_SCHEMA,source=dict(name=source.name,sha256=digest,size_bytes=source.stat().st_size,duration_ms=round(duration*1000),timeline_origin_seconds=origin,width=1920,height=1080,codec=video['codec_name']),frames=frames,
+    report=dict(schema_version=FULL_RECORDING_SCHEMA,source=dict(name=source.name,sha256=digest,size_bytes=source.stat().st_size,duration_ms=round(duration*1000),timeline_origin_seconds=origin,width=video['width'],height=video['height'],frame_rate=frame_rate(video),codec=video['codec_name']),frames=frames,
                 clip=dict(source_start_ms=0,duration_ms=round(duration*1000)),sampling=dict(requested_fps=fps,frame_count=len(frames),method='minimum_interval_on_decoded_pts',guarantees_all_events=False),observations=[],limitations=['Entire source sampled; sampling alone does not establish verification.'])
     validate_output(report)
     save_json(root/'capture.json',report)
@@ -519,7 +519,7 @@ def rehydrate_frames(source,root,fps):
             for stale in scratch.iterdir():stale.unlink()
         else:
             scratch.mkdir(parents=True)
-        produced=decode_frames(source,scratch,start,length,fps,origin)
+        produced=decode_frames(source,scratch,start,length,fps,origin,scale=frame_scale(video['width'],video['height']))
         for row in produced:
             row['id']=f'{prefix}-'+row['id'];row['evidence']=f'{prefix}/'+row['evidence']
             row['clip_timestamp_ms']=row['source_timestamp_ms']

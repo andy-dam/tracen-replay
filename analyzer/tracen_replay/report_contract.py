@@ -110,6 +110,8 @@ def _validate_source(report):
             "report.source.timeline_origin_seconds")
     _integer(_required(source, "width", "report.source"), "report.source.width", minimum=1)
     _integer(_required(source, "height", "report.source"), "report.source.height", minimum=1)
+    if source.get("frame_rate") is not None:
+        _number(source["frame_rate"], "report.source.frame_rate", positive=True)
     codec = _required(source, "codec", "report.source")
     if codec is not None:
         _text(codec, "report.source.codec")
