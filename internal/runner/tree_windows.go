@@ -85,7 +85,9 @@ func killTree(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return
 	}
-	exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
+	kill := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
+	configureTree(kill)
+	kill.Run()
 }
 
 func alive(pid int) bool {
