@@ -341,6 +341,8 @@ export const api = {
     request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }).then((r) => r.user),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   recordings: () => request<{ recordings: Recording[] }>("/api/recordings").then((r) => r.recordings),
+  /** The desktop application shows a job's directory (its run and its log) in the file manager. */
+  reveal: (what: { job?: string; report?: string }) => request<void>("/api/desktop/reveal", { method: "POST", body: JSON.stringify(what) }),
   deleteRecording: (id: string) => request<void>(`/api/recordings/${enc(id)}`, { method: "DELETE" }),
   deleteReport: (id: string) => request<void>(`/api/reports/${enc(id)}`, { method: "DELETE" }),
   jobs: () => request<{ jobs: Job[] }>("/api/jobs").then((r) => r.jobs),

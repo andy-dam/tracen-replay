@@ -1,6 +1,8 @@
 package api
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/andy-dam/tracen-replay/internal/jobs"
@@ -34,6 +36,7 @@ type fakeDesktop struct {
 	action   string
 	remember bool
 	opened   string
+	revealed string
 }
 
 func (f *fakeDesktop) Open(address string) error {
@@ -43,6 +46,11 @@ func (f *fakeDesktop) Open(address string) error {
 
 func (f *fakeDesktop) Close(action string, remember bool) error {
 	f.action, f.remember = action, remember
+	return nil
+}
+
+func (f *fakeDesktop) Reveal(directory string) error {
+	f.revealed = directory
 	return nil
 }
 
@@ -85,5 +93,39 @@ func TestSettingsChangesAndTheCloseAnswer(t *testing.T) {
 	plain := New(Config{Jobs: fj})
 	if code, _ := do(t, plain, "POST", "/api/desktop/close", `{"action": "exit"}`); code != 404 {
 		t.Fatalf("the close answer without a desktop was answered %d", code)
+	}
+}
+
+// The reveal shows a job's directory, found from the record and confined
+// to the application's job directories; a report or job of someone else,
+// or one outside them, is refused.
+func TestDesktopRevealShowsTheJobDirectory(t *testing.T) {
+	desk := &fakeDesktop{}
+	data := t.TempDir()
+	jobsDir := filepath.Join(data, "jobs")
+	run := filepath.Join(jobsDir, "job-1", "run")
+	if err := os.MkdirAll(run, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fj := &fakeJobs{jobs: map[string]jobs.Job{"job-1": {ID: "job-1", Status: jobs.Succeeded, OutputDir: run}}, hub: jobs.NewHub()}
+	inside := jobs.Report{ID: "rep-1", Origin: "job", EvidenceRoot: run, ReportPath: filepath.Join(run, "report.json"), TimelinePath: filepath.Join(run, "timeline.json")}
+	outside := jobs.Report{ID: "rep-2", Origin: "job", EvidenceRoot: filepath.Join(t.TempDir(), "run")}
+	srv := New(Config{Jobs: fj, Reports: fakeReports{reports: map[string]jobs.Report{inside.ID: inside, outside.ID: outside}}, Desktop: desk, ArtifactsDir: jobsDir})
+	want := filepath.Join(jobsDir, "job-1")
+	for _, body := range []string{`{"job": "job-1"}`, `{"report": "rep-1"}`} {
+		desk.revealed = ""
+		if code, _ := do(t, srv, "POST", "/api/desktop/reveal", body); code != 204 {
+			t.Fatalf("%s: %d", body, code)
+		}
+		if got, _ := filepath.EvalSymlinks(desk.revealed); got != want {
+			if wantResolved, _ := filepath.EvalSymlinks(want); got != wantResolved {
+				t.Fatalf("%s revealed %q, want %q", body, desk.revealed, want)
+			}
+		}
+	}
+	for _, body := range []string{`{"report": "rep-2"}`, `{"job": "missing"}`, `{}`} {
+		if code, _ := do(t, srv, "POST", "/api/desktop/reveal", body); code != 404 && code != 400 {
+			t.Fatalf("%s: %d", body, code)
+		}
 	}
 }

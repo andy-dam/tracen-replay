@@ -4,7 +4,7 @@ import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Repo
 import { bytes, clock, runTime, skillPointsEarned, STAT_NAMES, when } from "../format";
 import { reviewSettles, turnWarnings } from "../warnings";
 import { progressView } from "../phases";
-import { openExternal } from "../mode";
+import { desktop, openExternal } from "../mode";
 import RankBadge from "../components/RankBadge.vue";
 import StatBar from "../components/StatBar.vue";
 import UploadBox from "../components/UploadBox.vue";
@@ -158,6 +158,33 @@ const dashboard = computed(() => {
   const best = done.map((r) => ({ report: r, facts: facts.value[r.id] })).filter((x) => x.facts.final).sort((a, b) => statTotal(b.facts) - statTotal(a.facts))[0] ?? null;
   return { runs: latest.length, turns, minutes, explained, total, pct: total ? Math.round((100 * explained) / total) : 0, toCheck, best, active: jobs.value.filter(active).length };
 });
+
+// The list can be narrowed by name and put in another order.
+const query = ref("");
+const order = ref<"newest" | "oldest" | "name" | "stats">("newest");
+const shown = computed(() => {
+  const needle = query.value.trim().toLowerCase();
+  const list = needle ? runs.value.filter((r) => r.name.toLowerCase().includes(needle)) : [...runs.value];
+  const total = (r: Run) => (r.report && facts.value[r.report.id]?.final ? statTotal(facts.value[r.report.id]) : -1);
+  switch (order.value) {
+    case "oldest":
+      return list.sort((a, b) => a.date.localeCompare(b.date));
+    case "name":
+      return list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    case "stats":
+      return list.sort((a, b) => total(b) - total(a) || b.date.localeCompare(a.date));
+  }
+  return list;
+});
+
+// The desktop application opens a run's directory in the file manager.
+async function reveal(run: Run) {
+  try {
+    await api.reveal(run.report && run.report.origin === "job" ? { report: run.report.id } : { job: run.job!.id });
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : (e as Error).message;
+  }
+}
 
 async function load() {
   try {
@@ -401,6 +428,7 @@ function hideBroken(e: Event) {
             <button v-if="run.recording || run.report" class="btn small danger" @click="remove(run)">Delete</button>
           </template>
         </div>
+            <button v-if="desktop && (run.job || run.report?.origin === 'job')" class="btn small" title="Open the run's folder" @click="reveal(run)">Folder</button>
       </div>
     </li>
   </ul>

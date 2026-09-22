@@ -271,6 +271,7 @@ func (s *Server) routes() {
 	m.HandleFunc("PUT /api/settings", s.putSettings)
 	m.HandleFunc("POST /api/desktop/close", s.desktopClose)
 	m.HandleFunc("POST /api/desktop/open", s.desktopOpen)
+	m.HandleFunc("POST /api/desktop/reveal", s.desktopReveal)
 	m.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		info := VersionInfo{Version: "dev"}
 		if s.cfg.Version != nil {
