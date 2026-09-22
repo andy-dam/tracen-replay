@@ -9,6 +9,8 @@ from unittest.mock import patch
 from tracen_replay.full_recording import rehydrate_frames
 from tracen_replay.pipeline import PipelineError
 
+VIDEO = {'width': 1920, 'height': 1080}
+
 
 def _rows(count=2):
     return [{'id': f'part-000-frame-{i:06d}', 'source_timestamp_ms': 250 * i,
@@ -39,7 +41,7 @@ def _run(root, *, rows=None, images=False):
 def _decoder(rows, *, written=b'image'):
     """Stand in for ffmpeg: write the files the real decoder would and return its rows."""
 
-    def decode(source, directory, start, duration, fps, origin):
+    def decode(source, directory, start, duration, fps, origin, *, scale):
         produced = []
         for row in rows:
             name = Path(row['evidence']).name
@@ -56,7 +58,7 @@ class RehydrateFramesTests(unittest.TestCase):
             root = Path(tmp)
             source, rows = _run(root)
             before = (root / 'part-000' / 'frames.json').read_bytes()
-            with patch('tracen_replay.full_recording.probe', return_value=({}, {}, 120.0, 0.0)), \
+            with patch('tracen_replay.full_recording.probe', return_value=({}, VIDEO, 120.0, 0.0)), \
                  patch('tracen_replay.full_recording.decode_frames', _decoder(rows)):
                 result = rehydrate_frames(source, root, 4)
             self.assertEqual(result, dict(parts=1, frames=2, crops=0))
@@ -75,7 +77,7 @@ class RehydrateFramesTests(unittest.TestCase):
             def refuse(*args, **kwargs):
                 raise AssertionError('a part with its images must not be decoded again')
 
-            with patch('tracen_replay.full_recording.probe', return_value=({}, {}, 120.0, 0.0)), \
+            with patch('tracen_replay.full_recording.probe', return_value=({}, VIDEO, 120.0, 0.0)), \
                  patch('tracen_replay.full_recording.decode_frames', refuse):
                 self.assertEqual(rehydrate_frames(source, root, 4), dict(parts=0, frames=0, crops=0))
 
@@ -84,7 +86,7 @@ class RehydrateFramesTests(unittest.TestCase):
             root = Path(tmp)
             source, rows = _run(root)
             moved = [{**rows[0], 'source_timestamp_ms': 999}, rows[1]]
-            with patch('tracen_replay.full_recording.probe', return_value=({}, {}, 120.0, 0.0)), \
+            with patch('tracen_replay.full_recording.probe', return_value=({}, VIDEO, 120.0, 0.0)), \
                  patch('tracen_replay.full_recording.decode_frames', _decoder(moved)):
                 with self.assertRaises(PipelineError):
                     rehydrate_frames(source, root, 4)
@@ -95,7 +97,7 @@ class RehydrateFramesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source, rows = _run(root)
-            with patch('tracen_replay.full_recording.probe', return_value=({}, {}, 120.0, 0.0)), \
+            with patch('tracen_replay.full_recording.probe', return_value=({}, VIDEO, 120.0, 0.0)), \
                  patch('tracen_replay.full_recording.decode_frames', _decoder(rows)):
                 with self.assertRaises(PipelineError):
                     rehydrate_frames(source, root, 2)
@@ -126,7 +128,7 @@ class RehydrateFramesTests(unittest.TestCase):
                 (root / 'neural').mkdir()
                 (root / 'neural' / (frame['id'] + '.json')).write_text(
                     json.dumps(dict(evidence=crop, gameplay_sha256=recorded)), encoding='utf-8')
-                with patch('tracen_replay.full_recording.probe', return_value=({}, {}, 120.0, 0.0)):
+                with patch('tracen_replay.full_recording.probe', return_value=({}, VIDEO, 120.0, 0.0)):
                     if corrupt:
                         # A pane that does not match what was read from it is a
                         # difference, not something to write out anyway.
@@ -144,7 +146,7 @@ class RehydrateFramesTests(unittest.TestCase):
             root = Path(tmp)
             source, _ = _run(root)
             (root / 'identity.json').unlink()
-            with patch('tracen_replay.full_recording.probe', return_value=({}, {}, 120.0, 0.0)):
+            with patch('tracen_replay.full_recording.probe', return_value=({}, VIDEO, 120.0, 0.0)):
                 with self.assertRaises(PipelineError):
                     rehydrate_frames(source, root, 4)
 

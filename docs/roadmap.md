@@ -43,13 +43,15 @@ provider is chosen yet.
 
 ## 4. Recordings the analyzer cannot read yet
 
-Everything read today assumes one layout. A recording must be exactly
-1920x1080 or the capture stage refuses it, the game pane is the constant crop
+Everything read today assumes one layout. A recording must be 16:9, from
+1280x720 to 3840x2160, or the capture stage refuses it; its frames are scaled
+to 1920x1080 as they are decoded, the game pane is the constant crop
 `[148, 0, 958, 1080]`, and every later read is expressed in that pane's
 810x1080 coordinates: the performance rows, the five result badge boxes, the
 receipt band, the learned reader's crops. The detector finds text anywhere,
 but which row a number belongs to is geometry. A recording from a phone, a
-differently sized window or a non-English client is therefore refused with an
+window that does not fill the screen or a non-English client is therefore
+refused with an
 explicit error rather than read wrongly, which is the right default and also
 the reason none of them can be analyzed.
 

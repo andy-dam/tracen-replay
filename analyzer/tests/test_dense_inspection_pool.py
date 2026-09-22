@@ -23,7 +23,7 @@ class _FakeReader:
                     gameplay_sha256=digest)
 
 
-def _fake_decode(source, directory, start, duration, fps, origin):
+def _fake_decode(source, directory, start, duration, fps, origin, *, scale):
     frames = []
     for index in range(3):
         path = directory / f'{index + 1:06d}.jpg'
@@ -36,7 +36,7 @@ def _fake_decode(source, directory, start, duration, fps, origin):
 def _fixture(root):
     video = root / 'source.mp4'
     video.write_bytes(b'source identity test')
-    source = dict(sha256=hashlib.sha256(video.read_bytes()).hexdigest(), duration_ms=5000)
+    source = dict(sha256=hashlib.sha256(video.read_bytes()).hexdigest(), duration_ms=5000, width=1920, height=1080)
     (root / 'capture.json').write_text(json.dumps(dict(source=source, frames=[])), encoding='utf-8')
     return video
 

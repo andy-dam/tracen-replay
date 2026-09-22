@@ -25,7 +25,7 @@ missing any of these fails to load.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `schema_version` | string | must equal `tracen-replay/full-recording-v1` |
-| `source` | object | `name`, `sha256`, `size_bytes`, `duration_ms`, `timeline_origin_seconds`, `width`, `height`, `codec` |
+| `source` | object | `name`, `sha256`, `size_bytes`, `duration_ms`, `timeline_origin_seconds`, `width`, `height` (the recording's own size; frames are scaled to 1920x1080), `frame_rate` (optional, frames per second, or null when unknown), `codec` |
 | `clip` | object | `source_start_ms`, `duration_ms`: the sampled interval of the source (a full recording samples the whole thing) |
 | `sampling` | object | `requested_fps`, `frame_count`, `method` (`minimum_interval_on_decoded_pts`), `guarantees_all_events` (always false) |
 | `frames` | array | one entry per captured frame: `id`, `evidence`, `source_timestamp_ms`, `clip_timestamp_ms`, `source_pts`, `time_base`, `screen_label`, `confidence`, `origin` |
@@ -48,7 +48,7 @@ Required (`report_contract._GAMEPLAY_ARRAYS` / `_GAMEPLAY_OBJECTS`):
 | --- | --- | --- |
 | `method` | string | always `neural_gameplay_v1` |
 | `auxiliary_log_used` | bool | always `false`; the turn ledger and causal accounting refuse to build otherwise |
-| `input_region` | array of 4 ints | the gameplay crop, `[148, 0, 958, 1080]` |
+| `input_region` | array of 4 ints | the gameplay crop of the 1920x1080 frame, `[148, 0, 958, 1080]` |
 | `readings` | array | one parsed reading per captured frame (`screen`, `facts`, `stats`, `evidence`, `source_timestamp_ms`) |
 | `screens` | array | per-screen-kind spans (`screen_summary`) |
 | `checkpoints` | array | stable stat snapshots |

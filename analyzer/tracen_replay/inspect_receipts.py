@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
 from .vision import NeuralReader,parse
-from .pipeline import decode_frames,PipelineError
+from .pipeline import decode_frames,frame_scale,PipelineError
 from .full_recording import save_json
 from .proof_writer import save_while
 from .worker_memory import frame_done
@@ -232,7 +232,8 @@ def _window_setup(source,root,start,end,fps):
 def _window_frames(source,capture,directory,frames_dir,manifest,start,end,fps,completed):
     if completed and not manifest.exists():raise PipelineError('Completed receipt window is missing its frame manifest.')
     if manifest.exists():return json.loads(manifest.read_text(encoding='utf-8'))
-    frames=decode_frames(source,frames_dir,start/1000,(end-start)/1000,fps,capture['source'].get('timeline_origin_seconds',0));save_json(manifest,frames)
+    scale=frame_scale(capture['source']['width'],capture['source']['height'])
+    frames=decode_frames(source,frames_dir,start/1000,(end-start)/1000,fps,capture['source'].get('timeline_origin_seconds',0),scale=scale);save_json(manifest,frames)
     return frames
 
 

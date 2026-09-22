@@ -11,6 +11,10 @@ from pathlib import Path
 
 
 TIMEOUT_SECONDS = 180
+# Every reading is taken in the coordinates of a 1920x1080 frame, the game at
+# 1080p. A 16:9 recording of another size, 720p to 4K, has its frames scaled
+# to it as they are decoded.
+FRAME_SIZE = (1920, 1080)
 PTS_PATTERN = re.compile(r"\bn:\s*(\d+)\s+pts:\s*(-?\d+)\s+pts_time:([\d.eE+\-]+)")
 TIME_BASE_PATTERN = re.compile(r"config in time_base:\s*(\d+)/(\d+)")
 
@@ -51,9 +55,31 @@ def probe(source):
         width, height = int(video["width"]), int(video["height"])
     except (ValueError, KeyError, StopIteration, TypeError) as exc:
         raise PipelineError("Source must contain a video stream with known dimensions and duration.") from exc
-    if duration <= 0 or width <= 0 or height <= 0 or width * height > 1920 * 1080:
-        raise PipelineError("This local pilot accepts video up to 1920×1080 pixels with positive duration.")
+    if duration <= 0:
+        raise PipelineError("Source must have a positive duration.")
+    if not 720 <= height <= 2160 or abs(width / height - 16 / 9) > 0.02:
+        raise PipelineError(f"A recording must be 16:9, from 1280×720 to 3840×2160; this one is {width}×{height}.")
     return info, video, duration, origin
+
+
+def frame_scale(width, height):
+    """The decoder filter that brings a recording's frames to ``FRAME_SIZE``; empty when they already are."""
+    if (width, height) == FRAME_SIZE:
+        return ""
+    return f"scale={FRAME_SIZE[0]}:{FRAME_SIZE[1]}:flags=lanczos"
+
+
+def frame_rate(video):
+    """The video stream's frame rate in frames per second, or None when ffprobe gives none."""
+    for key in ("avg_frame_rate", "r_frame_rate"):
+        numerator, _, denominator = str(video.get(key) or "").partition("/")
+        try:
+            rate = float(numerator) / float(denominator or 1)
+        except (ValueError, ZeroDivisionError):
+            continue
+        if math.isfinite(rate) and rate > 0:
+            return rate
+    return None
 
 
 def clear_partial_capture(directory):
@@ -70,8 +96,11 @@ def clear_partial_capture(directory):
             path.unlink()
 
 
-def decode_frames(source, directory, start, duration, fps, origin, attempts=2):
+def decode_frames(source, directory, start, duration, fps, origin, *, scale, attempts=2):
     """Decode one bounded interval into ``directory`` and return its frame rows.
+
+    ``scale`` is the recording's ``frame_scale``, so that every image written
+    is a ``FRAME_SIZE`` frame.
 
     The decoder's showinfo log is the only source of presentation timestamps;
     once in a long run its line sequence has come out inconsistent with the
@@ -80,7 +109,7 @@ def decode_frames(source, directory, start, duration, fps, origin, attempts=2):
     """
     for attempt in range(1, attempts + 1):
         try:
-            return _decode_frames_once(source, directory, start, duration, fps, origin)
+            return _decode_frames_once(source, directory, start, duration, fps, origin, scale)
         except PipelineError as exc:
             if attempt == attempts or not str(exc).startswith("Decoder timestamp sequence is inconsistent"):
                 raise
@@ -88,14 +117,17 @@ def decode_frames(source, directory, start, duration, fps, origin, attempts=2):
                 path.unlink()
 
 
-def _decode_frames_once(source, directory, start, duration, fps, origin):
+def _decode_frames_once(source, directory, start, duration, fps, origin, scale):
     # Keep source PTS through showinfo, then reset output time for -t to bound work.
     # select preserves original frames; the fps filter would invent a new time grid.
     # showinfo timestamps originate from rational PTS. Decimal conversion can
     # put an exact 1/60-second step just below the rounded comparison threshold,
     # unintentionally selecting only every other frame at native frame rate.
+    # Scaling comes after the selection, so only the frames kept are scaled.
     interval = max(0,1 / fps - 1e-7)
     filters = f"select='isnan(prev_selected_t)+gte(t-prev_selected_t,{interval:.12f})',showinfo,setpts=PTS-STARTPTS"
+    if scale:
+        filters += f",{scale}"
     command = ["ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "info", "-copyts",
                "-ss", str(start), "-i", str(source), "-map", "0:v:0", "-an", "-sn", "-dn",
                "-t", str(duration), "-vf", filters, "-fps_mode", "vfr", "-q:v", "2",

@@ -17,7 +17,9 @@ that stage's contribution.
 
 ## Capture
 
-`full_recording.capture` requires an English 1920x1080 recording. It hashes
+`full_recording.capture` requires an English 16:9 recording from 1280x720 to
+3840x2160; one of any size but 1920x1080 has its frames scaled to 1920x1080 as
+they are decoded, so every later stage reads the same frame. It hashes
 the source file (SHA-256) and decodes it through `ffmpeg` in 120-second parts
 so a long recording can resume from `part-NNN/frames.json` if a prior attempt
 was interrupted. Each part is decoded with an `ffmpeg select` filter that
