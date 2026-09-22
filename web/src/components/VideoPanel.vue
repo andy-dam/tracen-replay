@@ -88,12 +88,20 @@ function toggle() {
   else el.pause();
 }
 
+// A step moves the position and leaves the recording playing or paused as
+// it was.
 function nudge(delta: number) {
   const next = Math.round(Math.max(0, Math.min(props.durationMs, (shown.value ?? 0) + delta)));
-  video.value?.pause();
   seekTo(next);
   emit("time", next);
 }
+
+// The size of a step of the viewer's own: a number of seconds or frames.
+const stepText = ref("5");
+const stepSize = computed(() => {
+  const n = Number(stepText.value.trim());
+  return Number.isFinite(n) && n > 0 ? n : 0;
+});
 
 // The scrub bar shows the position while dragging and seeks on release.
 function onScrub(event: Event) {
@@ -133,7 +141,6 @@ function commitEdit() {
   const ms = parseClock(typed.value);
   editing.value = false;
   if (ms === null) return;
-  video.value?.pause();
   seekTo(ms);
   emit("time", ms);
 }
@@ -212,6 +219,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
           <button class="btn small" :disabled="shown === null" title="forward one frame" @click="nudge(FRAME_MS)">+1 f</button>
           <button class="btn small" :disabled="shown === null" title="forward one second" @click="nudge(1000)">+1 s</button>
         </span>
+        <span class="video-nudge custom">
+          <input v-model="stepText" type="text" inputmode="decimal" aria-label="size of a step, in seconds or frames" title="size of a step, in seconds or frames" />
+          <button class="btn small" :disabled="shown === null || !stepSize" :title="`back ${stepSize} seconds`" @click="nudge(-stepSize * 1000)">−s</button>
+          <button class="btn small" :disabled="shown === null || !stepSize" :title="`back ${stepSize} frames`" @click="nudge(-stepSize * FRAME_MS)">−f</button>
+          <button class="btn small" :disabled="shown === null || !stepSize" :title="`forward ${stepSize} frames`" @click="nudge(stepSize * FRAME_MS)">+f</button>
+          <button class="btn small" :disabled="shown === null || !stepSize" :title="`forward ${stepSize} seconds`" @click="nudge(stepSize * 1000)">+s</button>
+        </span>
         <span class="muted small steps-hint">Click the time to type where to go.</span>
       </div>
     </div>
@@ -222,6 +236,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
         <button class="btn small" :disabled="shown === null" title="back one frame" @click="nudge(-FRAME_MS)">−1 f</button>
         <button class="btn small" :disabled="shown === null" title="forward one frame" @click="nudge(FRAME_MS)">+1 f</button>
         <button class="btn small" :disabled="shown === null" title="forward one second" @click="nudge(1000)">+1 s</button>
+      </span>
+      <span class="video-nudge custom">
+        <input v-model="stepText" type="text" inputmode="decimal" aria-label="size of a step, in seconds or frames" title="size of a step, in seconds or frames" />
+        <button class="btn small" :disabled="shown === null || !stepSize" :title="`back ${stepSize} seconds`" @click="nudge(-stepSize * 1000)">−s</button>
+        <button class="btn small" :disabled="shown === null || !stepSize" :title="`back ${stepSize} frames`" @click="nudge(-stepSize * FRAME_MS)">−f</button>
+        <button class="btn small" :disabled="shown === null || !stepSize" :title="`forward ${stepSize} frames`" @click="nudge(stepSize * FRAME_MS)">+f</button>
+        <button class="btn small" :disabled="shown === null || !stepSize" :title="`forward ${stepSize} seconds`" @click="nudge(stepSize * 1000)">+s</button>
       </span>
     </div>
     <p v-if="failed" class="error small">{{ failed }}. Showing extracted frames instead.</p>
