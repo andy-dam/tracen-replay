@@ -172,9 +172,10 @@ advisory: a job submitted while one fails is accepted and then ends as
 model directory is missing), so fix the check before queueing work.
 
 Stop the server with Ctrl+C: admission stops, the running worker's whole
-process tree is ended and recorded as interrupted, and the server exits within
-20 seconds. On the next start the interrupted job is listed as such; it is never
-replayed automatically. If the server dies without shutting down (a crash, a
+process tree is ended and the job is recorded as paused with its files kept,
+and the server exits within 20 seconds. On the next start the job is listed
+as paused, with the stop as its reason, and Resume continues it; nothing is
+replayed on its own. If the server dies without shutting down (a crash, a
 forced stop), the worker still ends within seconds: on Windows it lives in a
 job object that the operating system closes with the server, and on every
 platform the worker watches the server's process id (`--owner-pid`) and stops

@@ -113,7 +113,7 @@ func TestJobsRoundTripAndQueueOrder(t *testing.T) {
 	}
 }
 
-func TestMarkInterruptedAndPersistenceAcrossReopen(t *testing.T) {
+func TestPauseRunningAndPersistenceAcrossReopen(t *testing.T) {
 	s, path := open(t)
 	ctx := context.Background()
 	now := time.Now()
@@ -126,15 +126,15 @@ func TestMarkInterruptedAndPersistenceAcrossReopen(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	interrupted, err := s.MarkInterrupted(ctx, now.Add(time.Minute))
-	if err != nil || len(interrupted) != 1 || interrupted[0].ID != "running-1" || interrupted[0].Status != jobs.Interrupted {
-		t.Fatalf("mark interrupted: %+v %v", interrupted, err)
+	paused, err := s.PauseRunning(ctx, now.Add(time.Minute), jobs.Failure{Code: "interrupted", Message: "stopped"})
+	if err != nil || len(paused) != 1 || paused[0].ID != "running-1" || paused[0].Status != jobs.Paused {
+		t.Fatalf("pause running: %+v %v", paused, err)
 	}
 	s.Close()
 	reopened := reopen(t, path)
 	got, _ := reopened.GetJob(ctx, "running-1")
-	if got.Status != jobs.Interrupted || got.Error == nil || got.Error.Code != "interrupted" {
-		t.Fatalf("interrupted job after reopen: %+v", got)
+	if got.Status != jobs.Paused || got.Error == nil || got.Error.Code != "interrupted" || got.RanSeconds != 60 || got.PausedAt.IsZero() || !got.FinishedAt.IsZero() {
+		t.Fatalf("paused job after reopen: %+v", got)
 	}
 	queued, _ := reopened.CountByStatus(ctx, jobs.Queued)
 	if queued != 1 {

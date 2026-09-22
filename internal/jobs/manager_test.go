@@ -380,6 +380,12 @@ func TestCancelDuringRunDiscardsALateCompletion(t *testing.T) {
 	job, _ := h.manager.Submit(context.Background(), "u1", "src-1")
 	<-h.runner.started
 	h.waitStatus(job.ID, jobs.Running)
+	if err := os.MkdirAll(filepath.Join(job.OutputDir, "neural"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(job.OutputDir, "report-partial.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cancelled, err := h.manager.Cancel(context.Background(), job.ID)
 	if err != nil || cancelled.Status != jobs.Cancelled || cancelled.ReportID != "" {
 		t.Fatalf("cancel running: %+v %v", cancelled, err)
@@ -388,9 +394,52 @@ func TestCancelDuringRunDiscardsALateCompletion(t *testing.T) {
 	if len(reports) != 0 {
 		t.Fatalf("no report may exist for a cancelled job: %+v", reports)
 	}
+	// The working directories go with the cancellation; the files stay.
+	if _, err := os.Stat(filepath.Join(job.OutputDir, "neural")); !os.IsNotExist(err) {
+		t.Fatalf("working directory kept after the cancel: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(job.OutputDir, "report-partial.json")); err != nil {
+		t.Fatalf("top-level file lost with the cancel: %v", err)
+	}
 }
 
-func TestShutdownInterruptsTheRunningJobAndRecoverMarksStaleRows(t *testing.T) {
+// An interrupted record from before pausing existed can be resumed, and
+// cancelled, which deletes its run directory.
+func TestInterruptedRecordsCanBeResumedOrCancelled(t *testing.T) {
+	h := newHarness(t, 4)
+	ctx := context.Background()
+	start := time.Now().Add(-time.Hour)
+	// The data directory: where Submit puts a job's run directory.
+	probe, _ := h.manager.Submit(ctx, "u1", "src-1")
+	h.manager.Cancel(ctx, probe.ID)
+	for _, id := range []string{"old-1", "old-2"} {
+		dir := filepath.Join(filepath.Dir(filepath.Dir(probe.OutputDir)), id, "run")
+		if err := os.MkdirAll(filepath.Join(dir, "neural"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		old := jobs.Job{ID: id, UserID: "u1", SourceID: "src-1", SourcePath: "x", SourceName: "x", Status: jobs.Interrupted,
+			CreatedAt: start, StartedAt: start, FinishedAt: start.Add(30 * time.Minute), OutputDir: dir,
+			Error: &jobs.Failure{Code: "interrupted", Message: "old"}}
+		if err := h.store.CreateJob(ctx, old); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resumed, err := h.manager.Resume(ctx, "old-1")
+	if err != nil || resumed.Status != jobs.Queued || resumed.RanSeconds != 1800 || !resumed.FinishedAt.IsZero() || resumed.Error != nil {
+		t.Fatalf("resume: %+v %v", resumed, err)
+	}
+	cancelled, err := h.manager.Cancel(ctx, "old-2")
+	if err != nil || cancelled.Status != jobs.Cancelled {
+		t.Fatalf("cancel: %+v %v", cancelled, err)
+	}
+	if _, err := os.Stat(cancelled.OutputDir); !os.IsNotExist(err) {
+		t.Fatalf("run directory kept after the cancel: %v", err)
+	}
+}
+
+// A shutdown pauses the running job with its files kept, and so does a
+// restart over a row a crash left running; both can be resumed.
+func TestShutdownPausesTheRunningJobAndRecoverPausesStaleRows(t *testing.T) {
 	h := newHarness(t, 2)
 	h.runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
 		<-ctx.Done()
@@ -401,12 +450,18 @@ func TestShutdownInterruptsTheRunningJobAndRecoverMarksStaleRows(t *testing.T) {
 	<-h.runner.started
 	h.waitStatus(job.ID, jobs.Running)
 	queued, _ := h.manager.Submit(context.Background(), "u1", "src-1")
+	if err := os.MkdirAll(filepath.Join(job.OutputDir, "neural"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	h.cancel()
 	<-h.stopped
 	h.cancel = nil
-	interrupted := h.waitStatus(job.ID, jobs.Interrupted)
-	if interrupted.Error == nil || interrupted.Error.Code != "interrupted" {
-		t.Fatalf("interrupted job: %+v", interrupted)
+	paused := h.waitStatus(job.ID, jobs.Paused)
+	if paused.Error == nil || paused.Error.Code != "interrupted" || !paused.FinishedAt.IsZero() {
+		t.Fatalf("paused job: %+v", paused)
+	}
+	if _, err := os.Stat(filepath.Join(job.OutputDir, "neural")); err != nil {
+		t.Fatalf("the run directory was not kept: %v", err)
 	}
 	// Simulate a crash that left a row running, then a restart.
 	stale := jobs.Job{ID: "stale", SourceID: "src-1", SourcePath: "x", SourceName: "x", Status: jobs.Running, CreatedAt: time.Now(), StartedAt: time.Now(), OutputDir: "o"}
@@ -414,8 +469,11 @@ func TestShutdownInterruptsTheRunningJobAndRecoverMarksStaleRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	recovered, err := h.manager.Recover(context.Background())
-	if err != nil || len(recovered) != 1 || recovered[0].ID != "stale" {
+	if err != nil || len(recovered) != 1 || recovered[0].ID != "stale" || recovered[0].Status != jobs.Paused {
 		t.Fatalf("recover: %+v %v", recovered, err)
+	}
+	if resumed, err := h.manager.Resume(context.Background(), "stale"); err != nil || resumed.Status != jobs.Queued || resumed.Error != nil {
+		t.Fatalf("resume of a job paused by a restart: %+v %v", resumed, err)
 	}
 	if again, _ := h.manager.Get(context.Background(), queued.ID); again.Status != jobs.Queued {
 		t.Fatalf("queued work must survive a restart: %+v", again)

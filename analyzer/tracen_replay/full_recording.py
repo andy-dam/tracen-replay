@@ -2548,6 +2548,7 @@ def _main_body():
     parser.add_argument('--dense-workers',type=int,default=None,help='worker processes for the dense re-read OCR passes (default: workers - 1, at least 1)')
     parser.add_argument('--model-dir',type=Path,default=Path('.local/models/rapidocr'))
     parser.add_argument('--reparse-only',action='store_true',help='Verify cached source observations and apply the current parser without OCR.')
+    parser.add_argument('--no-viewer',action='store_true',help='Do not write the standalone viewer page (index.html).')
     parser.add_argument('--max-auto-refinement-frames',type=int,default=512,
                         help='Maximum weak performance-panel frames to reread automatically.')
     parser.add_argument('--max-status-refinement-frames',type=int,default=512,
@@ -2621,7 +2622,7 @@ def _main_body():
         _progress('stage_done',name='validate_output')
         save_json(output_root/'report.json',report)
         _progress('stage_done',name='save_report')
-        _write_timeline_and_viewer(report,output_root)
+        _write_timeline_and_viewer(report,output_root,viewer=not args.no_viewer)
         print(json.dumps(dict(stage='complete',report=str(output_root/'report.json'),fully_verified=False)),flush=True)
         return
     report=capture(args.source,args.output,args.fps)
@@ -2765,18 +2766,19 @@ def _main_body():
             report['evidence_integrity_snapshot']=snapshot
     save_json(args.output/'report.json',report)
     _progress('stage_done',name='save_report')
-    _write_timeline_and_viewer(report,args.output)
+    _write_timeline_and_viewer(report,args.output,viewer=not args.no_viewer)
     print(json.dumps(dict(stage='complete',report=str(args.output/'report.json'),fully_verified=False)),flush=True)
 
 
-def _write_timeline_and_viewer(report,root):
-    """Write the compact timeline document and the HTML viewer; neither is fatal."""
+def _write_timeline_and_viewer(report,root,viewer=True):
+    """Write the compact timeline document and, unless told not to, the HTML viewer; neither is fatal."""
     from .timeline_document import write as write_timeline
     root=Path(root)
     size=_guarded(report,'timeline_document',lambda: write_timeline(report,root/'timeline.json'),fallback=None)
     _progress('stage_done',name='timeline_document',bytes=size)
-    html=_guarded(report,'viewer',lambda: render(report),fallback=None)
-    if html is not None:(root/'index.html').write_text(html,encoding='utf-8')
+    if viewer:
+        html=_guarded(report,'viewer',lambda: render(report),fallback=None)
+        if html is not None:(root/'index.html').write_text(html,encoding='utf-8')
     _progress('stage_done',name='viewer')
 
 if __name__=='__main__':main()

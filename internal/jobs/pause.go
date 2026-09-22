@@ -95,6 +95,14 @@ func (m *Manager) Pause(ctx context.Context, id string) (Job, error) {
 	}
 }
 
+// pauseDead pauses a job whose worker died: its files are where the worker
+// left them, and Resume continues it. Called with m.mu held.
+func (m *Manager) pauseDead(ctx context.Context, job *Job) error {
+	m.markPaused(job)
+	job.Error = &Failure{Code: stoppedOver.Code, Message: "The worker running this analysis stopped answering. Resume continues it."}
+	return m.store.UpdateJob(ctx, *job)
+}
+
 // pauseLocal pauses a run of this process; the worker calls it when the
 // record asks for a pause.
 func (m *Manager) pauseLocal(id string) {
@@ -128,11 +136,19 @@ func (m *Manager) Resume(ctx context.Context, id string) (Job, error) {
 		m.mu.Unlock()
 		return Job{}, err
 	}
-	if job.Status != Paused {
+	if job.Status != Paused && job.Status != Interrupted {
 		m.mu.Unlock()
 		return job, &TransitionError{ID: id, Status: job.Status, Action: "resume"}
 	}
-	if lifetime := m.cfg.PausedLifetime; lifetime > 0 && !m.cfg.Clock().Before(job.PausedAt.Add(lifetime)) {
+	if job.Status == Interrupted {
+		// A record from before an interruption was a pause: it was recorded
+		// as finished, and its run directory was kept.
+		if !job.StartedAt.IsZero() && job.FinishedAt.After(job.StartedAt) {
+			job.RanSeconds += int64(job.FinishedAt.Sub(job.StartedAt) / time.Second)
+		}
+		job.FinishedAt = time.Time{}
+	}
+	if lifetime := m.cfg.PausedLifetime; lifetime > 0 && !job.PausedAt.IsZero() && !m.cfg.Clock().Before(job.PausedAt.Add(lifetime)) {
 		m.mu.Unlock()
 		m.ExpirePaused(ctx)
 		job, _ = m.store.GetJob(ctx, id)

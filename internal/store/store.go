@@ -369,17 +369,20 @@ func (s *Store) CountJobsSince(ctx context.Context, userID string, since time.Ti
 	return n, err
 }
 
-// MarkInterrupted moves every running job to interrupted (used at startup,
-// when no worker of this process can still be alive) and returns them.
-func (s *Store) MarkInterrupted(ctx context.Context, at time.Time) ([]jobs.Job, error) {
+// PauseRunning moves every running job to paused (used at startup, when no
+// worker of this process can still be alive), records the reason and how
+// long each had run, and returns them.
+func (s *Store) PauseRunning(ctx context.Context, at time.Time, reason jobs.Failure) ([]jobs.Job, error) {
 	running, err := s.queryJobs(ctx, `SELECT `+jobColumns+` FROM jobs WHERE status=?`, string(jobs.Running))
 	if err != nil {
 		return nil, err
 	}
 	for i := range running {
-		running[i].Status = jobs.Interrupted
-		running[i].FinishedAt = at
-		running[i].Error = &jobs.Failure{Code: "interrupted", Message: "The service restarted while this analysis was running. Analyze the recording again."}
+		if !running[i].StartedAt.IsZero() && at.After(running[i].StartedAt) {
+			running[i].RanSeconds += int64(at.Sub(running[i].StartedAt) / time.Second)
+		}
+		running[i].Status, running[i].PausedAt, running[i].PauseRequested, running[i].CancelRequested = jobs.Paused, at, false, false
+		running[i].Error = &jobs.Failure{Code: reason.Code, Message: reason.Message}
 		if err := s.UpdateJob(ctx, running[i]); err != nil {
 			return nil, err
 		}

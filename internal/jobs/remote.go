@@ -142,19 +142,16 @@ func (m *Manager) takeable(ctx context.Context, message queue.Message) bool {
 		m.log.Warn("queued job unknown", "job", message.Body, "error", err)
 		return false
 	}
-	now := m.cfg.Clock()
 	switch {
 	case job.Status == Running && message.Dequeued > 1:
-		job.Status, job.FinishedAt = Interrupted, now
-		job.Error = &Failure{Code: "interrupted", Message: "The worker running this analysis stopped answering. Analyze the recording again."}
-		m.store.UpdateJob(ctx, job)
+		m.pauseDead(ctx, &job)
 		m.publish(job, nil)
-		m.log.Warn("job left running by a dead worker", "job", job.ID)
+		m.log.Warn("job left running by a dead worker; paused", "job", job.ID)
 		return false
 	case job.Status != Queued:
 		return false
 	case message.Dequeued > maxTakes:
-		job.Status, job.FinishedAt = Failed, now
+		job.Status, job.FinishedAt = Failed, m.cfg.Clock()
 		job.Error = &Failure{Code: "worker_unavailable", Message: fmt.Sprintf("the job was handed to a worker %d times without starting", message.Dequeued-1)}
 		m.store.UpdateJob(ctx, job)
 		m.publish(job, nil)
@@ -259,9 +256,7 @@ func (m *Manager) Follow(ctx context.Context) {
 			if job.Status == Running && !job.HeartbeatAt.IsZero() && m.cfg.Clock().Sub(job.HeartbeatAt) > staleAfter {
 				m.mu.Lock()
 				if fresh, err := m.store.GetJob(ctx, job.ID); err == nil && fresh.Status == Running {
-					fresh.Status, fresh.FinishedAt = Interrupted, m.cfg.Clock()
-					fresh.Error = &Failure{Code: "interrupted", Message: "The worker running this analysis stopped answering. Analyze the recording again."}
-					m.store.UpdateJob(ctx, fresh)
+					m.pauseDead(ctx, &fresh)
 					job = fresh
 				}
 				m.mu.Unlock()
