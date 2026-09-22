@@ -3,6 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
+
+	"github.com/andy-dam/tracen-replay/internal/artifacts"
 )
 
 // Settings are the desktop application's choices, and what the machine has
@@ -87,6 +90,9 @@ type Desktop interface {
 	// (a release's page) or wants a page of its own (a worker log) goes
 	// through here. The desktop refuses any address that is neither.
 	Open(address string) error
+	// Reveal shows a directory of this application's own data in the
+	// system's file manager: a job's directory, with its run and its log.
+	Reveal(directory string) error
 }
 
 // getSettings answers GET /api/settings.
@@ -133,6 +139,53 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// desktopReveal answers POST /api/desktop/reveal with {"job": id} or
+// {"report": id}: the desktop application shows the job's directory, which
+// holds the run's files and the worker's log, in the file manager. The
+// directory comes from the record, never from the request.
+func (s *Server) desktopReveal(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Desktop == nil {
+		writeError(w, http.StatusNotFound, "not_desktop", "this service is not the desktop application")
+		return
+	}
+	var body struct {
+		Job    string `json:"job"`
+		Report string `json:"report"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil || (body.Job == "" && body.Report == "") {
+		writeError(w, http.StatusBadRequest, "bad_request", "send {\"job\": \"...\"} or {\"report\": \"...\"}")
+		return
+	}
+	var run string
+	if body.Report != "" {
+		report, err := s.cfg.Reports.GetReport(r.Context(), body.Report)
+		if err != nil || !owns(userFrom(r), report.UserID) || report.Origin != "job" {
+			writeError(w, http.StatusNotFound, "not_found", "no such report")
+			return
+		}
+		run = report.EvidenceRoot
+	} else {
+		job, err := s.cfg.Jobs.Get(r.Context(), body.Job)
+		if err != nil || !owns(userFrom(r), job.UserID) {
+			writeError(w, http.StatusNotFound, "not_found", "no such job")
+			return
+		}
+		run = job.OutputDir
+	}
+	// The job's directory is the run's parent; it has to lie under the
+	// application's own job directories.
+	directory, err := artifacts.ConfinedDir(s.cfg.ArtifactsDir, filepath.Dir(run))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "the run's directory is not there")
+		return
+	}
+	if err := s.cfg.Desktop.Reveal(directory); err != nil {
+		writeError(w, http.StatusInternalServerError, "desktop_error", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // desktopOpen answers POST /api/desktop/open: an address the desktop

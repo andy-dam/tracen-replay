@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, type Job } from "../api";
 import { runTime, statusClass, titleCase, when } from "../format";
 import { progressView } from "../phases";
-import { openExternal } from "../mode";
+import { desktop, openExternal } from "../mode";
 
 const props = defineProps<{ jobId: string }>();
 const job = ref<Job | null>(null);
@@ -89,6 +89,15 @@ async function move(to: "pause" | "resume") {
   }
 }
 
+// The desktop application shows the job's directory in the file manager.
+async function reveal() {
+  try {
+    await api.reveal({ job: props.jobId });
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+}
+
 // An analysis that ran to the end and whose result message could not be
 // read: the report is on disk and can be taken from there.
 const recoverable = computed(() => job.value?.status === "failed" && job.value.error?.code === "bad_terminal_output");
@@ -147,6 +156,7 @@ async function recover() {
           <button v-if="paused" class="btn primary" :disabled="moving" @click="move('resume')">Resume</button>
           <button v-else class="btn" :disabled="moving || job.pause_requested" @click="move('pause')">{{ job.pause_requested ? "Pausing" : "Pause" }}</button>
           <button class="btn" @click="cancel">Cancel Analysis</button>
+          <button v-if="desktop" class="btn" @click="reveal">Open Folder</button>
           <a class="btn quiet" href="#/runs">Back to Runs</a>
         </p>
       </template>
@@ -160,13 +170,14 @@ async function recover() {
         <p v-if="recoverable" class="muted small">The analysis ran to the end and wrote its report. Only its result message was unreadable. Recover Report reads the report from the files the analysis wrote.</p>
         <div class="row" style="margin-top: 8px">
           <button v-if="recoverable" class="btn primary" :disabled="recovering" @click="recover">{{ recovering ? "Recovering" : "Recover Report" }}</button>
+          <button v-if="job.status === 'interrupted'" class="btn primary" :disabled="moving" @click="move('resume')">Resume</button>
+          <button v-if="job.status === 'interrupted'" class="btn" @click="cancel">Cancel Analysis</button>
           <a v-if="job.report_id" class="btn primary" :href="`#/reports/${encodeURIComponent(job.report_id)}`">Open the Report</a>
           <a class="btn" :href="api.logUrl(job.id)" target="_blank" rel="noopener" @click="openExternal($event, api.logUrl(job.id))">Worker Log</a>
+          <button v-if="desktop" class="btn" @click="reveal">Open Folder</button>
           <a class="btn quiet" href="#/runs">Back to Runs</a>
         </div>
       </template>
     </div>
   </template>
 </template>
-          <button v-if="job.status === 'interrupted'" class="btn primary" :disabled="moving" @click="move('resume')">Resume</button>
-          <button v-if="job.status === 'interrupted'" class="btn" @click="cancel">Cancel Analysis</button>

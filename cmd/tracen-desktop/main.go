@@ -410,6 +410,13 @@ func (w *window) Open(address string) error {
 	return nil
 }
 
+// Reveal shows a directory of the application's data in the file manager
+// (api.Desktop). The server hands over a directory it confined to the job
+// directories; nothing here comes from the page.
+func (w *window) Reveal(directory string) error {
+	return revealDirectory(directory)
+}
+
 // Close is the page's answer (api.Desktop).
 func (w *window) Close(action string, remember bool) error {
 	w.mu.Lock()

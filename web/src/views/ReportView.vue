@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { api, type Correction, type Entry, type Summary, type Turn, type TurnSummary, type Verification } from "../api";
 import { replaceHash } from "../route";
+import { desktop } from "../mode";
 import { clock, PERFORMANCE_FIELDS, skillPointsEarned, statusText, when } from "../format";
 import { entryWarnings, settledTurns, turnWarnings, type SavedReview } from "../warnings";
 import Timeline from "../components/Timeline.vue";
@@ -74,6 +75,15 @@ async function analyzeAgain() {
 }
 const tab = ref<"turn" | "check">("turn");
 const error = ref("");
+
+// The desktop application shows the run's directory in the file manager.
+async function reveal() {
+  try {
+    await api.reveal({ report: props.reportId });
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+}
 // A warning link opens a turn and then seeks to the entry once the turn is loaded.
 let pendingSeek: number | null = null;
 // When the viewer scrubs or plays the recording, the turn follows the video
@@ -336,7 +346,7 @@ const noteCount = computed(() => {
             </span>
           </div>
         </div>
-        <p class="muted small" style="margin: 10px 0 0">← and → move between turns. Any time in the log jumps the recording there. <a :href="api.downloadUrl(summary.report.id)">Download report.json</a></p>
+        <p class="muted small" style="margin: 10px 0 0">← and → move between turns. Any time in the log jumps the recording there. <a :href="api.downloadUrl(summary.report.id)">Download report.json</a><template v-if="desktop && summary.report.origin === 'job'"> · <a href="#" @click.prevent="reveal">Open Folder</a></template></p>
       </div>
       <div class="replay-pane" :style="paneHeight ? { height: paneHeight + 'px' } : undefined">
         <div class="tabs">
