@@ -2,7 +2,7 @@
   "name": "tracen-replay-web",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
