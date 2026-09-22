@@ -66,7 +66,7 @@ function showTip(cell: Cell, event: MouseEvent) {
   if (!cell.turns.length || !root.value) return;
   const box = root.value.getBoundingClientRect();
   const el = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const width = 250;
+  const width = 310;
   let x = el.left - box.left + el.width / 2 - width / 2;
   x = Math.max(0, Math.min(box.width - width, x));
   tip.value = { cell, x, y: el.bottom - box.top + 8 };
@@ -83,7 +83,7 @@ const tipTurn = computed(() => tip.value?.cell.turns[0] ?? null);
     <div class="tl-cells">
       <button v-for="cell in cells.cells" :key="cell.key" type="button" class="cell" :class="[cellClass(cell), { finale: cell.finale, 'row-start': cell.rowStart }]" :aria-label="cellTitle(cell)" @mouseenter="showTip(cell, $event)" @mouseleave="hideTip" @focus="showTip(cell, $event as unknown as MouseEvent)" @blur="hideTip" @click="hideTip(); cell.turns.length && emit('select', cell.turns[0].id)"></button>
     </div>
-    <div v-if="tip && tipTurn" class="tl-tip" :style="{ left: tip.x + 'px', top: tip.y + 'px', width: '250px' }">
+    <div v-if="tip && tipTurn" class="tl-tip" :style="{ left: tip.x + 'px', top: tip.y + 'px', width: '310px' }">
       <div class="tt-title">{{ repeatsYear(tipTurn.label, tipTurn.phase) ? shortLabel(tipTurn.label) : `${yearOf(tipTurn.label, tipTurn.phase)} · ${shortLabel(tipTurn.label)}` }}</div>
       <div class="muted small">{{ clock(tipTurn.start_ms) }} · {{ describeAction(tipTurn) }}<span v-if="tip.cell.turns.length > 1"> · +{{ tip.cell.turns.length - 1 }} more window{{ tip.cell.turns.length > 2 ? "s" : "" }}</span></div>
       <div v-if="tipTurn.opening.stats" class="tt-stats">

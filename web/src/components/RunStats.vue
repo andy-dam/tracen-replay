@@ -342,9 +342,9 @@ const place = (p: number | null) => (p === null ? "?" : p === 1 ? "1st" : p === 
       <h3>Skill Points and Skills</h3>
       <div class="an-body">
         <div class="tiles">
-          <div class="tile"><b class="tabular up">+{{ skills.earned.toLocaleString() }}</b><span>earned</span></div>
+          <div class="tile"><b class="tabular up">{{ skills.earned.toLocaleString() }}</b><span>total skill points</span></div>
           <div class="tile"><b class="tabular">{{ skills.spent.toLocaleString() }}</b><span>spent</span></div>
-          <div class="tile"><b class="tabular">{{ skills.left === null ? "?" : skills.left.toLocaleString() }}</b><span>left at the end</span></div>
+          <div class="tile"><b class="tabular">{{ skills.left === null ? "?" : skills.left.toLocaleString() }}</b><span>unspent at the end</span></div>
           <div class="tile"><b class="tabular">{{ skills.bought.length }}</b><span>skills bought</span></div>
         </div>
         <p v-if="!skills.bought.length" class="muted small" style="margin-top: 10px">No skill purchase was read.</p>

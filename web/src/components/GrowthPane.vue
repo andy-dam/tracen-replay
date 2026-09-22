@@ -38,12 +38,12 @@ const growth = computed<Series[]>(() =>
 );
 const growthSeen = computed(() => growth.value.some((s) => s.values.some((v) => v !== null && v !== 0)));
 
-// Two lines over the same turns: the balance at the start of the turn, and
-// the skill points earned by then, which is that balance plus everything
+// Two lines over the same turns: the current balance at the start of the
+// turn, and the total gained by then, which is that balance plus everything
 // spent before the turn. Until the first purchase the two are the same
-// number, and many runs buy nothing until the end. So the earned line is
-// drawn first as a wide, soft band and the balance as a thin line on top of
-// it: where they coincide both are still seen, one inside the other.
+// number, and many runs buy nothing until the end. So the total is drawn
+// first as a wide, soft band and the balance as a thin line on top of it:
+// where they coincide both are still seen, one inside the other.
 const skillPoints = computed<Series[]>(() => {
   const spentIn = new Map<string, number>();
   for (const e of props.entries) {
@@ -61,8 +61,8 @@ const skillPoints = computed<Series[]>(() => {
     spent += spentIn.get(t.id) ?? 0;
   }
   return [
-    { key: "earned", name: "Earned So Far", color: "var(--orange)", values: earned, width: 8, opacity: 0.55 },
-    { key: "skill_points", name: "Held", color: "var(--stat-skill_points)", values: balance, width: 2.25 },
+    { key: "earned", name: "Total Skill Points", color: "var(--orange)", values: earned, width: 8, opacity: 0.55 },
+    { key: "skill_points", name: "Current Skill Points", color: "var(--stat-skill_points)", values: balance, width: 2.25 },
   ];
 });
 const skillSeen = computed(() => skillPoints.value[1].values.some((v) => v !== null));
@@ -94,7 +94,7 @@ const performanceSeen = computed(() => performance.value.some((s) => s.values.so
 
   <template v-if="skillSeen">
     <h3 class="pane-h">Skill Points Across the Run</h3>
-    <p class="muted small" style="margin-bottom: 8px">At the start of every turn: the skill points earned so far (the wide band) and the skill points held (the line). The line runs inside the band until skills are bought, then drops below it.</p>
+    <p class="muted small" style="margin-bottom: 8px">Total skill points gained by the start of each turn (the wide band) and the current balance (the line). Both are the same until skills are bought.</p>
     <RunChart :turns="plotted" :series="skillPoints" :selected="selected" mode="lines" :floor="100" @select="(id) => emit('select', id)" />
   </template>
 
