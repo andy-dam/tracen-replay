@@ -53,8 +53,8 @@ param monthlyTotal int = 3
 @description('Analyses one account may start in 24 hours.')
 param dailyPerUser int = 2
 
-@description('OCR worker processes of one analysis on the job (4 vCPU, 8 GiB): two, or one if the job runs out of memory.')
-param jobWorkers int = 2
+@description('OCR worker processes of one analysis on the job (4 vCPU, 8 GiB). A reader holds about half a gigabyte, so three leave the main process room; lower it if the job runs out of memory.')
+param jobWorkers int = 3
 
 var storageName = toLower('${name}${uniqueString(resourceGroup().id)}')
 var containers = ['originals', 'kept', 'jobs', 'frames']
