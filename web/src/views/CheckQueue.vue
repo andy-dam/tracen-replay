@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { api, type Report, type TurnSummary } from "../api";
 import { clock, fullLabel } from "../format";
-import { reviewSettles, turnWarnings } from "../warnings";
+import { reviewSettles, turnAsks } from "../warnings";
 
 // Everything across the viewer's reports that still asks for a look, grouped
 // by run and ordered with the most open turns first. Each line opens the
@@ -10,6 +10,8 @@ import { reviewSettles, turnWarnings } from "../warnings";
 interface Item {
   turn: TurnSummary;
   notes: string[];
+  /** A number that does not add up or a flagged line, against a worked-out number that only wants confirming. */
+  serious: boolean;
 }
 interface Group {
   report: Report;
@@ -19,12 +21,10 @@ interface Group {
 const groups = ref<Group[]>([]);
 const loading = ref(true);
 const error = ref("");
-const DIFF_LABEL: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", skill_points: "Skill Pts", dance: "Dance", passion: "Passion", vocal: "Vocal", visual: "Visual", composure: "Composure" };
-
-function needs(t: TurnSummary): string[] {
-  const notes = turnWarnings(t).filter((w) => w.serious).map((w) => w.text);
-  for (const d of t.differences ?? []) if (!d.worked_out) notes.push(`${DIFF_LABEL[d.field] ?? d.field} ${d.amount > 0 ? "+" : ""}${d.amount} not covered by any event`);
-  return notes;
+function item(turn: TurnSummary): Item | null {
+  const asks = turnAsks(turn);
+  if (!asks.serious.length && !asks.confirm.length) return null;
+  return { turn, notes: [...asks.serious, ...asks.confirm], serious: asks.serious.length > 0 };
 }
 
 onMounted(async () => {
@@ -37,7 +37,11 @@ onMounted(async () => {
           const [turns, reviews] = await Promise.all([api.turns(report.id), api.corrections(report.id).catch(() => [])]);
           // A turn a saved review settles is not waiting any more.
           const settled = new Set(reviews.filter((r) => reviewSettles(r, [])).map((r) => r.correction.turn_id));
-          const items = turns.filter((turn) => !settled.has(turn.id)).map((turn) => ({ turn, notes: needs(turn) })).filter((i) => i.notes.length);
+          const items = turns
+            .filter((turn) => !settled.has(turn.id))
+            .map(item)
+            .filter((i): i is Item => i !== null)
+            .sort((a, b) => Number(b.serious) - Number(a.serious));
           out.push({ report, items, turns: turns.length });
         } catch {
           // a report that cannot be listed is left out of the queue
@@ -52,7 +56,8 @@ onMounted(async () => {
   }
 });
 
-const total = computed(() => groups.value.reduce((a, g) => a + g.items.length, 0));
+const total = computed(() => groups.value.reduce((a, g) => a + g.items.filter((i) => i.serious).length, 0));
+const confirms = computed(() => groups.value.reduce((a, g) => a + g.items.filter((i) => !i.serious).length, 0));
 const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIComponent(reportId)}/${encodeURIComponent(turnId)}/review`;
 </script>
 
@@ -60,9 +65,12 @@ const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIC
   <div class="page-head">
     <div>
       <h1>Turns to Check</h1>
-      <p>Every turn across your runs where a number does not add up or a line was flagged. Each one opens the review screen with the recording beside it.</p>
+      <p>Every turn where a number does not add up or a line was flagged, and every turn with a number the report worked out instead of reading. Each one opens the review screen with the recording beside it.</p>
     </div>
-    <span v-if="!loading" class="ask" :class="total ? 'warn' : 'ok'">{{ total ? `${total} Turn${total === 1 ? "" : "s"} to Check` : "Everything Adds Up" }}</span>
+    <span v-if="!loading" class="row" style="gap: 8px">
+      <span class="ask" :class="total ? 'warn' : 'ok'">{{ total ? `${total} Turn${total === 1 ? "" : "s"} to Check` : "Everything Adds Up" }}</span>
+      <span v-if="confirms" class="ask mild">{{ confirms }} to Confirm</span>
+    </span>
   </div>
   <p v-if="error" class="error">{{ error }}</p>
   <p v-if="loading" class="muted">Reading your reports…</p>
@@ -74,10 +82,10 @@ const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIC
       <span v-if="!g.items.length" class="pill ok">Adds Up</span>
     </div>
     <ul v-if="g.items.length" class="queue-list">
-      <li v-for="it in g.items" :key="it.turn.id">
+      <li v-for="it in g.items" :key="it.turn.id" :class="{ confirm: !it.serious }">
         <a class="queue-turn" :href="reviewHref(g.report.id, it.turn.id)"><b>{{ fullLabel(it.turn.label, it.turn.phase) }}</b><span class="muted small tabular">{{ clock(it.turn.start_ms) }}</span></a>
         <span class="queue-notes">{{ it.notes.join(" · ") }}</span>
-        <a class="btn small" :href="reviewHref(g.report.id, it.turn.id)">Review</a>
+        <a class="btn small" :href="reviewHref(g.report.id, it.turn.id)">{{ it.serious ? "Review" : "Confirm" }}</a>
       </li>
     </ul>
   </div>

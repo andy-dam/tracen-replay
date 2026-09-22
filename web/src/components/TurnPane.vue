@@ -15,6 +15,11 @@ function editEntry() {
   window.location.hash = reviewHref.value;
 }
 const differences = computed(() => props.summaryTurn?.differences ?? []);
+// A number no event covers asks for a check. A number the report worked out
+// from the difference between turns, never having read it, only wants
+// confirming.
+const unexplained = computed(() => differences.value.filter((d) => !d.worked_out));
+const workedOut = computed(() => differences.value.filter((d) => d.worked_out));
 const OWNER_WORD: Record<string, string> = { training: "training", event: "event whose number was cut off", lesson: "lesson", race: "race" };
 function ownerWord(owner?: string) {
   return OWNER_WORD[owner ?? ""] ?? "only event that could have caused it";
@@ -93,29 +98,34 @@ const hiddenCount = computed(() => warnings.value.items.length - shownItems.valu
     </div>
 
     <div class="pane-scroll">
-      <div class="review-cta" :class="filled ? filled.state : warnings.serious || differences.length ? 'needs' : 'clear'">
+      <div class="review-cta" :class="filled ? filled.state : unexplained.length || warnings.serious || !action ? 'needs' : workedOut.length || warnings.items.length ? 'confirm' : 'clear'">
         <div class="review-cta-text">
           <template v-if="filled">
-            <b class="saved-line"><span class="pill" :class="filled.state">{{ filled.state === "ok" ? "Saved · Adds Up" : filled.state === "off" ? "Saved · Doesn't Add Up Yet" : "Saved" }}</span> <span>{{ filled.text }}</span></b>
-            <span class="small muted">Your answers are kept with this report and shown in place of the reading.</span>
+            <b class="saved-line">{{ filled.state === "ok" ? "Saved · Adds Up" : filled.state === "off" ? "Saved · Doesn't Add Up Yet" : "Saved" }}<span v-if="filled.text" class="saved-text">{{ filled.text }}</span></b>
+            <span class="small muted">{{ filled.summary || "Kept with the report and shown in place of the reading." }}</span>
           </template>
-          <template v-else-if="differences.length || warnings.serious || !action">
-            <b>{{ [differences.length ? `${differences.length} number${differences.length === 1 ? " that doesn't" : "s that don't"} add up` : "", warnings.items.length ? `${warnings.items.length} line${warnings.items.length === 1 ? "" : "s"} to check` : "", !action ? "what was played is missing" : ""].filter(Boolean).join(" · ") }}</b>
-            <span class="small muted">The check screen shows what each one means and asks you plain questions, with the recording beside you.</span>
+          <template v-else-if="differences.length || warnings.items.length || !action">
+            <b>{{ [unexplained.length ? `${unexplained.length} number${unexplained.length === 1 ? " that doesn't" : "s that don't"} add up` : "", workedOut.length ? `${workedOut.length} number${workedOut.length === 1 ? "" : "s"} worked out, not read` : "", warnings.items.length ? `${warnings.items.length} line${warnings.items.length === 1 ? "" : "s"} to check` : "", !action ? "what was played is missing" : ""].filter(Boolean).join(" · ") }}</b>
+            <span class="small muted">{{ unexplained.length || warnings.serious || !action ? "The check screen shows what each one means, with the recording beside it." : "The report worked the number out from the difference between turns. The check screen shows where to look and asks whether it is right." }}</span>
           </template>
           <template v-else>
             <b>Nothing to Check in This Turn</b>
-            <span class="small muted">You can still fix a number, say what was played, or add something the report missed.</span>
+            <span class="small muted">A number can still be fixed, what was played said, or a missed event added.</span>
           </template>
         </div>
         <a class="btn" :class="filled ? '' : 'primary'" :href="reviewHref">{{ filled ? "Edit My Check" : "Check This Turn" }}</a>
       </div>
-      <div v-if="differences.length" class="warnbox diffbox">
-        <b>Differences Between Turns <span class="muted small" style="font-weight: 700">{{ differences.length }}</span></b>
-        <div v-for="d in differences" :key="d.channel + d.field" class="small">
-          <b>{{ DIFF_LABEL[d.field] ?? d.field }} {{ d.amount > 0 ? '+' : '' }}{{ d.amount }}</b>
-          <template v-if="d.worked_out"> worked out from the difference between turns onto the {{ ownerWord(d.owner) }} (check it)</template>
-          <template v-else> not covered by any captured event</template>
+      <div v-if="unexplained.length" class="warnbox diffbox">
+        <b>Differences Between Turns <span class="muted small" style="font-weight: 700">{{ unexplained.length }}</span></b>
+        <div v-for="d in unexplained" :key="d.channel + d.field" class="small">
+          <b>{{ DIFF_LABEL[d.field] ?? d.field }} {{ d.amount > 0 ? '+' : '' }}{{ d.amount }}</b> not covered by any captured event
+          <template v-if="d.window_start_ms != null && d.window_end_ms != null"> · <button class="linkish" @click="emit('seek', d.window_start_ms!)">look between {{ clock(d.window_start_ms) }} and {{ clock(d.window_end_ms) }}</button></template>
+        </div>
+      </div>
+      <div v-if="workedOut.length" class="warnbox mild">
+        <b>Worked Out, Not Read <span class="muted small" style="font-weight: 700">{{ workedOut.length }}</span></b>
+        <div v-for="d in workedOut" :key="d.channel + d.field" class="small">
+          <b>{{ DIFF_LABEL[d.field] ?? d.field }} {{ d.amount > 0 ? '+' : '' }}{{ d.amount }}</b> from the difference between turns, put on the {{ ownerWord(d.owner) }}
           <template v-if="d.window_start_ms != null && d.window_end_ms != null"> · <button class="linkish" @click="emit('seek', d.window_start_ms!)">look between {{ clock(d.window_start_ms) }} and {{ clock(d.window_end_ms) }}</button></template>
         </div>
       </div>

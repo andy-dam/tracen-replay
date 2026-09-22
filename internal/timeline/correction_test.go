@@ -50,7 +50,7 @@ func TestVerifyCannotCheckAFieldWithoutBothEndpoints(t *testing.T) {
 			speed = f
 		}
 	}
-	if guts.Status != "unverifiable" || speed.Status != "open" || v.Verified || !v.Balanced || !strings.Contains(v.Summary, "still unexplained: speed +30") {
+	if guts.Status != "unverifiable" || speed.Status != "open" || v.Verified || !v.Balanced || !strings.Contains(v.Summary, "Still unexplained: speed +30") {
 		t.Fatalf("unexpected verification %+v", v)
 	}
 }
@@ -135,11 +135,11 @@ func TestVerifySetsAMisreadFieldAside(t *testing.T) {
 	if sp.Status != "misread" || sp.Supplied != 0 || sp.Recorded != 1 || !v.Balanced {
 		t.Fatalf("misread field: %+v (balanced %v)", sp, v.Balanced)
 	}
-	if !strings.Contains(v.Summary, "read wrongly by the report: skill_points") {
+	if !strings.Contains(v.Summary, "Read wrongly by the report: skill_points") {
 		t.Fatalf("summary: %q", v.Summary)
 	}
 	// The other open field is still reported as open.
-	if !strings.Contains(v.Summary, "still unexplained: speed +30") {
+	if !strings.Contains(v.Summary, "Still unexplained: speed +30") {
 		t.Fatalf("summary: %q", v.Summary)
 	}
 }

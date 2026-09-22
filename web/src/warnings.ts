@@ -27,6 +27,24 @@ export function reviewSettles(saved: SavedReview | undefined, doubtedEntryIds: s
   });
 }
 
+const FIELD_LABEL: Record<string, string> = { speed: "Speed", stamina: "Stamina", power: "Power", guts: "Guts", wit: "Wit", skill_points: "Skill Pts", dance: "Dance", passion: "Passion", vocal: "Vocal", visual: "Visual", composure: "Composure" };
+
+/**
+ * What a turn asks a viewer for. Serious: a number no event covers, or a
+ * flagged line. To confirm: a number the report never read and worked out
+ * from the difference between turns, which only wants a look.
+ */
+export function turnAsks(t: TurnSummary): { serious: string[]; confirm: string[] } {
+  const serious = turnWarnings(t).filter((w) => w.serious).map((w) => w.text);
+  const confirm: string[] = [];
+  for (const d of t.differences ?? []) {
+    const amount = `${FIELD_LABEL[d.field] ?? d.field} ${d.amount > 0 ? "+" : ""}${d.amount}`;
+    if (d.worked_out) confirm.push(`${amount} worked out, not read`);
+    else serious.push(`${amount} not covered by any event`);
+  }
+  return { serious, confirm };
+}
+
 /** The turns of a report that saved reviews settle. */
 export function settledTurns(saved: SavedReview[], entries: Entry[]): Set<string> {
   const doubted = new Map<string, string[]>();

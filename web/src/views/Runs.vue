@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { api, ApiError, crossOrigin, hosted, type Job, type Recording, type Report } from "../api";
 import { bytes, clock, runTime, skillPointsEarned, STAT_NAMES, when } from "../format";
-import { reviewSettles, turnWarnings } from "../warnings";
+import { reviewSettles, turnAsks } from "../warnings";
 import { progressView } from "../phases";
 import { desktop, openExternal } from "../mode";
 import RankBadge from "../components/RankBadge.vue";
@@ -50,7 +50,7 @@ async function loadFacts(report: Report) {
     const explained = (counts.balanced_observations ?? 0) + (counts.balanced_with_derived_changes ?? 0);
     // A turn a saved review settles is not waiting any more.
     const settled = new Set(reviews.filter((r) => reviewSettles(r, [])).map((r) => r.correction.turn_id));
-    const toCheck = turns.filter((t) => !settled.has(t.id) && (turnWarnings(t).some((w) => w.serious) || (t.differences ?? []).some((d) => !d.worked_out))).length;
+    const toCheck = turns.filter((t) => !settled.has(t.id) && (turnAsks(t).serious.length > 0 || turnAsks(t).confirm.length > 0)).length;
     let final: Record<string, number | null> | null = null;
     let open: string[] = [];
     const last = [...turns].reverse().find((t) => t.opening.stats);
