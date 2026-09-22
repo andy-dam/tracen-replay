@@ -21,7 +21,7 @@ import { FLAG_GUIDE } from "../warnings";
       <h2>How to Record</h2>
       <ul class="guide-list">
         <li><b>Resolution and Language.</b> 1920×1080, English. Other resolutions and languages are not supported.</li>
-        <li><b>Log Panel.</b> Keep the game's log panel open on the right side. Gains, purchases and events are confirmed from the lines in it.</li>
+        <li><b>Game Window.</b> Full screen and landscape. Only the gameplay pane on the left is read, not the side panel.</li>
         <li><b>One File per Career.</b> Record from the first turn to the finale in a single mp4, mov, webm or mkv file. A full career is about 1 GB.</li>
         <li><b>No Overlays.</b> A webcam, chat or any other overlay on top of the game covers numbers that have to be read.</li>
         <li><b>Skipping Animations.</b> Allowed. Skipped results are read again at 60 frames per second.</li>

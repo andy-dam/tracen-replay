@@ -19,7 +19,7 @@ defineProps<{ user: User | null }>();
       <p class="muted small" style="margin-top: 14px">{{ hosted ? "Recordings are analyzed on the service's worker. The original is kept for 90 days for a re-analysis." : "Runs on this computer. Nothing leaves it." }}</p>
     </div>
     <div class="hero-shot">
-      <img :src="'/shots/game-home.jpg'" alt="A training turn in the recording: the stat bar and the log panel" />
+      <img :src="'/shots/game-home.jpg'" alt="A training turn in the recording, with the stat bar" />
       <div class="shot-caption">Senior Year, Early Jun, in the recording. The report reads the same bar: SS+ 1159 speed.</div>
     </div>
   </section>
@@ -40,10 +40,10 @@ defineProps<{ user: User | null }>();
       <div class="tour-copy">
         <div class="overline">From the Recording</div>
         <h2>Read Straight off the Screen</h2>
-        <p>The calendar, the stat bar and the log panel are read at 4 frames a second, and again at 60 where a number changes. Here a support event pays +3 Speed and +3 Guts. The popup and the log line agree, and the report keeps one entry with the second it appeared and the frame behind it.</p>
+        <p>The calendar, the stat bar and the popups are read at 4 frames a second, and again at 60 where a number changes. Here a support event pays +3 Speed and +3 Guts. The popup and the outcome line agree, and the report keeps one entry with the second it appeared and the frame behind it.</p>
       </div>
       <div class="tour-shot">
-        <img :src="'/shots/game-event.jpg'" alt="A support event in the recording: +3 Speed and +3 Guts, with the same line in the log panel" />
+        <img :src="'/shots/game-event.jpg'" alt="A support event in the recording: +3 Speed and +3 Guts, with the same line in the outcome box" />
       </div>
     </div>
     <div class="tour-row">
@@ -82,7 +82,7 @@ defineProps<{ user: User | null }>();
   <section class="steps-wrap">
     <h2>Three Steps</h2>
     <ol class="steps">
-      <li><b>Record</b> at 1080p with the log panel open.</li>
+      <li><b>Record</b> at 1080p in landscape.</li>
       <li><b>Upload</b> the file, about 1 GB for a career.</li>
       <li><b>Read</b> the report beside the recording.</li>
     </ol>
