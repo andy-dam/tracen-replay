@@ -41,8 +41,13 @@ func TestFitStaysWithinTheLimit(t *testing.T) {
 
 func TestFitSharesTheProcessor(t *testing.T) {
 	m := Machine{MemoryGB: 64, Cores: 12, Accelerated: true}
-	if one, three := m.Fit(60, 1), m.Fit(60, 3); one.Workers != 4 || three.Workers != 2 || three.Parallel != 3 {
+	// Half the logical processors, not more, and never more than the
+	// analyzer takes.
+	if one, three := m.Fit(60, 1), m.Fit(60, 3); one.Workers != 6 || one.DenseWorkers != 5 || three.Workers != 2 || three.Parallel != 3 {
 		t.Fatalf("one at once: %+v; three at once: %+v", one, three)
+	}
+	if many := (Machine{MemoryGB: 256, Cores: 64, Accelerated: true}).Fit(200, 1); many.Workers != maxReaders || maxReaders != 8 {
+		t.Fatalf("a large machine: %+v (cap %d)", many, maxReaders)
 	}
 	// A limit below the least that works is raised to it; above the machine,
 	// lowered to it.

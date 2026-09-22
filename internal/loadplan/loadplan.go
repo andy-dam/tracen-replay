@@ -34,7 +34,13 @@ const (
 	// MinMemoryGB is the smallest limit that still runs one analysis with
 	// one reader.
 	MinMemoryGB = 7
-	maxReaders  = 4
+	// maxReaders is the most the analyzer itself accepts (--workers 1 to 8).
+	// What an analysis really gets is decided by the memory limit and by the
+	// processor: half the logical processors, so the machine stays usable.
+	// Measured on this repository's 12-thread machine with a graphics card:
+	// three readers analyze a 35-minute career in 32 minutes, five in 24
+	// (docs/ocr-performance.md).
+	maxReaders = 8
 )
 
 // Plan is what the manager is told.
@@ -66,7 +72,10 @@ func (m Machine) MaxParallel(memoryLimitGB int) int {
 
 // Fit turns the two settings into a plan that stays within them: the
 // parallel count is lowered to what fits, and each analysis gets as many
-// readers as its share of the memory and of the processor allows.
+// readers as its share of the memory and of the processor allows. An
+// analysis that starts while none other runs is planned with parallel 1, so
+// a lone analysis uses the whole share rather than the share it would have
+// had to leave for an analysis that is not there (Manager.Config.Readers).
 func (m Machine) Fit(memoryLimitGB, parallel int) Plan {
 	memoryLimitGB = m.ClampMemory(memoryLimitGB)
 	parallel = max(1, min(parallel, m.MaxParallel(memoryLimitGB)))

@@ -205,12 +205,24 @@ func (s *settings) Get() api.Settings {
 	return s.view()
 }
 
+// readers is how many reader processes the analysis about to start uses:
+// the share it gets with the analyses already running (jobs.Config.Readers).
+func (s *settings) readers(others int) (int, int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	memoryGB, parallel := s.inForce()
+	plan := s.machine().Fit(memoryGB, max(1, min(parallel, others+1)))
+	return plan.Workers, plan.DenseWorkers
+}
+
 func (s *settings) view() api.Settings {
 	m := s.machine()
 	memoryGB, parallel := s.inForce()
-	plan := m.Fit(memoryGB, parallel)
+	// What one analysis gets while it is the only one, which is how most
+	// analyses run.
+	plan := m.Fit(memoryGB, 1)
 	out := api.Settings{GPU: s.gpu && s.available, GPUAvailable: s.available, Device: s.device,
-		Parallel: plan.Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose, UpdateCheck: !s.noUpdateCheck, PausedLifetimeDays: s.pausedDays,
+		Parallel: m.Fit(memoryGB, parallel).Parallel, MemoryLimitGB: memoryGB, OnClose: s.onClose, UpdateCheck: !s.noUpdateCheck, PausedLifetimeDays: s.pausedDays,
 		ParallelMax: m.MaxParallel(memoryGB), Workers: plan.Workers,
 		MemoryTotalGB: s.totalGB, MemoryMinGB: loadplan.MinMemoryGB, Cores: s.cores, Background: background}
 	out.Recommended.MemoryLimitGB, out.Recommended.Parallel = m.Recommend()
@@ -560,6 +572,9 @@ func start(logger *slog.Logger, desk api.Desktop) (string, *settings, func(), er
 	prefs := &settings{path: filepath.Join(l.data, "settings.json"), manager: manager,
 		cores: runtime.NumCPU(), totalGB: int(totalMemoryBytes() >> 30)}
 	prefs.load()
+	// A lone analysis takes the whole share; one that starts beside another
+	// takes its own (loadplan).
+	manager.SetReaders(prefs.readers)
 	prefs.apply()
 	go prefs.detect(l.python)
 	if _, err := manager.Recover(ctx); err != nil {

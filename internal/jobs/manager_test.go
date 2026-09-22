@@ -514,3 +514,70 @@ func TestSubscribersSeeProgressAndTerminalEvents(t *testing.T) {
 		t.Log("percent event was published before the subscription; acceptable, the job record carries it")
 	}
 }
+
+// The planner decides how many readers an analysis starts, and is told how
+// many other analyses are already running, so a lone analysis takes the
+// whole share.
+func TestReadersArePlannedAgainstTheAnalysesAlreadyRunning(t *testing.T) {
+	var mu sync.Mutex
+	var asked []int
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	h := newHarness(t, 4, func(c *jobs.Config) {
+		c.Parallel = 2
+		c.Workers, c.DenseWorkers = 1, 1
+		c.Readers = func(others int) (int, int) {
+			mu.Lock()
+			asked = append(asked, others)
+			mu.Unlock()
+			return 6 - 3*others, max(1, 5-3*others)
+		}
+	})
+	var seen []worker.Command
+	h.runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+		mu.Lock()
+		seen = append(seen, cmd)
+		mu.Unlock()
+		started <- struct{}{}
+		<-release
+		return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
+	}
+	h.start()
+	ctx := context.Background()
+	first, _ := h.manager.Submit(ctx, "u1", "src-1")
+	<-started
+	h.waitStatus(first.ID, jobs.Running)
+	second, _ := h.manager.Submit(ctx, "u1", "src-1")
+	<-started
+	h.waitStatus(second.ID, jobs.Running)
+	close(release)
+	h.waitStatus(first.ID, jobs.Succeeded)
+	h.waitStatus(second.ID, jobs.Succeeded)
+	mu.Lock()
+	defer mu.Unlock()
+	if len(asked) != 2 || asked[0] != 0 || asked[1] != 1 {
+		t.Fatalf("the planner was asked with %v, want [0 1]", asked)
+	}
+	if len(seen) != 2 || seen[0].Workers != 6 || seen[0].DenseWorkers != 5 || seen[1].Workers != 3 || seen[1].DenseWorkers != 2 {
+		t.Fatalf("commands: %+v", seen)
+	}
+}
+
+// Without a planner the fixed counts stand.
+func TestReadersFallBackToTheFixedCounts(t *testing.T) {
+	h := newHarness(t, 2, func(c *jobs.Config) { c.Workers, c.DenseWorkers = 3, 2 })
+	var got worker.Command
+	done := make(chan struct{})
+	h.runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
+		got = cmd
+		close(done)
+		return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
+	}
+	h.start()
+	job, _ := h.manager.Submit(context.Background(), "u1", "src-1")
+	<-done
+	h.waitStatus(job.ID, jobs.Succeeded)
+	if got.Workers != 3 || got.DenseWorkers != 2 {
+		t.Fatalf("command: %+v", got)
+	}
+}

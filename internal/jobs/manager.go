@@ -29,6 +29,11 @@ type Config struct {
 	ModelDir string
 	// Workers is the OCR worker count passed to the analyzer.
 	Workers int
+	// Readers, when set, says how many reader processes the analysis about
+	// to start uses, given how many other analyses are running. It lets a
+	// lone analysis take the whole share instead of leaving room for an
+	// analysis that is not there. nil keeps Workers and DenseWorkers.
+	Readers func(others int) (workers, denseWorkers int)
 	// DenseWorkers is the dense re-read worker count; zero keeps the
 	// analyzer's default.
 	DenseWorkers int
@@ -215,6 +220,14 @@ func (m *Manager) ocrDevice() string {
 	return m.cfg.OCRDevice
 }
 
+// SetReaders sets the planner Config.Readers describes; nil restores the
+// fixed counts of SetLoad.
+func (m *Manager) SetReaders(plan func(others int) (workers, denseWorkers int)) {
+	m.mu.Lock()
+	m.cfg.Readers = plan
+	m.mu.Unlock()
+}
+
 // SetLoad changes how many analyses run at once and how many reader
 // processes each of the next analyses starts. An analysis already running
 // keeps what it started with; when fewer may run at once than are running,
@@ -229,8 +242,16 @@ func (m *Manager) SetLoad(parallel, workers, denseWorkers int) {
 // load is the reader counts the next analysis starts with.
 func (m *Manager) load() (workers, denseWorkers int) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.cfg.Workers, m.cfg.DenseWorkers
+	// The analyses this process is running, this one among them. The slot
+	// count is not it: the loop takes a slot before it knows there is a job.
+	readers, others, workers, denseWorkers := m.cfg.Readers, max(0, len(m.cancels)-1), m.cfg.Workers, m.cfg.DenseWorkers
+	m.mu.Unlock()
+	if readers != nil {
+		if w, d := readers(others); w > 0 {
+			return w, max(1, d)
+		}
+	}
+	return workers, denseWorkers
 }
 
 // acquire takes a place among the running analyses if one is free.
