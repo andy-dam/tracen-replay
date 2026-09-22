@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import copy
 import unittest
-from pathlib import Path
 
-from PIL import Image
 
-from tests import localdata
 from tracen_replay.preview_observations import (
     _explicit_phase_proof,
     build_preview_observations,

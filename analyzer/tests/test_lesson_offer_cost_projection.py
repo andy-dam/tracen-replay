@@ -1,23 +1,9 @@
-import copy
 import json
-from pathlib import Path
-import shutil
 from types import SimpleNamespace
 import unittest
 
-from PIL import Image
 
-from tracen_replay.full_recording import cached_readings, parse_receipt_pixels
-from tracen_replay.lesson_offer_adapter import (
-    COST_FIELDS,
-    LessonOfferSourceError,
-    adapt_lesson_offer_frame,
-    merge_lesson_offer_cost_refinement,
-    refine_lesson_offer_costs,
-)
-from tracen_replay.lesson_offer_refinement import fingerprint
 from tests import localdata
-from tests.test_gameplay import workspace_temp
 
 
 BASE = localdata.root("development_third_recording_baseline")

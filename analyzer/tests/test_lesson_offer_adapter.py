@@ -1,15 +1,8 @@
-from copy import deepcopy
-import hashlib
 import json
 from pathlib import Path
 import unittest
 
 from tests import localdata
-from tracen_replay.lesson_offer_adapter import (
-    SCHEMA,
-    LessonOfferSourceError,
-    adapt_lesson_offer_frame,
-)
 
 
 BASE = localdata.root("development_third_recording_baseline")

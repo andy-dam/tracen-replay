@@ -1,12 +1,8 @@
 import json
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
-from tests import localdata
-from tests.test_causal_accounting import fixture as report_fixture
 from tests.test_gameplay import workspace_temp
-from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.transactions import training_events
 from tracen_replay.training_gain_resolution import resolve_candidate_only_gain
 from tracen_replay.training_gain_recovery import plan, promote, promote_with_metadata, recover
@@ -101,16 +97,6 @@ def _row(
         },
     )
 
-
-def _report_document_for(readings, events):
-    report=report_fixture()
-    data=report['gameplay_tracking']
-    data['readings']=readings
-    data['events']=events
-    data['turn_action_receipts']=[]
-    data['checkpoints']=[]
-    data['performance_accounting']={'checkpoints':[]}
-    return report_document(report)
 
 
 class CandidateOnlyGainRecoveryTests(unittest.TestCase):
@@ -532,76 +518,6 @@ class CandidateOnlyGainRecoveryTests(unittest.TestCase):
 
         self.assertNotIn('speed', event['deltas'])
         self.assertNotIn('speed', event['direct_gain_provenance'])
-
-    def test_report_document_validates_candidate_direct_proof(self):
-        fresh=[
-            _row(150, 'one.png', option='speed', confidence=96.0),
-            _row(183, 'two.png', option='speed', confidence=95.0),
-        ]
-        window=dict(
-            start_ms=90, end_ms=250, owner_id='training-0001', fields=['speed'],
-            reason='candidate_only_source_gain_evidence',
-        )
-
-        readings, _recoveries=promote_with_metadata([], fresh, [window])
-        events=training_events(readings)
-        rows=_report_document_for(readings, events)['observations']
-        observed=next(row for row in rows
-                      if row['payload'].get('field') == 'speed')
-
-        self.assertFalse(observed['uncertain'])
-        self.assertEqual(observed['payload']['amount'], 3)
-        self.assertEqual(observed['evidence'], ['one.png', 'two.png'])
-
-    def test_report_document_rejects_forged_candidate_metadata(self):
-        fresh=[
-            _row(150, 'one.png', option='speed', confidence=96.0),
-            _row(183, 'two.png', option='speed', confidence=95.0),
-        ]
-        window=dict(
-            start_ms=90, end_ms=250, owner_id='training-0001', fields=['speed'],
-            reason='candidate_only_source_gain_evidence',
-        )
-        readings, _recoveries=promote_with_metadata([], fresh, [window])
-        events=training_events(readings)
-        events[0]['direct_gain_provenance']['speed']['candidate_observations']=[]
-        rows=_report_document_for(readings, events)['observations']
-        observed=next(row for row in rows
-                      if row['payload'].get('field') == 'speed')
-
-        self.assertFalse(observed['uncertain'])
-        self.assertNotIn('amount_evidence', observed)
-
-    def test_report_document_rejects_weakened_policy_or_nonfinite_box(self):
-        mutations=[
-            ('candidate_policy', 'minimum_tight_confidence', 0),
-            ('candidate_policy', 'maximum_gap_ms', 999),
-            ('candidate_observations', 0, float('nan')),
-            ('candidate_observations', 0, True),
-        ]
-        for mutation in mutations:
-            with self.subTest(mutation=mutation):
-                fresh=[
-                    _row(150, 'one.png', option='speed', confidence=96.0),
-                    _row(183, 'two.png', option='speed', confidence=95.0),
-                ]
-                window=dict(
-                    start_ms=90, end_ms=250, owner_id='training-0001', fields=['speed'],
-                    reason='candidate_only_source_gain_evidence',
-                )
-                readings, _recoveries=promote_with_metadata([], fresh, [window])
-                events=training_events(readings)
-                provenance=events[0]['direct_gain_provenance']['speed']
-                if mutation[0] == 'candidate_policy':
-                    provenance['candidate_policy'][mutation[1]]=mutation[2]
-                else:
-                    provenance['candidate_observations'][mutation[1]]['box'][0]=mutation[2]
-
-                rows=_report_document_for(readings, events)['observations']
-                observed=next(row for row in rows
-                              if row['payload'].get('field') == 'speed')
-
-                self.assertNotIn('amount_evidence', observed)
 
     def test_promote_matches_exact_evidence_when_timestamp_has_multiple_rows(self):
         readings=[

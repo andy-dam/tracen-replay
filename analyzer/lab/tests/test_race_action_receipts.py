@@ -1,13 +1,8 @@
 """Tests of ``tests.test_race_action_receipts`` that need locally preserved evidence; they run only where it is."""
 import unittest
 import json
-from pathlib import Path
 from tests import localdata
-from tracen_replay.race_action_receipts import (
-    assemble_race_action_receipts,
-    bind_race_action_metadata,
-    race_action_binding,
-)
+from tracen_replay.race_action_receipts import assemble_race_action_receipts
 from tests.test_race_action_receipts import race_record
 
 

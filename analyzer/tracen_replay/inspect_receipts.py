@@ -5,7 +5,6 @@ import json
 from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
-from PIL import Image
 from .vision import NeuralReader,parse
 from .pipeline import decode_frames,PipelineError
 from .full_recording import save_json

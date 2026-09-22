@@ -11,8 +11,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from tests.test_causal_accounting import fixture as report_fixture
-from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.full_recording import _manifest_group_rows
 from tracen_replay.inspect_training import reparse_inspection
 from tracen_replay.pipeline import PipelineError
@@ -24,10 +22,6 @@ from tracen_replay.training_badge_localization import (
     fingerprint,
     gameplay_fingerprint,
     localize_training_badges,
-)
-from tracen_replay.training_inspection_localization import (
-    discover_candidates,
-    prepare_sidecars,
 )
 from tracen_replay.transactions import training_events
 
@@ -171,49 +165,12 @@ class DenseTrainingInspectionFixture:
         shutil.rmtree(self.directory, ignore_errors=True)
 
 
-class _FakeReader:
-    def _localize_training_badges(self, pane, *, header, result_grid, screen):
-        return localize_training_badges(
-            pane,
-            recognize=lambda crops: [("+7", 0.999)] * len(crops),
-            header=header,
-            result_grid=result_grid,
-            screen=screen,
-        )
-
-
 class TrainingInspectionLocalizationTests(unittest.TestCase):
     def setUp(self):
         self.fixture = DenseTrainingInspectionFixture()
 
     def tearDown(self):
         self.fixture.close()
-
-    def test_discovery_uses_header_grid_and_pixels_without_amounts(self):
-        result = discover_candidates(self.fixture.root, max_candidates=4, max_rows=10)
-        self.assertEqual(result["stats"]["candidate_count"], 1)
-        candidate = result["candidates"][0]
-        self.assertEqual(candidate["evidence"], self.fixture.evidence_rel)
-        self.assertTrue(all("amount" not in item for item in candidate["discovery"]["observations"]))
-
-    def test_preparation_writes_mergeable_fragment_outside_source_root(self):
-        output = self.fixture.directory / "prepared"
-        fragment = prepare_sidecars(
-            self.fixture.root,
-            output,
-            max_candidates=4,
-            max_rows=10,
-            reader=_FakeReader(),
-        )
-        self.assertEqual(fragment["summary"]["localized_sidecars"], 1)
-        self.assertEqual(len(fragment["entries"]), 1)
-        entry = fragment["entries"][0]
-        self.assertTrue((output / entry["path"]).is_file())
-        self.assertEqual(entry["evidence"], self.fixture.evidence_rel)
-        self.assertEqual(entry["source_timestamp_ms"], 100)
-        self.assertEqual(
-            fragment["training_badge_localization_sidecars"], fragment["entries"]
-        )
 
     def test_reparse_consumes_sidecar_by_exact_dense_reading_identity(self):
         self.fixture.write_registered_sidecar()
@@ -245,7 +202,7 @@ class TrainingInspectionLocalizationTests(unittest.TestCase):
         with self.assertRaises(PipelineError):
             reparse_inspection(self.fixture.inspection, self.fixture.root)
 
-    def test_manifest_group_rows_reaches_training_events_and_report_document(self):
+    def test_manifest_group_rows_reaches_training_events(self):
         self.fixture.write_registered_sidecar()
         manifest = self.fixture.root / "training-inspection.json"
         manifest.write_text(json.dumps(self.fixture.inspection, sort_keys=True), encoding="utf-8")
@@ -263,36 +220,6 @@ class TrainingInspectionLocalizationTests(unittest.TestCase):
         events = training_events(rows)
         self.assertEqual(own_root, self.fixture.root.resolve())
         self.assertEqual(events[0]["deltas"]["speed"], 7)
-        report = report_fixture()
-        report["source"]["sha256"] = self.fixture.source_sha256
-        report["gameplay_tracking"]["readings"] = rows
-        report["gameplay_tracking"]["events"] = events
-        report["gameplay_tracking"]["turn_action_receipts"] = []
-        report["gameplay_tracking"]["checkpoints"] = []
-        report["gameplay_tracking"]["performance_accounting"] = {"checkpoints": []}
-        document = report_document(report)
-        self.assertTrue(
-            any(
-                item.get("category") == "effect"
-                and item.get("payload", {}).get("amount") == 7
-                and item.get("evidence") == [self.fixture.evidence_rel]
-                for item in document["observations"]
-            )
-        )
-
-    def test_dry_run_does_not_instantiate_reader_or_write_sidecars(self):
-        output = self.fixture.directory / "dry-run"
-        fragment = prepare_sidecars(
-            self.fixture.root,
-            output,
-            max_candidates=4,
-            max_rows=10,
-            dry_run=True,
-            reader_factory=lambda _model_dir: self.fail("reader must not be constructed"),
-        )
-        self.assertTrue(fragment["summary"]["dry_run"])
-        self.assertEqual(fragment["entries"], [])
-        self.assertFalse((output / "training-badge-localization").exists())
 
 
 if __name__ == "__main__":

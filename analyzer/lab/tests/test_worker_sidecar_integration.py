@@ -3,7 +3,6 @@ from __future__ import annotations
 import shutil
 import unittest
 from pathlib import Path
-from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.automatic_refinement import discover, run
 from tracen_replay.full_recording import cached_readings

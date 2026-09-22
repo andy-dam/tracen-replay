@@ -60,8 +60,14 @@ from PIL import Image
 # The result boxes, their widening and the pane geometry are the learned
 # reader's own, so a dataset is always cut the way the analyzer reads.
 # Lesson-menu counters sit in one row across the top of the pane.
-from tracen_replay.learned_reader import (  # noqa: E402
-    BADGE_BOXES, PANE_LEFT, READER_MARGIN, RESULT_BOXES, SKILL_BOX, STAT_FIELDS, pane_box)
+from tracen_replay.learned_reader import (
+    BADGE_BOXES,
+    PANE_LEFT,
+    READER_MARGIN,
+    RESULT_BOXES,
+    SKILL_BOX,
+    pane_box,
+)
 
 CURRENCIES = ('dance', 'passion', 'vocal', 'visual', 'composure')
 COUNTER_BOXES = {CURRENCIES[0]: (345, 91, 389, 119)}

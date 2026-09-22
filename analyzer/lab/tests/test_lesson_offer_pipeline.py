@@ -1,7 +1,6 @@
 """Tests of ``tests.test_lesson_offer_pipeline`` that need locally preserved evidence; they run only where it is."""
 import json
 import unittest
-from pathlib import Path
 from tracen_replay.full_recording import cached_readings
 from tracen_replay.preview_observations import build
 from tracen_replay.transactions import lesson_receipts

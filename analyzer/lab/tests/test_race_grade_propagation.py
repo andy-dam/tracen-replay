@@ -2,14 +2,7 @@
 import copy
 import json
 import unittest
-from pathlib import Path
-from tests import localdata
-from tests.test_causal_accounting import fixture
-from tracen_replay.evaluation_adapters import report_document
-from tracen_replay.race_action_receipts import (
-    assemble_race_action_receipts,
-    bind_race_action_metadata,
-)
+from tracen_replay.race_action_receipts import assemble_race_action_receipts
 from tracen_replay.transactions import races
 from tracen_replay.vision import _race_result_grade_observation, parse
 from tests.test_race_grade_propagation import SOURCE_NEURAL, source_reading
@@ -122,7 +115,7 @@ class VisionRaceGradeTests(unittest.TestCase):
 
 
 class RaceGradePropagationTests(unittest.TestCase):
-    def test_actual_yayoi_source_flows_through_race_receipt_and_report_adapter(self):
+    def test_actual_yayoi_source_flows_through_race_receipt(self):
         first = source_reading(179)
         second = source_reading(180)
         records = races([first, second])
@@ -135,21 +128,3 @@ class RaceGradePropagationTests(unittest.TestCase):
         actions = assemble_race_action_receipts(records)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["race_grade"], "G2")
-
-        report = fixture()
-        data = report["gameplay_tracking"]
-        data["readings"] = [first, second]
-        data["races"] = records
-        data["turn_action_receipts"] = actions
-        data["events"] = []
-        data["checkpoints"] = []
-        data["performance_accounting"] = {"checkpoints": []}
-
-        adapted = report_document(report)
-        action = next(
-            row for row in adapted["observations"]
-            if row["id"] == "/gameplay_tracking/turn_action_receipts/0"
-        )
-        self.assertEqual(action["payload"]["kind"], "race")
-        self.assertEqual(action["payload"]["name"], "Yayoi Sho")
-        self.assertEqual(action["payload"]["grade"], "G2")

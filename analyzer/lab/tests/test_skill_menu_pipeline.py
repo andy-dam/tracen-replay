@@ -1,16 +1,12 @@
 """Tests of ``tests.test_skill_menu_pipeline`` that need locally preserved evidence; they run only where it is."""
 import copy
 import json
-from pathlib import Path
 import unittest
 from unittest.mock import patch
 from tests.test_report_contract import valid_report
-from tests.test_skill_menu_observations import _card_frame
 from tracen_replay.full_recording import assemble, parse_receipt_pixels, _rebase_paths
-from tracen_replay.vision import parse
-from tracen_replay.report_contract import validate, ReportContractError
+from tracen_replay.report_contract import validate
 from tests import localdata
-from tracen_replay.evaluation_adapters import report_document
 
 
 class SkillMenuPipelineTests(unittest.TestCase):
@@ -44,23 +40,8 @@ class SkillMenuPipelineTests(unittest.TestCase):
         self.assertEqual(draft['payload']['skill_points_after'],25)
         self.assertEqual(draft['phase'],'preview')
         self.assertTrue(all(path.startswith('initial-baseline/') for path in draft['evidence']))
-        from tracen_replay.observation_evaluate import evaluate
-        frozen=json.loads(localdata.root("final_reliability_artifacts", "source-references", "independent-02.json").read_text(encoding='utf-8'))
-        identities={'ind02-t053-skill-card-offers','ind02-t053-skill-selection-draft'}
-        sources=[item for case in frozen['cases'] for item in case['observations']
-                 if item['id'] in identities]
-        self.assertEqual(len(sources),2)
-        prediction=report_document({'source':{'sha256':frozen['source_sha256']},
-                                    'gameplay_tracking':{'skill_menu_observations':menus,'auxiliary_log_used':False,
-                                                         'readings':rows,'events':[],
-                                                         'turn_action_receipts':[]}})
-        result=evaluate({'source_sha256':frozen['source_sha256'],
-                         'reference_complete':False,'scope_ms':[1282000,1295000],
-                         'observations':sources},prediction)
-        self.assertEqual({item['source_id']:item['status'] for item in result['results']},
-                         {identity:'correct' for identity in identities})
 
-    def test_source_pixel_draft_survives_normal_parser_contract_and_evaluator(self):
+    def test_source_pixel_draft_survives_normal_parser_and_contract(self):
         root=localdata.root("development_third_recording_baseline")
         path=root/'neural/part-010-frame-000375.json'
         if not path.is_file():
@@ -87,10 +68,6 @@ class SkillMenuPipelineTests(unittest.TestCase):
         self.assertEqual(payload['skill_points_after'],25)
         self.assertEqual(payload['selection_status'],'not_yet_confirmed')
         self.assertTrue(payload['selected_draft_card_proof'])
-        projected=[o for o in report_document(report)['observations']
-                   if o['source_ref'].startswith('/gameplay_tracking/skill_menu_observations/')]
-        self.assertEqual(len(projected),1)
-        self.assertEqual(projected[0]['phase'],'preview')
         altered=copy.deepcopy(row)
         altered['source_timestamp_ms']+=250
         with patch('tracen_replay.full_recording.audit',return_value={}):

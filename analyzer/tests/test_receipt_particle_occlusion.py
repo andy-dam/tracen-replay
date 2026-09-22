@@ -1,13 +1,9 @@
 import hashlib
-import json
-from pathlib import Path
 import unittest
 
 from PIL import Image, ImageDraw
 
-from tests import localdata
-from tracen_replay.receipt_occlusion import annotate, annotate_path, animated_overlay_boxes
-from tracen_replay.transactions import outcome_events
+from tracen_replay.receipt_occlusion import annotate, animated_overlay_boxes
 from tracen_replay.vision import parse
 
 

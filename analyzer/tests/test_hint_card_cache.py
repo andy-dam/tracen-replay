@@ -1,13 +1,9 @@
 from copy import deepcopy
 import json
 from importlib import import_module
-from pathlib import Path
-import shutil
 import unittest
-import uuid
 from unittest.mock import patch
 
-from tests import localdata
 from tracen_replay.hint_card_cache import (
     _ROW_HASH_VERSION_V1,
     _ROW_HASH_VERSION_V2,

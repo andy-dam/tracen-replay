@@ -1,8 +1,6 @@
 """Tests of ``tests.test_preview_unknown_screen`` that need locally preserved evidence; they run only where it is."""
 from __future__ import annotations
-import copy
 import json
-from pathlib import Path
 import unittest
 from tests import localdata
 from tracen_replay.lesson_offer_adapter import adapt_lesson_offer_frame

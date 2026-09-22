@@ -5,19 +5,11 @@ observations.  They deliberately do not use an expected effect, a balance
 equation, or a recording-specific timestamp to manufacture a result.
 """
 
-import json
-from pathlib import Path
 import unittest
 
 from tracen_replay.animated_performance import candidates, reconcile
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
-from tracen_replay.transactions import outcome_events
-from tracen_replay.vision import NeuralReader, parse
-from tests import localdata
-from tracen_replay.event_choice_adapter import (
-    build_choice_observations,
-    same_frame_choice_observation,
-)
+from tracen_replay.vision import parse
 
 
 def line(text, box, confidence=99):

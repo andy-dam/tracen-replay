@@ -5,7 +5,6 @@ import unittest
 
 from PIL import Image, ImageDraw
 
-from tests import localdata
 from tracen_replay.event_choice_adapter import (
     SCHEMA,
     build_choice_observations,
@@ -14,7 +13,6 @@ from tracen_replay.event_choice_adapter import (
     same_frame_choice_observation,
 )
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
-from tracen_replay.evaluation_adapters import report_document
 from tests.test_gameplay import workspace_temp
 
 
@@ -237,38 +235,6 @@ class EventChoiceAdapterTests(unittest.TestCase):
         self.assertEqual(result[0]["selection_state"], "committed")
         self.assertEqual(result[0]["phase"], "committed")
         self.assertEqual(result[0]["evidence"], ["shared.png"])
-
-    def test_committed_choice_projects_as_selected_action(self):
-        choice = {
-            "kind": "dialogue_choice",
-            "options": ["First", "Second"],
-            "selected_index": 1,
-            "selected_text": "Second",
-            "first_seen_ms": 100,
-            "selection_observed_ms": 500,
-            "selection_marks": {"left": {"box": [258, 700, 313, 733]},
-                                 "right": {"box": [798, 700, 853, 733]}},
-            "selection_state": "committed",
-            "evidence": ["gameplay/menu.png", "gameplay/selected.png"],
-        }
-        choice = merge_committed_choices([choice])[0]
-        report = {
-            "source": {"sha256": "source-sha"},
-            "gameplay_tracking": {
-                "readings": [
-                    {"source_timestamp_ms": 100, "evidence": "gameplay/menu.png"},
-                    {"source_timestamp_ms": 500, "evidence": "gameplay/selected.png"},
-                ],
-                "events": [],
-                "dialogue_choices": [choice],
-                "turn_action_receipts": [],
-            },
-        }
-        document = report_document(report)
-        self.assertEqual(len(document["observations"]), 1)
-        observation = document["observations"][0]
-        self.assertEqual(observation["phase"], "committed")
-        self.assertEqual(observation["payload"]["selected_choice"], "Second")
 
     def test_same_time_distinct_proofs_are_preserved_and_abstained(self):
         left = {

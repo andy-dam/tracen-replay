@@ -1,9 +1,6 @@
-import hashlib
-import json
 import shutil
 import subprocess
 import unittest
-from pathlib import Path
 from tests.test_gameplay import workspace_temp
 from tests.test_neural_transactions import raw,line,row
 from tracen_replay.vision import parse
@@ -79,19 +76,6 @@ class RecordingRegressions(unittest.TestCase):
         self.assertTrue(purchase['bundle_charge_assignment_complete'])
         self.assertEqual(purchase['committed_cart_bundles'][0]['prerequisite_candidates'],['Base'])
         self.assertEqual(purchase['bundle_net_cost'],300)
-
-    def test_circle_suffix_does_not_confuse_offered_next_rank(self):
-        import importlib.util
-        if importlib.util.find_spec('cv2') is None:self.skipTest('Vision extra required')
-        from PIL import Image,ImageDraw
-        from tracen_replay.skill_variants import circle_suffix
-        pane=Image.new('RGB',(810,1080),'white');draw=ImageDraw.Draw(pane)
-        box=[362,534,537,560];x=537-148-32+12;y=534-2+8
-        draw.ellipse((x,y,x+14,y+14),outline=(120,85,60),width=1)
-        self.assertEqual(circle_suffix(pane,box),'single_circle')
-        draw.ellipse((x+3,y+3,x+11,y+11),outline=(120,85,60),width=1)
-        self.assertEqual(circle_suffix(pane,box),'double_circle')
-        self.assertIsNone(circle_suffix(Image.new('RGB',(810,1080),'white'),box))
 
     @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
     def test_native_sixty_fps_does_not_skip_every_other_frame(self):

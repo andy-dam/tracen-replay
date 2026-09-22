@@ -2,7 +2,6 @@
 from __future__ import annotations
 import copy
 import json
-from pathlib import Path
 import unittest
 from tracen_replay.training_outcome import (
     SOURCE_BOUND_BASIS,
@@ -12,7 +11,6 @@ from tracen_replay.training_outcome import (
 from tracen_replay.transactions import training_events
 from tracen_replay.vision import parse
 from tracen_replay.weak_state_recovery import load
-from tests import localdata
 from tests.test_training_outcome_source_bound import EVIDENCE_PATH, RAW_PATH, SIDECAR_PATH, SOURCE_PATH
 
 

@@ -3,7 +3,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests import localdata
 from tests.test_report_contract import valid_report
 from tracen_replay.timeline_document import SCHEMA, build, write
 

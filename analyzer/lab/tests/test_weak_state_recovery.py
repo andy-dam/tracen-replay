@@ -1,22 +1,9 @@
 """Tests of ``tests.test_weak_state_recovery`` that need locally preserved evidence; they run only where it is."""
 from __future__ import annotations
-import copy
-import hashlib
 import json
 import unittest
-from pathlib import Path
-from PIL import Image
 from tests import localdata
-from tests.test_gameplay import workspace_temp
-from tracen_replay.weak_state_recovery import (
-    SCHEMA,
-    apply,
-    candidate_requests,
-    discover,
-    load,
-    recover,
-    validate,
-)
+from tracen_replay.weak_state_recovery import candidate_requests, recover
 
 
 class WeakStateRecoveryTests(unittest.TestCase):

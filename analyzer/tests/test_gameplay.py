@@ -6,7 +6,6 @@ import shutil
 from PIL import Image
 from tests import localdata
 from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, PANE, CURRENCIES, ledger, FIELDS, screen_summary
-from tracen_replay.gameplay_evaluate import evaluate
 
 
 def line(text, confidence=95):
@@ -119,10 +118,6 @@ class GameplayTests(unittest.TestCase):
     def test_expired_confirmation_does_not_explain_later_debit(self):
         rows=self.rows();rows[-1]['source_timestamp_ms']=10000
         self.assertEqual(lesson_transitions(rows),[])
-    def test_evaluation_rejects_missing_examples_and_other_source(self):
-        ref={'source_sha256':'a','observations':[{'source_timestamp_ms':0,'screen':'unknown'}]}
-        self.assertFalse(evaluate(ref,[])['passed'])
-        with self.assertRaises(ValueError):evaluate(ref,[{'source':{'sha256':'b'}}])
     def training_interval(self, values):
         before=dict(id='a',last_seen_ms=0,values={f:100 for f in FIELDS})
         after=dict(id='b',first_seen_ms=1000,values={f:130 if f=='skill_points' else 100 for f in FIELDS})

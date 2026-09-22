@@ -1,8 +1,5 @@
 import unittest
-import json
-from pathlib import Path
 
-from tests import localdata
 from tracen_replay.race_action_receipts import (
     assemble_race_action_receipts,
     bind_race_action_metadata,

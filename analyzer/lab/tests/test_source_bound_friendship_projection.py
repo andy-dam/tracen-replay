@@ -2,14 +2,11 @@
 import copy
 import hashlib
 import json
-from pathlib import Path
 import unittest
 from PIL import Image
-from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.inspect_receipts import merge
 from tracen_replay.inspect_training import reparse_inspection
 from tracen_replay.occluded_receipt_recovery import scoped_observations
-from tests import localdata
 from tracen_replay.transactions import outcome_events
 from tests.test_source_bound_friendship_projection import REPORT_PATH, _prepared_root
 
@@ -69,7 +66,7 @@ class SourceBoundFriendshipProjectionTests(unittest.TestCase):
         ]
         return merged, events, friendships
 
-    def test_actual_source_clean_name_reaches_event_and_report_document_once(self):
+    def test_actual_source_clean_name_reaches_one_event(self):
         base, promoted = self._promoted()
         merged, events, friendships = self._event_rows((base, promoted))
         self.assertEqual(
@@ -88,102 +85,6 @@ class SourceBoundFriendshipProjectionTests(unittest.TestCase):
         self.assertNotEqual(
             target_events[0]["id"],
             friendships[0]["source_bound_identity_proof"]["owner_ref"],
-        )
-
-        document = report_document(
-            {
-                "source": {"sha256": self.report["source"]["sha256"]},
-                "gameplay_tracking": {
-                    "readings": merged,
-                    "events": events,
-                    "turn_action_receipts": [],
-                    "dialogue_choices": [],
-                    "races": [],
-                    "checkpoints": [],
-                    "performance_accounting": {"checkpoints": []},
-                    "lesson_purchases": [],
-                    "skill_purchases": [],
-                },
-            }
-        )
-        projected = [
-            row
-            for row in document["observations"]
-            if row.get("payload", {}).get("kind") == "friendship_change"
-        ]
-        self.assertEqual(len(projected), 1)
-        self.assertEqual(projected[0]["payload"]["name"], "Symboli Rudolf")
-        self.assertEqual(projected[0]["payload"]["amount"], 5)
-
-        # Repeat the final projection with the preserved report's original
-        # event graph.  Only the affected outcome is replaced by the rebuilt
-        # event; training/action references remain intact.
-        full_report = copy.deepcopy(self.report)
-        full_report["gameplay_tracking"]["readings"] = merge(
-            self.report["gameplay_tracking"]["readings"], promoted
-        )
-        full_events = copy.deepcopy(self.report["gameplay_tracking"]["events"])
-        target_indices = [
-            index for index, event in enumerate(full_events)
-            if event.get("first_seen_ms") == self.anchor["source_timestamp_ms"]
-            and event.get("last_seen_ms") == self.anchor["source_timestamp_ms"]
-            and any(
-                effect.get("kind") == "friendship_change"
-                and effect.get("name") == "Symboli udolf"
-                for effect in event.get("effects", [])
-            )
-        ]
-        self.assertEqual(len(target_indices), 1)
-        full_events[target_indices[0]] = target_events[0]
-        full_report["gameplay_tracking"]["events"] = full_events
-        full_document = report_document(full_report)
-        # The same source receipt line block also carries the real hint
-        # ("Gained 1 hint level(s) for Subdued End Closers."), which the
-        # rebuilt event legitimately retains ahead of the friendship effect.
-        # Locate the friendship effect by kind instead of assuming index 0.
-        friendship_indices = [
-            index
-            for index, effect in enumerate(target_events[0]["effects"])
-            if effect.get("kind") == "friendship_change"
-        ]
-        self.assertEqual(len(friendship_indices), 1)
-        source_ref = (
-            f"/gameplay_tracking/events/{target_indices[0]}"
-            f"/effects/{friendship_indices[0]}"
-        )
-        full_projected = [
-            row for row in full_document["observations"]
-            if row.get("source_ref") == source_ref
-        ]
-        self.assertEqual(len(full_projected), 1)
-        self.assertEqual(full_projected[0]["payload"]["kind"], "friendship_change")
-        self.assertEqual(full_projected[0]["payload"]["name"], "Symboli Rudolf")
-        self.assertEqual(full_projected[0]["payload"]["amount"], 5)
-        event_prefix = f"/gameplay_tracking/events/{target_indices[0]}/effects/"
-        event_projected = [
-            row for row in full_document["observations"]
-            if str(row.get("source_ref", "")).startswith(event_prefix)
-        ]
-        self.assertEqual(
-            sorted(
-                (row["payload"].get("kind"), row["payload"].get("name"), row["payload"].get("amount"))
-                for row in event_projected
-            ),
-            [
-                ("friendship_change", "Symboli Rudolf", 5),
-                ("skill_hint_change", "Subdued End Closers", 1),
-            ],
-        )
-        self.assertEqual(
-            [
-                row["payload"].get("name")
-                for row in full_document["observations"]
-                if row.get("payload", {}).get("kind") == "friendship_change"
-                and row.get("source_ref", "").startswith(
-                    f"/gameplay_tracking/events/{target_indices[0]}/"
-                )
-            ],
-            ["Symboli Rudolf"],
         )
 
     def test_fresh_cached_baseline_anchor_matches_gameplay_frame(self):

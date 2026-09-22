@@ -4,13 +4,7 @@ from types import SimpleNamespace
 
 from PIL import Image
 
-from tracen_replay.receipt_wrapping import (
-    continuation_crop_box,
-    enrich,
-    join,
-    prefix,
-    status_prefix,
-)
+from tracen_replay.receipt_wrapping import continuation_crop_box, enrich, prefix, status_prefix
 from tracen_replay.vision import parse
 
 

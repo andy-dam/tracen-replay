@@ -1,12 +1,7 @@
-import json
 import unittest
-from pathlib import Path
 
-from tests import localdata
 from tracen_replay.inspect_training import merge
-from tracen_replay.numeric_cap_refinement import load as load_numeric_refinement
 from tracen_replay.source_state_observations import build_observations
-from tracen_replay.vision import parse
 
 
 FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill_points')

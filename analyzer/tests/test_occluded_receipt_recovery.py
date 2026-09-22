@@ -1,10 +1,8 @@
 import hashlib
 import json
 import copy
-from pathlib import Path
 import unittest
 
-from PIL import Image
 
 from tracen_replay.occluded_receipt_recovery import (
     OccludedReceiptRecoveryError,
@@ -16,7 +14,6 @@ from tracen_replay.occluded_receipt_recovery import (
     recover,
     scoped_observations,
 )
-from tracen_replay.receipt_occlusion import annotate
 from tracen_replay.inspect_receipts import merge
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import NeuralReader, parse

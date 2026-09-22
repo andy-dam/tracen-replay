@@ -1,18 +1,11 @@
 """Tests of ``tests.test_skill_menu_observations`` that need locally preserved evidence; they run only where it is."""
 from copy import deepcopy
-import hashlib
 import json
-from pathlib import Path
 import unittest
-from tests import localdata
-from tests.test_gameplay import workspace_temp
-from PIL import Image, ImageDraw
 from tracen_replay.skill_menu_observations import (
     SCHEMA,
-    SkillMenuSourceError,
     adapt_skill_menu_frame,
     build_skill_menu_observations,
-    detect_skill_selection_marker,
 )
 from tests.test_skill_menu_observations import BASE
 

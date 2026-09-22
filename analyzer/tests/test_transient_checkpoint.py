@@ -1,7 +1,7 @@
 """A stable-looking stat reading that contradicts both neighbours is a misread, not a checkpoint."""
 import unittest
 
-from tracen_replay.reconcile import FIELDS, stable_checkpoints
+from tracen_replay.reconcile import stable_checkpoints
 
 
 def reading(time, **values):

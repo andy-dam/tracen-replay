@@ -34,7 +34,6 @@ not repeatedly decode or hash the same evidence file.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from copy import deepcopy
 from difflib import SequenceMatcher
 import hashlib

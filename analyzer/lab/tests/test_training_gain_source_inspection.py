@@ -5,14 +5,11 @@ import json
 import shutil
 import unittest
 from pathlib import Path
-from tests import localdata
-from tests.test_causal_accounting import fixture as report_fixture
 from tests.test_gameplay import workspace_temp
-from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.full_recording import _manifest_group_rows
-from tracen_replay.inspect_training import reparse_inspection, _project_refined_frame_paths
+from tracen_replay.inspect_training import reparse_inspection
 from tracen_replay.pipeline import PipelineError
-from tracen_replay.transactions import training_actions, training_events
+from tracen_replay.transactions import training_events
 from tests.test_training_gain_source_inspection import BUNDLE_ROOT, SOURCE_REFINEMENT_KEY, SOURCE_ROOT, _available_source_cases
 
 
@@ -134,27 +131,6 @@ class TrainingGainSourceInspectionTests(unittest.TestCase):
             row["facts"] for row in rows
             if row["source_timestamp_ms"] == inspection["readings"][1]["source_timestamp_ms"]
         )["training_gains"])
-
-        report = report_fixture()
-        report["source"]["sha256"] = inspection["source_sha256"]
-        report["gameplay_tracking"]["readings"] = rows
-        report["gameplay_tracking"]["events"] = events
-        report["gameplay_tracking"]["turn_action_receipts"] = training_actions(events)
-        report["gameplay_tracking"]["checkpoints"] = []
-        report["gameplay_tracking"]["performance_accounting"] = {"checkpoints": []}
-        document = report_document(report)
-        self.assertEqual(document["source_sha256"], inspection["source_sha256"])
-        applied_speed = [
-            item for item in document["observations"]
-            if item.get("category") == "effect"
-            and item.get("phase") == "applied"
-            and item.get("payload", {}).get("kind") == "stat_change"
-            and item.get("payload", {}).get("field") == "speed"
-        ]
-        self.assertEqual(len(applied_speed), 1)
-        self.assertEqual(applied_speed[0]["payload"]["amount"], expected)
-        self.assertTrue(any(item.get("category") == "action"
-                            for item in document["observations"]))
 
     def test_external_envelope_enters_normal_inspection_parse_for_speed_36(self):
         with workspace_temp() as root:

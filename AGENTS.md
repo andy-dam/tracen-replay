@@ -8,7 +8,7 @@
 
 ## Layout
 
-- `analyzer/` is the Python analyzer: the `tracen_replay` package, its `pyproject.toml`, `tests/`, `tools/` (sealing a candidate, replaying cached recordings, preparing worker inputs and recoveries, freezing and grading the final evaluation) and `lab/` (baseline audits, inventories, diagnoses and regrades). Install it with `pip install -e ./analyzer[vision]` and run the suite from the repository root with `python -X utf8 -m unittest discover -s analyzer/tests -t analyzer`; it needs nothing local. The tests that replay locally preserved evidence live in `analyzer/lab/tests` and run the same way with `-s analyzer/lab/tests`.
+- `analyzer/` is the Python analyzer: the `tracen_replay` package, its `pyproject.toml`, `tests/`, `tools/` (snapshotting the analyzer's code, and building the dataset for, training and judging the learned reader) and `lab/` (learning the recognizer's confusions, and the tests that need local evidence). Install it with `pip install -e ./analyzer[vision]` and run the suite from the repository root with `python -X utf8 -m unittest discover -s analyzer/tests -t analyzer`; it needs nothing local. The tests that replay locally preserved evidence live in `analyzer/lab/tests` and run the same way with `-s analyzer/lab/tests`.
 - `cmd/tracen`, `internal/` and `api/openapi.yaml` are the Go service; `web/` is the browser client that Vite builds into `internal/webassets/dist`.
 - `.local/` holds recordings, models, runs and session records and is never published.
 

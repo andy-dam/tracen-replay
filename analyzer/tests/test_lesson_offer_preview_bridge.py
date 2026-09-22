@@ -3,13 +3,8 @@
 from __future__ import annotations
 
 import copy
-import json
-from pathlib import Path
 import unittest
 
-from tests import localdata
-from tracen_replay.evaluation_adapters import report_document
-from tracen_replay.full_recording import cached_readings
 from tracen_replay.preview_observations import build_preview_observations
 
 

@@ -1,17 +1,11 @@
-import json
-from pathlib import Path
 import unittest
 
-from tests import localdata
 from tracen_replay.condition_removal_banner import (
     merge_condition_removal_effects,
     normalize_condition_removal_event,
     read_condition_cured_banner,
 )
 from tracen_replay.gameplay import effects_from_lines
-from tracen_replay.evaluation_adapters import report_document
-from tracen_replay.transactions import outcome_events
-from tracen_replay.vision import parse
 
 
 def line(text, box, confidence=99.5):

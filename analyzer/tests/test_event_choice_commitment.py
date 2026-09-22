@@ -1,15 +1,8 @@
-import json
-from pathlib import Path
 import unittest
 
-from PIL import Image
 
-from tests import localdata
 from tracen_replay.choice_evidence import observe
-from tracen_replay.event_choice_commitment import (
-    SCHEMA,
-    reconstruct_committed_choices,
-)
+from tracen_replay.event_choice_commitment import reconstruct_committed_choices
 
 
 def card(text, top, *, confidence=99):

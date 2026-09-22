@@ -1,14 +1,11 @@
 import json
 import unittest
-from pathlib import Path
 
-from tracen_replay.evaluation_adapters import report_document
 from tracen_replay.training_outcome import (
     CLIPPED_SUCCESS_BASIS,
     banner_facts,
     classify_result_screen,
 )
-from tracen_replay.transactions import training_events
 from tracen_replay.vision import parse
 
 from tests import localdata

@@ -7,7 +7,6 @@ import json
 import os
 import shutil
 import unittest
-from pathlib import Path
 
 from tests import localdata
 

@@ -2,7 +2,7 @@
 from copy import deepcopy
 from pathlib import PureWindowsPath
 import re
-from typing import Any, Mapping
+from typing import Mapping
 
 
 SOURCE_BOUND_BASIS = 'source_bound_same_frame_crop_consensus'

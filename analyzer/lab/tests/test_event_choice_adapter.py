@@ -1,20 +1,8 @@
 """Tests of ``tests.test_event_choice_adapter`` that need locally preserved evidence; they run only where it is."""
-import hashlib
 import json
-from pathlib import Path
 import unittest
-from PIL import Image, ImageDraw
 from tests import localdata
-from tracen_replay.event_choice_adapter import (
-    SCHEMA,
-    build_choice_observations,
-    merge_committed_choices,
-    merge_choice_observations,
-    same_frame_choice_observation,
-)
-from tracen_replay.event_choice_commitment import reconstruct_committed_choices
-from tracen_replay.evaluation_adapters import report_document
-from tests.test_gameplay import workspace_temp
+from tracen_replay.event_choice_adapter import build_choice_observations
 
 
 class EventChoiceAdapterTests(unittest.TestCase):

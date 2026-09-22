@@ -4,7 +4,6 @@ import sys
 import unittest
 from pathlib import Path
 
-from tests import localdata
 from tracen_replay.code_identity import code_digest, function_digest
 
 

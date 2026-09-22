@@ -9,7 +9,6 @@ from tests.test_gameplay import workspace_temp
 from PIL import Image, ImageDraw
 
 from tracen_replay.skill_menu_observations import (
-    SCHEMA,
     SkillMenuSourceError,
     adapt_skill_menu_frame,
     build_skill_menu_observations,

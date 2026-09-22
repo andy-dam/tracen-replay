@@ -27,7 +27,6 @@ class LedgerTransientStateTests(unittest.TestCase):
         # and none may open the turn with it.
         from tests.test_turn_ledger import report
         from tracen_replay.turn_ledger import build
-        from tracen_replay.reconcile import FIELDS
 
         def hub(time, date, wit):
             values = dict(speed=725, stamina=165, power=521, guts=273, wit=wit, skill_points=1232)

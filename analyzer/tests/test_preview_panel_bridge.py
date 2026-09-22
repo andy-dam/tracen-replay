@@ -1,7 +1,5 @@
 import copy
-import json
 import unittest
-from pathlib import Path
 
 from tests import localdata
 from tracen_replay.preview_observations import build_preview_observations

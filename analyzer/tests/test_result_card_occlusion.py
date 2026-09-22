@@ -10,7 +10,7 @@ from tracen_replay.source_state_observations import build_observations
 from tracen_replay.stat_state_details import read_result_card_occlusion
 from tracen_replay.vision import parse
 from tests import localdata
-from tracen_replay.weak_state_recovery import apply, fingerprint, load, recover
+from tracen_replay.weak_state_recovery import fingerprint, load, recover
 
 
 REPO = Path(__file__).resolve().parents[2]

@@ -1,8 +1,6 @@
 """Tests of ``tests.test_preview_panel_bridge`` that need locally preserved evidence; they run only where it is."""
-import copy
 import json
 import unittest
-from pathlib import Path
 from tests import localdata
 from tracen_replay.preview_observations import build_preview_observations
 from tests.test_preview_panel_bridge import SOURCE_ROOT_PROBE

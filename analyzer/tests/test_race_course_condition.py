@@ -3,9 +3,6 @@ import unittest
 
 from tracen_replay.vision import parse
 from tracen_replay.transactions import races
-from tracen_replay.race_evaluate import evaluate
-from tests.test_gameplay import workspace_temp
-from tests import test_race_evaluate as race_fixtures
 
 
 class RaceCourseConditionTests(unittest.TestCase):
@@ -50,14 +47,3 @@ class RaceCourseConditionTests(unittest.TestCase):
         self.assertIsNone(result['course']['condition'])
         self.assertEqual(result['course']['distance_m'],1800)
         self.assertEqual(result['conflicting_readings']['course.condition'],['heavy','firm'])
-
-    def test_evaluation_counts_condition_and_rejects_missing_or_wrong_value(self):
-        with workspace_temp() as root:
-            reference, report, _ = race_fixtures.RaceEvaluationTests().pair(root)
-            reference['races'][0]['expected']['course']['condition'] = 'heavy'
-            course = report['gameplay_tracking']['races'][0]['course']
-            for value, passed in [('heavy',True),('firm',False),(None,False)]:
-                course['condition'] = value
-                result = evaluate(reference,report,root)
-                self.assertEqual(result['expected_fields'],11)
-                self.assertEqual(result['passed'],passed)

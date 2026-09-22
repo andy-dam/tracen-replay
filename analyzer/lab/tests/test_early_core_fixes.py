@@ -1,16 +1,12 @@
 """Tests of ``tests.test_early_core_fixes`` that need locally preserved evidence; they run only where it is."""
 import json
-from pathlib import Path
 import unittest
-from tracen_replay.animated_performance import candidates, reconcile
+from tracen_replay.animated_performance import candidates
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import NeuralReader, parse
 from tests import localdata
-from tracen_replay.event_choice_adapter import (
-    build_choice_observations,
-    same_frame_choice_observation,
-)
+from tracen_replay.event_choice_adapter import same_frame_choice_observation
 from tests.test_early_core_fixes import line
 
 

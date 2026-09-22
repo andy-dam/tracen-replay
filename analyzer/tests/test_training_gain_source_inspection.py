@@ -2,18 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import unittest
 from pathlib import Path
 
 from tests import localdata
-from tests.test_causal_accounting import fixture as report_fixture
 from tests.test_gameplay import workspace_temp
-from tracen_replay.evaluation_adapters import report_document
-from tracen_replay.full_recording import _manifest_group_rows
-from tracen_replay.inspect_training import reparse_inspection, _project_refined_frame_paths
+from tracen_replay.inspect_training import _project_refined_frame_paths
 from tracen_replay.pipeline import PipelineError
-from tracen_replay.transactions import training_actions, training_events
 
 
 REPOSITORY_ROOT = Path(__file__).parents[2]

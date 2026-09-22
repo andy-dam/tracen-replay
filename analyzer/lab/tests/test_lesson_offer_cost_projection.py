@@ -1,14 +1,11 @@
 """Tests of ``tests.test_lesson_offer_cost_projection`` that need locally preserved evidence; they run only where it is."""
 import copy
 import json
-from pathlib import Path
 import shutil
-from types import SimpleNamespace
 import unittest
 from PIL import Image
 from tracen_replay.full_recording import cached_readings, parse_receipt_pixels
 from tracen_replay.lesson_offer_adapter import (
-    COST_FIELDS,
     LessonOfferSourceError,
     adapt_lesson_offer_frame,
     merge_lesson_offer_cost_refinement,

@@ -1,24 +1,18 @@
-import copy
 import hashlib
 import json
 import unittest
 from pathlib import Path
 
 from tests import localdata
-from tests.test_gameplay import workspace_temp
 from tracen_replay.numeric_cap_refinement import (
-    apply,
     candidate_fields,
     fingerprint,
-    load,
     parse_cap,
     parse_ratio,
     performance_panel_geometry,
-    read_performance_caps,
     read_stat_caps,
 )
-from tracen_replay.stat_state_details import read_main_stat_caps
-from tracen_replay.vision import _main_stat_cap_requests, parse
+from tracen_replay.vision import _main_stat_cap_requests
 
 
 REPO = Path(__file__).resolve().parents[2]

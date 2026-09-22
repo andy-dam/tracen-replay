@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 from tests.test_gameplay import workspace_temp
 
 from tools.snapshot_analyzer_implementation import capture, digest, verify

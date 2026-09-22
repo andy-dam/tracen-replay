@@ -1,8 +1,5 @@
-import json
-from pathlib import Path
 import unittest
 
-from tests import localdata
 from tracen_replay.condition_removal_banner import (
     merge_condition_removal_effects,
     read_condition_cured_banner,

@@ -1,6 +1,5 @@
 import unittest
 
-from tracen_replay.action_evaluate import evaluate
 from tracen_replay.calendar_coverage import audit
 from tracen_replay.transactions import reconstruct
 
@@ -39,21 +38,6 @@ class InfirmaryIntegrationTests(unittest.TestCase):
         self.assertEqual(effects, [dict(kind='energy_change', amount=20, raw_text='Energy recovered by 20.')])
         calendar = audit(rows, tracking['turn_action_receipts'])
         self.assertEqual(calendar['windows'][0]['status'], 'one_action')
-
-    def test_new_action_can_be_scored_without_expanding_legacy_reference_scope(self):
-        tracking = dict(reconstruct(sequence()), auxiliary_log_used=False)
-        report = dict(source=dict(sha256='source', duration_ms=3000), gameplay_tracking=tracking)
-        reference = dict(source_sha256='source', start_ms=0, end_ms=2000,
-                         kinds=['infirmary'], scope='Synthetic completed Infirmary turn',
-                         independently_reviewed=True, reference_complete=True,
-                         actions=[dict(kind='infirmary', start_ms=1000, end_ms=1600)])
-        result = evaluate(reference, report)
-        self.assertTrue(result['passed'])
-        self.assertEqual((result['matched'], result['expected']), (1, 1))
-        reference.update(kinds=['training', 'rest', 'outing', 'race'], actions=[], no_completed_actions=True)
-        legacy = evaluate(reference, report)
-        self.assertTrue(legacy['passed'])
-        self.assertEqual(legacy['predicted'], 0)
 
 
 if __name__ == '__main__':

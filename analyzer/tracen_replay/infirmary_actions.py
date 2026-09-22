@@ -11,9 +11,15 @@ import math
 import re
 from .calendar_coverage import date_key
 from .turn_boundary import (
-    _rows_between, ordered_rows,
-    _finite_time, _time, _evidence, _calendar_text, _same_date_boundary,
-    _repeated_observation, _observation_record, _phase_turn_boundary,
+    _rows_between,
+    ordered_rows,
+    _finite_time,
+    _time,
+    _evidence,
+    _calendar_text,
+    _same_date_boundary,
+    _observation_record,
+    _phase_turn_boundary,
 )
 
 

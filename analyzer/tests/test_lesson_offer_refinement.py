@@ -1,6 +1,4 @@
 import copy
-import hashlib
-from pathlib import Path
 from types import SimpleNamespace
 import unittest
 
@@ -8,7 +6,6 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from tracen_replay.lesson_offer_refinement import (
-    CURRENCIES,
     LessonOfferError,
     apply,
     build,

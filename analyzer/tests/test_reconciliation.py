@@ -1,8 +1,6 @@
 import unittest
 
 from tracen_replay.reconcile import FIELDS, account, distinct_changes, stable_checkpoints, preview_segments, reconcile_changes
-from tracen_replay.stats import parse_log
-from tracen_replay.accounting_view import render_accounting
 
 
 def reading(time, option=None, **changes):
@@ -69,22 +67,10 @@ class ReconciliationTests(unittest.TestCase):
         baseline=[dict(deltas={'wit':10,'skill_points':10})]
         self.assertEqual(distinct_changes(events,baseline),[events[1]])
 
-    def test_previews_and_friendship_do_not_become_stat_gains(self):
-        lines=[dict(text=t,confidence=99) for t in ['Speed +13','Possible outcome: Speed went up by 13.','Friendship with Speed Star went up by 5.']]
-        self.assertEqual(parse_log(lines),[])
-
-    def test_training_action_requires_explicit_log_heading(self):
-        lines=[dict(text='Training Stamina Lvl 1',confidence=90,training_heading='stamina'),dict(text='Stamina went up by 20.',confidence=90),dict(text='Guts went up by 5.',confidence=90)]
-        result=parse_log(lines)
-        self.assertEqual(result[0]['training_option'],'stamina')
-        self.assertEqual(result[0]['event_type'],'logged_training_result')
-        self.assertEqual(result[0]['deltas'],{'stamina':20,'guts':5})
-        self.assertIsNone(parse_log(lines[1:])[0]['training_option'])
-
     def test_outcomes_resolve_arithmetic_without_inventing_events(self):
         before=dict(id='a',last_seen_ms=0,values=reading(0)['values'])
         after=dict(id='b',first_seen_ms=1000,values=reading(0,wit=106,skill_points=105)['values'])
-        events=parse_log([dict(text='Wit went up by 6.',confidence=95),dict(text='Skill Pts went up by 5.',confidence=95)])
+        events=[dict(deltas={'wit':6,'skill_points':5})]
         self.assertEqual(account(before,after,events)['status'],'balanced')
         self.assertFalse(account(before,after,events)['complete_event_history'])
 

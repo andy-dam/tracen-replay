@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import json
-import hashlib
 import shutil
 import unittest
 import uuid
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
 
 from tests import localdata
-from tracen_replay.inspect_training import reparse_inspection
-from tracen_replay.occluded_receipt_recovery import (
-    OccludedReceiptRecoveryError,
-    _validate_cache_provenance,
-)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

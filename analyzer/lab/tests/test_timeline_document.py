@@ -1,11 +1,8 @@
 """Tests of ``tests.test_timeline_document`` that need locally preserved evidence; they run only where it is."""
 import json
-import tempfile
 import unittest
-from pathlib import Path
 from tests import localdata
-from tests.test_report_contract import valid_report
-from tracen_replay.timeline_document import SCHEMA, build, write
+from tracen_replay.timeline_document import build
 
 
 class TimelineDocumentTests(unittest.TestCase):

@@ -9,7 +9,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tests.test_training_gain_candidate_recovery import _row
 from tracen_replay.full_recording import (
@@ -19,8 +18,6 @@ from tracen_replay.full_recording import (
     _replay_recovery_rows,
 )
 from tracen_replay.transactions import training_events
-from tracen_replay.inspect_training import reparse_inspection
-from tracen_replay.vision import parse
 
 
 def _phase_row(timestamp, gains, shape, *, option='wit'):

@@ -7,11 +7,9 @@ from tests.test_neural_transactions import row
 from tracen_replay.calendar_coverage import audit
 from tracen_replay.mechanics_audit import fan_accounting, song_acquisitions
 from tracen_replay.transactions import outing_actions,outcome_events,training_actions,training_events
-from tracen_replay.transaction_evaluate import evaluate
 from tracen_replay.verify_evidence import verify, inside
 from tracen_replay.vision import parse
 from tests.test_neural_transactions import raw, line
-from tracen_replay.receipt_review import evaluate as evaluate_review
 from tracen_replay.mechanics_audit import unparsed_receipt_candidates
 
 
@@ -29,15 +27,6 @@ class RecordingCoverageTests(unittest.TestCase):
         self.assertEqual(training_actions(training_events([rows[0],rows[0]])),[])
         for r in rows:r['screen']='training_preview'
         self.assertEqual(training_actions(training_events(rows)),[])
-
-    def test_receipt_review_does_not_claim_recall_and_rejects_changed_option(self):
-        ref=dict(source_sha256='s',scope='selected receipts',actions=[dict(source_timestamp_ms=100,expected=dict(kind='training',training_option='wit'))])
-        action=dict(source_timestamp_ms=100,kind='training',training_option='wit')
-        report=dict(source={'sha256':'s'},gameplay_tracking=dict(auxiliary_log_used=False,turn_action_receipts=[action]))
-        self.assertTrue(evaluate_review(ref,report)['passed'])
-        self.assertFalse(evaluate_review(ref,report)['missed_action_recall_measured'])
-        action['training_option']='speed'
-        self.assertFalse(evaluate_review(ref,report)['passed'])
 
     def test_unparsed_receipt_is_review_candidate_not_numeric_effect(self):
         rows=[row(t,'event_outcome',ocr={'neural':[line('Skill Pts went up by IU.')]}) for t in (100,350)]
@@ -167,19 +156,6 @@ class RecordingCoverageTests(unittest.TestCase):
         self.assertIsNone(result[0]['name'])
         self.assertIsNone(result[0]['performance_cost'])
         self.assertEqual(result[0]['acquisition'], 'story_event_receipt')
-
-    def test_transaction_evaluation_penalizes_extras_and_wrong_amount(self):
-        reference = dict(source_sha256='s', start_ms=0, end_ms=1000, scope='test', kinds=['lesson'],
-                         transactions=[dict(kind='lesson', start_ms=100, end_ms=300, performance_cost={'dance': 10})])
-        purchase = dict(id='p', source_timestamp_ms=200, performance_cost={'dance': 10}, awarded_stats={})
-        report = dict(source={'sha256': 's'}, gameplay_tracking={'auxiliary_log_used':False, 'lesson_purchases': [purchase]})
-        self.assertTrue(evaluate(reference, report)['passed'])
-        purchase['performance_cost']['dance'] = 20
-        self.assertEqual(len(evaluate(reference, report)['field_errors']), 1)
-        report['gameplay_tracking']['lesson_purchases'].append(dict(purchase, id='extra', source_timestamp_ms=500))
-        self.assertEqual(evaluate(reference, report)['precision'], .5)
-        report['source']['sha256'] = 'different'
-        with self.assertRaises(ValueError): evaluate(reference, report)
 
     def test_evidence_audit_detects_crop_tampering(self):
         with workspace_temp() as root:

@@ -1,4 +1,3 @@
-import copy
 import hashlib
 import json
 import unittest
@@ -9,7 +8,6 @@ from PIL import Image
 from tracen_replay.race_quantity_refinement import (
     QUANTITY_CROP_VARIANT_POLICY,
     SLOT_SPECS,
-    SLOT_BY_ID,
     _legacy_fixed_geometry_usable,
     apply,
     generate,

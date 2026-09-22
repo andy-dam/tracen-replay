@@ -4,13 +4,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import call, patch
 from PIL import Image
-from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay import full_recording
 from tracen_replay.full_recording import analyze_frames, cached_readings
 from tracen_replay.pipeline import PipelineError
 from tracen_replay.recording_verification import audit
-from tracen_replay.action_evaluate import evaluate
 
 
 class FakeReader:
@@ -422,36 +420,6 @@ class FullRecordingTests(unittest.TestCase):
         self.assertIn('source_pts_timestamp_mismatch',audit(report)['source_coverage_errors'])
         report['gameplay_tracking']['readings'].pop()
         self.assertIn('unprocessed_base_frames',audit(report)['source_coverage_errors'])
-
-    def test_reviewed_negative_action_scope_detects_false_completions(self):
-        reference=dict(source_sha256='one',start_ms=100,end_ms=200,kinds=['race'],scope='race entry only',
-            actions=[],no_completed_actions=True,independently_reviewed=True)
-        report=dict(source=dict(sha256='one'),gameplay_tracking=dict(auxiliary_log_used=False,
-            turn_action_receipts=[dict(kind='race',source_timestamp_ms=200)]))
-        result=evaluate(reference,report)
-        self.assertTrue(result['passed']);self.assertIsNone(result['recall']);self.assertIsNone(result['precision'])
-        report['gameplay_tracking']['turn_action_receipts'].append(dict(kind='race',source_timestamp_ms=150))
-        result=evaluate(reference,report)
-        self.assertFalse(result['passed']);self.assertEqual(len(result['extra']),1)
-        self.assertEqual(result['precision'],0);self.assertIsNone(result['recall'])
-
-    def test_empty_action_labels_require_explicit_review(self):
-        reference=dict(source_sha256='one',start_ms=100,end_ms=200,kinds=['race'],scope='unknown',actions=[])
-        report=dict(source=dict(sha256='one'),gameplay_tracking=dict(auxiliary_log_used=False,turn_action_receipts=[]))
-        for changes in ({},{'no_completed_actions':True},{'independently_reviewed':True},
-                        {'no_completed_actions':True,'independently_reviewed':True,'end_ms':100},
-                        {'no_completed_actions':True,'independently_reviewed':True,'actions':[dict(kind='race',start_ms=110,end_ms=150)]}):
-            with self.subTest(changes=changes),self.assertRaises(ValueError):evaluate(dict(reference,**changes),report)
-
-    def test_duplicate_action_receipts_reduce_precision(self):
-        reference=dict(source_sha256='one',start_ms=0,end_ms=2000,kinds=['training'],scope='training only',
-            actions=[dict(kind='training',training_option='speed',start_ms=500,end_ms=1000)])
-        action=dict(kind='training',training_option='speed',source_timestamp_ms=750)
-        report=dict(source=dict(sha256='one'),gameplay_tracking=dict(auxiliary_log_used=False,turn_action_receipts=[action,dict(action,source_timestamp_ms=800)]))
-        result=evaluate(reference,report)
-        self.assertEqual(result['recall'],1);self.assertEqual(result['precision'],.5);self.assertFalse(result['passed'])
-        report['source']['sha256']='two'
-        with self.assertRaises(ValueError):evaluate(reference,report)
 
 
 class FreshHintPreparationTests(unittest.TestCase):

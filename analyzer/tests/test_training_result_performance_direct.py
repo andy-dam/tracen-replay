@@ -1,4 +1,3 @@
-import copy
 import unittest
 
 from tracen_replay.vision import parse

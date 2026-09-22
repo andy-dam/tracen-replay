@@ -2,7 +2,6 @@ import unittest
 from copy import deepcopy
 from tracen_replay.inspect_receipts import merge
 from tracen_replay.refine_receipts import apply, consensus, fingerprint
-from tracen_replay.candidate_review import evaluate
 
 
 def bound(row, *, source='s' * 64, frame='f' * 64, frame_id='frame-000001',
@@ -193,19 +192,6 @@ class ReceiptInspectionTests(unittest.TestCase):
         self.assertEqual(result['text'],raw['lines'][0]['text'])
         views[1]['confidence']=97.2
         self.assertEqual(consensus(views)['text'],'Energy went down by18.')
-
-    def test_candidate_review_rejects_wrong_amount_without_inventing_recall(self):
-        reference=dict(source_sha256='source',scope='candidate-selected',items=[dict(index=1,source_timestamp_ms=1000,
-            expected_effect=dict(kind='energy_change',amount=-18))])
-        report=dict(source=dict(sha256='source'),gameplay_tracking=dict(auxiliary_log_used=False,events=[dict(id='e',
-            first_seen_ms=1000,last_seen_ms=1500,effects=[dict(kind='energy_change',amount=-8)])]))
-        result=evaluate(reference,report)
-        self.assertFalse(result['passed'])
-        self.assertFalse(result['complete_effect_recall_measured'])
-        report['gameplay_tracking']['events'][0]['effects'][0]['amount']=-18
-        self.assertTrue(evaluate(reference,report)['passed'])
-        report['gameplay_tracking']['events'][0]['conflicting_readings']=[dict(field='energy_change||')]
-        self.assertFalse(evaluate(reference,report)['passed'])
 
     def test_spacing_repairs_preserve_digits_and_names(self):
         from tracen_replay.vision import parse

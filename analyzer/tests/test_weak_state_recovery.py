@@ -10,7 +10,6 @@ from pathlib import Path
 
 from PIL import Image
 
-from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.weak_state_recovery import (
     SCHEMA,

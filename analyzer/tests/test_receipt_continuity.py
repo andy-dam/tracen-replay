@@ -1,4 +1,3 @@
-import copy
 import unittest
 
 from tests.test_neural_transactions import line, row

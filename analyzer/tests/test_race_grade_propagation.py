@@ -4,14 +4,9 @@ import unittest
 from pathlib import Path
 
 from tests import localdata
-from tests.test_causal_accounting import fixture
-from tracen_replay.evaluation_adapters import report_document
-from tracen_replay.race_action_receipts import (
-    assemble_race_action_receipts,
-    bind_race_action_metadata,
-)
+from tracen_replay.race_action_receipts import bind_race_action_metadata
 from tracen_replay.transactions import races
-from tracen_replay.vision import _race_result_grade_observation, parse
+from tracen_replay.vision import parse
 
 
 ROOT = Path(__file__).resolve().parents[2]

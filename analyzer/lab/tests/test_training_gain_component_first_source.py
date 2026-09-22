@@ -7,7 +7,6 @@ from tracen_replay.training_gain_phases import (
     resolve_full_component_phase,
     source_gain_observations,
 )
-from tracen_replay.transactions import training_events
 
 
 class ActualComponentFirstSourcePhaseTests(unittest.TestCase):
@@ -27,18 +26,6 @@ class ActualComponentFirstSourcePhaseTests(unittest.TestCase):
         )
         self.assertIsNotNone(result)
         self.assertEqual(result["accepted_amount"], expected)
-        from tracen_replay.evaluation_adapters import report_document
-        events = training_events(rows, report['gameplay_tracking']['checkpoints'])
-        projected = report_document(dict(
-            source=report['source'],
-            gameplay_tracking=dict(readings=rows, events=events,
-                                   turn_action_receipts=[])))
-        applied = [row for row in projected['observations']
-                   if row['phase'] == 'applied'
-                   and row['payload'].get('kind') == 'stat_change'
-                   and row['payload'].get('field') == field]
-        self.assertEqual([row['payload']['amount'] for row in applied], [expected])
-        self.assertTrue(applied[0]['evidence'])
 
     def test_v1_t028_wit_source_component_then_full(self):
         self._actual(

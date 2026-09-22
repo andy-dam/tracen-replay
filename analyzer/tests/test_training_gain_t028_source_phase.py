@@ -8,15 +8,8 @@ without using a balance, an expected amount, or a report label as a selector.
 
 import json
 import unittest
-from copy import deepcopy
-from pathlib import Path
 
 from tests import localdata
-from tracen_replay.training_gain_phases import (
-    resolve_source_temporal_phase,
-    source_gain_observations,
-)
-from tracen_replay.transactions import training_events
 
 
 REPORT = localdata.root("first_recording_t028_logs", "report.json")

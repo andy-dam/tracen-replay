@@ -1,9 +1,7 @@
 import json
-from pathlib import Path
 import unittest
 
 from tests import localdata
-from tracen_replay.vision import parse, performance_panel_facts
 
 
 FIXTURE = localdata.root("final_reliability_artifacts", "training-gain-source-fixtures.json")

@@ -6,16 +6,13 @@ import copy
 import hashlib
 import json
 import unittest
-from pathlib import Path
 
 from PIL import Image
 
-from tests import localdata
 from tests.test_gameplay import workspace_temp
 from tracen_replay.preview_recovery import (
     SCHEMA,
     apply,
-    candidate_requests,
     load,
     recover,
     recover_in_memory,

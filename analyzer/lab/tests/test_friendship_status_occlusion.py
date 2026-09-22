@@ -2,20 +2,10 @@
 import copy
 import hashlib
 import json
-from pathlib import Path
 import unittest
-from unittest.mock import patch
 from PIL import Image
 from tests import localdata
-from tracen_replay.receipt_occlusion import (
-    annotate,
-    annotate_path,
-    friendship_name_bounds,
-    friendship_status_line,
-)
-from tracen_replay.refine_contrast import fingerprint
-from tracen_replay.vision import parse
-from tests.test_gameplay import workspace_temp
+from tracen_replay.receipt_occlusion import annotate
 from tests.test_friendship_status_occlusion import line, raw
 
 

@@ -2,14 +2,10 @@
 import copy
 import json
 import unittest
-from pathlib import Path
 from tracen_replay.stat_state_details import (
     read_goal_turns,
     read_training_result_values,
 )
-from tracen_replay.source_state_observations import build_observations
-from tracen_replay.transactions import training_events
-from tests import localdata
 from tracen_replay.vision import parse
 from tests.test_training_result_state_details import FIRST_RECORDING_GOAL_RAW, T049_RAW, _line
 

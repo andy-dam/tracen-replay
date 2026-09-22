@@ -1,25 +1,11 @@
 """Tests of ``tests.test_hint_card_cache`` that need locally preserved evidence; they run only where it is."""
 from copy import deepcopy
 import json
-from importlib import import_module
 from pathlib import Path
-import shutil
 import unittest
-import uuid
 from unittest.mock import patch
 from tests import localdata
-from tracen_replay.hint_card_cache import (
-    _ROW_HASH_VERSION_V1,
-    _ROW_HASH_VERSION_V2,
-    _source_manifest_hash,
-    _span_hashes,
-    _validate_candidate,
-    load,
-    prepare,
-    refresh,
-    save,
-)
-from tracen_replay.stat_state_details import read_goal_turns
+from tracen_replay.hint_card_cache import load, prepare
 
 
 class ActualHintCardCacheTests(unittest.TestCase):

@@ -1,8 +1,6 @@
 """Tests of ``tests.test_training_gain_source_parser`` that need locally preserved evidence; they run only where it is."""
 import json
-from pathlib import Path
 import unittest
-from tests import localdata
 from tracen_replay.vision import parse, performance_panel_facts
 from tests.test_training_gain_source_parser import FIXTURE, raw_training
 

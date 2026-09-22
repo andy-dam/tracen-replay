@@ -1,13 +1,10 @@
-import copy
 import hashlib
 import json
-from pathlib import Path
 import unittest
 from unittest.mock import patch
 
 from PIL import Image
 
-from tests import localdata
 from tracen_replay.receipt_occlusion import (
     annotate,
     annotate_path,

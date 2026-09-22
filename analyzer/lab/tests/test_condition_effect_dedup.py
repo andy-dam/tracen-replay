@@ -1,15 +1,8 @@
 """Tests of ``tests.test_condition_effect_dedup`` that need locally preserved evidence; they run only where it is."""
 import json
-from pathlib import Path
 import unittest
 from tests import localdata
-from tracen_replay.condition_removal_banner import (
-    merge_condition_removal_effects,
-    normalize_condition_removal_event,
-    read_condition_cured_banner,
-)
-from tracen_replay.gameplay import effects_from_lines
-from tracen_replay.evaluation_adapters import report_document
+from tracen_replay.condition_removal_banner import normalize_condition_removal_event
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import parse
 
@@ -53,12 +46,3 @@ class ConditionEffectDedupTests(unittest.TestCase):
                       variants[1]["evidence"])
         self.assertIn("gameplay/part-001-frame-000449.png",
                       variants[2]["evidence"])
-        document = report_document({
-            "source": {"sha256": "a" * 64},
-            "gameplay_tracking": {"readings": rows, "events": [event],
-                                  "turn_action_receipts": []},
-        })
-        applied = [observation for observation in document["observations"]
-                   if observation.get("phase") == "applied"
-                   and observation.get("payload", {}).get("kind") == "condition_removed"]
-        self.assertEqual([item["payload"]["name"] for item in applied], ["Night Owl"])

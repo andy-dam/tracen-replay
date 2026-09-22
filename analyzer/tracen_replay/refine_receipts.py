@@ -2,7 +2,6 @@
 import argparse
 import hashlib
 import json
-import re
 from pathlib import Path
 from .vision import NeuralReader, within
 from .full_recording import save_json

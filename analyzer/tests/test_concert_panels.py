@@ -1,11 +1,8 @@
 import copy
-import hashlib
 import json
 import unittest
 from pathlib import Path
 from tracen_replay.vision import parse
-from tracen_replay.concert_evaluate import evaluate
-from tests.test_gameplay import workspace_temp
 
 
 class ConcertPanelsTests(unittest.TestCase):
@@ -43,22 +40,6 @@ class ConcertPanelsTests(unittest.TestCase):
             for line in changed['lines']:
                 if line['text']=='Lvl OLvl 1':line['text']=replacement
             self.assertNotIn('support_chain_event_frequency',parse(changed)['facts']['current_concert_bonuses'])
-
-    def test_evaluator_penalizes_swapped_columns_and_rejects_changed_proof(self):
-        with workspace_temp() as root:
-            proof=root/'panel.png';proof.write_bytes(b'reviewed evidence')
-            item=dict(source_timestamp_ms=100,evidence='panel.png',evidence_sha256=hashlib.sha256(proof.read_bytes()).hexdigest(),
-                      current={'specialty_priority':5},planned={'specialty_priority':15})
-            reference=dict(source_sha256='source',scope='two values',items=[item])
-            facts=dict(current_concert_bonuses={'specialty_priority':15},planned_concert_bonuses={'specialty_priority':5})
-            report=dict(source={'sha256':'source'},gameplay_tracking=dict(auxiliary_log_used=False,
-                        readings=[dict(source_timestamp_ms=100,evidence='panel.png',facts=facts)]))
-            score=evaluate(reference,report,root)
-            self.assertEqual(score['incorrect'],2);self.assertFalse(score['passed'])
-            facts['current_concert_bonuses']={}
-            self.assertEqual(evaluate(reference,report,root)['missing'],1)
-            proof.write_bytes(b'changed')
-            with self.assertRaisesRegex(ValueError,'proof changed'):evaluate(reference,report,root)
 
 
 if __name__=='__main__':unittest.main()

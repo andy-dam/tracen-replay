@@ -1,5 +1,4 @@
 """--no-viewer leaves the standalone viewer page out and reaches the producer."""
-import argparse
 import tempfile
 import unittest
 from pathlib import Path

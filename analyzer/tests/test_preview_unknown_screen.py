@@ -7,8 +7,6 @@ import json
 from pathlib import Path
 import unittest
 
-from tests import localdata
-from tracen_replay.lesson_offer_adapter import adapt_lesson_offer_frame
 from tracen_replay.preview_observations import build_preview_observations
 
 

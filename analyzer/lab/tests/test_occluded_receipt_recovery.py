@@ -1,25 +1,10 @@
 """Tests of ``tests.test_occluded_receipt_recovery`` that need locally preserved evidence; they run only where it is."""
 import hashlib
-import json
-import copy
-from pathlib import Path
 import unittest
 from PIL import Image
-from tracen_replay.occluded_receipt_recovery import (
-    OccludedReceiptRecoveryError,
-    _adjacent_owner,
-    _validate_inspection_cache,
-    _validate_inspection_windows,
-    _validate_replay_windows,
-    plan,
-    recover,
-    scoped_observations,
-)
+from tracen_replay.occluded_receipt_recovery import plan, recover, scoped_observations
 from tracen_replay.receipt_occlusion import annotate
-from tracen_replay.inspect_receipts import merge
-from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import NeuralReader, parse
-from tests import localdata
 from tests.test_occluded_receipt_recovery import MODEL_DIR, SOURCE_FRAME, base_row, owner
 
 

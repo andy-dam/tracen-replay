@@ -1,17 +1,8 @@
 """Tests of ``tests.test_preview_source_regressions`` that need locally preserved evidence; they run only where it is."""
 from __future__ import annotations
-import copy
 import unittest
-from pathlib import Path
 from PIL import Image
 from tests import localdata
-from tracen_replay.preview_observations import (
-    _explicit_phase_proof,
-    build_preview_observations,
-    parse_preview_overlay,
-    preview_phase_proof,
-    produce_preview_panel_from_lines,
-)
 from tracen_replay.vision import parse as parse_vision
 
 

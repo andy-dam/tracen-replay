@@ -649,7 +649,6 @@ def annotate(raw,pane):
 
 def annotate_path(raw,path,original=None,*,source_sha256=None):
     if not any(receipt_line(l) for l in raw['lines']):return raw
-    from PIL import Image
     from .refine_contrast import fingerprint
     raw=dict(raw)
     raw.pop('receipt_overlay_provenance',None)

@@ -17,7 +17,6 @@ import hashlib
 import os
 import threading
 from collections import OrderedDict
-from pathlib import Path
 
 from PIL import Image
 

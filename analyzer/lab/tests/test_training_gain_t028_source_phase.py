@@ -1,9 +1,6 @@
 """Tests of ``tests.test_training_gain_t028_source_phase`` that need locally preserved evidence; they run only where it is."""
-import json
 import unittest
 from copy import deepcopy
-from pathlib import Path
-from tests import localdata
 from tracen_replay.training_gain_phases import (
     resolve_source_temporal_phase,
     source_gain_observations,
@@ -53,27 +50,6 @@ class T028SourcePhaseTests(unittest.TestCase):
             "gameplay/part-004-frame-000207.png",
             [item["evidence"] for item in phase["source_resolution"]["ignored_unproven_observations"]],
         )
-
-        from tracen_replay.evaluation_adapters import report_document
-
-        document = report_document(
-            dict(
-                source=report["source"],
-                gameplay_tracking=dict(
-                    readings=rows,
-                    events=[event],
-                    turn_action_receipts=[],
-                ),
-            )
-        )
-        applied = [
-            row
-            for row in document["observations"]
-            if row.get("phase") == "applied"
-            and row.get("payload", {}).get("kind") == "stat_change"
-            and row.get("payload", {}).get("field") == "skill_points"
-        ]
-        self.assertEqual([row["payload"]["amount"] for row in applied], [13])
 
     def test_repeated_refined_alternative_stays_unresolved(self):
         _report, rows = _t028_rows()

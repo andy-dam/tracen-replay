@@ -3,16 +3,13 @@ import hashlib
 import json
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
 
-from tests import localdata
 from tests.test_gameplay import workspace_temp
-from tracen_replay.full_recording import cached_readings, parse_receipt_pixels
-from tracen_replay.pipeline import PipelineError
+from tracen_replay.full_recording import cached_readings
 from tracen_replay.refine_contrast import fingerprint
 from tracen_replay.song_symbols import (
     _eligible,
@@ -20,7 +17,6 @@ from tracen_replay.song_symbols import (
     annotate,
     apply,
     music_note_suffix,
-    music_note_title_suffix,
 )
 from tracen_replay.vision import parse
 

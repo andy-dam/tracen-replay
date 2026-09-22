@@ -1,11 +1,9 @@
 """Tests of ``tests.test_code_identity`` that need locally preserved evidence; they run only where it is."""
-import os
 import subprocess
 import sys
 import unittest
 from pathlib import Path
 from tests import localdata
-from tracen_replay.code_identity import code_digest, function_digest
 
 
 @unittest.skipUnless(localdata.MODEL_DIR.is_dir(), 'OCR models are not installed')

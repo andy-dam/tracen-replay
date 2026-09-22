@@ -2,10 +2,7 @@
 import copy
 import json
 import unittest
-from pathlib import Path
-from tests import localdata
 from tracen_replay.transactions import training_events
-from tracen_replay.evaluation_adapters import report_document
 from tests.test_source_clipped_gain_integration import REPORT
 
 
@@ -35,16 +32,6 @@ class SourceClippedGainIntegrationTests(unittest.TestCase):
                       for row in proof['observations']}
         self.assertEqual(len(identities), 3)
         self.assertEqual(rows, before)
-        document = report_document({'source': {'sha256': 'a' * 64},
-                                    'gameplay_tracking': {'readings': rows,
-                                                         'events': events,
-                                                         'turn_action_receipts': []}})
-        applied = [observation for observation in document['observations']
-                   if observation.get('phase') == 'applied'
-                   and observation.get('payload', {}).get('kind') == 'stat_change'
-                   and observation['payload'].get('field') == 'wit']
-        self.assertEqual(len(applied), 1)
-        self.assertEqual(applied[0]['payload']['amount'], 65)
 
     def test_preview_rows_cannot_recover_an_applied_gain(self):
         rows = copy.deepcopy(self.rows)
@@ -68,14 +55,6 @@ class SourceClippedGainIntegrationTests(unittest.TestCase):
         self.assertNotIn('wit', event['deltas'])
         self.assertEqual(event['conflicting_readings']['wit'], [6, 65, 66])
         self.assertNotIn('wit', event['direct_gain_provenance'])
-        document = report_document({'source': {'sha256': 'a' * 64},
-                                    'gameplay_tracking': {'readings': rows,
-                                                         'events': [event],
-                                                         'turn_action_receipts': []}})
-        self.assertFalse(any(observation.get('phase') == 'applied'
-                             and observation.get('payload', {}).get('kind') == 'stat_change'
-                             and observation['payload'].get('field') == 'wit'
-                             for observation in document['observations']))
 
     def test_ordinary_short_badges_remain_usable_without_longer_source_views(self):
         rows = copy.deepcopy(self.rows)

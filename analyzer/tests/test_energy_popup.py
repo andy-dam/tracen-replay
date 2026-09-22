@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-import hashlib
-import json
-from pathlib import Path
 import unittest
 
-from PIL import Image
 
-from tests import localdata
 from tracen_replay.energy_popup import (
     merge_energy_popup_effects,
     read_energy_popup,
