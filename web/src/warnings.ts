@@ -142,7 +142,7 @@ export function entryWarnings(e: Entry): Warning[] {
     }
   }
   if (derived.length) out.push({ text: `amount not read directly: ${derived.join(", ")}`, serious: false, advice: ADVICE.derived });
-  if (settled.length) out.push({ text: `badge settled by the stat bars: ${settled.join("; ")}`, serious: false, advice: ADVICE.settledReads });
+  if (settled.length) out.push({ text: `badge settled by the stat bars: ${settled.join(" · ")}`, serious: false, advice: ADVICE.settledReads });
   return out;
 }
 
