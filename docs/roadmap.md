@@ -51,9 +51,8 @@ to 1920x1080 as they are decoded, the game pane is the constant crop
 receipt band, the learned reader's crops. The detector finds text anywhere,
 but which row a number belongs to is geometry. A recording from a phone, a
 window that does not fill the screen or a non-English client is therefore
-refused with an
-explicit error rather than read wrongly, which is the right default and also
-the reason none of them can be analyzed.
+refused with an explicit error rather than read wrongly, which is the right
+default and also the reason none of them can be analyzed.
 
 How much work another layout is depends on one measurement: whether its game
 area has the same proportions as the pane above.
@@ -71,10 +70,14 @@ area has the same proportions as the pane above.
   proofs, and the learned reader's boxes were cut at those exact coordinates,
   so its dataset would have to be re-cut or the model retrained.
 
-The first step is a measurement, not a design: ten seconds captured on the
-device answers which of the two it is. A non-English client is the same class
-of problem one layer up, where the fixed words a receipt is repaired against
-are English.
+Measured on a Galaxy S25+ and an iPad Pro 11, it is the second, but with one
+rule behind it: the game lays out an interface of 1080x1920 design units,
+scales it by `min(width / 1080, height / 1920)` of its game area, pins each
+part to an edge or the centre, and keeps each device's clear margins. So
+every box can be placed on any shape from its design-unit position and its
+pin, and read from the recording's own pixels; the plan is section 8 of
+[TODO.md](../TODO.md). A non-English client is the same class of problem one
+layer up, where the fixed words a receipt is repaired against are English.
 
 ## 5. Source-code hygiene
 
