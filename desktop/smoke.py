@@ -25,6 +25,13 @@ WORDS = ["Speed Lvl 3", "Exercise Bike", "Gained 2 hint levels"]
 def main():
     analyzer, ffmpeg_dir, models = (Path(p).resolve() for p in sys.argv[1:4])
     devices = sys.argv[4:] or ["cpu"]
+    # The learned result-card reader has to be in the bundle: without it
+    # every training gain the badge reader misses is worked out from the
+    # difference between turns instead, and the report asks for it.
+    reader = analyzer / "tracen_replay" / "data" / "reader.onnx"
+    if not reader.is_file():
+        print(f"FAILED: the learned reader is not in the bundle ({reader})", flush=True)
+        return 1
     suffix = ".exe" if os.name == "nt" else ""
     env = dict(os.environ, PATH=str(ffmpeg_dir) + os.pathsep + os.environ.get("PATH", ""))
     work = Path(tempfile.mkdtemp(prefix="tracen-smoke-"))

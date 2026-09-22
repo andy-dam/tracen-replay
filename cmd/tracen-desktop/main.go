@@ -600,6 +600,12 @@ func start(logger *slog.Logger, desk api.Desktop) (string, *settings, func(), er
 				return err
 			}),
 			check("model-dir", l.models, func() error { _, err := os.Stat(filepath.Join(l.models, "PP-OCRv6_det_small.onnx")); return err }),
+			// Without the learned reader an analysis still runs, and reads
+			// worse: the check says so instead of hiding it.
+			check("learned-reader", filepath.Join(l.analyzer, "tracen_replay", "data", "reader.onnx"), func() error {
+				_, err := os.Stat(filepath.Join(l.analyzer, "tracen_replay", "data", "reader.onnx"))
+				return err
+			}),
 			check("ffmpeg", l.ffmpeg, func() error { _, err := exec.LookPath(l.ffmpeg); return err }),
 			{Name: "ocr-device", OK: true, Note: prefs.Get().Device},
 		}

@@ -48,6 +48,9 @@ coverage/
 *.ckpt
 *.onnx
 *.safetensors
+# The learned result-card reader is the analyzer's own and travels with it:
+# every bundle and image copies the analyzer directory from the checkout.
+!analyzer/tracen_replay/data/reader.onnx
 
 # Local databases, emulator state, and infrastructure state
 *.db
