@@ -989,3 +989,65 @@ client and the analyzer.
 - [x] **Linux with the CUDA wheel.** It is the container image built with
       `OCR_RUNTIME=cuda` ([container.md](container.md)); no separate
       bundle. Mac: never, without a runtime provider for it.
+
+## 8. Recordings of any shape
+
+Next. Phones and tablets differ in shape far more than monitors, so the
+analyzer reads a recording in its own layout, at its own proportions, and
+never moves or stretches it into the PC pane's place. What makes that
+general is measured: the game lays out one interface of 1080x1920 design
+units, scaled by `min(width / 1080, height / 1920)` of its game area
+(0.5625 pixels a unit on the PC pane, 1.447 on an iPad Pro 11 at
+1940x2778, 1.0 on a Galaxy S25+ at 1080x2340), and pins each part to an
+edge or the centre: the turn counter, goal and energy bar to the top, the
+stat bar, training buttons and Skip, Quick and Log to the bottom, the
+performance panel to the left, most things centred across. Measured from
+its pin in design units, each label sits in the same place on all three to
+within a few pixels. Each device also keeps its own clear margins (the
+S25+ about 95 units at the top, the iPad about 36 at the bottom). The
+analyzer holds about 200 literal boxes in pane pixels across some 30
+modules (96 in `vision.py`), plus position thresholds; each becomes a box in
+design units with its pin.
+
+- [ ] **One layout model.** A module that holds a recording's game area in
+      the frame, its scale and its margins, and places a design-unit box
+      with its pin (top, centre or bottom; left, centre or right) in frame
+      pixels. Done when it reproduces the labels measured on the PC pane,
+      the iPad and the S25+ within a few pixels.
+- [ ] **The layout fitted per recording, from the recording.** The game
+      area, scale and margins come from labels every career shows many
+      times (the header, Energy, the stat labels, Skip, Quick, Log), fitted
+      across sampled frames; no table of devices. The PC pane is one answer
+      of the same fit, as is the game area of a video that frames a phone
+      screen between overlays. Done when the fit lands within a few pixels
+      of hand measurement on a PC career, the two device recordings and the
+      three uploaded phone careers.
+- [ ] **Frames keep the recording's shape.** Decoding applies the rotation
+      flag and keeps the aspect ratio; nothing is cropped into or padded
+      onto a 1920x1080 frame. Frames are scaled evenly so that a design
+      unit has the PC pane's pixel size, the text size the recognizer and
+      the learned reader were built for, which also keeps a 2778-pixel iPad
+      frame from costing five times the disk and time. This replaces the
+      step that scales 16:9 recordings to 1920x1080.
+- [ ] **Every fixed box through the layout.** Screen family by screen
+      family (the career menu and stat bar, training results, receipts and
+      dialogs, races, lessons and skills, the final screens), each box and
+      threshold gets its design-unit box and its pin, and every crop and
+      comparison goes through the layout. Each pin is measured, not
+      guessed: a tool finds the element on the PC, S25+ and iPad recordings,
+      whose three shapes tell top, centre and bottom apart. Done when no
+      module crops or compares at a pane constant, and the PC careers'
+      reports are unchanged.
+- [ ] **The learned reader on other shapes.** Its crops come through the
+      layout. Its reads on the S25+ and iPad result cards are checked
+      against the cards; if they fall short, its dataset is cut through the
+      layout and it is trained again.
+- [ ] **The size gate follows the game area.** Portrait or landscape, any
+      proportions the game lays out, refused only when the game area is too
+      small to read.
+- [ ] **Both device careers analyzed and checked by hand.** Every turn
+      found, the stat bar read on the menu frames, and no more unexplained
+      turns than a PC career of the same length. Both recordings run at a
+      variable frame rate (about 48 and 31 frames a second on average), so
+      the coverage check is looked at on them too.
+- [ ] **The guide, about page and upload box say which devices are read.**
