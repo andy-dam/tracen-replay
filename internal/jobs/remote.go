@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"mime"
 	"os"
 	"path"
@@ -401,26 +400,29 @@ func (m *Manager) fetch(ctx context.Context, job Job) (placement, error) {
 	return place, nil
 }
 
-// upload stores every regular file below dir under prefix and returns the
-// key of each by its path.
+// upload stores the run's own files under prefix and returns the key of
+// each by its path. Only the top-level files: the report, the timeline and
+// the run's metadata. The directories below them hold the frames, crops and
+// caches of the analysis, which nothing reads once the report is written,
+// and which are gone with the scratch directory a moment later.
 func (m *Manager) upload(ctx context.Context, prefix, dir string) (map[string]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
 	keys := map[string]string{}
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || !d.Type().IsRegular() {
-			return err
+	for _, entry := range entries {
+		if entry.IsDir() || !entry.Type().IsRegular() {
+			continue
 		}
-		rel, err := filepath.Rel(dir, p)
-		if err != nil {
-			return err
-		}
-		key := prefix + "/" + filepath.ToSlash(rel)
+		p := filepath.Join(dir, entry.Name())
+		key := prefix + "/" + entry.Name()
 		if err := m.putFile(ctx, key, p, contentType(p)); err != nil {
-			return fmt.Errorf("%s: %w", rel, err)
+			return keys, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
 		keys[p] = key
-		return nil
-	})
-	return keys, err
+	}
+	return keys, nil
 }
 
 func (m *Manager) putFile(ctx context.Context, key, p, contentType string) error {

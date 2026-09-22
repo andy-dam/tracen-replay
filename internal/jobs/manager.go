@@ -239,7 +239,9 @@ func (m *Manager) SetLoad(parallel, workers, denseWorkers int) {
 	m.wakeLoop()
 }
 
-// load is the reader counts the next analysis starts with.
+// load is the reader counts the analysis about to start uses. The planner
+// is called outside the lock: it has a lock of its own, which the settings
+// take in the other order when they change the load.
 func (m *Manager) load() (workers, denseWorkers int) {
 	m.mu.Lock()
 	// The analyses this process is running, this one among them. The slot
@@ -594,10 +596,16 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		}()
 	}
 	workers, denseWorkers := m.load()
+	// Pruning is for a run whose files stay: it keeps a job directory to the
+	// report and its timeline. With a shared queue the whole scratch
+	// directory is deleted as soon as the outputs are stored, and only the
+	// run's top-level files are stored, so deleting tens of thousands of
+	// frames one by one over a file share would buy nothing.
+	prune := !m.remote()
 	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: place.source, Output: place.output,
 		ModelDir: m.cfg.ModelDir, Workers: workers, DenseWorkers: denseWorkers, OCRDevice: m.ocrDevice(),
-		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
-		PruneWorkingData: !m.cfg.KeepWorkingData, NoViewer: true, OwnerPID: os.Getpid()}
+		LearnedReader: m.cfg.LearnedReader, PruneFrames: prune,
+		PruneWorkingData: prune && !m.cfg.KeepWorkingData, NoViewer: true, OwnerPID: os.Getpid()}
 	// Appended to, so a resumed job's log still holds what ran before the pause.
 	logs, err := os.OpenFile(place.log, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {

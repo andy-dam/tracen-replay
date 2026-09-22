@@ -115,11 +115,18 @@ func (h *remoteHarness) waitStatus(id string, want jobs.Status) jobs.Job {
 func TestRemoteJobRunsFromTheQueueAndUploadsItsOutputs(t *testing.T) {
 	h := newRemoteHarness(t)
 	var sourceSeen string
+	var command worker.Command
 	h.runner.script = func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error) {
 		data, _ := os.ReadFile(cmd.Source)
-		sourceSeen = string(data)
+		sourceSeen, command = string(data), cmd
 		onProgress(worker.Progress{Stage: worker.StageOCR, Processed: 50, Total: 100})
 		io.WriteString(logs, "remote stderr\n")
+		// The frames, crops and caches of a run: stored nowhere, and gone
+		// with the scratch directory a moment later.
+		if err := os.MkdirAll(filepath.Join(cmd.Output, "neural"), 0o755); err != nil {
+			t.Error(err)
+		}
+		os.WriteFile(filepath.Join(cmd.Output, "neural", "frame-1.json"), []byte("{}"), 0o644)
 		return 0, writeArtifacts(t, cmd.Output, worker.StatusSucceeded), nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -154,6 +161,14 @@ func TestRemoteJobRunsFromTheQueueAndUploadsItsOutputs(t *testing.T) {
 		if _, err := h.objects.Stat(context.Background(), key); err != nil {
 			t.Fatalf("%s not uploaded: %v", key, err)
 		}
+	}
+	// Only the run's own files are stored, and the worker asked for no
+	// pruning: the scratch directory goes whole.
+	if _, err := h.objects.Stat(context.Background(), job.OutputDir+"/neural/frame-1.json"); err == nil {
+		t.Fatal("the run's working files were uploaded")
+	}
+	if command.PruneFrames || command.PruneWorkingData || !command.NoViewer {
+		t.Fatalf("the worker's command: %+v", command)
 	}
 	reader, _ := h.objects.Open(context.Background(), job.LogPath)
 	log, _ := io.ReadAll(reader)
