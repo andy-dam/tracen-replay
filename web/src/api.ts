@@ -45,7 +45,7 @@ export interface Settings {
 
 export type SettingsChange = Partial<Pick<Settings, "gpu" | "parallel" | "memory_limit_gb" | "on_close" | "update_check" | "paused_lifetime_days">>;
 
-export interface Failure {
+interface Failure {
   code: string;
   message: string;
 }
@@ -100,7 +100,7 @@ export interface FieldAccounting {
   window_end_ms?: number | null;
 }
 
-export interface Opening {
+interface Opening {
   stats: Record<string, number | null> | null;
   performance: Record<string, number | null> | null;
 }
@@ -137,7 +137,7 @@ export interface Turn extends Omit<TurnSummary, "entry_count" | "opening_observe
   accounting: Record<string, Record<string, FieldAccounting>>;
 }
 
-export interface Change {
+interface Change {
   amount: number | null;
   basis?: string;
   /** the digits the panel showed when a clipped badge was completed from the turn difference */
@@ -196,7 +196,7 @@ export interface Summary {
   } | null;
 }
 
-export interface AnalyzerVersion {
+interface AnalyzerVersion {
   package: string;
   code_digest: string;
 }
@@ -213,7 +213,7 @@ export class ApiError extends Error {
 }
 
 /** One stat change between two observations that no captured event covers, or that was worked out onto its only possible owner. */
-export interface Difference {
+interface Difference {
   channel: string;
   field: string;
   amount: number;
@@ -267,7 +267,7 @@ export interface Correction {
   created_at: string;
   updated_at: string;
 }
-export interface FieldVerification {
+interface FieldVerification {
   channel: string;
   field: string;
   before: number | null;
@@ -296,7 +296,7 @@ export interface TurnDetail {
 // The API's origin. Empty means the client is served by the service itself;
 // otherwise every call, stream and media URL is prefixed and sent with
 // credentials, and the service must list this client's origin.
-export const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 /** Whether this is the hosted service rather than the application running on the viewer's own machine. */
 export const hosted = typeof location !== "undefined" && !["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 export const crossOrigin = API_BASE ? "use-credentials" : undefined;
@@ -376,7 +376,7 @@ export const api = {
   events: (id: string) => new EventSource(url(`/api/jobs/${enc(id)}/events`), { withCredentials: !!API_BASE }),
 };
 
-export interface UploadTarget {
+interface UploadTarget {
   mode: "direct" | "multipart";
   id?: string;
   url?: string;

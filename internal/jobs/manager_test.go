@@ -37,7 +37,6 @@ func (f oneUpload) GetRecording(ctx context.Context, id string) (jobs.Recording,
 
 // scriptedRunner behaves like the worker as far as the manager can see.
 type scriptedRunner struct {
-	mu      sync.Mutex
 	started chan string
 	script  func(ctx context.Context, cmd worker.Command, onProgress func(worker.Progress), logs io.Writer) (int, []byte, error)
 }

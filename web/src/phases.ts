@@ -6,7 +6,7 @@
 // the bar, nothing is computed from them elsewhere.
 import type { Job } from "./api";
 
-export interface Phase {
+interface Phase {
   id: string;
   label: string;
   /** What the phase does, for the caption under the bar. */
@@ -15,7 +15,7 @@ export interface Phase {
   weight: number;
 }
 
-export const PHASES: Phase[] = [
+const PHASES: Phase[] = [
   { id: "read", label: "Capture & OCR", doing: "sampling the recording and running OCR on every frame", stages: ["capture", "ocr"], weight: 48 },
   { id: "understand", label: "Base Readings & Refinement", doing: "classifying every frame and refining weak readings", stages: ["base_readings", "automatic_refinement", "race_quantity_refinement", "currency_refinement", "currency_refinement_complete", "currency_padding_refinement_complete", "reload_readings", "hint_card_preparation", "inspections_merged"], weight: 12 },
   { id: "closer", label: "Recovery Rereads", doing: "re-reading result animations and receipts at 60 fps where a number was unclear", stages: ["receipt_inspection", "numeric_receipt_recovery", "training_gain_recovery", "inspection_loads", "occluded_receipt_recovery"], weight: 20 },
@@ -28,7 +28,7 @@ const ORDER: string[] = PHASES.flatMap((p) => p.stages);
 const COPY_STAGE = "keeping a playback copy";
 const FETCH_STAGE = "fetching the recording";
 
-export interface PhaseView {
+interface PhaseView {
   id: string;
   label: string;
   doing: string;
@@ -48,7 +48,7 @@ export interface ProgressView {
   lastDone: string;
 }
 
-export function stageWords(stage: string): string {
+function stageWords(stage: string): string {
   return stage === "ocr" ? "OCR" : stage.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
 }
 

@@ -2,7 +2,6 @@ package objectstore
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -259,6 +258,3 @@ func escapeBlob(name string) string {
 	}
 	return strings.Join(parts, "/")
 }
-
-// IsNotFound reports whether err means a missing object.
-func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }

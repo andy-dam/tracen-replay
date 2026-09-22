@@ -33,17 +33,6 @@ export function when(iso: string | undefined): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function elapsed(start?: string, end?: string): string {
-  if (!start) return "";
-  const a = new Date(start).getTime();
-  const b = end ? new Date(end).getTime() : Date.now();
-  if (Number.isNaN(a) || Number.isNaN(b)) return "";
-  const total = Math.max(0, Math.floor((b - a) / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 /**
  * How long an analysis has run, pauses left out: the time before its latest
  * start plus, once it has started again, the time since.
@@ -141,7 +130,6 @@ export function statRank(value: number | null | undefined): StatRank | null {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-export const MONTH_LABELS = MONTHS;
 
 /** The cells of each strip row. A junior year is 23 turns: 11 before the debut, then Early July to Late December. */
 export const STRIP_ROWS = [23, 24, 24, 3];
@@ -249,14 +237,7 @@ export function describeAction(turn: TurnSummary): string {
   return note ? `${text} (${note})` : text;
 }
 
-/** Count of fields whose accounting across the turn is not balanced. */
-export function unbalanced(turn: TurnSummary): number {
-  return Object.entries(turn.accounting_status_counts)
-    .filter(([k]) => k !== "balanced_observations")
-    .reduce((sum, [, v]) => sum + v, 0);
-}
-
-export const STATUS_TEXT: Record<string, string> = {
+const STATUS_TEXT: Record<string, string> = {
   balanced_observations: "balanced",
   balanced_with_derived_changes: "balanced with derived changes",
   unexplained_change: "unexplained change",
