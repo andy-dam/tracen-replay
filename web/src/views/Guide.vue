@@ -20,7 +20,7 @@ import { FLAG_GUIDE } from "../warnings";
       <div class="overline">Recording</div>
       <h2>How to Record</h2>
       <ul class="guide-list">
-        <li><b>Resolution and Language.</b> 1920×1080, English. Other resolutions and languages are not supported.</li>
+        <li><b>Resolution and Language.</b> 16:9 from 1280×720 to 3840×2160, English. Below 1920×1080, more small text goes unread. Other sizes and languages are not supported.</li>
         <li><b>Game Window.</b> Full screen and landscape. Only the gameplay pane on the left is read, not the side panel.</li>
         <li><b>One File per Career.</b> Record from the first turn to the finale in a single mp4, mov, webm or mkv file. A full career is about 1 GB.</li>
         <li><b>No Overlays.</b> A webcam, chat or any other overlay on top of the game covers numbers that have to be read.</li>

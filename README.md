@@ -6,8 +6,9 @@ every training, race, purchase, song, skill and event, each linked to the
 second of the recording it was read from. The report is shown beside the
 video, and anything the analyzer flags can be checked and corrected there.
 
-Recordings must be the English game at 1920×1080 in landscape. Only the
-gameplay pane is read, not the side panel.
+Recordings must be the English game in 16:9 landscape, from 1280×720 to
+3840×2160; other sizes are scaled to 1920×1080, and below it more of the
+small text goes unread. Only the gameplay pane is read, not the side panel.
 
 An analysis of a full career takes from under an hour on a graphics card to
 several hours on a processor. It can be paused and resumed. The website
