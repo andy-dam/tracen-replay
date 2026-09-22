@@ -403,13 +403,13 @@ func Verify(turn Turn, entries []Entry, c Correction) Verification {
 		out.Summary = "Nothing to check"
 	}
 	if len(open) > 0 {
-		out.Summary += "; still unexplained: " + strings.Join(open, ", ")
+		out.Summary += ". Still unexplained: " + strings.Join(open, ", ")
 	}
 	if len(extrapolated) > 0 {
-		out.Summary += "; worked out from the difference between turns: " + strings.Join(extrapolated, ", ")
+		out.Summary += ". Worked out from the difference between turns: " + strings.Join(extrapolated, ", ")
 	}
 	if len(setAside) > 0 {
-		out.Summary += "; read wrongly by the report: " + strings.Join(setAside, ", ")
+		out.Summary += ". Read wrongly by the report: " + strings.Join(setAside, ", ")
 	}
 	return out
 }
