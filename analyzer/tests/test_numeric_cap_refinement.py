@@ -1,62 +1,13 @@
-import hashlib
-import json
 import unittest
-from pathlib import Path
 
-from tests import localdata
 from tracen_replay.numeric_cap_refinement import (
     candidate_fields,
-    fingerprint,
     parse_cap,
     parse_ratio,
     performance_panel_geometry,
     read_stat_caps,
 )
 from tracen_replay.vision import _main_stat_cap_requests
-
-
-REPO = Path(__file__).resolve().parents[2]
-
-
-def _sha(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-
-def _real_raw(name):
-    path = localdata.root("development_second_recording", "neural", f"{name}.json")
-    if not path.exists():
-        raise unittest.SkipTest("preserved independent-01 caches are not present")
-    return json.loads(path.read_text())
-
-
-def _source_paths(name):
-    part, frame = name.split("-")[1], name.split("-")[-1]
-    # The source capture uses the same part/frame names as the neural cache.
-    source = localdata.root("development_second_recording", f"part-{part}", "frames", f"{frame}.jpg")
-    raw = _real_raw(name)
-    evidence = localdata.root("development_second_recording", raw["evidence"])
-    return raw, evidence, source
-
-
-def _provenance(raw, evidence, source, fields):
-    return {
-        "version": 1,
-        "stage": "numeric_cap_refinement",
-        "source_frame_id": "part-006-frame-000261",
-        "source_timestamp_ms": raw["source_timestamp_ms"],
-        "evidence": raw["evidence"],
-        "evidence_sha256": _sha(evidence),
-        "source_frame_evidence": "part-006/frames/000261.jpg",
-        "source_frame_sha256": _sha(source),
-        "gameplay_sha256": raw["gameplay_sha256"],
-        "raw_sha256": fingerprint(raw),
-        "source_model_sha256": raw["model_sha256"],
-        "source_engine_fingerprint": raw["engine_fingerprint"],
-        "refinement_model_sha256": {"review": "b" * 64},
-        "refinement_engine_fingerprint": "bounded-source-review",
-        "independent_observations": False,
-        "fields": fields,
-    }
 
 
 class NumericCapRefinementTests(unittest.TestCase):

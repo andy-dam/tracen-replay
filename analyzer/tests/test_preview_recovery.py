@@ -11,7 +11,6 @@ from tracen_replay.preview_recovery import recover_in_memory, validated_recovery
 from tracen_replay.vision import parse
 
 
-FIELDS = ("speed", "stamina", "power", "guts", "wit", "skill_points")
 FIELD_BOXES = {
     "speed": [300, 695, 360, 721],
     "stamina": [392, 697, 461, 720],

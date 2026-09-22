@@ -16,11 +16,10 @@ rather than the working tree: its "output directory after a run" section says
 why, since editing the tree mid-run changes the reader fingerprint the caches
 carry and fails the run partway.
 
-Where an item quotes a number, it names the report it was measured on. The
-current reference report for the Grass Wonder career is
-`.local/verify-panel5/run/report.json` (`verify-panel4` is the run before
-the panel rereads reached result screens); the recording is under
-`~/Downloads/recordings/`.
+Where an item quotes a number, it names the report it was measured on; the
+run folders older items name are no longer kept. The latest report of each
+analyzed career is in `.local/careers/`, whose `manifest.json` names each
+recording, its report and where the recording is.
 
 ## 1. Release 0.1.0
 
@@ -812,6 +811,9 @@ reading small fixed crops. The accounting labels them for free. Order:
       skip. The main suite runs every one of its tests on a clean checkout
       and skips none, checked by running it with `TRACEN_LOCAL_EVIDENCE`
       pointed at an empty directory.
+- [x] The preserved evidence those lab tests replayed is deleted, and the
+      tests with it; the one lab test left needs only the installed OCR
+      models.
 - [x] The `analyzer/lab` tools are evaluation history; the directory's
       README says so.
 - [ ] The analyzer package keeps its name. Revisit only if it is ever

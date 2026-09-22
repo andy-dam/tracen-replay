@@ -17,11 +17,6 @@ from tracen_replay.occluded_receipt_recovery import (
 from tracen_replay.inspect_receipts import merge
 from tracen_replay.transactions import outcome_events
 
-from tests import localdata
-
-SOURCE_FRAME = localdata.root("diagnostic_friendship_receipt_frame", "000016.jpg")
-MODEL_DIR = localdata.MODEL_DIR
-
 
 def source_meta(timestamp, evidence):
     return dict(

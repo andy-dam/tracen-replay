@@ -3,7 +3,6 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
-from tests import localdata
 from tests.test_gameplay import workspace_temp
 
 from PIL import Image, ImageDraw
@@ -14,9 +13,6 @@ from tracen_replay.skill_menu_observations import (
     build_skill_menu_observations,
     detect_skill_selection_marker,
 )
-
-
-BASE = localdata.root("development_third_recording_baseline")
 
 
 def _line(text, box, confidence=99):
@@ -205,7 +201,7 @@ class SkillMenuObservationTests(unittest.TestCase):
         raw = _card_frame("Hash Skill", 40)
         raw["gameplay_sha256"] = "0" * 64
         with self.assertRaisesRegex(SkillMenuSourceError, "gameplay"):
-            adapt_skill_menu_frame(raw, gameplay_path=BASE / "gameplay/part-010-frame-000329.png")
+            adapt_skill_menu_frame(raw, gameplay_path=Path("gameplay/part-010-frame-000329.png"))
 
     def test_source_proof_is_an_immutable_copy(self):
         raw = _card_frame("Immutable Skill", 40)

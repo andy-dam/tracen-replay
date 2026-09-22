@@ -6,12 +6,6 @@ from tracen_replay.training_outcome import (
     classify_result_screen,
 )
 
-from tests import localdata
-
-SOURCE_RAW = localdata.root(
-    "prepared_snapshot_early", "independent-02/initial-baseline/neural/part-001-frame-000142.json"
-)
-
 
 def _line(text, confidence=99, box=(369, 684, 665, 772)):
     return {'text': text, 'confidence': confidence, 'box': list(box)}

@@ -24,11 +24,9 @@ Run the suite from the repository root:
 python -X utf8 -m unittest discover -s analyzer/tests -t analyzer
 ```
 
-Every test in that suite runs on a clean checkout; none skips. The tests
-that depend on locally preserved fixtures (frozen source caches, prepared
-recording sidecars, installed OCR models) live in `analyzer/lab/tests`,
-name what they need through `analyzer/tests/localdata.py`, and run only
-where that evidence is:
+Every test in that suite runs on a clean checkout; none skips. The one test
+that needs the installed OCR models (the reader's fingerprint) lives in
+`analyzer/lab/tests` and runs only where the models are:
 
 ```
 python -X utf8 -m unittest discover -s analyzer/lab/tests -t analyzer

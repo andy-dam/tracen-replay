@@ -1,25 +1,11 @@
 import copy
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 from PIL import Image, ImageOps
 
-from tests import localdata
 from tracen_replay.current_state_layout import detect_current_state_layout
-
-
-REPO = Path(__file__).resolve().parents[2]
-SOURCE_CASES = (
-    localdata.root("fourth_recording_retest_older", "neural/part-015-frame-000201.json"),
-    localdata.root("fourth_recording_retest_older", "neural/part-015-frame-000257.json"),
-    localdata.root("fourth_recording_retest_older", "neural/part-017-frame-000407.json"),
-    localdata.root("fourth_recording_retest_older", "neural/part-018-frame-000040.json"),
-)
-SHOGI_SOURCE = localdata.root(
-    "fourth_recording_retest_older", "neural/part-015-frame-000246.json"
-)
 
 
 def line(text, box, confidence=99.0):

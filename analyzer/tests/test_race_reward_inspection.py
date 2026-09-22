@@ -1,13 +1,8 @@
 import copy
-import hashlib
-import json
 import unittest
-from pathlib import Path
-from PIL import Image
 
 from tracen_replay.race_reward_inspection import merge_reward_rows, refine_base_rows
 from tracen_replay.transactions import races
-from tests.test_gameplay import workspace_temp
 
 
 def quantity(value, box=(310, 855, 380, 887)):
@@ -248,35 +243,3 @@ class RaceRewardMergeTests(unittest.TestCase):
         self.assertEqual([x['quantity'] for x in result[0]['facts']['visible_item_quantities']], [1, 600])
         self.assertEqual(base, before)
         self.assertEqual(refine_base_rows([base], [row(250, [quantity(9)], fans=999)]), [base])
-
-
-class RaceRewardEvidenceTests(unittest.TestCase):
-    def setUp(self):
-        self.root = Path(self.enterContext(workspace_temp()))
-        self.source = dict(sha256='a' * 64, duration_ms=5000, timeline_origin_seconds=0,
-                           width=1920, height=1080)
-        self.write(self.root / 'capture.json', {'source': self.source, 'frames': []})
-        self.window = self.root / 'window'
-        for folder in ['frames', 'gameplay', 'neural']:
-            (self.window / folder).mkdir(parents=True)
-        frame = Image.new('RGB', (1920, 1080), 'white')
-        frame.save(self.window / 'frames/f.png')
-        pane = frame.crop((148, 0, 958, 1080))
-        pane.save(self.window / 'gameplay/f.png')
-        self.raw = dict(lines=[{'text': 'Fans 100 (+10)', 'box': [270, 700, 600, 730], 'confidence': 99}],
-                        regions={}, header='', result_grid=False, current_grid=False,
-                        source_timestamp_ms=1000, evidence='gameplay/f.png',
-                        source_frame_sha256=self.digest(self.window / 'frames/f.png'),
-                        gameplay_sha256=hashlib.sha256(pane.tobytes()).hexdigest(),
-                        engine_fingerprint='fixture', model_sha256={'fixture': 'b' * 64})
-        self.write(self.window / 'neural/f.json', self.raw)
-        self.capture = dict(source=self.source, scope={'start_ms': 1000, 'end_ms': 1250},
-                            frames=[dict(id='f', source_timestamp_ms=1000, source_pts=1000,
-                                         time_base='1/1000', evidence='frames/f.png')])
-        self.write(self.window / 'capture.json', self.capture)
-
-    def write(self, path, value):
-        path.write_text(json.dumps(value), encoding='utf-8')
-
-    def digest(self, path):
-        return hashlib.sha256(path.read_bytes()).hexdigest()

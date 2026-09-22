@@ -1,27 +1,8 @@
 import copy
-import json
 import unittest
-from pathlib import Path
 
-from tests import localdata
 from tracen_replay.race_action_receipts import bind_race_action_metadata
 from tracen_replay.transactions import races
-from tracen_replay.vision import parse
-
-
-ROOT = Path(__file__).resolve().parents[2]
-SOURCE_NEURAL = localdata.root("development_third_recording_baseline", "neural")
-
-
-def source_reading(frame):
-    path = SOURCE_NEURAL / f"part-005-frame-{frame:06d}.json"
-    if not path.is_file():
-        raise unittest.SkipTest("preserved independent-02 source sidecars are unavailable")
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    reading = parse(raw)
-    reading["source_timestamp_ms"] = raw["source_timestamp_ms"]
-    reading["evidence"] = raw["evidence"]
-    return reading
 
 
 def result_row(time, grade="G2", evidence=None, **overrides):

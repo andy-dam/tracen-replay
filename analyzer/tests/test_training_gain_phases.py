@@ -3,9 +3,6 @@ import unittest
 from tracen_replay.transactions import training_actions, training_events
 
 
-FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill_points')
-
-
 def result_row(timestamp, gains, option='wit'):
     return dict(
         source_timestamp_ms=timestamp,

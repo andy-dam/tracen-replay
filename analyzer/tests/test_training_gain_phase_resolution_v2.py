@@ -20,9 +20,6 @@ def row(timestamp, *, value=None, shape=("speed", "wit"), evidence=None):
     }
 
 
-FIELDS = ("speed", "stamina", "power", "guts", "wit", "skill_points")
-
-
 def result_row(timestamp, gains, option="wit", *, result_values=None):
     facts = {
         "training_gains": dict(gains),

@@ -1,11 +1,7 @@
 import copy
 import unittest
 
-from tests import localdata
 from tracen_replay.preview_observations import build_preview_observations
-
-
-SOURCE_ROOT_PROBE = localdata.root("preview_recovery_loader_probe")
 
 
 PHASE_PROOF = {

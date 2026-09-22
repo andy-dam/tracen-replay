@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 
 from tracen_replay.stat_state_details import (
     read_goal_turns,
@@ -7,17 +6,7 @@ from tracen_replay.stat_state_details import (
 )
 from tracen_replay.source_state_observations import build_observations
 from tracen_replay.transactions import training_events
-from tests import localdata
 from tracen_replay.vision import parse
-
-
-REPO = Path(__file__).resolve().parents[2]
-T049_RAW = localdata.root(
-    "development_third_recording_baseline", "neural/part-010-frame-000077.json"
-)
-FIRST_RECORDING_GOAL_RAW = localdata.root(
-    "prepared_snapshot_final", "v1/neural/part-007-frame-000290.json"
-)
 
 
 def _line(text, box, confidence=99.0):

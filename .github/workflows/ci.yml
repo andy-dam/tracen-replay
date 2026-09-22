@@ -81,7 +81,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - name: Install the package with the OCR runtime (CPU provider on Linux, DirectML build on Windows)
         run: python -m pip install -e "./analyzer[vision]"
-      - name: Unit and contract tests (the tests that need local recordings live in analyzer/lab/tests and are not run here)
+      - name: Unit and contract tests (the test that needs the installed OCR models lives in analyzer/lab/tests and is not run here)
         run: python -X utf8 -m unittest discover -s analyzer/tests -t analyzer -p "test_*.py"
 
   image:

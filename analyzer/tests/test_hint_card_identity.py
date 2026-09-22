@@ -318,7 +318,7 @@ class HintCardIdentityTests(unittest.TestCase):
         self.assertTrue(all(item["source_frame_sha256"] for item in candidate["observations"]))
 
     def test_configured_model_dir_is_forwarded_to_lazy_reader(self):
-        candidates = self._patched_recover(model_dir=localdata.root("stub_reader_models"))
+        candidates = self._patched_recover(model_dir=Path("stub-reader-models"))
         self.assertEqual(len(candidates), 1)
 
     def test_single_line_receipt_recovers_card_with_unknown_suffix(self):
