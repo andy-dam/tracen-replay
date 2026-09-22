@@ -59,7 +59,7 @@ function cancel() {
     </template>
     <template v-else>
       <p><strong>Drop a Career Recording Here</strong></p>
-      <p class="muted small">mp4, mov, webm or mkv, as captured from the game at 1080p. A full career is about 1 GB.{{ hosted ? "" : " The file stays on this computer." }}</p>
+      <p class="muted small">mp4, mov, webm or mkv, 16:9 from 720p to 4K; 1080p reads the most. A full career is about 1 GB.{{ hosted ? "" : " The file stays on this computer." }}</p>
       <button class="btn" @click="input?.click()">Choose a File</button>
       <input ref="input" type="file" accept=".mp4,.m4v,.mov,.webm,.mkv,video/*" @change="pick" />
     </template>
