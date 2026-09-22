@@ -168,8 +168,15 @@ const shownEntries = computed(() => {
   if (showAllEntries.value) return editableEntries.value;
   return editableEntries.value.filter((e) => flagged(e) || props.correction?.entries?.[e.id] || e.id === props.focusEntry || edited(e) || Object.values(assigned).includes(e.id));
 });
-// Entries a gap can be added to: the turn's events with a time, most recent first.
-const assignable = computed(() => props.entries.filter((e) => e.kind !== "committed_action" && e.first_seen_ms !== null));
+// Entries a gap can be added to: the turn's events with a time. A training's
+// own after-popup (energy, friendship, mood) is an outcome entry named like
+// the training, with no stat of its own. Anything it gave belongs to the
+// training, so the list offers the training once.
+const assignable = computed(() => {
+  const list = props.entries.filter((e) => e.kind !== "committed_action" && e.first_seen_ms !== null);
+  const trainings = new Set(list.filter((e) => e.kind === "training").map((e) => entryName(e)));
+  return list.filter((e) => !(e.kind === "outcome" && !fieldsOf(e).length && trainings.has(entryName(e))));
+});
 
 function load() {
   const c = props.correction;
