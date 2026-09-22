@@ -569,6 +569,8 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 /* entries: one compact line each, a kind filter row when the window is long */
 .kinds { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .kinds button { font: inherit; font-size: 12px; font-weight: 700; color: var(--ink-2); background: var(--bg-3); border: 0; border-radius: 999px; padding: 3px 10px; cursor: pointer; transition: background 140ms, color 140ms, transform 140ms var(--ease); }
+.video-nudge.custom input { width: 52px; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; color: var(--ink); background: var(--bg-2); border: 1.5px solid var(--line); border-radius: 8px; padding: 2px 6px; }
+.video-nudge.custom input:focus { outline: none; border-color: var(--green); }
 .kinds button:hover { transform: translateY(-1px); }
 .kinds button .n { color: var(--ink-3); margin-left: 2px; }
 .kinds button.active { color: #fff; background: var(--lilac); }
