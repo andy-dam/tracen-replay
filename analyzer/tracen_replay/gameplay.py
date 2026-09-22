@@ -3,11 +3,8 @@
 Screen facts, confirmation requests, receipts, and arithmetic are separate records.
 Unknown effects never become invented transactions to close a residual.
 """
-import json
 import re
-from pathlib import Path
-from .stats import Reader
-from .reconcile import FIELDS, stable_checkpoints, preview_segments, account
+from .reconcile import FIELDS, account
 from .stat_receipt_grammar import normalize_fixed_stat_receipt
 from .ocr_confidence import confidence_percent
 
@@ -56,23 +53,6 @@ AWARD_CONTEXT = re.compile(
     r'(?!(?:[^.!?]*\b(?:if|unless|when|whether|had|would|could|should|might|may)\b))'
     r'(?!(?:[^.!?]*\b(?:never|not|haven(?:\'t|’t)|hasn(?:\'t|’t)|didn(?:\'t|’t))\b))'
     r'[^.!?]*\b(?:won|received|earned)\b.{0,80}\b(?:prize|reward)\b[.!?]$', re.I)
-
-
-def text_lines(reader, image, psm=6):
-    groups = {}
-    for w in reader.ocr(image, psm=psm):
-        groups.setdefault((w['block_num'], w['par_num'], w['line_num']), []).append(w)
-    result = []
-    for words in groups.values():
-        # Drop non-word edge artifacts, never words or digits inside a statement.
-        while words and not re.search(r'\w', words[0]['text']):
-            words = words[1:]
-        while words and not re.search(r'\w', words[-1]['text']):
-            words = words[:-1]
-        if words:
-            result.append(dict(text=' '.join(w['text'] for w in words),
-                               confidence=min(float(w['conf']) for w in words)))
-    return result
 
 
 def _same_receipt_block(previous, current):
@@ -481,110 +461,6 @@ def classify(text, header, result_grid=False, preview=False):
     return 'unknown'
 
 
-class GameplayReader:
-    def __init__(self, executable=None):
-        self.reader = Reader(executable)
-
-    def read_pane(self, pane):
-        """Accept exactly the cropped gameplay image, never the full recording."""
-        if pane.size != (810, 1080):
-            raise ValueError('Gameplay OCR requires an 810x1080 gameplay crop.')
-        r = self.reader
-        def crop(box):
-            return pane.crop((box[0]-148, box[1], box[2]-148, box[3]))
-        # Legacy stat layout code sees only a blank canvas and gameplay pixels.
-        isolated = r.Image.new('RGB', (1920, 1080), 'white')
-        isolated.paste(pane, (148, 0))
-        stats = r.stats_image(isolated)
-        regions = {
-            'header': text_lines(r, crop((155, 0, 250, 29)).resize((380, 116)), 7),
-            'sparse': text_lines(r, pane, 11),
-            'body': text_lines(r, crop((270, 200, 850, 780))),
-            'outcome': text_lines(r, crop((310, 795, 815, 940))),
-            'modal_title': text_lines(r, crop((300, 87, 650, 123)).resize((1050,108)), 7),
-        }
-        text = '\n'.join(x['text'] for rows in regions.values() for x in rows if x['confidence'] >= 55)
-        header = ' '.join(x['text'] for x in regions['header'] if x['confidence'] >= 60)
-        blue = []
-        for x in (270, 470):
-            pixels = list(crop((x, 911, x+35, 934)).convert('RGB').getdata())
-            blue.append(sum(b > rr+25 and g > rr+15 and b > 100 for rr,g,b in pixels)/len(pixels))
-        grid = min(blue) > .45
-        screen = classify(text, header, grid, stats.get('training_preview', False))
-        effects = effects_from_lines(regions['outcome'])
-        if effects and screen == 'unknown':
-            screen = 'event_outcome'
-        # Receipts in ordinary gameplay only; projected dialogs and menus are not awards.
-        if screen not in ('unknown', 'event_outcome'):
-            effects = []
-        option = None
-        if screen == 'training_result':
-            words = r.ocr(crop((230,165,365,194)).resize((540,116)), psm=7)
-            options = [w['text'].lower() for w in words if w['text'].lower() in FIELDS[:5] and float(w['conf']) >= 80]
-            option = options[0] if len(options)==1 else None
-        facts = {}
-        if screen == 'training_result':
-            values, caps = {}, {}
-            for i, field in enumerate(FIELDS):
-                x = (322,518,714)[i%3]
-                y = 834 if i<3 else 952
-                im = crop((x,y,x+126,y+42))
-                ws = r.ocr(im.resize((378,126)),psm=7)
-                token = ''.join(w['text'] for w in ws)
-                match = re.fullmatch(r'(\d{1,4})/(\d{3,4})',token)
-                if match and min(float(w['conf']) for w in ws)>=70 and int(match[1])<=int(match[2]):
-                    values[field],caps[field] = int(match[1]),int(match[2])
-                else:
-                    values[field] = None
-            # Skill points have no cap. Require a plain number, not an arrow gain.
-            im = crop((708,952,810,990))
-            ws = r.ocr(im.resize((408,152)),psm=7)
-            if len(ws)==1 and re.fullmatch(r'\d{1,4}',ws[0]['text']) and float(ws[0]['conf'])>=90:
-                values['skill_points'] = int(ws[0]['text'])
-            facts['result_values'] = values
-            facts['stat_caps'] = caps
-        if screen == 'race_result':
-            m = re.search(r'Fans\s+([\d,]+)\s*\(\+([\d,]+)\)', text, re.I)
-            facts['fans'] = int(m[1].replace(',', ''))
-            facts['fans_gained'] = int(m[2].replace(',', ''))
-            facts['race_description'] = [x['text'] for x in regions['sparse'] if x['confidence']>=60 and re.search(r'\b(?:Turf|Dirt|\d+m)\b',x['text'])]
-            facts['placing'] = None
-            names = text_lines(r,crop((280,425,810,456)).resize((1590,93)),7)
-            facts['race_name'] = names[0]['text'] if len(names)==1 and names[0]['confidence']>=80 else None
-            description = ' '.join(facts['race_description'])
-            course = re.search(r'^(.+?)\s+(Turf|Dirt)\s+(\d+)m\s+\(([^)]+)\)\s+(Right|Left|Straight)(?:\s*/\s*(Outer|Inner))?',description,re.I)
-            facts['course'] = dict(venue=course[1],surface=course[2].lower(),distance_m=int(course[3]),
-                                   distance_category=course[4].lower(),direction=course[5].lower(),
-                                   variant=course[6].lower() if course[6] else None) if course else None
-        if screen == 'lesson_confirmation':
-            facts['name_candidates'] = [x['text'] for x in regions['modal_title'] if x['confidence']>=80]
-            facts['projected_performance_points'] = self.numbers(crop, [(392+83*i,846,425+83*i,876) for i in range(5)], CURRENCIES)
-            facts['current_stats'] = self.numbers(crop, [(308,376,365,404),(403,376,455,404),(497,376,549,404),(591,376,644,404),(683,376,735,404),(756,376,817,404)], FIELDS)
-            facts['projected_effects'] = preview_effects(
-                [x for rows in regions.values() for x in rows], typed=True
-            )
-            facts['awarded_effects'] = []
-        if screen == 'lesson_selection':
-            facts['performance_points'] = self.numbers(crop, [(345,91,389,119)]+[(344+104*i,88,394+104*i,123) for i in range(1,5)], CURRENCIES)
-            facts['available_effects'] = preview_effects(regions['sparse'])
-        if screen == 'skill_selection':
-            # This counter changes when checking/unchecking skills: it can be a projection.
-            facts['points_semantics'] = 'possibly_projected_remaining_points'
-        if screen in ('skill_confirmation', 'skill_receipt'):
-            facts['item_list_complete'] = False
-            facts['spent_skill_points'] = None
-        return dict(screen=screen, stats=stats, training_option=option, effects=effects,
-                    facts=facts, ocr=regions, completed_action='training' if screen=='training_result' else None)
-
-    def numbers(self, crop, boxes, names):
-        values = {}
-        for name, box in zip(names, boxes):
-            im = crop(box)
-            ws = self.reader.ocr(im.resize((im.width*4,im.height*4)), numeric=True, psm=7)
-            values[name] = int(ws[0]['text']) if len(ws)==1 and re.fullmatch(r'\d{1,4}',ws[0]['text']) and float(ws[0]['conf'])>=80 else None
-        return values
-
-
 def episodes(readings):
     """Consecutive screen observations, never count sampled frames as actions."""
     result = []
@@ -706,86 +582,3 @@ def lesson_transitions(readings):
             pending = None
             before = None
     return purchases
-
-
-def investigation_windows(intervals, readings, clip, budget=2):
-    windows = []
-    if budget <= 0:
-        return windows
-    for interval in intervals:
-        if interval['status'] != 'unresolved':
-            continue
-        candidates = [r for r in readings if interval['start_ms'] < r['source_timestamp_ms'] < interval['end_ms'] and r['screen'] in ('training_result','event_outcome')]
-        focus = candidates[0]['source_timestamp_ms'] if candidates else interval['start_ms']
-        start = max(clip['source_start_ms'], focus-500)
-        end = min(clip['source_start_ms']+clip['duration_ms'], start+3000)
-        if end>start and not any(start<w['end_ms'] and end>w['start_ms'] for w in windows):
-            windows.append(dict(start_ms=start,end_ms=end,reason='unexplained_stat_change',
-                                before_id=interval['before_id'], after_id=interval['after_id']))
-        if len(windows)>=budget:
-            break
-    return windows
-
-
-def track(report, root, executable=None, source=None, origin=0):
-    reader = GameplayReader(executable)
-    directory = Path(root)/'gameplay'
-    directory.mkdir(exist_ok=True)
-    readings = []
-    def read_frame(frame):
-        with reader.reader.Image.open(Path(root)/frame['evidence']) as source:
-            if source.size != (1920,1080):
-                raise ValueError('Gameplay analysis requires the English 1920x1080 layout.')
-            pane = source.convert('RGB').crop(PANE)
-        evidence = f'gameplay/{frame["id"]}.png'
-        pane.save(Path(root)/evidence)
-        row = reader.read_pane(pane)
-        row.update(source_timestamp_ms=frame['source_timestamp_ms'], evidence=evidence)
-        return row
-    readings = [read_frame(frame) for frame in report['frames']]
-    stat_rows = [dict(r['stats'], source_timestamp_ms=r['source_timestamp_ms'], evidence=r['evidence']) for r in readings]
-    checkpoints = stable_checkpoints(stat_rows)
-    initial_intervals = ledger(readings,checkpoints)
-    investigation = dict(enabled=source is not None, requested_fps=8, max_windows=2, max_seconds_per_window=3,
-                         windows=[], additional_frames=0)
-    if source is not None and report['sampling']['requested_fps']<8:
-        from .pipeline import decode_frames
-        seen = {f['source_timestamp_ms'] for f in report['frames']}
-        report['sampling']['base_frame_count'] = len(report['frames'])
-        report['sampling']['supplemental_method'] = 'residual_triggered_resampling'
-        for index, window in enumerate(investigation_windows(initial_intervals,readings,report['clip'])):
-            relative = f'investigation-{index+1:02d}/frames'
-            destination = Path(root)/relative
-            destination.mkdir(parents=True)
-            extra = decode_frames(source,destination,window['start_ms']/1000,(window['end_ms']-window['start_ms'])/1000,8,origin)
-            for frame in extra:
-                if frame['source_timestamp_ms'] in seen:
-                    continue
-                seen.add(frame['source_timestamp_ms'])
-                frame['id'] = f'investigation-{index+1:02d}-{frame["id"]}'
-                frame['evidence'] = f'{relative}/{Path(frame["evidence"]).name}'
-                frame['clip_timestamp_ms'] = frame['source_timestamp_ms']-report['clip']['source_start_ms']
-                frame['origin'] = 'residual_triggered_resampling'
-                report['frames'].append(frame)
-                readings.append(read_frame(frame))
-                investigation['additional_frames'] += 1
-            investigation['windows'].append(window)
-        report['frames'].sort(key=lambda f:f['source_timestamp_ms'])
-        report['sampling']['frame_count'] = len(report['frames'])
-        readings.sort(key=lambda r:r['source_timestamp_ms'])
-        stat_rows = [dict(r['stats'], source_timestamp_ms=r['source_timestamp_ms'], evidence=r['evidence']) for r in readings]
-        checkpoints = stable_checkpoints(stat_rows)
-    spans = screen_summary(readings)
-    receipts = [s for s in spans if s['screen']=='skill_receipt']
-    return dict(method='gameplay_only_v1', input_region=list(PANE), auxiliary_log_used=False,
-                readings=readings, checkpoints=checkpoints, intervals=ledger(readings,checkpoints),
-                initial_intervals=initial_intervals, investigation=investigation,
-                screens=spans, training_previews=preview_segments(stat_rows), skill_receipts=receipts,
-                lesson_purchases=lesson_transitions(readings),
-                limitations=['One English 1080p layout; unknown screens abstain.',
-                             'Stat checkpoints are observed states, not verified turn boundaries.',
-                             'Screen episodes can fragment; their count is not an action count.',
-                             'Lesson confirmations contain projections, not confirmed purchases.',
-                             'Skill receipts establish a batch acquisition, not complete names or cost.',
-                             'Race fans are separate from stats; placing and item identities are not read.',
-                             'Fixed sampling can miss outcomes; no complete event history is claimed.'])

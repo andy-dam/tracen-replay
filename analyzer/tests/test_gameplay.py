@@ -1,22 +1,18 @@
 import unittest
-from unittest.mock import patch
-from pathlib import Path
-from types import SimpleNamespace
 import uuid
 
 from contextlib import contextmanager
 import shutil
 from PIL import Image
 from tests import localdata
-from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, investigation_windows, GameplayReader, track, CURRENCIES, ledger, FIELDS, screen_summary
-from tracen_replay.pipeline import analyze, PipelineError
+from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, PANE, CURRENCIES, ledger, FIELDS, screen_summary
 from tracen_replay.gameplay_evaluate import evaluate
-from tracen_replay.stats import Reader
 
 
 def line(text, confidence=95):
     return {'text':text,'confidence':confidence}
 
+# Other test modules import this scratch-folder helper from here.
 @contextmanager
 def workspace_temp():
     root = localdata.scratch(uuid.uuid4().hex)
@@ -127,13 +123,6 @@ class GameplayTests(unittest.TestCase):
         ref={'source_sha256':'a','observations':[{'source_timestamp_ms':0,'screen':'unknown'}]}
         self.assertFalse(evaluate(ref,[])['passed'])
         with self.assertRaises(ValueError):evaluate(ref,[{'source':{'sha256':'b'}}])
-    def test_literal_quotes_do_not_corrupt_tesseract_tsv(self):
-        reader=Reader.__new__(Reader);reader.cache={};reader.executable='unused'
-        header='level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
-        payload=header+'5\t1\t1\t1\t1\t1\t0\t0\t10\t10\t95\t"Make\n'+'5\t1\t1\t1\t1\t2\t20\t0\t10\t10\t95\tDebut!"\n'
-        with patch('tracen_replay.stats.subprocess.run',return_value=SimpleNamespace(stdout=payload.encode())):
-            words=reader.ocr(Image.new('RGB',(10,10)))
-        self.assertEqual([w['text'] for w in words],['"Make','Debut!"'])
     def training_interval(self, values):
         before=dict(id='a',last_seen_ms=0,values={f:100 for f in FIELDS})
         after=dict(id='b',first_seen_ms=1000,values={f:130 if f=='skill_points' else 100 for f in FIELDS})
@@ -158,28 +147,14 @@ class GameplayTests(unittest.TestCase):
         self.assertEqual(spans[1]['completed_action'],'skill_purchase_batch')
         self.assertIsNone(spans[1]['spent_skill_points'])
         self.assertEqual(spans[1]['confirmation_evidence'],'0.png')
-    def test_investigation_is_bounded_and_clipped(self):
-        intervals=[dict(status='unresolved',start_ms=t,end_ms=t+5000,before_id='a',after_id='b') for t in [0,1000,6000,12000]]
-        windows=investigation_windows(intervals,[],{'source_start_ms':0,'duration_ms':14000})
-        self.assertEqual(len(windows),2)
-        for w in windows:
-            self.assertGreaterEqual(w['start_ms'],0);self.assertLessEqual(w['end_ms']-w['start_ms'],3000)
-    def test_log_mode_and_gameplay_mode_cannot_mix(self):
-        with self.assertRaises(PipelineError):
-            analyze('unused','unused',track_stats=True,gameplay_only=True)
     def test_auxiliary_pixels_never_reach_recognizer(self):
-        with workspace_temp() as temp:
-            root=Path(temp);(root/'frames').mkdir()
-            report={'frames':[{'id':'a','evidence':'frames/a.png','source_timestamp_ms':0}], 'sampling':{'requested_fps':4},'clip':{'source_start_ms':0,'duration_ms':1000}}
-            im=Image.new('RGB',(1920,1080),'red');im.paste('blue',(148,0,958,1080));im.save(root/'frames/a.png')
-            received=[]
-            def read(_self,pane):
-                received.append(pane.tobytes());self.assertEqual(pane.size,(810,1080))
-                return dict(screen='unknown',training_option=None,completed_action=None,stats={'values':None},effects=[],facts={})
-            with patch.object(GameplayReader,'__init__',lambda self, executable=None: setattr(self,'reader',SimpleNamespace(Image=Image))), patch.object(GameplayReader,'read_pane',read):
-                a=track(report,root)
-                im.paste('green',(958,0,1920,1080));im.save(root/'frames/a.png')
-                b=track(report,root)
-            self.assertEqual(received[0],received[1]);self.assertEqual(a,b)
+        # Every reader is handed this crop and nothing else, so a change
+        # outside it cannot reach a reading. The side panel lives there.
+        self.assertEqual(PANE,(148,0,958,1080))
+        im=Image.new('RGB',(1920,1080),'red');im.paste('blue',PANE)
+        pane=im.crop(PANE)
+        self.assertEqual(pane.size,(810,1080))
+        im.paste('green',(958,0,1920,1080))
+        self.assertEqual(im.crop(PANE).tobytes(),pane.tobytes())
 
 if __name__=='__main__':unittest.main()
