@@ -263,7 +263,7 @@ func TestRemoteWorkerSettlesStaleMessages(t *testing.T) {
 	if h.queue.Len() != 0 {
 		t.Fatalf("%d messages left", h.queue.Len())
 	}
-	if job, _ := h.api.Get(ctx, left.ID); job.Status != jobs.Interrupted {
+	if job, _ := h.api.Get(ctx, left.ID); job.Status != jobs.Paused || job.Error == nil || job.Error.Code != "interrupted" {
 		t.Fatalf("left job: %+v", job)
 	}
 	if job, _ := h.api.Get(ctx, cancelled.ID); job.Status != jobs.Cancelled {

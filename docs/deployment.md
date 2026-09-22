@@ -340,8 +340,9 @@ listed under "Still to do" and section 11 says what the owner sets up.
    machines through `cancel_requested` on the record (a pause through
    `pause_requested`, and the worker then keeps the job's scratch
    directory for the resume), and a job whose
-   worker died is settled as interrupted by the API after 15 silent
-   minutes or by the next worker that gets the message back.
+   worker died is paused, with the reason on its record, by the API after
+   15 silent minutes or by the next worker that gets the message back;
+   its files are on the scratch share, so Resume continues it.
 4. **Upload by signed URL.** Done: `POST /api/recordings/uploads` gives
    the browser a target (quotas checked, a URL valid for two hours) and
    `POST /api/recordings/uploads/{id}/complete` probes the object where it

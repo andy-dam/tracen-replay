@@ -34,6 +34,7 @@ import { FLAG_GUIDE } from "../warnings";
       <ul class="guide-list">
         <li><b>Pause.</b> Stops the analysis and keeps the frames it has read. The buttons are on the Runs page and on the analysis page.</li>
         <li><b>Resume.</b> Puts the analysis back in the queue. Frames already read are not read again.</li>
+        <li><b>Closing the Application.</b> An analysis that was running when the application or the service stopped is paused, not lost. Resume continues it.</li>
         <li v-if="hosted"><b>Kept for 24 Hours.</b> The progress of a paused analysis is deleted 24 hours after the pause. The recording stays and can be analyzed from the start.</li>
         <li v-else><b>Kept Until Resumed.</b> A paused analysis keeps its progress until it is resumed or cancelled. Settings has an option that deletes the progress of analyses left paused for a number of days.</li>
         <li><b>Cancel.</b> Stops the analysis and deletes its progress.</li>

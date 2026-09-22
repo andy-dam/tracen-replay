@@ -69,3 +69,23 @@ func TestPruneWorkingDataIsPassedOnlyWhenSet(t *testing.T) {
 		t.Fatalf("--prune-working-data missing from %v", argv)
 	}
 }
+
+func TestNoViewerIsPassedOnlyWhenSet(t *testing.T) {
+	base := Command{Python: "python", WorkDir: ".", Source: "in.mp4", Output: "out", Workers: 2}
+	argv, err := base.Argv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(argv, "--no-viewer") {
+		t.Fatalf("the viewer page is written unless the command says not to, got %v", argv)
+	}
+	without := base
+	without.NoViewer = true
+	argv, err = without.Argv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(argv, "--no-viewer") {
+		t.Fatalf("--no-viewer missing from %v", argv)
+	}
+}

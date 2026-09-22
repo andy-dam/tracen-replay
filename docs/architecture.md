@@ -102,10 +102,18 @@ service treats its `report.json` as opaque and reads only `timeline.json`.
   directory, and a job given up while paused has its id queued once more
   so a worker deletes that directory (`dropSettled`). A worker also sweeps
   the scratch directories of settled jobs when it starts.
-- **Interruption recovery on restart.** `Manager.Recover` runs once at
-  startup and marks every job still `running` from a previous process as
-  `interrupted` (`internal/store.MarkInterrupted`); an interrupted job is
-  never resubmitted automatically.
+- **A stop is a pause.** A shutdown pauses the running job with its run
+  directory kept, and `Manager.Recover`, run once at startup, pauses every
+  job a previous process left `running` (`internal/store.PauseRunning`),
+  each with the reason on its record. Resume continues them. A job whose
+  hosted worker died is paused the same way. Nothing is re-run on its own.
+  A record still marked `interrupted` from before this can be resumed too.
+- **What a run leaves behind.** A finished analysis prunes its own frames,
+  caches and crops and writes no viewer page (`--no-viewer`): the report,
+  the timeline and the log stay. A run that fails or is cancelled has its
+  working directories deleted by the manager, and its top-level files kept
+  so a report the worker wrote but could not announce can still be
+  rescued. A paused run keeps everything.
 - **Owner-pid watchdog.** The worker command always carries `--owner-pid`
   with the service's own process id. The Python worker watches that pid with
   `psutil` and, once it is gone, kills every process it started and exits

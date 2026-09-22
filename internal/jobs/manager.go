@@ -269,20 +269,24 @@ func (m *Manager) List(ctx context.Context, userID string) ([]Job, error) {
 	return list, err
 }
 
-// Recover marks jobs left running by a previous process as interrupted. It
-// never re-runs them: an interrupted analysis is resubmitted explicitly.
-// With a shared queue the running jobs belong to other processes, which
-// Follow and Work watch instead.
+// Recover pauses the jobs a previous process left running: their run
+// directories are still there, and Resume continues them. Nothing is
+// re-run on its own. With a shared queue the running jobs belong to other
+// processes, which Follow and Work watch instead.
 func (m *Manager) Recover(ctx context.Context) ([]Job, error) {
 	if m.remote() {
 		return nil, nil
 	}
-	interrupted, err := m.store.MarkInterrupted(ctx, m.cfg.Clock())
-	for _, job := range interrupted {
-		m.log.Warn("job interrupted by restart", "job", job.ID)
+	paused, err := m.store.PauseRunning(ctx, m.cfg.Clock(), stoppedOver)
+	for _, job := range paused {
+		m.log.Warn("job paused by the restart", "job", job.ID)
 	}
-	return interrupted, err
+	return paused, err
 }
+
+// stoppedOver is the reason on a job the service stopped over: a restart,
+// or a worker that died. The run is paused, not lost.
+var stoppedOver = Failure{Code: "interrupted", Message: "The service stopped while this analysis was running. Resume continues it."}
 
 // Submit queues an analysis for a user. The source is the server-issued id
 // of an upload that belongs to the user.
@@ -418,7 +422,7 @@ func (m *Manager) Cancel(ctx context.Context, id string) (Job, error) {
 			m.publish(job, nil)
 		}
 		return job, err
-	case Paused:
+	case Paused, Interrupted:
 		job.Status = Cancelled
 		job.FinishedAt = m.cfg.Clock()
 		job.Error = &Failure{Code: "cancelled", Message: "Cancelled while paused."}
@@ -548,12 +552,16 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		if place, err = m.fetch(jobCtx, job); err != nil {
 			paused := m.wasPaused(id)
 			m.finish(ctx, id, func(j *Job) {
-				if paused && ctx.Err() == nil {
+				switch {
+				case paused && ctx.Err() == nil:
 					m.markPaused(j)
-					return
+				case ctx.Err() != nil:
+					m.markPaused(j)
+					j.Error = &Failure{Code: stoppedOver.Code, Message: stoppedOver.Message}
+				default:
+					j.Status = Failed
+					j.Error = &Failure{Code: "source_unavailable", Message: "the recording could not be fetched: " + err.Error()}
 				}
-				j.Status = Failed
-				j.Error = &Failure{Code: "source_unavailable", Message: "the recording could not be fetched: " + err.Error()}
 			})
 			cancel()
 			return
@@ -568,7 +576,7 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	cmd := worker.Command{Python: m.cfg.Python, WorkDir: m.cfg.WorkDir, Source: place.source, Output: place.output,
 		ModelDir: m.cfg.ModelDir, Workers: workers, DenseWorkers: denseWorkers, OCRDevice: m.ocrDevice(),
 		LearnedReader: m.cfg.LearnedReader, PruneFrames: true,
-		PruneWorkingData: !m.cfg.KeepWorkingData, OwnerPID: os.Getpid()}
+		PruneWorkingData: !m.cfg.KeepWorkingData, NoViewer: true, OwnerPID: os.Getpid()}
 	// Appended to, so a resumed job's log still holds what ran before the pause.
 	logs, err := os.OpenFile(place.log, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -640,6 +648,16 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 	}
 
 	paused := m.wasPaused(id)
+	// A run that stops for a pause, or because the service is stopping,
+	// keeps its files for the resume. Any other end leaves nothing worth
+	// the space: the frames, crops and caches go, the log and the top-level
+	// files stay (a report the worker wrote but could not announce is
+	// rescued from them). A finished run pruned them itself. With a shared
+	// queue the whole scratch directory goes.
+	stopping := ctx.Err() != nil || (paused && jobCtx.Err() != nil)
+	if !stopping && !m.remote() && !m.cfg.KeepWorkingData {
+		pruneWorkingDirectories(place.output)
+	}
 	m.finish(ctx, id, func(j *Job) {
 		applyProgress(j)
 		switch {
@@ -653,8 +671,11 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 			j.Status = Cancelled
 			j.Error = &Failure{Code: "cancelled", Message: "Cancelled while the analysis was running."}
 		case ctx.Err() != nil:
-			j.Status = Interrupted
-			j.Error = &Failure{Code: "interrupted", Message: "The service stopped while this analysis was running. Analyze the recording again."}
+			// The service is stopping. The run's files stay, and Resume
+			// continues it.
+			m.markPaused(j)
+			j.Error = &Failure{Code: stoppedOver.Code, Message: stoppedOver.Message}
+			keepScratch = true
 		case runErr != nil:
 			j.Status = Failed
 			j.Error = &Failure{Code: "worker_start_failed", Message: runErr.Error()}
@@ -663,6 +684,20 @@ func (m *Manager) runOne(ctx context.Context, id string, claimed chan<- struct{}
 		}
 	})
 	cancel()
+}
+
+// pruneWorkingDirectories deletes every directory under a run directory
+// and keeps its files, the way the analyzer prunes a finished run.
+func pruneWorkingDirectories(run string) {
+	entries, err := os.ReadDir(run)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			os.RemoveAll(filepath.Join(run, entry.Name()))
+		}
+	}
 }
 
 // markPaused records a run stopped by a pause: how long it ran is added to

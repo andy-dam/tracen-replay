@@ -14,9 +14,12 @@ import (
 
 // Status is a job state. Transitions: queued -> running -> succeeded |
 // completed_with_stage_failures | failed; queued | running -> cancelled;
-// running -> interrupted when the service restarts over an unfinished run;
 // queued | running -> paused -> queued (resumed) | cancelled (given up, or
-// left paused past the time paused progress is kept for).
+// left paused past the time paused progress is kept for). A run the
+// service stops over (a restart, a worker that died) is paused too, with
+// the reason on the record, so Resume continues it. Interrupted is what
+// such a run was recorded as before pausing existed; those records can
+// still be resumed.
 type Status string
 
 const (
@@ -140,7 +143,9 @@ type Store interface {
 	// ("") everyone, leaving out jobs cancelled before they started: those
 	// cost nothing and must not spend the day's budget.
 	CountJobsSince(ctx context.Context, userID string, since time.Time) (int, error)
-	MarkInterrupted(ctx context.Context, at time.Time) ([]Job, error)
+	// PauseRunning pauses every running job, recording why, and returns
+	// them: the service is starting and none of them can still be alive.
+	PauseRunning(ctx context.Context, at time.Time, reason Failure) ([]Job, error)
 	CreateReport(ctx context.Context, report Report) error
 	GetReport(ctx context.Context, id string) (Report, error)
 	ListReports(ctx context.Context) ([]Report, error)

@@ -134,8 +134,9 @@ async function recover() {
           <li v-for="p in view.phases" :key="p.id" :class="p.state"><i></i>{{ p.label }}</li>
         </ol>
         <p v-if="paused" class="muted small" style="margin-top: 10px">
-          Paused {{ when(job.paused_at) }}.
-          <template v-if="job.paused_until"> Progress is kept until {{ when(job.paused_until) }}. After that the recording is analyzed from the start.</template>
+          <template v-if="job.error">{{ job.error.message }} </template>
+          <template v-else>Paused {{ when(job.paused_at) }}. </template>
+          <template v-if="job.paused_until">Progress is kept until {{ when(job.paused_until) }}. After that the recording is analyzed from the start.</template>
         </p>
         <p v-else class="muted small" style="margin-top: 10px">
           <template v-if="view.current">Now {{ view.current.doing }}. </template>
@@ -155,7 +156,7 @@ async function recover() {
           <li v-for="f in job.stage_failures" :key="f.stage"><strong>{{ f.stage }}</strong> skipped: {{ f.error }}</li>
         </ul>
         <p v-if="job.status === 'completed_with_stage_failures'" class="muted small">The stages above were skipped. The report covers the stages that ran.</p>
-        <p v-if="job.status === 'interrupted'" class="muted small">The service restarted while this analysis was running. Queue it again to retry.</p>
+        <p v-if="job.status === 'interrupted'" class="muted small">The service stopped while this analysis was running. Resume continues it from the files it kept.</p>
         <p v-if="recoverable" class="muted small">The analysis ran to the end and wrote its report. Only its result message was unreadable. Recover Report reads the report from the files the analysis wrote.</p>
         <div class="row" style="margin-top: 8px">
           <button v-if="recoverable" class="btn primary" :disabled="recovering" @click="recover">{{ recovering ? "Recovering" : "Recover Report" }}</button>
@@ -167,3 +168,5 @@ async function recover() {
     </div>
   </template>
 </template>
+          <button v-if="job.status === 'interrupted'" class="btn primary" :disabled="moving" @click="move('resume')">Resume</button>
+          <button v-if="job.status === 'interrupted'" class="btn" @click="cancel">Cancel Analysis</button>

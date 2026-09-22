@@ -87,6 +87,8 @@ def _parser() -> argparse.ArgumentParser:
                         help="After the report is validated, delete every directory under --output (frames, "
                              "OCR caches, crops, recovery inputs; about 1 GB per run); the report, the "
                              "timeline, the viewer and the top-level metadata files stay")
+    parser.add_argument("--no-viewer", action="store_true",
+                        help="Do not write the standalone viewer page (index.html, the whole report as HTML)")
     parser.add_argument("--owner-pid", type=int, default=None,
                         help="Process id of the service that owns this job; the job ends, with its "
                              "worker processes, as soon as that process is gone")
@@ -329,6 +331,8 @@ def _producer_argv(source: Path, output: Path, model_dir: Path, args: argparse.N
         values.extend(["--dense-workers", str(dense)])
     if args.reparse_only:
         values.append("--reparse-only")
+    if getattr(args, "no_viewer", False):
+        values.append("--no-viewer")
     learned_reader = getattr(args, "learned_reader", None)
     if learned_reader is not None:
         values.extend(["--learned-reader", str(learned_reader)])

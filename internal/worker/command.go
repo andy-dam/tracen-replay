@@ -46,8 +46,12 @@ type Command struct {
 	PruneFrames bool
 	// PruneWorkingData deletes every directory of the run (OCR caches, crops,
 	// recovery inputs, about 1 GB per analysis) once the report is validated;
-	// the report, the timeline, the viewer page and the log stay.
+	// the report, the timeline and the log stay.
 	PruneWorkingData bool
+	// NoViewer leaves out the standalone viewer page, a copy of the whole
+	// report as HTML (a few hundred MB for a career). The application shows
+	// the report itself and never reads that page.
+	NoViewer bool
 	// LearnedReader is the exported learned result-card reader (ONNX). The
 	// analyzer stores its reads on training result readings and the
 	// accounting uses one only where it equals an unexplained difference.
@@ -117,6 +121,9 @@ func (c Command) Args(clean func(string) string) ([]string, error) {
 	}
 	if c.PruneWorkingData {
 		args = append(args, "--prune-working-data")
+	}
+	if c.NoViewer {
+		args = append(args, "--no-viewer")
 	}
 	if c.OwnerPID > 0 {
 		args = append(args, "--owner-pid", strconv.Itoa(c.OwnerPID))
