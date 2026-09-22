@@ -1,4 +1,3 @@
-import json
 import unittest
 
 from tracen_replay.training_outcome import (
@@ -6,7 +5,6 @@ from tracen_replay.training_outcome import (
     banner_facts,
     classify_result_screen,
 )
-from tracen_replay.vision import parse
 
 from tests import localdata
 

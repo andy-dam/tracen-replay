@@ -176,16 +176,3 @@ def annotate(readings, root, reader, threshold=THRESHOLD):
             annotated += 1
     return annotated
 
-
-def learned_gains(readings, field, start, end, slack_ms=250):
-    """The gains the reader read for ``field`` on training result frames between ``start`` and ``end``."""
-    gains = set()
-    for row in readings:
-        time = row.get('source_timestamp_ms') if isinstance(row, dict) else None
-        if row.get('screen') not in RESULT_SCREENS or type(time) is not int or not start - slack_ms <= time <= end + slack_ms:
-            continue
-        reads = (row.get('facts') or {}).get('learned_result_reads')
-        gain = ((reads or {}).get('fields') or {}).get(field, {}).get('gain') if isinstance(reads, dict) else None
-        if type(gain) is int and gain > 0:
-            gains.add(gain)
-    return gains

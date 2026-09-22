@@ -19,7 +19,6 @@ from __future__ import annotations
 import hashlib
 import math
 import re
-from copy import deepcopy
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .training_badge_localization import FIELDS, GAIN_BOXES, WIDE_GAIN_BOXES
@@ -641,74 +640,6 @@ def validate_training_gain_refinement(
         validated_regions=sorted(checked_regions),
     )
     return result
-
-
-def attach_training_gain_refinement(
-    raw: Mapping[str, Any],
-    refinement: Mapping[str, Any],
-    pane: Any,
-) -> dict[str, Any]:
-    """Validate and attach one source refinement envelope to a raw row.
-
-    Expanded envelopes may live beside a dense inspection manifest rather
-    than inside the neural JSON.  This is the common attachment boundary for
-    both locations: the envelope is validated against the exact gameplay
-    pane, then only its validated regions are merged.  The caller still sends
-    the resulting raw observation through the ordinary parser and phase
-    resolver, so an external JSON file cannot inject a bare amount.
-
-    ``refinement`` may be either the envelope itself or a wrapper containing
-    ``training_gain_source_refinement``.  Existing embedded envelopes must be
-    byte-for-byte equivalent in their parsed representation; a second,
-    conflicting source is rejected rather than selected by insertion order.
-    """
-
-    if not isinstance(raw, Mapping):
-        raise ValueError("Training gain refinement raw observation is invalid.")
-    if not isinstance(refinement, Mapping):
-        raise ValueError("Training gain refinement envelope is invalid.")
-    envelope = refinement.get("training_gain_source_refinement")
-    if envelope is None and refinement.get("schema_version") == SCHEMA:
-        envelope = refinement
-    if not isinstance(envelope, Mapping):
-        raise ValueError("Training gain refinement envelope is missing.")
-
-    existing = raw.get("training_gain_source_refinement")
-    if existing is not None and existing != envelope:
-        raise ValueError("Training gain refinement envelopes disagree.")
-
-    candidate = dict(raw)
-    candidate["training_gain_source_refinement"] = deepcopy(dict(envelope))
-    checked = validate_training_gain_refinement(candidate, pane)
-    if checked.get("status") != "validated":
-        raise ValueError(
-            "Training gain refinement evidence invalid: "
-            + str(checked.get("reason", "unvalidated"))
-        )
-
-    regions = raw.get("regions")
-    if regions is None:
-        merged_regions: dict[str, Any] = {}
-    elif isinstance(regions, Mapping):
-        merged_regions = dict(regions)
-    else:
-        raise ValueError("Training gain refinement raw regions are invalid.")
-    for region, observation in checked["regions"].items():
-        current = merged_regions.get(region)
-        if current is not None and current != observation:
-            # ``validate_training_gain_refinement`` checks the source-bound
-            # fields of an existing region.  Replacing it with the canonical
-            # checked mapping also makes the downstream parser consume the
-            # same proof metadata regardless of whether it came from a raw
-            # embedded record or an inspection companion.
-            if not isinstance(current, Mapping):
-                raise ValueError("Training gain refinement region disagrees.")
-        merged_regions[region] = deepcopy(observation)
-
-    attached = dict(raw)
-    attached["training_gain_source_refinement"] = deepcopy(dict(envelope))
-    attached["regions"] = merged_regions
-    return attached
 
 
 __all__ = [

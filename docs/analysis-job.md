@@ -36,17 +36,13 @@ service reads them (see [container.md](container.md)).
 | `--reparse-only` | off | use cached observations instead of starting OCR |
 | `--rehydrate-frames` | off | with `--reparse-only`, decode the run's frame images and gameplay panes again before reparsing |
 | `--learned-reader` | off | an exported learned result-card reader (ONNX); its reads are stored on each training result reading and the accounting uses one only where it equals an unexplained difference (see [analyzer-pipeline.md](analyzer-pipeline.md)) |
-| `--replay-input-manifest` | none | a source-bound replay input manifest for cached parsing from a disposable cache clone; requires `--reparse-only` |
-| `--replay-input-root` | `--output` | the disposable cache root the manifest reads from; must equal `--output` |
 | `--prune-frames` | off | after the report is validated, delete the frame images under `--output` |
 | `--prune-working-data` | off | after the report is validated, delete every directory under `--output` (frames, OCR caches, crops, recovery inputs); the top-level files stay |
 | `--owner-pid` | none | process id that owns this job; the worker ends itself, with its own worker processes, once that process is gone |
 
 The service always passes `--prune-frames`; it passes `--prune-working-data`
 unless started with `-keep-working-data`, and always passes `--owner-pid`
-with its own process id. `--replay-input-manifest` and `--replay-input-root`
-are used by `analyzer/tools/replay_cached_recording.py` for an isolated
-cached replay, not by the service.
+with its own process id.
 
 The OCR device is not a command-line flag: it comes from the
 `TRACEN_REPLAY_OCR_DEVICE` environment variable, `auto` (default), `cpu`,
@@ -57,19 +53,13 @@ supported GPU still analyzes on the CPU, more slowly. The resolved device is
 written to the OCR progress lines and to the report's `recognition.device`,
 which the timeline carries.
 
-### `--reparse-only` and `--replay-input-manifest`
+### `--reparse-only`
 
 `--reparse-only` rebuilds events, turn assignments, accounting and the
 report from observations already cached under the run directory; it does not
 start OCR and does not reuse the previous report's conclusions. It still
 requires the source path so cached evidence can be checked against the
 recording.
-
-`--replay-input-manifest` (always with `--reparse-only`) consumes only the
-manifest's declared source hashes, raw observations, inspection/recovery
-rows and raw sidecar refinements; it never loads accepted report values.
-`--replay-input-root` must equal `--output`, so emitted evidence stays in the
-worker root.
 
 `--rehydrate-frames` (also only with `--reparse-only`) decodes the run's frame
 images and cuts its gameplay panes again, for a run whose images are gone.

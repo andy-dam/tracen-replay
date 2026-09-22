@@ -23,7 +23,6 @@ import re
 from typing import Any, Iterable, Mapping
 
 
-SCHEMA = "tracen-replay/condition-removal-banner-v1"
 HEADING_CONFIDENCE = 95.0
 NAME_CONFIDENCE = 97.0
 
@@ -648,13 +647,6 @@ def normalize_condition_removal_event(
             retained_conflicts.append(conflict)
         result["conflicting_readings"] = retained_conflicts
     return result
-
-
-# Short aliases keep the vision integration readable while the longer public
-# names document the evidence boundary for callers outside the parser.
-read_banner = read_condition_cured_banner
-merge_effects = merge_condition_removal_effects
-normalize_event = normalize_condition_removal_event
 
 
 __all__ = [

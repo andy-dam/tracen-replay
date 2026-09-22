@@ -14,7 +14,6 @@ or ambiguous slots remain unknown.
 
 from __future__ import annotations
 
-import argparse
 import copy
 import hashlib
 import json
@@ -131,15 +130,6 @@ def _line_text(line: Any) -> str:
     if not isinstance(line, dict) or not isinstance(line.get("text"), str):
         return ""
     return " ".join(line["text"].split()).strip()
-
-
-def _line_is_valid(line: Any, *, minimum_confidence: float = 0) -> bool:
-    return (
-        isinstance(line, dict)
-        and bool(_line_text(line))
-        and _box(line.get("box")) is not None
-        and (_confidence(line.get("confidence")) or 0) >= minimum_confidence
-    )
 
 
 def _center(box: list[int] | tuple[int, ...]) -> tuple[float, float]:
@@ -1023,93 +1013,3 @@ def apply(
     )
     return dict(row, facts=facts)
 
-
-def _selected_neural_rows(root: Path, start_ms: int, end_ms: int, frame_ids: list[str]) -> list[tuple[Path, dict[str, Any]]]:
-    if type(start_ms) is not int or type(end_ms) is not int or end_ms <= start_ms:
-        raise LessonOfferError("Lesson offer generation requires a non-empty bounded time range.")
-    wanted = set(frame_ids)
-    selected: list[tuple[Path, dict[str, Any]]] = []
-    for path in sorted((root / "neural").glob("*.json")):
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise LessonOfferError(f"Invalid neural observation: {path.name}") from exc
-        timestamp = raw.get("source_timestamp_ms")
-        if type(timestamp) is not int or not start_ms <= timestamp < end_ms:
-            continue
-        if wanted and path.stem not in wanted:
-            continue
-        selected.append((path, raw))
-    if wanted:
-        found = {path.stem for path, _ in selected}
-        missing = sorted(wanted - found)
-        if missing:
-            raise LessonOfferError("Requested lesson-offer frame is outside the bounded range: " + ", ".join(missing))
-    return selected
-
-
-def generate(root: str | Path, *, start_ms: int, end_ms: int, frame_ids: list[str] | None = None,
-             reader: Any = None, model_dir: str | Path = ".local/models/rapidocr") -> dict[str, Any]:
-    """Generate sidecars only for an explicitly bounded set of neural rows."""
-
-    root = Path(root)
-    selected = _selected_neural_rows(root, start_ms, end_ms, frame_ids or [])
-    destination = root / "lesson-offer-refinement"
-    destination.mkdir(parents=True, exist_ok=True)
-    if reader is None and any(_source_screen(raw) == "lesson_selection" for _, raw in selected):
-        from .vision import NeuralReader
-        reader = NeuralReader(model_dir)
-    summary = dict(stage="lesson_offer_refinement", start_ms=start_ms, end_ms=end_ms,
-                   selected_rows=len(selected), written=0, skipped_existing=0, offer_rows=0)
-    for path, raw in selected:
-        if _source_screen(raw) != "lesson_selection":
-            continue
-        target = destination / path.name
-        if target.exists():
-            summary["skipped_existing"] += 1
-            continue
-        evidence = root / str(raw.get("evidence", ""))
-        if not evidence.is_file():
-            raise LessonOfferError(f"Missing lesson-offer gameplay evidence: {raw.get('evidence')}")
-        source_frame_path = None
-        if raw.get("source_frame_sha256") is not None:
-            source_frame_evidence = raw.get("source_frame_evidence")
-            if not isinstance(source_frame_evidence, str) or not source_frame_evidence:
-                raise LessonOfferError("Lesson offer source-frame evidence path is required.")
-            source_frame_path = (root / source_frame_evidence).resolve()
-            try:
-                source_frame_path.relative_to(root.resolve())
-            except (OSError, RuntimeError, ValueError) as exc:
-                raise LessonOfferError("Lesson offer source-frame evidence leaves the source root.") from exc
-            if not source_frame_path.is_file():
-                raise LessonOfferError(f"Missing lesson-offer source-frame evidence: {source_frame_evidence}")
-        with Image.open(evidence) as image:
-            extra = build(
-                image.convert("RGB"),
-                raw,
-                file_fingerprint(evidence),
-                reader,
-                source_frame_path=source_frame_path,
-            )
-        with target.open("x", encoding="utf-8") as stream:
-            json.dump(extra, stream, ensure_ascii=False, indent=2)
-            stream.write("\n")
-        summary["written"] += 1
-        summary["offer_rows"] += len(extra["cards"])
-    return summary
-
-
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path, help="recording analysis directory")
-    parser.add_argument("--start-ms", type=int, required=True)
-    parser.add_argument("--end-ms", type=int, required=True)
-    parser.add_argument("--frame-id", action="append", dest="frame_ids", default=[])
-    parser.add_argument("--model-dir", type=Path, default=Path(".local/models/rapidocr"))
-    args = parser.parse_args(argv)
-    print(json.dumps(generate(args.output, start_ms=args.start_ms, end_ms=args.end_ms,
-                              frame_ids=args.frame_ids, model_dir=args.model_dir)), flush=True)
-
-
-if __name__ == "__main__":
-    main()

@@ -76,10 +76,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--learned-reader", type=Path, default=None,
                         help="Exported learned result-card reader (ONNX). Its reads are stored on training result "
                              "readings and the accounting uses one only where it equals an unexplained difference")
-    parser.add_argument("--replay-input-manifest", type=Path,
-                        help="Source-bound replay input manifest for common cached parsing")
-    parser.add_argument("--replay-input-root", type=Path,
-                        help="Disposable cache root used by the replay input manifest")
     parser.add_argument("--prune-frames", action="store_true",
                         help="After the report is validated, delete the frame images under --output "
                              "(the report and timeline keep only source timestamps)")
@@ -124,30 +120,6 @@ def _paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
         if not learned_reader.is_file():
             raise JobInputError("learned_reader_not_found", "The learned reader model must be an existing file.")
         args.learned_reader = learned_reader
-    manifest = getattr(args, "replay_input_manifest", None)
-    replay_root = getattr(args, "replay_input_root", None)
-    if manifest is None and replay_root is not None:
-        raise JobInputError(
-            "invalid_arguments",
-            "--replay-input-root requires --replay-input-manifest.",
-        )
-    if manifest is not None:
-        manifest = manifest.expanduser().resolve()
-        if not args.reparse_only:
-            raise JobInputError(
-                "invalid_arguments",
-                "--replay-input-manifest requires --reparse-only; it never starts OCR.",
-            )
-        if not manifest.is_file():
-            raise JobInputError("replay_manifest_not_found", "Replay input manifest must be an existing file.")
-        args.replay_input_manifest = manifest
-        input_root = (replay_root or output).expanduser().resolve()
-        if input_root != output:
-            raise JobInputError(
-                "replay_root_mismatch",
-                "--replay-input-root must equal --output so emitted evidence stays in the worker root.",
-            )
-        args.replay_input_root = input_root
     return source, output, model_dir
 
 
@@ -336,12 +308,6 @@ def _producer_argv(source: Path, output: Path, model_dir: Path, args: argparse.N
     learned_reader = getattr(args, "learned_reader", None)
     if learned_reader is not None:
         values.extend(["--learned-reader", str(learned_reader)])
-    manifest = getattr(args, "replay_input_manifest", None)
-    if manifest is not None:
-        values.extend(["--replay-input-manifest", str(manifest)])
-        input_root = getattr(args, "replay_input_root", None)
-        if input_root is not None:
-            values.extend(["--replay-input-root", str(input_root)])
     return values
 
 

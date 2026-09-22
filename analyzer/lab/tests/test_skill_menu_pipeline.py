@@ -2,11 +2,32 @@
 import copy
 import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from tests.test_report_contract import valid_report
-from tracen_replay.full_recording import assemble, parse_receipt_pixels, _rebase_paths
+from tracen_replay.full_recording import assemble, parse_receipt_pixels
 from tracen_replay.report_contract import validate
 from tests import localdata
+
+
+def _rebase_paths(value, origin, root):
+    """Rewrite proof paths under ``origin`` to paths relative to ``root``."""
+    origin, root = Path(origin), Path(root)
+    if isinstance(value, dict):
+        return {key: _rebase_paths(item, origin, root) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_rebase_paths(item, origin, root) for item in value]
+    if isinstance(value, str) and value.lower().endswith(('.png', '.jpg', '.json')):
+        parts = list(Path(value.replace('\\', '/')).parts)
+        for index in range(len(parts)):
+            candidate = origin / Path(*parts[index:])
+            try:
+                relative = candidate.resolve().relative_to(root.resolve())
+            except (OSError, RuntimeError, ValueError):
+                continue
+            if candidate.is_file():
+                return relative.as_posix()
+    return value
 
 
 class SkillMenuPipelineTests(unittest.TestCase):

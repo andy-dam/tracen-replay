@@ -9,12 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 from PIL import Image, ImageDraw
 
-from tracen_replay.choice_card_refinement import build, observation, apply
 from tracen_replay.choice_evidence import observe, reconstruct
-from tracen_replay.refine_contrast import fingerprint
-from tracen_replay.full_recording import cached_readings
-from tracen_replay.verify_evidence import verify
-from tests.test_gameplay import workspace_temp
 from tests import test_choice_evidence as choice_tests
 
 
@@ -39,110 +34,6 @@ class ChoiceCardRefinementTests(unittest.TestCase):
     def reader(self, text='First...', confidence=.99):
         return SimpleNamespace(models={'test': 'digest'}, fingerprint='test', engine=Mock(return_value=
             SimpleNamespace(txts=[text], scores=[confidence], boxes=[np.array([[3,25],[286,25],[286,53],[3,53]])])))
-
-    def test_exact_weak_text_promoted_without_mutating_original(self):
-        pane, raw = self.scene()
-        original = copy.deepcopy(raw)
-        reader = self.reader()
-        extra = build(pane, raw, 'proof', reader)
-        result = observation(pane, raw, extra)
-        self.assertTrue(result['menu_text_complete'])
-        self.assertEqual(result['offered_card_slots'][0]['confidence'], 99)
-        self.assertEqual(raw, original)
-        self.assertEqual(reader.engine.call_count, 1)  # Accepted second card is preserved.
-        self.assertFalse(extra['independent_observations'])
-
-    def test_different_punctuation_and_low_crop_confidence_abstain(self):
-        pane, raw = self.scene()
-        for reader in (self.reader('First..'), self.reader(confidence=.96)):
-            with self.subTest(reader=reader):
-                result = observation(pane, raw, build(pane, raw, 'proof', reader))
-                self.assertFalse(result['menu_text_complete'])
-                self.assertEqual(result['offered_card_slots'][0]['confidence'], 94)
-
-    def test_missing_base_text_is_not_invented_from_crop(self):
-        pane, raw = self.scene()
-        raw['lines'] = raw['lines'][1:]
-        reader = self.reader()
-        result = observation(pane, raw, build(pane, raw, 'proof', reader))
-        self.assertIsNone(result['offered_card_slots'][0]['text'])
-        self.assertFalse(result['menu_text_complete'])
-        reader.engine.assert_not_called()
-
-    def test_cached_pipeline_and_source_verifier_load_card_refinement(self):
-        with workspace_temp() as root:
-            pane, raw = self.scene()
-            source = root/'source.mp4'
-            source.write_bytes(b'source')
-            pane.save(root/'proof.png')
-            full = Image.new('RGB',(1920,1080),'red')
-            full.paste(pane,(148,0))
-            full.save(root/'frame.png')
-            raw.update(evidence='proof.png', source_timestamp_ms=0,
-                       model_sha256={'test':'digest'},engine_fingerprint='test',
-                       source_frame_sha256=hashlib.sha256((root/'frame.png').read_bytes()).hexdigest(),
-                       regions={},header='',current_grid=False,result_grid=False)
-            capture=dict(source=dict(sha256=hashlib.sha256(source.read_bytes()).hexdigest(),duration_ms=250),
-                         frames=[dict(id='one',evidence='frame.png',source_timestamp_ms=0,source_pts=0,time_base='1/60')])
-            (root/'capture.json').write_text(json.dumps(capture),encoding='utf-8')
-            (root/'neural').mkdir()
-            (root/'neural/one.json').write_text(json.dumps(raw),encoding='utf-8')
-            extra = build(pane,raw,hashlib.sha256((root/'proof.png').read_bytes()).hexdigest(),self.reader())
-            (root/'choice-card-refinement').mkdir()
-            path = root/'choice-card-refinement/one.json'
-            path.write_text(json.dumps(extra),encoding='utf-8')
-            observed=cached_readings(capture,root)[0]['facts']['choice_observation']
-            self.assertTrue(observed['menu_text_complete'])
-            provenance=observed['refinement_provenance']
-            self.assertFalse(provenance['independent_observations'])
-            self.assertEqual(provenance['refinement_content_sha256'],fingerprint(extra))
-            self.assertEqual(provenance['crops'][0]['crop_rgb_sha256'],extra['views'][0]['crop_rgb_sha256'])
-            audit=verify(root,source)
-            self.assertTrue(audit['evidence_integrity_verified'])
-            self.assertEqual(audit['verified_refinements'],1)
-            extra['views'][0]['crop_rgb_sha256']='tampered'
-            path.write_text(json.dumps(extra),encoding='utf-8')
-            with self.assertRaisesRegex(ValueError,'changed'):
-                cached_readings(capture,root)
-            self.assertFalse(verify(root,source)['evidence_integrity_verified'])
-            original_view=copy.deepcopy(extra['views'][0])
-            huge_line=copy.deepcopy(original_view['lines'][0])
-            huge_line['confidence']=10**400
-            for malformed in ([None], [dict(original_view,lines=[None])],
-                              [dict(original_view,crop_box=[10**400,0,1,1])],
-                              [dict(original_view,lines=[huge_line])]):
-                extra['views']=malformed
-                extra['views_sha256']=fingerprint(malformed)
-                path.write_text(json.dumps(extra),encoding='utf-8')
-                self.assertFalse(verify(root,source)['evidence_integrity_verified'])
-
-    def test_changed_native_text_is_detected_before_confidence_promotion(self):
-        pane,raw=self.scene()
-        extra=build(pane,raw,'proof',self.reader('First..'))
-        extra['views'][0]['lines'][0]['text']='First...'
-        with self.assertRaisesRegex(ValueError,'OCR contents changed'):
-            observation(pane,raw,extra)
-
-    def test_provenance_and_geometry_tampering_rejected(self):
-        pane, raw = self.scene()
-        extra = build(pane, raw, 'proof', self.reader())
-        mutations = [lambda e: e.update(raw_sha256='changed'),
-                     lambda e: e.update(policy='unknown'),
-                     lambda e: e['views'][0].update(crop_box=[167,603,684,684]),
-                     lambda e: e['views'][0].update(crop_rgb_sha256='changed'),
-                     lambda e: e['views'].clear()]
-        for mutate in mutations:
-            broken = copy.deepcopy(extra)
-            mutate(broken)
-            with self.assertRaises(ValueError):
-                observation(pane, raw, broken)
-        pane.putpixel((0,0), (1,2,3))
-        with self.assertRaisesRegex(ValueError, 'pixels'):
-            observation(pane, raw, extra)
-        proof = Mock()
-        proof.read_bytes.return_value = b'changed'
-        with self.assertRaisesRegex(ValueError, 'provenance'):
-            apply({'screen': 'unknown'}, raw, extra, proof)
 
     def rows(self):
         pane, raw = self.scene()

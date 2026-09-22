@@ -9,7 +9,6 @@ import unittest
 
 from tracen_replay.animated_performance import candidates, reconcile
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
-from tracen_replay.vision import parse
 
 
 def line(text, box, confidence=99):

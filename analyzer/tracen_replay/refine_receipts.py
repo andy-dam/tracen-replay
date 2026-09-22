@@ -1,10 +1,6 @@
 """Re-read receipt text with padded crops; never supply expected text to OCR."""
-import argparse
 import hashlib
 import json
-from pathlib import Path
-from .vision import NeuralReader, within
-from .full_recording import save_json
 from .gameplay import effects_from_lines
 
 
@@ -50,32 +46,3 @@ def apply(raw,extra):
                     receipt_crop_views=item['views'],receipt_crop_conflict=True)
     return result
 
-
-def refine(root):
-    root=Path(root);reader=NeuralReader();count=0
-    for path in sorted((root/'receipt-inspection').glob('*/*.v2.json')):
-        target=path.with_suffix('.receipt.json')
-        if target.exists():continue
-        raw=json.loads(path.read_text(encoding='utf-8'))
-        candidates=[(i,line) for i,line in enumerate(raw['lines']) if within(line,(250,770,850,1000))]
-        images=[]
-        with reader.Image.open(root/raw['evidence']) as pane:
-            for _,line in candidates:
-                left,top,right,bottom=line['box']
-                for padding in (4,10,20):
-                    crop=pane.convert('RGB').crop((max(0,left-148-padding),max(0,top-6),min(810,right-148+padding),min(1080,bottom+6)))
-                    images.append(reader.np.array(crop)[:,:,::-1])
-        observations=[]
-        if images:
-            result=reader.engine.text_rec(reader.TextRecInput(img=images))
-            views=[dict(text=text,confidence=round(float(score)*100,4)) for text,score in zip(result.txts,result.scores)]
-            for j,(index,_) in enumerate(candidates):observations.append(dict(index=index,views=views[j*3:j*3+3]))
-        save_json(target,dict(raw_sha256=fingerprint(raw),evidence_sha256=hashlib.sha256((root/raw['evidence']).read_bytes()).hexdigest(),
-            lines=observations,model_sha256=reader.models,independent_observations=False))
-        count+=1
-    print(json.dumps(dict(stage='receipt_crop_refinement',new_frames=count)),flush=True)
-
-
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path)
-    refine(parser.parse_args().output)

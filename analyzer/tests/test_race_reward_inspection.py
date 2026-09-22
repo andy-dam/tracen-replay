@@ -1,13 +1,11 @@
 import copy
 import hashlib
 import json
-import shutil
 import unittest
-from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import Image
 
-from tracen_replay.race_reward_inspection import load, register, merge_reward_rows, inspect, refine_base_rows
+from tracen_replay.race_reward_inspection import merge_reward_rows, refine_base_rows
 from tracen_replay.transactions import races
 from tests.test_gameplay import workspace_temp
 
@@ -282,116 +280,3 @@ class RaceRewardEvidenceTests(unittest.TestCase):
 
     def digest(self, path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
-
-    def test_source_pixels_and_pts_checked_and_only_race_facts_returned(self):
-        register(self.root, 'window')
-        metadata, rows = load(self.root, self.source['sha256'])
-        self.assertEqual(metadata['verified_frames'], 1)
-        self.assertEqual(rows[0]['evidence'], 'window/gameplay/f.png')
-        self.assertEqual(set(rows[0]['facts']), {'fans', 'fans_gained', 'visible_item_quantities'})
-        self.assertNotIn('stats', rows[0])
-        self.assertNotIn('effects', rows[0])
-
-    def test_registered_capture_changes_and_source_mismatch_fail_closed(self):
-        register(self.root, 'window')
-        with self.assertRaises(ValueError):
-            load(self.root, 'c' * 64)
-        self.capture['scope']['end_ms'] = 1300
-        self.write(self.window / 'capture.json', self.capture)
-        with self.assertRaisesRegex(ValueError, 'capture changed'):
-            load(self.root, self.source['sha256'])
-
-    def test_modified_crop_or_ocr_pixels_rejected(self):
-        register(self.root, 'window')
-        original = copy.deepcopy(self.raw)
-        self.raw['lines'][0]['text'] = 'Fans 999 (+99)'
-        self.write(self.window / 'neural/f.json', self.raw)
-        with self.assertRaisesRegex(ValueError, 'original OCR JSON changed'):
-            load(self.root, self.source['sha256'])
-        self.write(self.window / 'neural/f.json', original)
-        Image.new('RGB', (810, 1080), 'black').save(self.window / 'gameplay/f.png')
-        with self.assertRaisesRegex(ValueError, 'proof differs'):
-            load(self.root, self.source['sha256'])
-
-    def test_invalid_pts_duplicate_ids_and_path_escape_are_rejected(self):
-        for problem in ('pts', 'duplicate', 'escape', 'source', 'unbounded', 'identity'):
-            with self.subTest(problem=problem):
-                capture = copy.deepcopy(self.capture)
-                if problem == 'pts': capture['frames'][0]['source_pts'] = 999
-                if problem == 'duplicate': capture['frames'].append(copy.deepcopy(capture['frames'][0]))
-                if problem == 'escape': capture['frames'][0]['evidence'] = '../capture.json'
-                if problem == 'source': capture['source']['sha256'] = 'c' * 64
-                if problem == 'unbounded': capture['scope']['end_ms'] = 6001
-                if problem == 'identity': capture['frames'][0]['id'] = '../sibling'
-                self.write(self.window / 'capture.json', capture)
-                with self.assertRaises(ValueError): register(self.root, 'window')
-        with self.assertRaises(ValueError): register(self.root, '../escape')
-
-    def test_malformed_provenance_is_a_failed_audit_instead_of_a_crash(self):
-        from tracen_replay.verify_evidence import verify
-        source_path = self.root / 'source.bin'
-        source_path.write_bytes(b'fixture recording')
-        self.source['sha256'] = self.digest(source_path)
-        self.write(self.root / 'capture.json', {'source': self.source, 'frames': []})
-        self.write(self.window / 'capture.json', self.capture)
-        register(self.root, 'window')
-        self.capture['frames'][0]['time_base'] = []
-        self.write(self.window / 'capture.json', self.capture)
-        path = self.root / 'race-reward-inspection.json'
-        manifest = json.loads(path.read_text(encoding='utf-8'))
-        manifest['windows'][0]['capture_sha256'] = self.digest(self.window / 'capture.json')
-        self.write(path, manifest)
-        with patch('builtins.print'):
-            result = verify(self.root, source_path)
-        self.assertFalse(result['evidence_integrity_verified'])
-        self.assertEqual(result['errors'][0]['reason'], 'Malformed race inspection provenance.')
-
-    def test_bounded_capture_registers_and_reuses_valid_ocr_cache(self):
-        source_path = self.root / 'source.bin'
-        source_path.write_bytes(b'fixture recording')
-        self.source['sha256'] = self.digest(source_path)
-        self.write(self.root / 'capture.json', {'source': self.source, 'frames': []})
-        def decode(source, directory, *args):
-            shutil.copyfile(self.window / 'frames/f.png', directory / 'f.png')
-            return copy.deepcopy(self.capture['frames'])
-        reader = Mock()
-        reader.read.return_value = copy.deepcopy(self.raw)
-        with patch('tracen_replay.pipeline.decode_frames', side_effect=decode) as decoder, \
-             patch('tracen_replay.vision.NeuralReader', return_value=reader) as factory, \
-             patch('tracen_replay.race_quantity_refinement.generate', return_value={}) as generator:
-            first = inspect(source_path, self.root, 1000, 1250)
-            second = inspect(source_path, self.root, 1000, 1250)
-        self.assertEqual(first, second)
-        self.assertTrue(first['registered'])
-        self.assertEqual(decoder.call_count, 1)
-        self.assertEqual(factory.call_count, 1)
-        self.assertEqual(reader.read.call_count, 1)
-        self.assertEqual(generator.call_count, 2)
-        self.assertTrue(all(call.kwargs['fixed_quantity_windows'] for call in generator.call_args_list))
-        metadata, _ = load(self.root, self.source['sha256'])
-        self.assertEqual(metadata['verified_frames'], 1)
-
-    def test_inspection_rejects_invalid_bounds_before_capture(self):
-        for args in [(0, 5001, 60), (1000, 1250, 61), (True, 1250, 60)]:
-            with self.subTest(args=args), self.assertRaises(ValueError):
-                inspect(self.root / 'missing-video', self.root, *args)
-
-    def test_evidence_audit_includes_registered_race_windows(self):
-        from tracen_replay.verify_evidence import verify
-        source_path = self.root / 'source.bin'
-        source_path.write_bytes(b'fixture recording')
-        self.source['sha256'] = self.digest(source_path)
-        self.write(self.root / 'capture.json', {'source': self.source, 'frames': []})
-        self.write(self.window / 'capture.json', self.capture)
-        register(self.root, 'window')
-        with patch('builtins.print'):
-            result = verify(self.root, source_path)
-        self.assertTrue(result['evidence_integrity_verified'])
-        self.assertEqual(result['verified_race_reward_inspection_frames'], 1)
-        self.assertIn('race-reward-inspection.json', result['inspection_manifest_sha256'])
-        self.raw['gameplay_sha256'] = 'c' * 64
-        self.write(self.window / 'neural/f.json', self.raw)
-        with patch('builtins.print'):
-            result = verify(self.root, source_path)
-        self.assertFalse(result['evidence_integrity_verified'])
-        self.assertEqual(result['errors'][0]['path'], 'race-reward-inspection.json')

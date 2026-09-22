@@ -2611,20 +2611,4 @@ def recover(
     return candidates
 
 
-def recover_hint_card_identities(
-    rows: Sequence[Mapping[str, Any]],
-    evidence_root: str | Path,
-    *,
-    source_sha256: str,
-    model_dir: str | Path | None = None,
-) -> list[dict[str, Any]]:
-    """Descriptive alias for callers integrating the recovery stage."""
-    return recover(
-        rows,
-        evidence_root,
-        source_sha256=source_sha256,
-        model_dir=model_dir,
-    )
-
-
 __all__ = ["recover", "recover_hint_card_identities"]

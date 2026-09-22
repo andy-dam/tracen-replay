@@ -1,17 +1,9 @@
-import hashlib
 import json
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-from PIL import Image
-from tests.test_gameplay import workspace_temp
-from tests.test_full_recording import FakeReader
 from tests import test_choice_evidence as choice_tests
 from tracen_replay.choice_evidence import collect,reconstruct
-from tracen_replay.inspect_choices import inspect,load
-from tracen_replay.pipeline import PipelineError
 from tracen_replay.transactions import reconstruct as transactions
-from tracen_replay.verify_evidence import verify
 
 
 class ChoiceInspectionTests(unittest.TestCase):
@@ -40,34 +32,3 @@ class ChoiceInspectionTests(unittest.TestCase):
         self.assertEqual(len(after.pop('dialogue_choices')),1)
         before.pop('dialogue_choices')
         self.assertEqual(before,after)
-
-    def test_source_isolation_reload_and_tamper_detection(self):
-        with workspace_temp() as root:
-            source=root/'source.mp4';source.write_bytes(b'source')
-            digest=hashlib.sha256(source.read_bytes()).hexdigest()
-            capture=dict(source=dict(sha256=digest,duration_ms=200),frames=[])
-            (root/'capture.json').write_text(json.dumps(capture),encoding='utf-8')
-            def decode(source,dest,*args):
-                image=Image.new('RGB',(1920,1080),'red')
-                image.paste(Image.new('RGB',(810,1080),'black'),(148,0));image.save(dest/'frame-000001.png')
-                return [dict(id='frame-000001',evidence='frames/frame-000001.png',source_timestamp_ms=0,source_pts=0,time_base='1/60')]
-            with patch('tracen_replay.inspect_choices.NeuralReader',FakeReader),patch('tracen_replay.inspect_choices.decode_frames',decode):
-                inspect(source,root,0,100)
-                inspect(source,root,0,100)
-            metadata,rows=load(root,digest)
-            self.assertEqual(len(rows),1)
-            self.assertEqual(len(metadata['windows']),1)
-            audit=verify(root,source)
-            self.assertTrue(audit['evidence_integrity_verified'])
-            self.assertEqual(audit['verified_observations'],1)
-            self.assertEqual(audit['verified_refinements'],1)
-            self.assertIn('choice-inspection.json',audit['inspection_manifest_sha256'])
-            with self.assertRaisesRegex(PipelineError,'another source'):load(root,'different')
-            proof=root/rows[0]['evidence'];proof.write_bytes(b'tampered')
-            with self.assertRaisesRegex(ValueError,'provenance'):load(root,digest)
-
-    def test_out_of_bounds_inspection_is_rejected_before_decoding(self):
-        with workspace_temp() as root:
-            (root/'capture.json').write_text(json.dumps(dict(source=dict(duration_ms=10000))),encoding='utf-8')
-            with self.assertRaisesRegex(PipelineError,'five seconds'):inspect(root/'absent.mp4',root,0,6000)
-            with self.assertRaisesRegex(PipelineError,'sampling'):inspect(root/'absent.mp4',root,0,100,120)

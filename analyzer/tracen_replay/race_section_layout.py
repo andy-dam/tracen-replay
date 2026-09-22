@@ -178,12 +178,6 @@ def _source_box_from_full(box: Sequence[Any], x_offset: int = 148, padding: int 
     return tuple(int(round(value)) for value in values)
 
 
-def source_box_from_full(box: Sequence[Any], x_offset: int = 148, padding: int = 2) -> tuple[int, int, int, int] | None:
-    """Convert a source-frame quantity box to the 810 px gameplay crop."""
-
-    return _source_box_from_full(box, x_offset=x_offset, padding=padding)
-
-
 def _header_candidates(raw: Mapping[str, Any], name: str) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for line in raw.get("lines", []):

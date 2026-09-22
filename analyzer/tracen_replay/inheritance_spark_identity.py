@@ -124,12 +124,6 @@ def _stable_box(first, second):
             and abs(_height(first) - _height(second)) <= 8)
 
 
-def _same_slot(first, second):
-    if not _stable_box(first, second):
-        return False
-    return abs(_center(first) - _center(second)) <= STATIONARY_PIXELS
-
-
 def _matching_anchors(first, second, excluded_texts):
     """Return exact, unique lines that can anchor one receipt track.
 

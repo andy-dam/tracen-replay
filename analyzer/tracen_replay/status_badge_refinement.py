@@ -11,7 +11,6 @@ balance.
 
 from __future__ import annotations
 
-import argparse
 import copy
 import hashlib
 import json
@@ -55,16 +54,6 @@ def file_fingerprint(path: str | Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def gameplay_fingerprint(path: str | Path) -> str:
-    """Hash decoded RGB gameplay pixels."""
-
-    with Image.open(path) as image:
-        image = image.convert("RGB")
-        if image.size != (810, 1080):
-            raise ValueError("Status badge evidence is not an 810x1080 gameplay pane.")
-        return hashlib.sha256(image.tobytes()).hexdigest()
 
 
 def _write_json(path: str | Path, value: dict) -> None:
@@ -624,24 +613,3 @@ def generate(root: str | Path, *, start_ms: int, end_ms: int, frame_ids=None,
         _write_json(target, refinement)
         summary["written"] += 1
     return summary
-
-
-refine = generate
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", type=Path, help="recording analysis directory")
-    parser.add_argument("--start-ms", type=int, required=True)
-    parser.add_argument("--end-ms", type=int, required=True)
-    parser.add_argument("--frame-id", action="append", dest="frame_ids", default=[])
-    parser.add_argument("--model-dir", type=Path, default=Path(".local/models/rapidocr"))
-    parser.add_argument("--output-dir", type=Path)
-    args = parser.parse_args(argv)
-    print(json.dumps(generate(args.root, start_ms=args.start_ms, end_ms=args.end_ms,
-                              frame_ids=args.frame_ids, model_dir=args.model_dir,
-                              output_dir=args.output_dir), ensure_ascii=False), flush=True)
-
-
-if __name__ == "__main__":
-    main()

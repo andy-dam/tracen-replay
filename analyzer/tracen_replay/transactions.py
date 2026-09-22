@@ -2241,8 +2241,6 @@ def training_events(readings,states=()):
 
 _BANNER_FOLLOW_MS=8000
 _BANNER_RUN_GAP_MS=1500
-_BANNER_BREAK_SCREENS=('training_preview','lesson_selection','lesson_confirmation','rest_confirmation','outing_selection',
-                       'outing_confirmation','race_selection','skill_selection','career_hub')
 
 
 def _banner_heading_option(row):

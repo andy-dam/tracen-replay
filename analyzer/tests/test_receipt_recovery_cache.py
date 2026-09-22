@@ -8,7 +8,6 @@ from PIL import Image
 from tests.test_gameplay import workspace_temp
 from tracen_replay.inspect_receipts import inspect
 from tracen_replay.pipeline import PipelineError
-from tracen_replay.verify_evidence import verify
 
 
 def save(path, value):
@@ -49,30 +48,6 @@ class ReceiptRecoveryCacheTests(unittest.TestCase):
                 proof.unlink()
                 with self.assertRaisesRegex(PipelineError, 'missing OCR or gameplay proof'):
                     inspect(video, origin, 0, 1000, 30)
-
-    def test_nested_recovery_proof_is_included_in_evidence_integrity(self):
-        with workspace_temp() as root, patch('builtins.print'):
-            video, origin, proof = self.fixture(root)
-            result = verify(root, video)
-            self.assertTrue(result['evidence_integrity_verified'])
-            self.assertEqual(result['verified_observations'], 1)
-            self.assertIn('numeric-receipt-recovery/receipt-inspection.json', result['inspection_manifest_sha256'])
-            Image.new('RGB', (810, 1080), 'black').save(proof)
-            result = verify(root, video)
-            self.assertFalse(result['evidence_integrity_verified'])
-            self.assertTrue(any('differs from source crop' in e['reason'] for e in result['errors']))
-
-    def test_training_recovery_manifest_and_source_crop_are_verified(self):
-        with workspace_temp() as root, patch('builtins.print'):
-            video, origin, proof = self.fixture(root, 'training-gain-recovery')
-            result = verify(root, video)
-            self.assertTrue(result['evidence_integrity_verified'])
-            self.assertEqual(result['verified_observations'], 1)
-            self.assertIn('training-gain-recovery/receipt-inspection.json', result['inspection_manifest_sha256'])
-            Image.new('RGB', (810, 1080), 'black').save(proof)
-            result = verify(root, video)
-            self.assertFalse(result['evidence_integrity_verified'])
-            self.assertTrue(any('differs from source crop' in e['reason'] for e in result['errors']))
 
 
 if __name__ == '__main__':

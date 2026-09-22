@@ -2,7 +2,7 @@
 import hashlib
 import unittest
 from PIL import Image
-from tracen_replay.occluded_receipt_recovery import plan, recover, scoped_observations
+from tracen_replay.occluded_receipt_recovery import plan, scoped_observations
 from tracen_replay.receipt_occlusion import annotate
 from tracen_replay.vision import NeuralReader, parse
 from tests.test_occluded_receipt_recovery import MODEL_DIR, SOURCE_FRAME, base_row, owner

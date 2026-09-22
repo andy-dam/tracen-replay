@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 from tests.test_gameplay import workspace_temp
-from tracen_replay.full_recording import _fixed_supplement_folder, cached_readings
+from tracen_replay.full_recording import cached_readings
 from tracen_replay.refine_contrast import fingerprint
 from tracen_replay.status_badge_refinement import (
     MIN_CONFIDENCE,
@@ -237,16 +237,6 @@ class StatusBadgeRefinementTests(unittest.TestCase):
             row["status_badge_refinement"]["applied_observations"][0]["kind"],
             "mood_status",
         )
-
-    def test_manifest_fixed_sidecar_accepts_nested_and_worker_root_paths(self):
-        self.assertTrue(_fixed_supplement_folder(
-            "raw_sidecars", "status_badge_refinement",
-            "initial-baseline/status-badge-refinement", "initial-baseline"
-        ))
-        self.assertTrue(_fixed_supplement_folder(
-            "raw_sidecars", "status_badge_refinement",
-            "status-badge-refinement", "initial-baseline"
-        ))
 
 
 if __name__ == "__main__":

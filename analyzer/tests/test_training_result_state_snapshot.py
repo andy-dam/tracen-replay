@@ -1,6 +1,5 @@
 """Regression coverage for same-frame result-card state snapshots."""
 
-import json
 import unittest
 from pathlib import Path
 

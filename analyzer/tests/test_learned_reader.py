@@ -7,8 +7,20 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from tracen_replay.learned_reader import (BADGE_BOXES, CHARS, HEIGHT, PANE_LEFT, READER_MARGIN, RESULT_BOXES, WIDTH,
-                                          annotate, box_array, ctc_decode, learned_gains, pane_box, read_shape)
+from tracen_replay.learned_reader import (
+    BADGE_BOXES,
+    CHARS,
+    HEIGHT,
+    PANE_LEFT,
+    READER_MARGIN,
+    RESULT_BOXES,
+    WIDTH,
+    annotate,
+    box_array,
+    ctc_decode,
+    pane_box,
+    read_shape,
+)
 
 
 class FakeReader:
@@ -70,8 +82,6 @@ class LearnedReaderTests(unittest.TestCase):
         self.assertNotIn('learned_result_reads', readings[3]['facts'])
         # The same model does not read a frame twice.
         self.assertEqual(annotate(readings, self.tmp, reader), 0)
-        self.assertEqual(learned_gains(readings, 'speed', 900, 1100), {12})
-        self.assertEqual(learned_gains(readings, 'speed', 5000, 6000), set())
 
 
 if __name__ == '__main__':

@@ -68,10 +68,6 @@ def render_gameplay(report):
             labels=', '.join(a['kind']+(' · '+a['training_option'] if a.get('training_option') else '') for a in window['actions'])
             calendar_rows.append(f'<tr><td>{escape(window["date"])}</td><td>{window["start_ms"]/1000:.3f}s</td><td>{escape(labels or "Missing")}</td><td>{escape(window["status"])}</td><td>{proof(window["evidence"],"Date")}</td></tr>')
         coverage+='<details><summary>Check actions against all observed career dates</summary><table><tr><th>Date</th><th>Source time</th><th>Action</th><th>Status</th><th>Evidence</th></tr>'+''.join(calendar_rows)+'</table></details>'
-        integrity=report.get('evidence_integrity_snapshot')
-        if integrity:
-            state='passed' if integrity['evidence_integrity_verified'] else 'failed'
-            coverage+=f'<p>Evidence integrity snapshot: <strong>{state}</strong> · {integrity["verified_observations"]:,} observations and {integrity["verified_refinements"]:,} refinements. <a href="evidence-audit.json">Read the source and pixel audit</a>. Re-run after changing evidence files.</p>'
     action_rows=[]
     for action in data.get('turn_action_receipts',[]):
         time=action['source_timestamp_ms']/1000

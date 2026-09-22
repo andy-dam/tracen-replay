@@ -27,16 +27,6 @@ EVENT = "race_runner_attributes"
 STAT_FIELDS = ("speed", "stamina", "power", "guts", "wit")
 APTITUDE_FIELDS = ("turf", "medium", "pace")
 STRATEGY_FIELDS = ("end", "late", "pace", "front")
-IDENTITY_STATUSES = (
-    "visible_identity_unverified",
-    "run_continuity_owner_unverified",
-    "trainee_owner_verified",
-)
-OWNER_AFFORDANCE_STATUSES = (
-    "unknown",
-    "candidate_only",
-    "verified_owner_exclusive",
-)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
 
 
@@ -594,36 +584,6 @@ def runner_scoped_stats(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]
     """Compatibility entry point for numeric-owner integrations."""
 
     return read_runner_facts(raw, **kwargs)
-
-
-def runner_scoped_observation(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Explicitly named alias for callers that consume observation events."""
-
-    return read_runner_facts(raw, **kwargs)
-
-
-def build_runner_observation(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Build one runner-scoped observation without attempting ownership."""
-
-    return read_runner_facts(raw, **kwargs)
-
-
-def read_runner_card(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Alias used by readers that call the Attributes panel a card."""
-
-    return read_runner_facts(raw, **kwargs)
-
-
-def runner_facts(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Short alias for integrations that consume card facts directly."""
-
-    return read_runner_facts(raw, **kwargs)
-
-
-def owner_status(value: Any) -> dict[str, Any]:
-    """Alias for evaluating a gameplay owner proof in isolation."""
-
-    return evaluate_owner_evidence(value)
 
 
 __all__ = [

@@ -1,14 +1,5 @@
-import hashlib
-import json
 import unittest
-from unittest.mock import patch
-from PIL import Image
-from tests.test_gameplay import workspace_temp
-from tests.test_full_recording import FakeReader
 from tests.test_neural_transactions import raw,line
-from tracen_replay.full_recording import analyze_frames,cached_readings
-from tracen_replay.pipeline import PipelineError
-from tracen_replay.refine_contrast import fingerprint
 from tracen_replay.refine_skill_points import counter_reading
 from tracen_replay.vision import parse
 
@@ -79,25 +70,3 @@ class SkillPointRefinementTests(unittest.TestCase):
         facts=parse(sample)['facts']
         self.assertNotIn('displayed_skill_points',facts)
         self.assertEqual(facts['skill_point_conflict'],[3,8])
-
-    def test_cache_rejects_refinement_for_another_frame_or_observation(self):
-        with workspace_temp() as root:
-            Image.new('RGB',(1920,1080),'white').save(root/'frame.png')
-            report={'frames':[dict(id='one',evidence='frame.png',source_timestamp_ms=0)]}
-            with patch('tracen_replay.full_recording.NeuralReader',FakeReader):
-                analyze_frames(report,root,workers=1)
-            original=json.loads((root/'neural/one.json').read_text(encoding='utf-8'))
-            extra=dict(raw_sha256=fingerprint(original),evidence_sha256=hashlib.sha256((root/'gameplay/one.png').read_bytes()).hexdigest(),
-                       views=[line('8'),line('8')])
-            for folder,message,views in (
-                    ('skill-points-refinement','Skill-point refinement evidence changed',[line('8'),line('8')]),
-                    ('currency-padding-refinement','Currency padding evidence changed',{'visual':[line('153'),line('153')]})):
-                dest=root/folder;dest.mkdir();extra['views']=views
-                (dest/'one.json').write_text(json.dumps(extra),encoding='utf-8')
-                self.assertEqual(len(cached_readings(report,root)),1)
-                for key in ('raw_sha256','evidence_sha256'):
-                    with self.subTest(folder=folder,key=key):
-                        (dest/'one.json').write_text(json.dumps(dict(extra,**{key:'changed'})),encoding='utf-8')
-                        with self.assertRaisesRegex(PipelineError,message):
-                            cached_readings(report,root)
-                (dest/'one.json').write_text(json.dumps(extra),encoding='utf-8')

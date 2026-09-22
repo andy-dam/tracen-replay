@@ -3,21 +3,11 @@
 from __future__ import annotations
 
 import copy
-import hashlib
-import json
 import unittest
 
 from PIL import Image
 
-from tests.test_gameplay import workspace_temp
-from tracen_replay.preview_recovery import (
-    SCHEMA,
-    apply,
-    load,
-    recover,
-    recover_in_memory,
-    validated_recovery,
-)
+from tracen_replay.preview_recovery import recover_in_memory, validated_recovery
 from tracen_replay.vision import parse
 
 
@@ -166,33 +156,6 @@ class PreviewRecoveryTests(unittest.TestCase):
         self.assertEqual(parsed["screen"], "training_preview")
         self.assertEqual(parsed["facts"]["preview_recovery"]["effects"][0]["amount"], 5)
 
-    def test_sidecar_round_trip_binds_raw_and_gameplay_evidence(self):
-        with workspace_temp() as root:
-            evidence = root / "gameplay.png"
-            Image.new("RGB", (810, 1080), (40, 50, 60)).save(evidence)
-            raw = _raw(header="", marker=False, failure=False)
-            raw["gameplay_sha256"] = hashlib.sha256(
-                Image.open(evidence).convert("RGB").tobytes()).hexdigest()
-            sidecar = recover(
-                raw, evidence, reader=_FakeReader({"speed": "+4"}),
-                source_frame_id="frame-000042", source_frame_evidence="source.jpg",
-            )
-            self.assertEqual(sidecar["schema_version"], SCHEMA)
-            self.assertEqual(sidecar["source_frame_verification"]["status"], "unavailable")
-            refined = apply(raw, sidecar, evidence_path=evidence,
-                            source_frame_id="frame-000042",
-                            source_frame_evidence="source.jpg")
-            self.assertEqual(refined["preview_recovery"]["schema_version"], SCHEMA)
-            path = root / "preview-recovery.json"
-            path.write_text(json.dumps(sidecar), encoding="utf-8")
-            replayed = load(raw, path, evidence_path=evidence,
-                            source_frame_id="frame-000042",
-                            source_frame_evidence="source.jpg")
-            self.assertEqual(replayed["preview_recovery"]["regions"],
-                             refined["preview_recovery"]["regions"])
-            with self.assertRaisesRegex(ValueError, "does not run OCR"):
-                load(raw, path, allow_ocr=True)
-
     def test_validated_recovery_rebuilds_in_memory_attachment(self):
         raw = _raw(header="Training", marker=True, failure=False)
         pane = Image.new("RGB", (810, 1080), (40, 50, 60))
@@ -254,34 +217,6 @@ class PreviewRecoveryTests(unittest.TestCase):
             "tracen_replay.preview_recovery", fromlist=["fingerprint"],
         ).fingerprint({key: value for key, value in altered.items() if key != "preview_recovery"})
         self.assertIsNone(validated_recovery(altered))
-
-    def test_validated_recovery_accepts_verified_loaded_sidecar(self):
-        with workspace_temp() as root:
-            evidence = root / "gameplay.png"
-            Image.new("RGB", (810, 1080), (40, 50, 60)).save(evidence)
-            source = root / "source-frame.bin"
-            source.write_bytes(b"immutable source frame bytes")
-            raw = _raw(header="", marker=False, failure=False)
-            raw["gameplay_sha256"] = hashlib.sha256(
-                Image.open(evidence).convert("RGB").tobytes()).hexdigest()
-            raw["source_frame_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
-            sidecar = recover(
-                raw, evidence, reader=_FakeReader({"speed": "+4"}),
-                source_frame_id="frame-000042", source_frame_path=source,
-                source_frame_evidence="source-frame.bin",
-            )
-            self.assertEqual(sidecar["source_frame_verification"]["status"], "verified")
-            path = root / "preview-recovery.json"
-            path.write_text(json.dumps(sidecar), encoding="utf-8")
-            replayed = load(
-                raw, path, evidence_path=evidence, source_frame_path=source,
-                source_frame_id="frame-000042", source_frame_evidence="source-frame.bin",
-            )
-            self.assertEqual(validated_recovery(replayed), replayed["preview_recovery"])
-
-            forged = copy.deepcopy(replayed)
-            forged["preview_recovery"]["source_frame_verification"]["sha256"] = "0" * 64
-            self.assertIsNone(validated_recovery(forged))
 
     def test_validated_recovery_does_not_run_ocr(self):
         import tracen_replay.preview_recovery as module

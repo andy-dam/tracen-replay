@@ -50,9 +50,7 @@ _TITLE_X = (320, 700)
 _CONTROL_X = (650, 850)
 _CARD_Y = (370, 900)
 _CONFIRM_BOX = (430, 670, 850, 980)
-_POINTS_LABEL_BOX = (480, 850, 300, 390)
 _RECEIPT_RE = re.compile(r"(?:your|our)\s+trainee\s+learned\s+new\s+skills?\s*!?", re.I)
-_INTEGER_RE = re.compile(r"\d{1,4}")
 _NAME_SUFFIX_RE = re.compile(r"\s*[○◯◎⦿]\s*$")
 
 _DESCRIPTION_PREFIXES = (
@@ -68,7 +66,6 @@ _KNOWN_STATUS = frozenset({
     "available", "obtained_or_selected", "obtained", "selected",
     "draft_selected", "unavailable", "unknown",
 })
-_KNOWN_PHASES = frozenset({"preview", "observed", "committed", "applied"})
 _PRICE_STATUSES = frozenset({"complete", "partially_visible", "unreadable", "unknown"})
 
 # The green action control sits to the left of the OCR price token in the
@@ -1435,24 +1432,6 @@ def build_observations(
     return build_skill_menu_observations(
         readings, maximum_gap_ms, source_root=source_root,
     )["observations"]
-
-
-def parse_skill_menu(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Alias emphasizing that parsing consumes source geometry only."""
-
-    return adapt_skill_menu_frame(raw, **kwargs)
-
-
-def read_skill_menu(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Normal-producer alias for :func:`adapt_skill_menu_frame`."""
-
-    return adapt_skill_menu_frame(raw, **kwargs)
-
-
-def skill_menu_frame_observations(raw: Mapping[str, Any], **kwargs: Any) -> list[dict[str, Any]]:
-    """Return the one-frame preview observation list."""
-
-    return adapt_skill_menu_frame(raw, **kwargs)["observations"]
 
 
 __all__ = [

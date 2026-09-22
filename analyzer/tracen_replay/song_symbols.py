@@ -1,13 +1,9 @@
 """Observe isolated music-note suffixes omitted by receipt text recognition."""
-import argparse
 import hashlib
-import json
 import re
 from pathlib import Path
 import cv2
 import numpy as np
-from PIL import Image
-from .refine_contrast import fingerprint
 from .ocr_confidence import confidence_percent
 
 
@@ -265,106 +261,3 @@ def annotate(raw,pane,proof):
         changed=True
     return dict(raw,lines=lines) if changed else dict(raw)
 
-
-def apply(raw,extra,proof,original=None):
-    """Replay a persisted note observation only after rechecking its pixels.
-
-    A sidecar is source-bound metadata, not an authorization to trust its
-    claimed glyph.  The gameplay crop is the proof image, so replay the same
-    detector against that image and require the persisted observation to agree
-    on the symbol, detector method, geometry, and one-image status.
-    """
-    original=raw if original is None else original
-    if not isinstance(raw,dict) or not isinstance(extra,dict):
-        raise ValueError('Song-symbol provenance mismatch.')
-    if extra.get('version')!=1:
-        raise ValueError('Song-symbol provenance mismatch.')
-    if extra.get('raw_sha256')!=fingerprint(original):
-        raise ValueError('Song-symbol provenance mismatch.')
-    try:
-        evidence_hash=hashlib.sha256(proof.read_bytes()).hexdigest()
-    except (OSError,TypeError,AttributeError) as exc:
-        raise ValueError('Song-symbol provenance mismatch.') from exc
-    if extra.get('evidence_sha256')!=evidence_hash:
-        raise ValueError('Song-symbol provenance mismatch.')
-    gameplay_hash=original.get('gameplay_sha256')
-    if not isinstance(gameplay_hash,str) or not re.fullmatch(r'[0-9a-f]{64}',gameplay_hash):
-        raise ValueError('Song-symbol gameplay pixels are not source-bound.')
-    try:
-        with Image.open(proof) as image:
-            pane=image.convert('RGB')
-            actual_gameplay=hashlib.sha256(pane.tobytes()).hexdigest()
-            if actual_gameplay!=gameplay_hash:
-                raise ValueError('Song-symbol gameplay pixels do not match the OCR observation.')
-            persisted=extra.get('observations')
-            if not isinstance(persisted,list):
-                raise ValueError('Song-symbol observations are malformed.')
-            lines=[dict(l) for l in raw.get('lines',())]
-            seen=set()
-            for item in persisted:
-                if not isinstance(item,dict):
-                    raise ValueError('Song-symbol observation is malformed.')
-                i=item.get('line_index')
-                if type(i) is not int or i<0 or i>=len(lines) or i in seen:
-                    raise ValueError('Song-symbol observation line is malformed.')
-                seen.add(i)
-                line=lines[i]
-                if line.get('box')!=item.get('line_box') or not _eligible(line):
-                    raise ValueError('Song-symbol OCR line changed.')
-                symbol=item.get('symbol')
-                if not isinstance(symbol,dict):
-                    raise ValueError('Song-symbol observation is malformed.')
-                observed=music_note_suffix(pane,line.get('box',()))
-                required_method='isolated_note_stem_flag_head_and_closing_quote'
-                if (observed is None or symbol.get('symbol')!='\u266a'
-                        or symbol.get('method')!=required_method
-                        or symbol.get('independent_observations') is not False
-                        or symbol.get('thresholds')!=observed.get('thresholds')
-                        or symbol.get('box')!=observed.get('box')
-                        or observed.get('symbol')!=symbol.get('symbol')
-                        or observed.get('method')!=symbol.get('method')
-                        or observed.get('independent_observations') is not False):
-                    raise ValueError('Song-symbol cached pixel proof does not match the source image.')
-                proof_metadata=dict(
-                    source_timestamp_ms=raw['source_timestamp_ms'],
-                    evidence=raw['evidence'],
-                    gameplay_sha256=gameplay_hash,
-                    source_frame_sha256=raw['source_frame_sha256'],
-                    evidence_sha256=evidence_hash,
-                )
-                if raw.get('source_sha256') is not None:
-                    proof_metadata['source_sha256']=raw['source_sha256']
-                text=_restore_symbol_separator(line['text'],observed['symbol'])
-                lines[i]=dict(line,text=text,original_symbol_text=line['text'],
-                              visual_symbol_observation=_symbol_observation(
-                                  raw,proof_metadata,observed))
-    except ValueError:
-        raise
-    except (OSError,TypeError,AttributeError) as exc:
-        raise ValueError('Song-symbol gameplay proof is unreadable.') from exc
-    return dict(raw,lines=lines)
-
-
-def refine(root):
-    from .full_recording import save_json
-    root=Path(root);dest=root/'song-symbols';dest.mkdir(exist_ok=True);count=0;notes=0
-    for path in sorted((root/'neural').glob('*.json')):
-        raw=json.loads(path.read_text(encoding='utf-8'))
-        eligible=[(i,l) for i,l in enumerate(raw['lines']) if _eligible(l)]
-        if not eligible:continue
-        proof=root/raw['evidence'];target=dest/path.name
-        if target.exists():apply(raw,json.loads(target.read_text(encoding='utf-8')),proof);continue
-        observations=[]
-        with Image.open(proof) as pane:
-            if hashlib.sha256(pane.convert('RGB').tobytes()).hexdigest()!=raw['gameplay_sha256']:raise ValueError('Song proof pixels changed.')
-            for i,line in eligible:
-                symbol=music_note_suffix(pane,line['box'])
-                if symbol:observations.append(dict(line_index=i,line_box=line['box'],symbol=symbol))
-        save_json(target,dict(version=1,raw_sha256=fingerprint(raw),evidence_sha256=hashlib.sha256(proof.read_bytes()).hexdigest(),observations=observations))
-        count+=1;notes+=len(observations)
-    print(json.dumps(dict(stage='song_symbols',new_observations=count,note_observations=notes)),flush=True)
-
-
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path)
-    refine(parser.parse_args().output)

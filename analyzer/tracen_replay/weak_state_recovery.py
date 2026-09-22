@@ -165,14 +165,6 @@ def _box(value: Any, *, name: str, bounds: Sequence[float] = PANE_BOUNDS) -> lis
     return result
 
 
-def _box_tuple(value: Any) -> tuple[int, int, int, int] | None:
-    try:
-        checked = _box(value, name="source")
-    except ValueError:
-        return None
-    return tuple(int(round(item)) for item in checked)
-
-
 def _normalized(value: Any) -> str:
     return re.sub(r"\s+", "", str(value).strip())
 
@@ -227,10 +219,6 @@ def _confidence(value: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return result if math.isfinite(result) else 0.0
-
-
-def _observation_copy(value: Any) -> dict[str, Any] | None:
-    return copy.deepcopy(value) if isinstance(value, dict) else None
 
 
 def _eligible_line(line: Any) -> bool:
@@ -1012,9 +1000,6 @@ def recover(raw: Mapping[str, Any], evidence_path: str | Path, *,
     return sidecar
 
 
-fresh = recover
-
-
 def generate(raw_path: str | Path, evidence_path: str | Path, output_path: str | Path, *,
              reader: Any = None, model_dir: str | Path = ".local/models/rapidocr",
              max_requests: int = DEFAULT_MAX_REQUESTS,
@@ -1603,40 +1588,3 @@ def load(raw: Mapping[str, Any], path: str | Path, *,
         source_frame_evidence=source_frame_evidence,
     )
 
-
-cached_replay = load
-reparse = load
-
-
-def run(raw: Mapping[str, Any], evidence_path: str | Path, *,
-        allow_ocr: bool, sidecar_path: str | Path | None = None,
-        reader: Any = None, model_dir: str | Path = ".local/models/rapidocr",
-        max_requests: int = DEFAULT_MAX_REQUESTS,
-        source_frame_path: str | Path | None = None,
-        source_frame_evidence: str | None = None,
-        source_frame_id: str | None = None) -> dict[str, Any]:
-    """Select the fresh candidate path or the validated cached path."""
-
-    if allow_ocr:
-        if sidecar_path is None:
-            return recover(
-                raw, evidence_path, reader=reader, model_dir=model_dir,
-                max_requests=max_requests, source_frame_path=source_frame_path,
-                source_frame_evidence=source_frame_evidence,
-                source_frame_id=source_frame_id,
-            )
-        sidecar = recover(
-            raw, evidence_path, reader=reader, model_dir=model_dir,
-            max_requests=max_requests, source_frame_path=source_frame_path,
-            source_frame_evidence=source_frame_evidence, source_frame_id=source_frame_id,
-        )
-        _write_json(sidecar_path, sidecar)
-        return sidecar
-    if sidecar_path is None:
-        raise ValueError("Cached weak-state replay requires a sidecar path.")
-    replayed = load(
-        raw, sidecar_path, evidence_path=evidence_path,
-        source_frame_path=source_frame_path, source_frame_id=source_frame_id,
-        source_frame_evidence=source_frame_evidence,
-    )
-    return dict(replayed)

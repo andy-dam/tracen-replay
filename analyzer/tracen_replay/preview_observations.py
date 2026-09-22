@@ -820,16 +820,6 @@ def _source_evidence(source: Any, explicit: Any = None) -> list[str]:
     return _evidence_paths(values)
 
 
-def _source_references(source: Any, explicit: Any = None) -> list[str]:
-    """Read typed source references without presenting them as file paths."""
-
-    values = _strings(explicit)
-    if isinstance(source, dict):
-        values.extend(_strings(source.get("evidence")))
-        values.extend(_strings(source.get("source_references")))
-    return _evidence_references(values)
-
-
 def _training_marker(source: dict[str, Any], lines: list[dict[str, Any]],
                      regions: dict[str, Any]) -> tuple[bool, str | None, dict[str, Any]]:
     """Require a gameplay header and an explicit/typed training option."""
@@ -2954,16 +2944,6 @@ def _persisted_source_record(
     except (OSError, RuntimeError, TypeError, ValueError):
         return None
     return raw
-
-
-def _persisted_source_bytes_match(
-    source: dict[str, Any], recovery: dict[str, Any], source_root: str | Path | None,
-) -> bool:
-    """Verify physical source bytes when the caller supplies its cache root."""
-
-    if source_root is None:
-        return True
-    return _persisted_source_record(source, recovery, source_root) is not None
 
 
 def _persisted_preview_identity(
@@ -5140,11 +5120,6 @@ def accepted_preview_observations(
     """Convenience view containing only unambiguous canonical observations."""
 
     return build_preview_observations(readings, maximum_gap_ms=maximum_gap_ms)["observations"]
-
-
-# ``build`` follows the naming used by the other source-bound refinements and
-# makes the helper easy to discover without hiding the explicit API above.
-build = build_preview_observations
 
 
 __all__ = [

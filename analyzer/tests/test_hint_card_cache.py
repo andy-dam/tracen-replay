@@ -11,8 +11,6 @@ from tracen_replay.hint_card_cache import (
     _span_hashes,
     _validate_candidate,
     load,
-    prepare,
-    refresh,
     save,
 )
 from tracen_replay.stat_state_details import read_goal_turns
@@ -343,26 +341,6 @@ class HintCardCacheTests(unittest.TestCase):
         self.cache_path.write_text("not json", encoding="utf-8")
         self._assert_invalid()
 
-    def test_prepare_writes_the_explicit_new_artifact(self):
-        output = self.root / "prepared-cache.json"
-        report = {
-            "source": {"sha256": SOURCE_SHA},
-            "gameplay_tracking": {"readings": self.rows},
-        }
-        with (
-            self._source_pixels(),
-            patch("tracen_replay.hint_card_identity.recover", return_value=[self.candidate]),
-        ):
-            payload = prepare(report, self.root, output)
-        self.assertEqual(payload["schema"], "tracen-replay/hint-card-recovery-cache-v1")
-        self.assertEqual(payload["candidate_count"], 1)
-        self.assertTrue(output.is_file())
-        with self._source_pixels(), patch(
-            "tracen_replay.vision.NeuralReader",
-            side_effect=AssertionError("cache load must not construct OCR"),
-        ):
-            self.assertEqual(load(self.rows, self.root, SOURCE_SHA, cache_path=output), [self.candidate])
-
 
 class SingleLineHintCardCacheTests(unittest.TestCase):
     def setUp(self):
@@ -535,79 +513,6 @@ class SingleLineHintCardCacheTests(unittest.TestCase):
             side_effect=AssertionError("cache load must not construct OCR"),
         ), self.assertRaises(ValueError):
             load(rows, self.root, SOURCE_SHA, cache_path=self.cache_path)
-
-    def test_source_refresh_preserves_particle_metadata_and_reloads_without_ocr(self):
-        rows = self._rows_with_particle_metadata(
-            boxes=[[585, 870, 599, 888]],
-            occluded=True,
-        )
-        original_cache = self.cache_path.read_bytes()
-        output = self.root / "refreshed-hint-card-recovery.json"
-
-        def source_card_proofs(candidate, _readings, proof_root, *, source_sha256):
-            from hashlib import sha256
-            from PIL import Image
-
-            proofs = []
-            for observation in candidate["observations"]:
-                image_path = proof_root / observation["evidence"]
-                with Image.open(image_path) as opened:
-                    image = opened.convert("RGB")
-                    left, top, right, bottom = (
-                        int(value) for value in observation["card"]["box"]
-                    )
-                    crop = image.crop((left - 148, top, right - 148, bottom))
-                proofs.append(
-                    {
-                        "timestamp_ms": observation["timestamp_ms"],
-                        "evidence": observation["evidence"],
-                        "card_text": candidate["name"],
-                        "recognized_text": candidate["name"],
-                        "confidence": 99.0,
-                        "crop_box": list(observation["card"]["box"]),
-                        "pixel_rgb_sha256": sha256(crop.tobytes()).hexdigest(),
-                        "model_fingerprint": "d" * 64,
-                        "basis": "source_bound_card_identity_crop_ocr",
-                    }
-                )
-            return proofs
-
-        with self._source_pixels(), patch(
-            "tracen_replay.hint_card_identity.recover",
-            return_value=[deepcopy(self.candidate)],
-        ), patch(
-            "tracen_replay.hint_card_cache._source_card_identity_proofs",
-            side_effect=source_card_proofs,
-        ):
-            payload = refresh(
-                self.cache_path,
-                rows,
-                self.root,
-                output,
-                source_sha256=SOURCE_SHA,
-            )
-        self.assertEqual(self.cache_path.read_bytes(), original_cache)
-        self.assertEqual(payload["candidate_count"], 1)
-        self.assertEqual(
-            payload["candidates"][0]["cache_provenance"]["source_row_view"],
-            "receipt-occlusion-cursor-only-v1",
-        )
-        with self._source_pixels(), patch(
-            "tracen_replay.vision.NeuralReader",
-            side_effect=AssertionError("refreshed cache load must not construct OCR"),
-        ):
-            loaded = load(rows, self.root, SOURCE_SHA, cache_path=output)
-        self.assertEqual(loaded, [self.candidate])
-
-        tampered = deepcopy(rows)
-        tampered[0]["facts"]["occluded_receipt_lines"][0][
-            "animated_overlay_boxes"
-        ][0][0] += 1
-        with self._source_pixels(), patch(
-            "tracen_replay.vision.NeuralReader",
-            side_effect=AssertionError("tampered cache load must not construct OCR"),
-        ), self.assertRaises(ValueError):
-            load(tampered, self.root, SOURCE_SHA, cache_path=output)
 
     def test_unallowlisted_fact_change_still_invalidates_cache(self):
         rows = deepcopy(self.rows)

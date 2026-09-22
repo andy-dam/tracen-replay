@@ -115,25 +115,6 @@ def _hint_text_matches(text, effect):
     return False
 
 
-def _occluded_hint_line_matches(line, effect):
-    """Match an obscured line to an already explicit hint identity.
-
-    The line is used as continuity evidence only.  In particular, this
-    function does not return a parsed effect and refuses an uncertain
-    recipient-name span.
-    """
-    if effect.get("kind") != "skill_hint_change" or not effect.get("name"):
-        return False
-    if line.get("recipient_name_occluded") is not False:
-        return False
-    overlays = line.get("overlay_boxes")
-    if not isinstance(overlays, list) or not any(_valid_box(box) for box in overlays):
-        return False
-    if _line_confidence(line) < _MIN_OCCLUDED_CONFIDENCE or not _valid_box(line.get("box")):
-        return False
-    return _hint_text_matches(line.get("text"), effect)
-
-
 def _receiptish_text(text):
     text = str(text or "")
     return bool(re.search(r"\bgained\s+\d+\s+hint\b", text, re.IGNORECASE)

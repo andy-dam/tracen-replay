@@ -1,7 +1,6 @@
 import unittest
 
 
-from tracen_replay.choice_evidence import observe
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
 
 

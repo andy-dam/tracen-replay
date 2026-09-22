@@ -3,7 +3,7 @@ import unittest
 from PIL import Image, ImageEnhance
 
 from tracen_replay.race_quantity_refinement import (
-    FIXED_QUANTITY_CROP_VARIANT_POLICY,
+    FIXED_QUANTITY_CROP_VARIANT_POLICY_V2,
     FIXED_QUANTITY_WINDOW_EARLY_RELATIVE_BOX,
     FIXED_QUANTITY_WINDOW_MID_RELATIVE_BOX,
     SLOT_BY_ID,
@@ -113,7 +113,7 @@ class RaceQuantityWindowTests(unittest.TestCase):
         self.assertIsNone(result["accepted"])
 
     def test_fixed_policy_keeps_fallbacks_focused(self):
-        variants = FIXED_QUANTITY_CROP_VARIANT_POLICY["variants"]
+        variants = FIXED_QUANTITY_CROP_VARIANT_POLICY_V2["variants"]
         self.assertEqual(variants["quantity_window_early"]["role"], "broad")
         self.assertEqual(variants["quantity_window_mid"]["role"], "focused")
         self.assertEqual(variants["fallback"]["role"], "focused")
@@ -127,7 +127,7 @@ class RaceQuantityWindowTests(unittest.TestCase):
         self.assertEqual(actual.size, expected.size)
         self.assertEqual(actual.tobytes(), expected.tobytes())
         self.assertEqual(
-            FIXED_QUANTITY_CROP_VARIANT_POLICY["variants"]["badge_contrast20"]["preprocessing"],
+            FIXED_QUANTITY_CROP_VARIANT_POLICY_V2["variants"]["badge_contrast20"]["preprocessing"],
             transform,
         )
 
@@ -168,7 +168,7 @@ class RaceQuantityWindowTests(unittest.TestCase):
         variants = _source_crop_variants(
             raw,
             spec,
-            quantity_policy=FIXED_QUANTITY_CROP_VARIANT_POLICY,
+            quantity_policy=FIXED_QUANTITY_CROP_VARIANT_POLICY_V2,
         )
         by_name = {variant["variant"]: variant for variant in variants}
         self.assertEqual(by_name["detector"]["role"], "focused")

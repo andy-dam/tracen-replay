@@ -1,4 +1,3 @@
-import copy
 import hashlib
 import json
 import unittest
@@ -11,14 +10,7 @@ from PIL import Image
 from tests.test_gameplay import workspace_temp
 from tracen_replay.full_recording import cached_readings
 from tracen_replay.refine_contrast import fingerprint
-from tracen_replay.song_symbols import (
-    _eligible,
-    _restore_symbol_separator,
-    annotate,
-    apply,
-    music_note_suffix,
-)
-from tracen_replay.vision import parse
+from tracen_replay.song_symbols import _eligible, _restore_symbol_separator, music_note_suffix
 
 
 class SongSymbolsTests(unittest.TestCase):
@@ -64,67 +56,6 @@ class SongSymbolsTests(unittest.TestCase):
         values=np.array(self.pane)
         values[values<160]=160
         self.assertIsNone(music_note_suffix(Image.fromarray(values),self.line['box']))
-
-    def test_cached_parser_preserves_raw_text_and_rejects_changed_proof(self):
-        with workspace_temp() as root:
-            (root/'neural').mkdir();(root/'song-symbols').mkdir()
-            self.pane.save(root/'proof.png')
-            source=Image.new('RGB',(1920,1080),'black');source.paste(self.pane,(148,0));source.save(root/'source.png')
-            raw=dict(lines=[self.line],regions={},header='',current_grid=False,result_grid=False,
-                     source_timestamp_ms=1222250,evidence='proof.png',model_sha256={'model':'test'},engine_fingerprint='test',
-                     gameplay_sha256=hashlib.sha256(self.pane.tobytes()).hexdigest(),
-                     source_frame_sha256=hashlib.sha256((root/'source.png').read_bytes()).hexdigest())
-            before=copy.deepcopy(raw)
-            extra=dict(version=1,raw_sha256=fingerprint(raw),evidence_sha256=hashlib.sha256((root/'proof.png').read_bytes()).hexdigest(),
-                       observations=[dict(line_index=0,line_box=self.line['box'],symbol=music_note_suffix(self.pane,self.line['box']))])
-            corrected=apply(raw,extra,root/'proof.png')
-            effect=parse(corrected)['effects'][0]
-            self.assertEqual(effect['name'],'Present March \u266a')
-            self.assertEqual(effect['original_text'],self.line['text'])
-            self.assertEqual(raw,before)
-            (root/'neural/one.json').write_text(json.dumps(raw),encoding='utf-8')
-            (root/'song-symbols/one.json').write_text(json.dumps(extra),encoding='utf-8')
-            report=dict(source=dict(sha256='a' * 64),
-                        frames=[dict(id='one',evidence='source.png',source_timestamp_ms=1222250)])
-            with patch('tracen_replay.receipt_occlusion.annotate_path',side_effect=lambda raw,*args,**kwargs:raw):
-                cached = cached_readings(report,root)[0]
-                self.assertEqual(cached['effects'][0]['name'],'Present March \u266a')
-                self.assertEqual(cached['effects'][0]['visual_symbol_observation']['source_sha256'],
-                                 'a' * 64)
-            with self.assertRaisesRegex(ValueError,'provenance'):
-                apply(dict(raw,header='changed'),extra,root/'proof.png')
-            (root/'proof.png').write_bytes(b'changed')
-            with self.assertRaisesRegex(ValueError,'provenance'):apply(raw,extra,root/'proof.png')
-
-    def test_cached_parser_rejects_forged_symbol_without_matching_pixels(self):
-        with workspace_temp() as root:
-            (root/'neural').mkdir(); (root/'song-symbols').mkdir()
-            blank=Image.new('RGB',(810,1080),'white')
-            proof=root/'proof.png'; blank.save(proof)
-            source=Image.new('RGB',(1920,1080),'black')
-            source_path=root/'source.png'; source.save(source_path)
-            raw=dict(
-                lines=[dict(self.line, text='Learned the song "Example ".')],
-                regions={}, header='', current_grid=False, result_grid=False,
-                source_timestamp_ms=1222250, evidence='proof.png',
-                model_sha256={'model':'test'}, engine_fingerprint='test',
-                gameplay_sha256=hashlib.sha256(blank.tobytes()).hexdigest(),
-                source_frame_sha256=hashlib.sha256(source_path.read_bytes()).hexdigest(),
-            )
-            forged=dict(
-                version=1, raw_sha256=fingerprint(raw),
-                evidence_sha256=hashlib.sha256(proof.read_bytes()).hexdigest(),
-                observations=[dict(
-                    line_index=0, line_box=raw['lines'][0]['box'],
-                    symbol=dict(symbol='♪', box=[1,2,3,4], method='forged_method',
-                                independent_observations=False),
-                )],
-            )
-            (root/'neural/one.json').write_text(json.dumps(raw), encoding='utf-8')
-            (root/'song-symbols/one.json').write_text(json.dumps(forged), encoding='utf-8')
-            report=dict(frames=[dict(id='one', evidence='source.png', source_timestamp_ms=1222250)])
-            with self.assertRaisesRegex(ValueError, 'cached pixel proof'):
-                cached_readings(report, root)
 
     def test_cached_parser_sanitizes_untrusted_symbol_metadata(self):
         with workspace_temp() as root:

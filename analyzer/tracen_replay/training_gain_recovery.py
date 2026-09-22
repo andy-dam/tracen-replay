@@ -438,28 +438,6 @@ def _new_addition(timestamp, evidence, *, training_option=None):
                 'observed_training_gain_fields':[]},ocr={'neural':[]})
 
 
-def _merge_addition_gain(additions, row, field, amount):
-    """Merge one source-backed gain into a physical fresh row."""
-
-    timestamp = row['source_timestamp_ms']
-    addition = additions.get(timestamp)
-    if addition is None:
-        addition = _new_addition(
-            timestamp, row['evidence'], training_option=row.get('training_option'),
-        )
-        additions[timestamp] = addition
-    facts = addition.setdefault('facts', {})
-    gains = facts.setdefault('training_gains', {})
-    previous = gains.get(field)
-    if previous is not None and previous != amount:
-        return None
-    gains[field] = amount
-    observed = set(facts.get('observed_training_gain_fields', []))
-    observed.add(field)
-    facts['observed_training_gain_fields'] = sorted(observed)
-    return addition
-
-
 def _source_result_projection(row, window):
     """Return direct result fields eligible for a source-result window.
 

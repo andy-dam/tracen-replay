@@ -1,7 +1,6 @@
 """Tests of ``tests.test_early_core_fixes`` that need locally preserved evidence; they run only where it is."""
 import json
 import unittest
-from tracen_replay.animated_performance import candidates
 from tracen_replay.event_choice_commitment import reconstruct_committed_choices
 from tracen_replay.transactions import outcome_events
 from tracen_replay.vision import NeuralReader, parse

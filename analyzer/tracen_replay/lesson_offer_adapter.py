@@ -29,7 +29,6 @@ from typing import Any, Mapping
 SCHEMA = "tracen-replay/lesson-offer-source-adapter-v1"
 COST_REFINEMENT_SCHEMA = "tracen-replay/lesson-offer-cost-refinement-v1"
 GAMEPLAY_SIZE = (810, 1080)
-PANE_LEFT = 148
 COST_FIELDS = ("dance", "passion", "vocal", "visual", "composure")
 MIN_TITLE_CONFIDENCE = 90.0
 MIN_EFFECT_CONFIDENCE = 85.0
@@ -40,10 +39,6 @@ MIN_COST_CONFIDENCE = 60.0
 # when an image crop is needed by another consumer.
 _COST_COLUMNS = ((455, 515), (530, 600), (610, 680), (690, 760), (765, 835))
 _PROMPT = "select a technique or song to learn."
-_COST_LABEL = "performance point cost"
-_TITLE_EXCLUSIONS = frozenset({
-    "learnable!", "learnable", "technique", "none", "performance point cost",
-})
 
 _EFFECT_FIELDS = {
     "speed": "speed",
@@ -230,63 +225,6 @@ def _screen_is_lesson_selection(raw: Mapping[str, Any], lines: list[dict[str, An
     if any("technique learned" in text or "lesson learned" in text for text in normalized):
         return False
     return True
-
-
-def _title_groups(lines: list[dict[str, Any]], label_box: list[int]) -> list[list[dict[str, Any]]]:
-    """Find title line groups above one cost label using source geometry."""
-
-    _, label_center_y = _center(label_box)
-    candidates: list[dict[str, Any]] = []
-    for line in lines:
-        box = line["box"]
-        center_x, center_y = _center(box)
-        text = line["text"]
-        folded = text.casefold()
-        if not (260 <= box[0] <= 700 and center_x <= 760):
-            continue
-        if not label_center_y - 225 <= center_y <= label_center_y - 85:
-            continue
-        if line["confidence"] < MIN_TITLE_CONFIDENCE:
-            continue
-        if folded in _TITLE_EXCLUSIONS or folded == _PROMPT or "+" in text:
-            continue
-        if not any(character.isalpha() for character in text):
-            continue
-        candidates.append(line)
-    candidates.sort(key=lambda line: (line["box"][1], line["box"][0]))
-    groups: list[list[dict[str, Any]]] = []
-    for line in candidates:
-        if not groups:
-            groups.append([line])
-            continue
-        previous = groups[-1][-1]
-        current_box, previous_box = line["box"], previous["box"]
-        current_center_y, previous_center_y = _center(current_box)[1], _center(previous_box)[1]
-        horizontal_gap = current_box[0] - previous_box[2]
-        same_baseline = abs(current_center_y - previous_center_y) <= 14
-        same_column = abs(current_box[0] - groups[-1][0]["box"][0]) <= 28
-        if (same_baseline and -24 <= horizontal_gap <= 42) or (
-            0 <= current_box[1] - previous_box[3] <= 18 and same_column
-        ):
-            groups[-1].append(line)
-        else:
-            groups.append([line])
-    return groups
-
-
-def _title_record(group: list[dict[str, Any]]) -> dict[str, Any]:
-    box = [
-        min(line["box"][0] for line in group),
-        min(line["box"][1] for line in group),
-        max(line["box"][2] for line in group),
-        max(line["box"][3] for line in group),
-    ]
-    return dict(
-        text=" ".join(line["text"] for line in group),
-        confidence=min(line["confidence"] for line in group),
-        box=box,
-        line_indices=[line["index"] for line in group],
-    )
 
 
 def _effect(line: dict[str, Any]) -> dict[str, Any] | None:
@@ -1224,18 +1162,6 @@ def refine_lesson_offer_costs(
         source_sha256=source_sha256,
     )
     return merged, extra
-
-
-def parse_lesson_offers(raw: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
-    """Alias emphasizing that the adapter consumes source geometry only."""
-
-    return adapt_lesson_offer_frame(raw, **kwargs)
-
-
-def lesson_offer_observations(raw: Mapping[str, Any], **kwargs: Any) -> list[dict[str, Any]]:
-    """Return only grouped preview offers for a source row."""
-
-    return adapt_lesson_offer_frame(raw, **kwargs)["offers"]
 
 
 __all__ = [

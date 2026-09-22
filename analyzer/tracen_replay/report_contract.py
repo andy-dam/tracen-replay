@@ -323,9 +323,8 @@ def validate(report, *, require_gameplay=False, source_root=None):
             _error('report.gameplay_tracking.state_observations', f'cannot project source readings: {exc}')
         if gameplay['state_observations'] != expected_states:
             _error('report.gameplay_tracking.state_observations', 'does not match the source state readings')
-    for key in ("verification", "evidence_integrity_snapshot"):
-        if key in report and report[key] is not None:
-            _object(report[key], f"report.{key}")
+    if report.get("verification") is not None:
+        _object(report["verification"], "report.verification")
     if 'turn_ledger' in report:
         from .turn_ledger import build as build_turn_ledger
         try:

@@ -10,7 +10,6 @@ from a state delta, a balance, or a neighbouring frame.
 
 from __future__ import annotations
 
-import argparse
 import copy
 import hashlib
 import json
@@ -977,25 +976,3 @@ def generate(root, *, start_ms, end_ms, frame_ids=None, fields=None,
         _write_json(target, sidecar)
         summary["written"] += 1
     return summary
-
-
-refine = generate
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    parser.add_argument("--start-ms", type=int, required=True)
-    parser.add_argument("--end-ms", type=int, required=True)
-    parser.add_argument("--frame-id", action="append", dest="frame_ids", default=[])
-    parser.add_argument("--field", action="append", dest="fields", default=[])
-    parser.add_argument("--model-dir", type=Path, default=Path(".local/models/rapidocr"))
-    parser.add_argument("--output-dir", type=Path)
-    args = parser.parse_args(argv)
-    print(json.dumps(generate(args.output, start_ms=args.start_ms, end_ms=args.end_ms,
-                              frame_ids=args.frame_ids, fields=args.fields or None,
-                              model_dir=args.model_dir, output_dir=args.output_dir)), flush=True)
-
-
-if __name__ == "__main__":
-    main()

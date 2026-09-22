@@ -288,12 +288,6 @@ def _select_snapshots(candidates):
     return selected, frame_counts
 
 
-def _deduplicate_lines(candidates):
-    """Collapse duplicates and alternate crops without combining snapshots."""
-
-    return _select_snapshots(candidates)[0]
-
-
 def _max_disjoint_count(observations):
     maximum = 0
     for timestamp in sorted({item["source_timestamp_ms"] for item in observations}):

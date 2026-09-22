@@ -1,13 +1,8 @@
-import hashlib
-import json
 import unittest
-from PIL import Image
-from tests.test_gameplay import workspace_temp
 from tests.test_neural_transactions import row
 from tracen_replay.calendar_coverage import audit
 from tracen_replay.mechanics_audit import fan_accounting, song_acquisitions
 from tracen_replay.transactions import outing_actions,outcome_events,training_actions,training_events
-from tracen_replay.verify_evidence import verify, inside
 from tracen_replay.vision import parse
 from tests.test_neural_transactions import raw, line
 from tracen_replay.mechanics_audit import unparsed_receipt_candidates
@@ -156,29 +151,6 @@ class RecordingCoverageTests(unittest.TestCase):
         self.assertIsNone(result[0]['name'])
         self.assertIsNone(result[0]['performance_cost'])
         self.assertEqual(result[0]['acquisition'], 'story_event_receipt')
-
-    def test_evidence_audit_detects_crop_tampering(self):
-        with workspace_temp() as root:
-            (root/'neural').mkdir()
-            source = root/'source.mp4'
-            source.write_bytes(b'test source identity')
-            Image.new('RGB', (1920,1080), 'white').save(root/'frame.jpg')
-            with Image.open(root/'frame.jpg') as frame:
-                pane = frame.convert('RGB').crop((148,0,958,1080))
-                pane.save(root/'crop.png')
-            capture = dict(source=dict(sha256=hashlib.sha256(source.read_bytes()).hexdigest(), duration_ms=250),
-                           frames=[dict(id='f', evidence='frame.jpg', source_timestamp_ms=0,source_pts=0,time_base='1/60')])
-            raw = dict(source_timestamp_ms=0, evidence='crop.png',
-                       source_frame_sha256=hashlib.sha256((root/'frame.jpg').read_bytes()).hexdigest(),
-                       gameplay_sha256=hashlib.sha256(pane.tobytes()).hexdigest())
-            (root/'capture.json').write_text(json.dumps(capture), encoding='utf-8')
-            (root/'neural/f.json').write_text(json.dumps(raw), encoding='utf-8')
-            self.assertTrue(verify(root, source)['evidence_integrity_verified'])
-            pane.putpixel((0,0), (0,0,0)); pane.save(root/'crop.png')
-            result = verify(root, source)
-            self.assertFalse(result['evidence_integrity_verified'])
-            self.assertIn('crop', result['errors'][0]['reason'])
-            with self.assertRaises(ValueError): inside(root, '../outside.png')
 
 
 if __name__ == '__main__':

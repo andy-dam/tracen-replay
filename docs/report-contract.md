@@ -34,7 +34,6 @@ missing any of these fails to load.
 | `recognition` | object | `enabled` (bool), `model` (the OCR stack description), `device` (`cpu`, `dml` or `cuda`) |
 | `gameplay_tracking` | object | the reconstructed collections; see below |
 | `verification` | object | coverage and unresolved-work audit; see below |
-| `evidence_integrity_snapshot` | object, optional | present only when a matching `evidence-audit.json` was found for this exact source/capture/inspection state |
 | `turn_ledger` | object | schema `tracen-replay/turn-ledger-v1`; see [turn-ledger.md](turn-ledger.md) |
 | `causal_accounting` | object | schema `tracen-replay/causal-accounting-v1`; see below |
 | `automatic_refinement` | object, optional | discovery/reread counts from the automatic refinement stage |

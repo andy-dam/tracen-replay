@@ -23,7 +23,6 @@ import unicodedata
 from typing import Any, Iterable, Mapping
 
 
-SCHEMA = "tracen-replay/event-choice-commitment-v1"
 """Schema identifier for the emitted committed-choice observations."""
 
 DEFAULT_MAX_MENU_GAP_MS = 1_500
@@ -755,12 +754,6 @@ def reconstruct_committed_choices(
             + len(audit.get("orphan_witnesses", []))
         )
     return events
-
-
-# The shorter name is useful at call sites that already import other choice
-# reconstruction helpers.  Keep the explicit alias for integration code whose
-# name should make the commitment boundary obvious.
-reconstruct = reconstruct_committed_choices
 
 
 __all__ = [

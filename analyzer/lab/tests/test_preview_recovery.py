@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 from tests import localdata
-from tracen_replay.preview_recovery import candidate_requests, recover
+from tracen_replay.preview_recovery import candidate_requests
 
 
 class PreviewRecoveryTests(unittest.TestCase):

@@ -3,11 +3,6 @@ import unittest
 
 from tracen_replay.transactions import training_events
 from tracen_replay.training_gain_recovery import plan, promote_with_metadata
-from tracen_replay.full_recording import (
-    PipelineError,
-    _coalesce_replay_training_promotion_windows,
-    _validate_training_replay_windows,
-)
 
 
 def _result_row(
@@ -41,43 +36,6 @@ def _result_row(
 
 
 class TrainingGainG08ResultProjectionTests(unittest.TestCase):
-    def test_replay_validator_preserves_and_validates_result_projection_scope(self):
-        value = _validate_training_replay_windows([{
-            'start_ms': 500,
-            'end_ms': 1500,
-            'owner_id': 'training-g08',
-            'fields': ['speed'],
-            'performance_fields': ['visual', 'dance'],
-            'training_option': 'speed',
-            'source_result_projection': True,
-        }], 'candidate plan')
-        self.assertEqual(value[0]['performance_fields'], ['dance', 'visual'])
-        self.assertEqual(value[0]['training_option'], 'speed')
-        self.assertTrue(value[0]['source_result_projection'])
-
-        invalid = []
-        item = {
-                'start_ms': 500,
-                'end_ms': 1500,
-                'owner_id': 'training-g08',
-                'fields': ['speed'],
-                'performance_fields': ['visual'],
-                'training_option': 'speed',
-                'source_result_projection': True,
-            }
-        missing_performance = dict(item)
-        missing_performance.pop('performance_fields')
-        invalid.append(('missing performance fields', missing_performance))
-        missing_option = dict(item)
-        missing_option.pop('training_option')
-        invalid.append(('missing training option', missing_option))
-        invalid.append(('unknown performance field', dict(item, performance_fields=['balance'])))
-        invalid.append(('unknown training option', dict(item, training_option='Skill Points')))
-        invalid.append(('nonboolean projection', dict(item, source_result_projection='true')))
-        for name, candidate in invalid:
-            with self.subTest(name=name):
-                with self.assertRaises(PipelineError):
-                    _validate_training_replay_windows([candidate], 'candidate plan')
 
     def test_committed_result_without_candidates_gets_bounded_request(self):
         base = _result_row(
@@ -198,50 +156,6 @@ class TrainingGainG08ResultProjectionTests(unittest.TestCase):
         self.assertEqual(requests[0]['fields'], [
             'guts', 'power', 'skill_points', 'speed', 'stamina', 'wit',
         ])
-
-    def test_replay_coalesce_preserves_result_projection_scope(self):
-        generic = {
-            'start_ms': 324000,
-            'end_ms': 325000,
-            'owner_id': 'training-0012',
-            'fields': ['speed'],
-            'performance_fields': ['visual'],
-            'training_option': 'speed',
-            'source_result_projection': True,
-        }
-        narrow = {
-            'start_ms': 324150,
-            'end_ms': 324550,
-            'owner_id': 'training-0012',
-            'fields': ['power', 'skill_points'],
-            'reason': 'candidate_only_source_gain_evidence',
-        }
-        result = _coalesce_replay_training_promotion_windows([generic, narrow])
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]['fields'], ['power', 'skill_points', 'speed'])
-        self.assertEqual(result[0]['training_option'], 'speed')
-        self.assertEqual(result[0]['performance_fields'], ['visual'])
-        self.assertTrue(result[0]['source_result_projection'])
-
-    def test_replay_coalesce_does_not_merge_conflicting_options(self):
-        windows = [
-            {
-                'start_ms': 100,
-                'end_ms': 300,
-                'owner_id': 'same-id',
-                'fields': ['speed'],
-                'training_option': 'speed',
-            },
-            {
-                'start_ms': 200,
-                'end_ms': 400,
-                'owner_id': 'same-id',
-                'fields': ['power'],
-                'training_option': 'power',
-            },
-        ]
-        result = _coalesce_replay_training_promotion_windows(windows)
-        self.assertEqual(len(result), 2)
 
     def test_partial_signed_result_only_reopens_explicit_candidate_field(self):
         row = _result_row(

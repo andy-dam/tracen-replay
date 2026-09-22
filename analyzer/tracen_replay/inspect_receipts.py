@@ -1,5 +1,4 @@
 """Read bounded receipt windows more densely, with no expected labels as OCR input."""
-import argparse
 import hashlib
 import json
 from collections.abc import Mapping
@@ -339,9 +338,3 @@ def inspect(source,root,start,end,fps=16,*,reader=None):
         return
     result['windows'].append(dict(start_ms=start,end_ms=end,fps=fps,reason='unparsed_receipt_review'))
     save_json(path,result);print(json.dumps(dict(stage='receipt_inspection',start_ms=start,frames=len(frames))),flush=True)
-
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('source',type=Path)
-    parser.add_argument('--output',required=True,type=Path);parser.add_argument('--start-ms',required=True,type=int)
-    parser.add_argument('--end-ms',required=True,type=int);parser.add_argument('--fps',type=int,default=16)
-    args=parser.parse_args();inspect(args.source,args.output,args.start_ms,args.end_ms,args.fps)

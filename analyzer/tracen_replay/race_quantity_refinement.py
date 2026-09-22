@@ -15,7 +15,6 @@ that gate even though an exploratory probe may report candidates above 95.
 
 from __future__ import annotations
 
-import argparse
 import copy
 import hashlib
 import json
@@ -190,11 +189,10 @@ FIXED_QUANTITY_CROP_VARIANT_POLICY_V2 = {
     "multi_digit_requires_broad_support": True,
     "scaled_views_count_as_independent_frames": False,
 }
-# Keep the v2 object available for validation of already-sealed artifacts.
-# New fixed-layout generation uses v3 below, which adds a tightly localized
-# single-digit view.  The added view is focused and therefore cannot authorize
-# a multi-digit quantity without a broad view at the same source timestamp.
-FIXED_QUANTITY_CROP_VARIANT_POLICY = FIXED_QUANTITY_CROP_VARIANT_POLICY_V2
+# The v2 object stays for validating artifacts it sealed. New fixed-layout
+# generation uses v3, which adds a tightly localized single-digit view. The
+# added view is focused and therefore cannot authorize a multi-digit quantity
+# without a broad view at the same source timestamp.
 FIXED_QUANTITY_CROP_VARIANT_POLICY_V3 = copy.deepcopy(FIXED_QUANTITY_CROP_VARIANT_POLICY_V2)
 FIXED_QUANTITY_CROP_VARIANT_POLICY_V3["name"] = "fixed_badge_quantity_windows_v3"
 FIXED_QUANTITY_CROP_VARIANT_POLICY_V3["version"] = 3
@@ -2630,26 +2628,3 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
         new_facts["quantity_refinement_conflicts"] = conflicts
     result["facts"] = new_facts
     return result
-
-
-def main(argv: Sequence[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", type=Path, help="full-recording run root containing capture.json, neural/, and gameplay/")
-    parser.add_argument("--model-dir", type=Path, default=Path(".local/models/rapidocr"))
-    parser.add_argument("--frame-id", action="append", dest="frame_ids", help="Limit OCR and support evidence to these frames; repeat for all desired adjacent samples.")
-    parser.add_argument(
-        "--fixed-quantity-windows",
-        action="store_true",
-        help="Use the source-reviewed fixed-layout quantity-window policy for a new artifact run.",
-    )
-    args = parser.parse_args(argv)
-    print(json.dumps(generate(
-        args.root,
-        model_dir=args.model_dir,
-        frame_ids=args.frame_ids,
-        fixed_quantity_windows=args.fixed_quantity_windows,
-    ), ensure_ascii=False))
-
-
-if __name__ == "__main__":
-    main()

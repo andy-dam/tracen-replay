@@ -84,33 +84,6 @@ def account(before, after, events):
                 turn_boundary_verified=False, event_assignment_verified=False)
 
 
-def distinct_changes(events, baseline):
-    return reconcile_changes(events, baseline)['events']
-
-
-def reconcile_changes(events, baseline):
-    """Conservatively merge partial views; preserve raw candidates elsewhere.
-
-    Subset matching is an ambiguity policy, not proof that two events are equal.
-    """
-    def subset(a, b):
-        return all(b.get(k) == v for k,v in a.items())
-    kept, decisions = [], []
-    for index, event in enumerate(events):
-        if any(subset(event['deltas'], b['deltas']) for b in baseline):
-            decisions.append(dict(candidate_index=index, decision='exclude_baseline_match', identity_verified=False))
-            continue
-        if any(subset(event['deltas'], k[1]['deltas']) for k in kept):
-            decisions.append(dict(candidate_index=index, decision='merge_partial_or_identical', identity_verified=False))
-            continue
-        for old_index, old in kept:
-            if subset(old['deltas'],event['deltas']):
-                decisions.append(dict(candidate_index=old_index, decision='replace_with_fuller_block', replacement_index=index, identity_verified=False))
-        kept = [k for k in kept if not subset(k[1]['deltas'], event['deltas'])]
-        kept.append((index,event))
-    return dict(events=[e for _,e in kept], decisions=decisions, identity_verified=False)
-
-
 def preview_segments(readings, maximum_gap_ms=500):
     """Observed option browsing only; even the last preview is not a selection."""
     segments, current = [], None

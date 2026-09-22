@@ -6,7 +6,6 @@ from tests.test_gameplay import workspace_temp
 from tracen_replay.transactions import training_events
 from tracen_replay.training_gain_resolution import resolve_candidate_only_gain
 from tracen_replay.training_gain_recovery import plan, promote, promote_with_metadata, recover
-from tracen_replay.vision import parse
 
 
 def _candidate(

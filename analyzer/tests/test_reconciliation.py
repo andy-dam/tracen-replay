@@ -1,6 +1,6 @@
 import unittest
 
-from tracen_replay.reconcile import FIELDS, account, distinct_changes, stable_checkpoints, preview_segments, reconcile_changes
+from tracen_replay.reconcile import FIELDS, account, stable_checkpoints, preview_segments
 
 
 def reading(time, option=None, **changes):
@@ -28,13 +28,6 @@ class ReconciliationTests(unittest.TestCase):
         self.assertTrue(all(p['completed_action'] is None for p in previews))
         self.assertEqual(previews[0]['last_seen_ms'],250)
 
-    def test_baseline_and_repeated_changes_disclose_identity_uncertainty(self):
-        events=[dict(deltas={'speed':10}),dict(deltas={'speed':10}),dict(deltas={'wit':5})]
-        result=reconcile_changes(events,[dict(deltas={'wit':5})])
-        self.assertEqual(result['events'],[events[0]])
-        self.assertEqual([d['decision'] for d in result['decisions']],['merge_partial_or_identical','exclude_baseline_match'])
-        self.assertFalse(result['identity_verified'])
-
     def test_browsing_options_does_not_create_completed_actions(self):
         rows = [reading(0,'speed'),reading(250,'stamina'),reading(500,'wit')]
         checkpoints = stable_checkpoints(rows)
@@ -61,11 +54,6 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(result['unexplained_change']['skill_points'],0)
         self.assertEqual(result['status'],'unresolved')
         self.assertFalse(result['complete_event_history'])
-
-    def test_partial_scrolled_blocks_do_not_double_count(self):
-        events=[dict(deltas={'speed':15}),dict(deltas={'speed':15,'power':5}),dict(deltas={'skill_points':10})]
-        baseline=[dict(deltas={'wit':10,'skill_points':10})]
-        self.assertEqual(distinct_changes(events,baseline),[events[1]])
 
     def test_outcomes_resolve_arithmetic_without_inventing_events(self):
         before=dict(id='a',last_seen_ms=0,values=reading(0)['values'])

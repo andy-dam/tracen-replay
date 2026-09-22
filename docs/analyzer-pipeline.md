@@ -94,16 +94,10 @@ field unknown.
 | `performance_panel_localized_current` / `performance_panel_localized_glyph` | a panel row the detector missed or doubted, read again from the row's fixed geometry and, when the detector did put a box around the number, from that box; the row keeps a value only where the two agree. These and the slot and cap rereads below are asked for wherever the panel's `Performance` heading is at its place, on a training result's frames as much as beside the stat grid, since the sidebar stays up while the result cards animate | inside the reading itself |
 | `performance_panel_localized_slot` | every panel row the detector *did* read, asked again over the row's whole value slot at the height the line was read. A box that stopped short of a number's first digit reports the digits it did contain at full confidence, so `18` arrives as a clean `8` and nothing in the line says otherwise. The widened crop covers that box and the slot beside it: reading the same number is the row confirming itself, reading the line as the tail of a longer number proves the clipped digit and the row becomes that number, and any other disagreement leaves the row unknown | inside the reading itself |
 | `status_badge_refinement` | a mood/hype badge below the 97% status threshold, rereading the same crop in three contrast views | via `automatic_refinement`, then loaded as an early sidecar |
-| `base_receipt_refinement` | a base receipt line, using three correlated OCR views of the same row | applied while loading cached readings |
-| `race_identity_refinement` | race-result fields (name, course, grade, placing) that did not change, via a source-bound crop reread | applied while loading cached readings |
 | `race_quantity_refinement` | quantities on race-result item badges, from fixed badge regions at two source timestamps | its own stage (fresh runs only) |
-| `song_symbols` / `song_symbol_refinement` / `song_star_refinement` | a dropped or misread song-title glyph (music note or outlined star) in a wrapped or single-line song receipt | applied inline while parsing a song receipt, or as cached sidecars |
+| `song_symbols` / `song_symbol_refinement` | a dropped or misread song-title glyph in a wrapped or single-line song receipt | applied inline while parsing a song receipt |
 | `lesson_offer_refinement` (via `lesson_offer_adapter`) | the five price slots on a visible Lessons-menu card | applied inline for `lesson_selection` frames, or as a cached sidecar |
-| `concert_panel_refinement` | the Concert Info support-chain frequency level slot | applied while loading cached readings |
-| `choice_card_refinement` / `refine_choices` | a weak dialogue-choice card at native size | applied while loading cached readings |
-| `refine_inventory` | the final skill panel's card list | applied while loading cached readings |
 | `refine_currencies` / `refine_currency_padding` | every lesson-balance slot, read again by the recognizer from a wide fixed crop (the detector's box can start on the currency label or lose a digit to the cursor), then two padded crops for a slot that is still unread | its own stage on fresh runs (`currency_refinement`), between the race quantity stage and the readings reload; the sidecars are then applied while loading cached readings |
-| skill-point crop refinements (`skill-points-refinement`, `skill-variants`) | skill-point counters clipped by neighboring badges or missed by text detection | applied while loading cached readings |
 
 Hint-card identity preparation (`hint_card_cache` / `hint_card_identity`) runs
 separately, after the readings are reloaded: when a cursor obscures a hint
@@ -127,12 +121,6 @@ has its own frame-rate and budget, spent across the whole run:
 | `boundary_state_recovery` | the turn ledger has no stats/performance opening for a turn, and an existing reading proves that panel was visible before the committed action, showing the turn's own date or countdown (or, in a finale race window, the phase label: the three finale races all count down from 1 and are told apart by the race advance that opened each window) | 60 fps | up to 12 windows, each padded 200 ms, totalling 6 s |
 | `weak_state_recovery` | (same-frame, no new decode) a field on an already-captured frame is missing or below the confidence floor | n/a | up to 16 crop requests per frame |
 | `preview_recovery` | (same-frame, no new decode) a translucent Grand Live training-preview row overlaps a Concert Bonuses row in one detector box | n/a | up to 16 crop requests per frame |
-
-`training_inspection.json`, `native-inspection.json` and
-`receipt-inspection.json` (30 fps result-layout inspection, 60 fps unresolved
-training-animation inspection, and bounded receipt review respectively) are
-the manual counterparts of the same reread mechanism, merged into the
-readings before the automated recovery passes run.
 
 ## Assembly
 

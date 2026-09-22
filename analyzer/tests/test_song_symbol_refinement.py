@@ -44,34 +44,6 @@ class SongSymbolRefinementTests(unittest.TestCase):
         self.assertEqual(effect['original_text'],self.raw['lines'][0]['text'])
         self.assertEqual(self.raw,before)
 
-    def test_cached_recording_replay_uses_verified_sidecar_without_ocr(self):
-        from tracen_replay.full_recording import cached_readings
-        source=Image.new('RGB',(1920,1080),'black');source.paste(self.pane,(148,0));source.save(self.root/'source.png')
-        raw=dict(self.raw,model_sha256={'test':'b'*64},engine_fingerprint='c'*64,
-                 source_frame_sha256=hashlib.sha256((self.root/'source.png').read_bytes()).hexdigest())
-        extra=prepare(raw,self.proof,self.reader())
-        for name,value in [('neural/one.json',raw),('song-symbol-refinement/one.json',extra)]:
-            path=self.root/name;path.parent.mkdir(exist_ok=True);path.write_text(json.dumps(value),encoding='utf-8')
-        capture={'source':{'sha256':'d'*64},'frames':[{'id':'one','evidence':'source.png','source_timestamp_ms':1524500}]}
-        with patch('tracen_replay.vision.NeuralReader',side_effect=AssertionError('OCR during replay')):
-            rows=cached_readings(capture,self.root)
-        self.assertEqual(rows[0]['effects'][0]['name'],'Hoppity Sunny Days ♪')
-        self.assertEqual(rows[0]['effects'][0]['original_text'],self.meta['line']['text'])
-        from tracen_replay.verify_evidence import verify
-        capture['source'].update(sha256=raw['source_frame_sha256'],duration_ms=2000000)
-        capture['frames'][0].update(source_pts=1524500,time_base='1/1000')
-        (self.root/'capture.json').write_text(json.dumps(capture),encoding='utf-8')
-        with patch('builtins.print'):
-            audit=verify(self.root,self.root/'source.png')
-        self.assertTrue(audit['evidence_integrity_verified'])
-        self.assertEqual(audit['verified_refinements'],1)
-        extra['observations'][0]['title_crop_sha256']='e'*64
-        (self.root/'song-symbol-refinement/one.json').write_text(json.dumps(extra),encoding='utf-8')
-        with patch('builtins.print'):
-            failed=verify(self.root,self.root/'source.png')
-        self.assertFalse(failed['evidence_integrity_verified'])
-        self.assertIn('title evidence changed',failed['errors'][0]['reason'])
-
     def test_real_letter_before_note_and_unreadable_title_abstain(self):
         for text,confidence in [('Hoppity Sunny Days D',.999),('Hoppity Sunny Day',.999),
                                 ('Hoppity Sunny Days',.949),('Hoppity Sunny Days',1.1),

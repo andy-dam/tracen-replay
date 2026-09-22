@@ -26,11 +26,9 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import json
 import math
 import re
 from collections import defaultdict
-from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 
@@ -131,20 +129,6 @@ def gameplay_fingerprint(pane: Any) -> str:
 
     rgb = _rgb_array(pane)
     return hashlib.sha256(rgb.tobytes()).hexdigest()
-
-
-def file_fingerprint(path: str | Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def fingerprint(value: Any) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    ).hexdigest()
 
 
 def _rgb_array(pane: Any):
@@ -566,14 +550,6 @@ def localize_training_badges(
     return result
 
 
-def _observation_identity(observation: Mapping[str, Any]) -> tuple[Any, ...]:
-    return (
-        observation.get("field"), observation.get("source_timestamp_ms"),
-        observation.get("evidence"), observation.get("box"),
-        observation.get("pixel_rgb_sha256"), observation.get("amount"),
-    )
-
-
 def _validate_observation(observation: Mapping[str, Any], *, gameplay_sha256: str | None = None) -> dict[str, Any]:
     if not isinstance(observation, Mapping):
         raise ValueError("Training badge localization observation is invalid.")
@@ -677,247 +653,6 @@ def attach(raw: Mapping[str, Any], localization: Mapping[str, Any]) -> dict[str,
     metadata["observations"] = copy.deepcopy(accepted)
     result["training_badge_localization"] = metadata
     return result
-
-
-def _read_json(value: Any) -> Mapping[str, Any]:
-    if isinstance(value, Mapping):
-        return value
-    path = Path(value)
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError("Training badge localization sidecar is unreadable.") from exc
-    if not isinstance(loaded, Mapping):
-        raise ValueError("Training badge localization sidecar is not an object.")
-    return loaded
-
-
-def build_sidecar(
-    raw: Mapping[str, Any],
-    localization: Mapping[str, Any],
-    *,
-    evidence_path: str | Path,
-    source_frame_path: str | Path | None = None,
-    source_frame_id: str | None = None,
-    source_frame_evidence: str | None = None,
-    source_sha256: str | None = None,
-) -> dict[str, Any]:
-    """Build the standard top-level sidecar consumed by cached replay.
-
-    Fresh readers can attach ``localization`` directly to a raw record.  A
-    bounded preparation pass needs the equivalent persisted envelope, with
-    the immutable raw/evidence/frame hashes at the top level so replay
-    manifests can validate it before invoking :func:`load`.
-    """
-
-    if not isinstance(raw, Mapping) or not isinstance(localization, Mapping):
-        raise ValueError("Training badge localization inputs are invalid.")
-    if localization.get("schema_version") != SCHEMA or localization.get("version") != VERSION:
-        raise ValueError("Training badge localization schema is unsupported.")
-    if localization.get("status") != "localized":
-        raise ValueError("Training badge localization has no accepted observations.")
-    timestamp = raw.get("source_timestamp_ms")
-    evidence = raw.get("evidence")
-    gameplay_sha = raw.get("gameplay_sha256")
-    if type(timestamp) is not int or timestamp < 0:
-        raise ValueError("Training badge localization raw timestamp is missing.")
-    if not isinstance(evidence, str) or not evidence.strip():
-        raise ValueError("Training badge localization raw evidence is missing.")
-    if not isinstance(gameplay_sha, str) or _SHA256_RE.fullmatch(gameplay_sha) is None:
-        raise ValueError("Training badge localization raw gameplay hash is missing.")
-    evidence_path = Path(evidence_path)
-    try:
-        from PIL import Image
-
-        with Image.open(evidence_path) as image:
-            pane = image.convert("RGB")
-            if pane.size != (810, 1080):
-                raise ValueError("Training badge localization evidence is not a gameplay pane.")
-            if hashlib.sha256(pane.tobytes()).hexdigest() != gameplay_sha:
-                raise ValueError("Training badge localization evidence pixels disagree with raw input.")
-    except OSError as exc:
-        raise ValueError("Training badge localization evidence is unreadable.") from exc
-    source_hash = source_sha256 if source_sha256 is not None else raw.get("source_sha256")
-    if source_hash is not None and (
-        not isinstance(source_hash, str) or _SHA256_RE.fullmatch(source_hash) is None
-    ):
-        raise ValueError("Training badge localization source hash is invalid.")
-    raw_source_hash = raw.get("source_sha256")
-    if source_hash is not None and raw_source_hash is not None and source_hash != raw_source_hash:
-        raise ValueError("Training badge localization source hash disagrees with raw input.")
-    frame_hash = raw.get("source_frame_sha256")
-    if frame_hash is not None and (
-        not isinstance(frame_hash, str) or _SHA256_RE.fullmatch(frame_hash) is None
-    ):
-        raise ValueError("Training badge localization source-frame hash is invalid.")
-    if frame_hash is not None:
-        if source_frame_path is None or not Path(source_frame_path).is_file():
-            raise ValueError("Training badge localization source-frame evidence is missing.")
-        if file_fingerprint(source_frame_path) != frame_hash:
-            raise ValueError("Training badge localization source-frame pixels disagree with raw input.")
-    frame_evidence = source_frame_evidence
-    if frame_evidence is None:
-        candidate = raw.get("source_frame_evidence")
-        frame_evidence = candidate if isinstance(candidate, str) else None
-    raw_frame_evidence = raw.get("source_frame_evidence")
-    if (
-        isinstance(raw_frame_evidence, str)
-        and frame_evidence is not None
-        and frame_evidence != raw_frame_evidence
-    ):
-        raise ValueError("Training badge localization source-frame evidence disagrees with raw input.")
-    metadata = _canonical_metadata(localization.get("metadata"))
-    metadata.update(
-        source_timestamp_ms=timestamp,
-        evidence=evidence,
-        evidence_sha256=file_fingerprint(evidence_path),
-        gameplay_sha256=gameplay_sha,
-        raw_sha256=fingerprint(raw),
-    )
-    if source_hash is not None:
-        metadata["source_sha256"] = source_hash
-    if frame_hash is not None:
-        metadata["source_frame_sha256"] = frame_hash
-    if frame_evidence is not None:
-        metadata["source_frame_evidence"] = frame_evidence
-    if source_frame_id is not None:
-        metadata["source_frame_id"] = source_frame_id
-    sidecar = {
-        "schema_version": SCHEMA,
-        "version": VERSION,
-        "status": "localized",
-        "source_timestamp_ms": timestamp,
-        "evidence": evidence,
-        "evidence_sha256": metadata["evidence_sha256"],
-        "gameplay_sha256": gameplay_sha,
-        "raw_sha256": fingerprint(raw),
-        "source_frame_id": source_frame_id,
-        "source_frame_evidence": frame_evidence,
-        "source_frame_sha256": frame_hash,
-        "source_sha256": source_hash,
-        "metadata": metadata,
-        "observations": copy.deepcopy(localization.get("observations", [])),
-        "policy": copy.deepcopy(localization.get("policy", {})),
-    }
-    # Exercise the exact cached-load validation before returning a sidecar.
-    # This also canonicalizes the observation records under the same proof
-    # boundary used by replay.
-    checked = apply(
-        raw,
-        sidecar,
-        evidence_path=evidence_path,
-        source_frame_path=source_frame_path,
-        source_frame_id=source_frame_id,
-        source_frame_evidence=frame_evidence,
-        original=raw,
-    )
-    sidecar["observations"] = copy.deepcopy(
-        checked["training_badge_localization"]["observations"]
-    )
-    return sidecar
-
-
-def apply(
-    raw: Mapping[str, Any],
-    sidecar: Mapping[str, Any] | str | Path,
-    *,
-    evidence_path: str | Path | None = None,
-    source_frame_path: str | Path | None = None,
-    source_frame_id: str | None = None,
-    source_frame_evidence: str | None = None,
-    original: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Validate and attach a persisted source-localized observation."""
-
-    sidecar = _read_json(sidecar)
-    if sidecar.get("schema_version") != SCHEMA or sidecar.get("version") != VERSION:
-        raise ValueError("Training badge localization schema is unsupported.")
-    if sidecar.get("status") not in {"localized", "candidate"}:
-        raise ValueError("Training badge localization sidecar is unresolved.")
-    metadata = sidecar.get("metadata")
-    if not isinstance(metadata, Mapping):
-        metadata = {}
-    declared_raw_sha = sidecar.get("raw_sha256", metadata.get("raw_sha256"))
-    if original is not None and declared_raw_sha is not None:
-        if declared_raw_sha != fingerprint(original):
-            raise ValueError("Training badge localization raw observation changed.")
-    source_timestamp = metadata.get("source_timestamp_ms", sidecar.get("source_timestamp_ms"))
-    evidence = metadata.get("evidence", sidecar.get("evidence"))
-    gameplay_sha = metadata.get("gameplay_sha256", sidecar.get("gameplay_sha256"))
-    if type(source_timestamp) is not int or source_timestamp < 0:
-        raise ValueError("Training badge localization source timestamp is missing.")
-    if not isinstance(evidence, str) or not evidence.strip():
-        raise ValueError("Training badge localization evidence path is missing.")
-    if not isinstance(gameplay_sha, str) or _SHA256_RE.fullmatch(gameplay_sha) is None:
-        raise ValueError("Training badge localization gameplay hash is missing.")
-    if raw.get("source_timestamp_ms") != source_timestamp or raw.get("evidence") != evidence:
-        raise ValueError("Training badge localization source identity disagrees with raw input.")
-    if raw.get("gameplay_sha256") != gameplay_sha:
-        raise ValueError("Training badge localization gameplay hash disagrees with raw input.")
-    if evidence_path is None:
-        raise ValueError("Training badge localization gameplay evidence is required.")
-    evidence_path = Path(evidence_path)
-    try:
-        from PIL import Image
-
-        with Image.open(evidence_path) as image:
-            pane = image.convert("RGB")
-            if pane.size != (810, 1080):
-                raise ValueError("Training badge localization evidence is not a gameplay pane.")
-            if hashlib.sha256(pane.tobytes()).hexdigest() != gameplay_sha:
-                raise ValueError("Training badge localization gameplay pixels changed.")
-            evidence_file_sha = file_fingerprint(evidence_path)
-            declared_evidence_sha = metadata.get("evidence_sha256", sidecar.get("evidence_sha256"))
-            if declared_evidence_sha is not None and declared_evidence_sha != evidence_file_sha:
-                raise ValueError("Training badge localization evidence file changed.")
-            rgb = _rgb_array(pane)
-            observations = sidecar.get("observations")
-            if not isinstance(observations, list) or not observations:
-                raise ValueError("Training badge localization has no observations.")
-            checked = []
-            for item in observations:
-                observation = _validate_observation(item, gameplay_sha256=gameplay_sha)
-                left, top, right, bottom = _integer_box(observation["box"], name="localized")
-                crop = rgb[top:bottom, left - PANE_OFFSET:right - PANE_OFFSET]
-                if hashlib.sha256(crop.tobytes()).hexdigest() != observation["pixel_rgb_sha256"]:
-                    raise ValueError("Training badge localization crop pixels changed.")
-                checked.append(observation)
-    except OSError as exc:
-        raise ValueError("Training badge localization gameplay evidence is unreadable.") from exc
-    declared_source_frame_id = metadata.get("source_frame_id", sidecar.get("source_frame_id"))
-    if source_frame_id is not None and declared_source_frame_id not in (None, source_frame_id):
-        raise ValueError("Training badge localization source frame identity changed.")
-    expected_source_sha = metadata.get("source_frame_sha256", sidecar.get("source_frame_sha256"))
-    if expected_source_sha is not None:
-        if not isinstance(expected_source_sha, str) or _SHA256_RE.fullmatch(expected_source_sha) is None:
-            raise ValueError("Training badge localization source-frame hash is invalid.")
-        if source_frame_path is None:
-            raise ValueError("Training badge localization source-frame evidence is required.")
-        if file_fingerprint(source_frame_path) != expected_source_sha:
-            raise ValueError("Training badge localization source-frame pixels changed.")
-    expected_source_evidence = metadata.get("source_frame_evidence", sidecar.get("source_frame_evidence"))
-    if expected_source_evidence is not None and source_frame_evidence not in (None, expected_source_evidence):
-        raise ValueError("Training badge localization source-frame evidence identity changed.")
-    prepared = dict(sidecar)
-    prepared["metadata"] = dict(metadata)
-    prepared["metadata"].update({
-        "source_timestamp_ms": source_timestamp,
-        "evidence": evidence,
-        "gameplay_sha256": gameplay_sha,
-        "evidence_sha256": file_fingerprint(evidence_path),
-    })
-    prepared["observations"] = checked
-    return attach(raw, prepared)
-
-
-def load(
-    raw: Mapping[str, Any],
-    sidecar: Mapping[str, Any] | str | Path,
-    **kwargs: Any,
-) -> dict[str, Any]:
-    """Loader alias used by cached replay sidecar dispatch."""
-
-    return apply(raw, sidecar, **kwargs)
 
 
 __all__ = [

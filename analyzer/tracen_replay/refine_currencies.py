@@ -1,5 +1,4 @@
 """Read all digits of lesson balances, retaining the original OCR observations."""
-import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -39,9 +38,3 @@ def refine(root,model_dir='.local/models/rapidocr'):
     padded=refine_padding(root,model_dir=model_dir)
     return dict(method='wide_currency_crops_and_padding_views',new_frames=count,padded_frames=padded,
                 model_dir=str(model_dir),model_sha256=reader.models if reader is not None else None)
-
-
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path)
-    parser.add_argument('--model-dir',type=Path,default=Path('.local/models/rapidocr'))
-    args=parser.parse_args();refine(args.output,model_dir=args.model_dir)

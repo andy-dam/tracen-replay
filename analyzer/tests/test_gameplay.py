@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import shutil
 from PIL import Image
 from tests import localdata
-from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, PANE, CURRENCIES, ledger, FIELDS, screen_summary
+from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, PANE, CURRENCIES, screen_summary
 
 
 def line(text, confidence=95):
@@ -118,23 +118,6 @@ class GameplayTests(unittest.TestCase):
     def test_expired_confirmation_does_not_explain_later_debit(self):
         rows=self.rows();rows[-1]['source_timestamp_ms']=10000
         self.assertEqual(lesson_transitions(rows),[])
-    def training_interval(self, values):
-        before=dict(id='a',last_seen_ms=0,values={f:100 for f in FIELDS})
-        after=dict(id='b',first_seen_ms=1000,values={f:130 if f=='skill_points' else 100 for f in FIELDS})
-        rows=[dict(source_timestamp_ms=200+i*200,screen='training_result',training_option='speed',effects=[],facts={'result_values':{'skill_points':v}},evidence=f'{i}.png') for i,v in enumerate(values)]
-        return ledger(rows,[before,after])[0]
-    def test_repeated_result_total_supports_only_observed_partial_gain(self):
-        result=self.training_interval([125,125])
-        self.assertEqual(result['supported_change']['skill_points'],25)
-        self.assertEqual(result['unexplained_change']['skill_points'],5)
-        self.assertFalse(result['event_assignment_verified'])
-    def test_single_or_animating_result_total_cannot_explain_change(self):
-        for values in ([125],[124,125]):
-            self.assertEqual(self.training_interval(values)['supported_change']['skill_points'],0)
-    def test_training_proof_links_to_a_readable_awarded_field(self):
-        result=self.training_interval([None,125,125])
-        self.assertEqual(result['events'][0]['evidence'],'1.png')
-        self.assertNotIn('0.png',result['events'][0]['supporting_frames'])
     def test_completion_context_does_not_invent_skill_names_or_cost(self):
         rows=[dict(screen=screen,source_timestamp_ms=i*1000,evidence=f'{i}.png') for i,screen in enumerate(['skill_confirmation','skill_receipt'])]
         spans=screen_summary(rows)

@@ -13,11 +13,7 @@ from tracen_replay.race_quantity_refinement import (
     generate,
     layout_guard,
 )
-from tracen_replay.race_section_layout import (
-    SectionLayoutError,
-    resolve,
-    source_box_from_full,
-)
+from tracen_replay.race_section_layout import SectionLayoutError, resolve
 from tracen_replay.vision import parse
 from tests.test_gameplay import workspace_temp
 
@@ -113,10 +109,6 @@ class RaceSectionLayoutTests(unittest.TestCase):
 
         with self.assertRaisesRegex(SectionLayoutError, "multiple items headers"):
             resolve(raw, _row(raw), SLOT_SPECS)
-
-    def test_source_box_conversion_stays_in_gameplay_crop(self):
-        self.assertEqual(source_box_from_full((425, 862, 490, 890)), (275, 860, 344, 892))
-        self.assertIsNone(source_box_from_full((120, 862, 140, 890)))
 
     def test_shifted_two_section_layout_does_not_use_legacy_geometry(self):
         raw = _raw(

@@ -32,11 +32,6 @@ def _center_y(line):
     return (box[1]+box[3])/2 if box is not None else None
 
 
-def _in_column(line,left,right):
-    box=_box(line)
-    return box is not None and left<=box[0] and box[2]<=right
-
-
 def _column_index(line):
     box=_box(line)
     if box is None or not _GRID_MIN_Y<=(_center_y(line) or -1)<_GRID_MAX_Y:return None
@@ -178,11 +173,6 @@ def _level_associated_card_rows(lines, groups=None):
                  if group['column']==column and abs(group['center']-center)<=_ROW_MATCH_TOLERANCE]
         if len(matches)==1:associated.append((matches[0]['center'],matches[0],level))
     return associated
-
-
-def _has_level_anchor(lines):
-    """Compatibility predicate for a level marker tied to one card row."""
-    return bool(_level_associated_card_rows(lines))
 
 
 def _has_skill_grid_marker(lines, groups=None):

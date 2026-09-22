@@ -163,8 +163,6 @@ class FullRecordingTests(unittest.TestCase):
                 stack.enter_context(patch('tracen_replay.full_recording.capture',return_value=report))
                 stack.enter_context(patch('tracen_replay.full_recording.cached_readings',return_value=rows))
                 stack.enter_context(patch('tracen_replay.full_recording.analyze_frames',side_effect=AssertionError('OCR during replay')))
-                stack.enter_context(patch('tracen_replay.inspect_choices.load',return_value=({},[])))
-                stack.enter_context(patch('tracen_replay.race_reward_inspection.load',return_value=({},[])))
                 choice_source={'schema_version':'test-choice','observations':[],
                                'committed_choices':[]}
                 stack.enter_context(patch('tracen_replay.full_recording.build_event_choice_observations',
@@ -225,9 +223,6 @@ class FullRecordingTests(unittest.TestCase):
             occluded = stack.enter_context(patch(
                 'tracen_replay.occluded_receipt_recovery.recover',
                 return_value=(rows, {'schema': 'occluded'})))
-            stack.enter_context(patch('tracen_replay.inspect_choices.load', return_value=(None, [])))
-            stack.enter_context(patch('tracen_replay.race_reward_inspection.load',
-                                      return_value=(None, [])))
             stack.enter_context(patch('tracen_replay.hint_card_cache.load', return_value=[]))
             automatic = stack.enter_context(patch('tracen_replay.automatic_refinement.run',
                                                   return_value={'schema_version': 'test-auto',
@@ -304,9 +299,6 @@ class FullRecordingTests(unittest.TestCase):
             occluded = stack.enter_context(patch(
                 'tracen_replay.occluded_receipt_recovery.recover',
                 return_value=(promoted_rows, {'schema': 'occluded'})))
-            stack.enter_context(patch('tracen_replay.inspect_choices.load', return_value=(None, [])))
-            stack.enter_context(patch('tracen_replay.race_reward_inspection.load',
-                                      return_value=(None, [])))
             stack.enter_context(patch('tracen_replay.hint_card_cache.load', return_value=[]))
             prepare_hints = stack.enter_context(patch(
                 'tracen_replay.full_recording._prepare_fresh_hint_cards'))
@@ -338,11 +330,6 @@ class FullRecordingTests(unittest.TestCase):
             base = [{'source_timestamp_ms': 10, 'evidence': 'base.png',
                      'screen': 'unknown', 'facts': {}, 'effects': []}]
             refined = [dict(base[0], facts={'refinement_loaded': True})]
-            inspected = {'source_timestamp_ms': 15, 'evidence': 'inspection.png',
-                         'screen': 'training_result', 'stats': {},
-                         'facts': {'training_gains': {'wit': 7}}, 'effects': []}
-            (root / 'training-inspection.json').write_text(json.dumps({
-                'source_sha256': 'a' * 64, 'windows': []}), encoding='utf-8')
             numeric = {'source_timestamp_ms': 20, 'evidence': 'receipt.png',
                        'screen': 'event_outcome', 'facts': {},
                        'effects': [{'kind': 'energy_change', 'amount': -10}]}
@@ -353,8 +340,6 @@ class FullRecordingTests(unittest.TestCase):
             stack.enter_context(patch('tracen_replay.full_recording.capture', return_value=report))
             stack.enter_context(patch('tracen_replay.full_recording.analyze_frames', return_value=base))
             stack.enter_context(patch('tracen_replay.full_recording.cached_readings', return_value=refined))
-            stack.enter_context(patch('tracen_replay.inspect_training.reparse_inspection',
-                                      return_value=[inspected]))
             receipts = stack.enter_context(patch('tracen_replay.receipt_recovery.recover',
                 side_effect=lambda source, root, info, rows, events, **kw: (rows + [numeric], {})))
             gains = stack.enter_context(patch('tracen_replay.training_gain_recovery.recover',
@@ -363,8 +348,6 @@ class FullRecordingTests(unittest.TestCase):
             stack.enter_context(patch('tracen_replay.transactions.training_events', return_value=[]))
             stack.enter_context(patch('tracen_replay.occluded_receipt_recovery.recover',
                 side_effect=lambda source, root, info, rows, events, **kw: (rows, {})))
-            for target in ('inspect_choices.load', 'race_reward_inspection.load'):
-                stack.enter_context(patch('tracen_replay.' + target, return_value=({}, [])))
             hints = stack.enter_context(patch('tracen_replay.hint_card_cache.load', return_value=[]))
             stack.enter_context(patch('tracen_replay.automatic_refinement.run', return_value={}))
             choices = {'committed_choices': [], 'observations': []}
@@ -380,13 +363,11 @@ class FullRecordingTests(unittest.TestCase):
             main()
             result = assembler.call_args.args[1]
             self.assertEqual([(r['source_timestamp_ms'], r['evidence']) for r in result],
-                             [(10, 'base.png'), (15, 'inspection.png'),
-                              (20, 'receipt.png'), (30, 'training.png')])
+                             [(10, 'base.png'), (20, 'receipt.png'), (30, 'training.png')])
             self.assertTrue(result[0]['facts']['refinement_loaded'])
-            self.assertEqual(result[1]['facts']['training_gains'], {'wit': 7})
-            self.assertEqual(result[2:], [numeric, training])
-            self.assertEqual(receipts.call_args.args[3], result[:2])
-            self.assertEqual(gains.call_args.args[3], result[:3])
+            self.assertEqual(result[1:], [numeric, training])
+            self.assertEqual(receipts.call_args.args[3], result[:1])
+            self.assertEqual(gains.call_args.args[3], result[:2])
             self.assertEqual(hints.call_args.args[0], result)
 
     def test_neural_input_is_independent_of_auxiliary_pixels_and_cache_rejects_tampering(self):

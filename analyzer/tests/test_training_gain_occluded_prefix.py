@@ -51,14 +51,3 @@ class PrefixResolvedFieldsStayInRereadScopeTests(unittest.TestCase):
         requests = plan(rows, [event])
         self.assertEqual([(r['owner_id'], r['fields'], r['reason']) for r in requests],
                          [('training-0001', ['skill_points', 'speed'], 'conflicting_observed_training_badge_digits')])
-
-    def test_replay_conflict_windows_include_prefix_resolved_fields(self):
-        from tracen_replay.full_recording import _replay_training_conflict_windows
-        event = dict(id='training-0001', kind='training', first_seen_ms=1000, last_seen_ms=1250,
-                     deltas=dict(skill_points=13), conflicting_readings=dict(speed=[10, 16]),
-                     gain_prefix_resolutions=dict(skill_points=dict(accepted_amount=13)))
-        windows = _replay_training_conflict_windows([], [dict(start_ms=1000, end_ms=1250, fps=60)], [event])
-        self.assertEqual([(w['owner_id'], w['fields']) for w in windows], [('training-0001', ['skill_points', 'speed'])])
-        only_prefix = dict(event, conflicting_readings={})
-        windows = _replay_training_conflict_windows([], [dict(start_ms=1000, end_ms=1250, fps=60)], [only_prefix])
-        self.assertEqual([(w['owner_id'], w['fields']) for w in windows], [('training-0001', ['skill_points'])])

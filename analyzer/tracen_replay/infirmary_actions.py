@@ -46,31 +46,6 @@ _MAX_RESULT_DELAY_MS = 30_000
 _MAX_NEXT_DATE_DELAY_MS = 30_000
 
 
-def _text_values(value):
-    """Yield OCR text without changing the caller's raw reading."""
-    if isinstance(value, str):
-        if value.strip():
-            yield value
-    elif isinstance(value, dict):
-        text = value.get('text')
-        if isinstance(text, str) and text.strip():
-            yield text
-        for nested in value.values():
-            yield from _text_values(nested)
-    elif isinstance(value, (list, tuple)):
-        for nested in value:
-            yield from _text_values(nested)
-
-
-def _row_text(row):
-    parts = []
-    if not isinstance(row, dict):
-        return ''
-    for key in ('context_title', 'context_title_candidate', 'text', 'ocr'):
-        parts.extend(_text_values(row.get(key)))
-    return ' '.join(' '.join(parts).casefold().split())
-
-
 def _normalized_text(value):
     return ' '.join(value.casefold().split()) if isinstance(value, str) else ''
 

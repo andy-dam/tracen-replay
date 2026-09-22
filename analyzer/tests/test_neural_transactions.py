@@ -2,7 +2,6 @@ import unittest
 from tracen_replay.vision import parse
 from tracen_replay.gameplay import effects_from_lines, CURRENCIES
 from tracen_replay.transactions import training_events, outcome_events, lesson_receipts, skill_transactions
-from tracen_replay.inspect_training import merge, windows
 
 
 def line(text,box=(306,785,700,814),confidence=99):
@@ -78,15 +77,6 @@ class TransactionTests(unittest.TestCase):
         purchases=lesson_receipts(rows,[event,event])
         self.assertEqual(len(purchases),1);self.assertEqual(purchases[0]['performance_cost']['visual'],10)
         self.assertEqual(purchases[0]['cost_basis'],'observed_debit');self.assertEqual(purchases[0]['awarded_stats'],{'guts':5})
-
-    def test_specialized_sample_cannot_replace_general_effects(self):
-        base=row(0,'event_outcome',effects=[dict(kind='energy_change',amount=5)])
-        specialized=row(0,'training_result',{'training_gains':{'speed':5}})
-        self.assertEqual(merge([base],[specialized]),[base])
-
-    def test_training_inspection_window_covers_preceding_animation(self):
-        got=windows([row(1000,'training_result',training_option='speed')],2000)
-        self.assertEqual((got[0]['start_ms'],got[0]['end_ms']),(500,2000))
 
     def test_skill_charge_requires_receipt_and_matching_post_balance(self):
         states=[dict(first_seen_ms=0,last_seen_ms=0,values={'skill_points':1631},evidence='before.png')]

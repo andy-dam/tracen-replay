@@ -1,25 +1,15 @@
-"""Bounded local extraction with decoded presentation timestamps.
+"""Probing a recording and decoding bounded intervals of it with their presentation timestamps.
 
-This module collects observations. It does not classify screens or infer actions.
+This module reads media. It does not classify screens or infer actions.
 """
 
-import hashlib
 import json
 import math
 import re
-import shutil
 import subprocess
-import time
-import uuid
-import warnings
-from datetime import datetime, timezone
 from pathlib import Path
 
-from . import __version__
-from .viewer import render
 
-MAX_SECONDS = 120
-MAX_FPS = 8
 TIMEOUT_SECONDS = 180
 PTS_PATTERN = re.compile(r"\bn:\s*(\d+)\s+pts:\s*(-?\d+)\s+pts_time:([\d.eE+\-]+)")
 TIME_BASE_PATTERN = re.compile(r"config in time_base:\s*(\d+)/(\d+)")
@@ -142,110 +132,3 @@ def _decode_frames_once(source, directory, start, duration, fps, origin):
         raise PipelineError("Frame presentation timestamps must be strictly increasing.")
     return frames
 
-
-def attach_annotations(path, digest, frames, start, duration, fps):
-    if path is None:
-        return [], None
-    if path.stat().st_size > 2 * 1024 * 1024:
-        raise PipelineError("Annotation files must be no larger than 2 MiB.")
-    payload = path.read_bytes()
-    try:
-        data = json.loads(payload)
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise PipelineError("Annotation file is not valid JSON.") from exc
-    if not isinstance(data, dict) or not isinstance(data.get("source_sha256"), str) or data["source_sha256"].lower() != digest:
-        raise PipelineError("Annotation source_sha256 does not match this recording.")
-    rows = data.get("observations")
-    if not isinstance(rows, list):
-        raise PipelineError("Annotation observations must be a list.")
-    observations = []
-    for row in rows:
-        if not isinstance(row, dict):
-            raise PipelineError("Every annotation must be an object.")
-        seconds = finite_number(row.get("timestamp_seconds"), "Annotation timestamp_seconds")
-        if not start <= seconds < start + duration:
-            continue
-        for name in ("screen_label", "title", "note", "annotation_method"):
-            if name in row and not isinstance(row[name], str):
-                raise PipelineError(f"Annotation {name} must be text.")
-        timestamp_ms = round(seconds * 1000)
-        frame = min(frames, key=lambda f: abs(f["source_timestamp_ms"]-timestamp_ms))
-        delta = frame["source_timestamp_ms"] - timestamp_ms
-        # Only exact millisecond matches support carrying a manually checked label.
-        # Nearby frames can be different screens at this run's pace.
-        exact = delta == 0
-        observations.append({"id": f"observation-{len(observations)+1:04d}",
-                             "source_timestamp_ms": timestamp_ms, "clip_timestamp_ms": round((seconds-start)*1000),
-                             "screen_label": row.get("screen_label"), "title": row.get("title", "Manual observation"),
-                             "note": row.get("note", ""), "origin": "imported_annotation",
-                             "annotation_method": row.get("annotation_method", "unspecified"),
-                             "confidence": None, "event_start_ms": None, "event_end_ms": None,
-                             "evidence": frame["evidence"] if exact else None,
-                             "evidence_timestamp_ms": frame["source_timestamp_ms"] if exact else None,
-                             "evidence_status": "matched_sample" if exact else "needs_exact_frame",
-                             "nearest_sample_offset_ms": delta})
-    observations.sort(key=lambda o: o["source_timestamp_ms"])
-    return observations, hashlib.sha256(payload).hexdigest()
-
-
-def analyze(source, output, start=0, duration=57, fps=4, annotations=None):
-    source, output = Path(source).resolve(), Path(output).resolve()
-    start, duration, fps = (finite_number(v, n) for v, n in ((start, "start"), (duration, "duration"), (fps, "fps")))
-    if start < 0 or not 0 < duration <= MAX_SECONDS or not 1 <= fps <= MAX_FPS:
-        raise PipelineError("Use start >= 0, duration > 0 and <= 120, and fps between 1 and 8.")
-    if not source.is_file():
-        raise PipelineError("Source must be an existing local video file.")
-    if output.exists():
-        raise PipelineError("Output already exists. Choose a new directory to preserve previous results.")
-    info, video, source_duration, origin = probe(source)
-    if start + duration > source_duration + 0.000001:
-        raise PipelineError(f"Requested interval exceeds source duration ({source_duration:.3f}s).")
-    with source.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    output.parent.mkdir(parents=True, exist_ok=True)
-    # Inherit workspace ACLs. Python 3.13+ mkdtemp's private Windows ACL can
-    # exclude a restricted execution token even when its parent is writable.
-    temporary = output.parent / f".tracen-{uuid.uuid4().hex}"
-    temporary.mkdir()
-    try:
-        (temporary / "frames").mkdir()
-        frames = decode_frames(source, temporary / "frames", start, duration, fps, origin)
-        observations, annotation_hash = attach_annotations(Path(annotations) if annotations else None,
-                                                           digest, frames, start, duration, fps)
-        report = {"schema_version": "tracen-replay/local-v0.1", "pipeline_version": __version__,
-                  "created_at": datetime.now(timezone.utc).isoformat(),
-                  "source": {"name": source.name, "sha256": digest, "size_bytes": source.stat().st_size,
-                             "duration_ms": round(source_duration*1000), "timeline_origin_seconds": origin,
-                             "width": video["width"], "height": video["height"], "codec": video.get("codec_name")},
-                  "clip": {"source_start_ms": round(start*1000), "duration_ms": round(duration*1000)},
-                  "sampling": {"method": "minimum_interval_on_decoded_pts", "requested_fps": fps,
-                               "frame_count": len(frames), "guarantees_all_events": False},
-                  "recognition": {"enabled": False, "model": None},
-                  "annotation_sha256": annotation_hash, "frames": frames, "observations": observations,
-                  "limitations": ["Screens and fields are not recognized automatically.",
-                                  "Fixed-rate sampling can miss brief choices and results.",
-                                  "Annotations are point observations, not event boundaries or completed-action claims.",
-                                  "Imported labels remain separate from automatically captured frames."]}
-        (temporary / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-        (temporary / "index.html").write_text(render(report), encoding="utf-8")
-        # The destination must remain new; rename publishes a complete bundle together.
-        if output.exists():
-            raise PipelineError("Output appeared during processing; refusing to overwrite it.")
-        for attempt in range(5):
-            try:
-                temporary.rename(output)
-                break
-            except PermissionError:
-                # Windows scanners can briefly hold newly decoded files open.
-                # Retry the same rename; never copy over an existing bundle.
-                if output.exists() or attempt == 4:
-                    raise
-                time.sleep(0.2 * (attempt + 1))
-    finally:
-        if temporary.exists():
-            try:
-                shutil.rmtree(temporary)
-            except OSError as exc:
-                warnings.warn(f"Could not remove incomplete output {temporary}: {exc}", stacklevel=2)
-    return {"report": str(output / "report.json"), "gallery": str(output / "index.html"),
-            "frames": len(frames), "annotations": len(observations)}

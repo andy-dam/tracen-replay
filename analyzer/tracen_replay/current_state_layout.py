@@ -436,12 +436,6 @@ def detect_current_state_layout(
     }
 
 
-def is_current_state_layout(lines: Any, **kwargs: Any) -> bool:
-    """Return whether :func:`detect_current_state_layout` recognizes a panel."""
-
-    return detect_current_state_layout(lines, **kwargs).get("current_grid") is True
-
-
 __all__ = [
     "SCHEMA",
     "VERSION",

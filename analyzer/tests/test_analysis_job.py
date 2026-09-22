@@ -199,36 +199,6 @@ class AnalysisJobTests(unittest.TestCase):
             self.assertFalse(payload["go_ready"])
             self.assertIn("producer-progress", stderr.getvalue())
 
-    def test_manifest_arguments_forward_to_common_cached_producer(self):
-        with workspace_temp() as root:
-            source = root / "run.mp4"
-            source.write_bytes(b"source")
-            output = root / "output"
-            manifest = root / "replay-input-manifest.json"
-            manifest.write_text("{}", encoding="utf-8")
-            stdout = io.StringIO()
-
-            def producer():
-                self.assertIn("--replay-input-manifest", sys.argv)
-                self.assertIn(str(manifest.resolve()), sys.argv)
-                self.assertIn("--replay-input-root", sys.argv)
-                self.assertIn(str(output.resolve()), sys.argv)
-                _write_report(output, source)
-
-            with patch("tracen_replay.analysis_job.full_recording.main", side_effect=producer), \
-                    patch("sys.stdout", stdout):
-                result = main([
-                    str(source),
-                    "--output", str(output),
-                    "--reparse-only",
-                    "--replay-input-manifest", str(manifest),
-                    "--replay-input-root", str(output),
-                ])
-
-            self.assertEqual(result, 0)
-            payload = json.loads(stdout.getvalue())
-            self.assertEqual(payload["status"], "succeeded")
-
     def test_learned_reader_forwards_to_the_producer_and_must_exist(self):
         with workspace_temp() as root:
             source = root / "run.mp4"
@@ -254,29 +224,6 @@ class AnalysisJobTests(unittest.TestCase):
             self.assertEqual(result, 2)
             self.assertEqual(json.loads(stdout.getvalue())["error"]["code"], "learned_reader_not_found")
             never.assert_not_called()
-
-    def test_manifest_root_mismatch_is_rejected_before_producer(self):
-        with workspace_temp() as root:
-            source = root / "run.mp4"
-            source.write_bytes(b"source")
-            output = root / "output"
-            manifest = root / "replay-input-manifest.json"
-            manifest.write_text("{}", encoding="utf-8")
-            stdout = io.StringIO()
-
-            with patch("tracen_replay.analysis_job.full_recording.main") as producer, \
-                    patch("sys.stdout", stdout):
-                result = main([
-                    str(source),
-                    "--output", str(output),
-                    "--reparse-only",
-                    "--replay-input-manifest", str(manifest),
-                    "--replay-input-root", str(root / "other"),
-                ])
-
-            self.assertEqual(result, 2)
-            self.assertEqual(json.loads(stdout.getvalue())["error"]["code"], "replay_root_mismatch")
-            producer.assert_not_called()
 
     def test_producer_failure_is_one_error_record_without_success_fields(self):
         with workspace_temp() as root:

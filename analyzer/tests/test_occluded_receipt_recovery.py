@@ -16,7 +16,6 @@ from tracen_replay.occluded_receipt_recovery import (
 )
 from tracen_replay.inspect_receipts import merge
 from tracen_replay.transactions import outcome_events
-from tracen_replay.vision import NeuralReader, parse
 
 from tests import localdata
 
@@ -226,64 +225,6 @@ class OccludedReceiptRecoveryTests(unittest.TestCase):
         self.assertEqual(len(promoted), 1)
         self.assertEqual([(effect['kind'], effect['amount']) for effect in promoted[0]['effects']],
                          [('friendship_change', 7)])
-
-    def test_prepare_plan_binds_report_to_source_and_disables_ocr(self):
-        from tests.test_gameplay import workspace_temp
-        from unittest.mock import patch
-
-        with workspace_temp() as root:
-            source = root / "recording.mp4"
-            source.write_bytes(b"source")
-            source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
-            report = {
-                "source": {"sha256": source_sha256, "duration_ms": 2000},
-                "frames": [],
-            }
-            with patch("tracen_replay.full_recording.cached_readings", return_value=[]) as cached, \
-                    patch("tracen_replay.occluded_receipt_recovery.recover",
-                          return_value=([], {"prepared": True})) as run:
-                metadata = __import__(
-                    "tracen_replay.occluded_receipt_recovery",
-                    fromlist=["prepare_plan"],
-                ).prepare_plan(source, root, report)
-
-            self.assertEqual(metadata, {"prepared": True})
-            cached.assert_called_once_with(report, root.resolve())
-            self.assertIs(run.call_args.kwargs["allow_ocr"], False)
-
-    def test_prepare_plan_uses_pre_recovery_bundle_rows_when_supplied(self):
-        from tests.test_gameplay import workspace_temp
-        from unittest.mock import patch
-
-        with workspace_temp() as root:
-            source = root / "recording.mp4"
-            source.write_bytes(b"source")
-            source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
-            report = {
-                "source": {"sha256": source_sha256, "duration_ms": 2000},
-                "frames": [],
-            }
-            normalized_rows = [base_row()]
-            normalized_events = [owner()]
-            with patch("tracen_replay.full_recording.cached_readings",
-                       side_effect=AssertionError("base-only planning was used")), \
-                    patch("tracen_replay.occluded_receipt_recovery.recover",
-                          return_value=([], {"prepared": True})) as run:
-                metadata = __import__(
-                    "tracen_replay.occluded_receipt_recovery",
-                    fromlist=["prepare_plan"],
-                ).prepare_plan(
-                    source,
-                    root,
-                    report,
-                    readings=normalized_rows,
-                    events=normalized_events,
-                )
-
-            self.assertEqual(metadata, {"prepared": True})
-            self.assertIs(run.call_args.args[3], normalized_rows)
-            self.assertIs(run.call_args.args[4], normalized_events)
-            self.assertIs(run.call_args.kwargs["allow_ocr"], False)
 
     def test_plan_is_label_free_and_expands_single_frame_owner(self):
         windows = plan([base_row()], [owner()], 200000)

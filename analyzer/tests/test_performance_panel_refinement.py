@@ -8,7 +8,7 @@ from PIL import Image
 
 from tests.test_gameplay import workspace_temp
 from tests.test_performance_panel_recovery import panel_lines
-from tracen_replay.full_recording import _fixed_supplement_folder, cached_readings
+from tracen_replay.full_recording import cached_readings
 from tracen_replay.performance_panel_refinement import apply, fingerprint, load
 
 
@@ -196,12 +196,6 @@ class PerformancePanelRefinementTests(unittest.TestCase):
         self.assertEqual(row["facts"]["performance_points"]["composure"], 56)
         self.assertEqual(row["facts"]["projected_performance_gains"]["composure"], 19)
         self.assertEqual(row["performance_panel_refinement"]["applied_fields"], ["composure"])
-
-    def test_manifest_fixed_sidecar_is_consumed_by_base_cache_loader(self):
-        self.assertTrue(_fixed_supplement_folder(
-            "raw_sidecars", "performance_panel",
-            "initial-baseline/performance-panel-refinement", "initial-baseline"
-        ))
 
 
 if __name__ == "__main__":

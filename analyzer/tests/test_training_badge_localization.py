@@ -1,9 +1,6 @@
 import copy
 import hashlib
-import shutil
 import unittest
-import uuid
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -16,12 +13,9 @@ from tracen_replay.training_badge_localization import (
     GAIN_BOXES,
     WIDE_GAIN_BOXES,
     attach,
-    apply,
-    build_sidecar,
     discover_training_badge_crops,
     localize_training_badges,
     gameplay_fingerprint,
-    file_fingerprint,
 )
 from tracen_replay.training_gain_resolution import resolve_source_clipped_gain
 from tracen_replay.vision import NeuralReader
@@ -239,46 +233,6 @@ class TrainingBadgeLocalizationTests(unittest.TestCase):
             mutated["observations"][0]["pixel_rgb_sha256"],
             localized["observations"][0]["pixel_rgb_sha256"],
         )
-
-    def test_apply_validates_original_gameplay_and_localized_crop_hash(self):
-        pane = self._pane()
-        directory = Path.cwd() / (".tmp-training-badge-" + uuid.uuid4().hex)
-        directory.mkdir()
-        try:
-            path = directory / "gameplay.png"
-            pane.save(path)
-            metadata = self._metadata(
-                pane,
-                source_timestamp_ms=10,
-                evidence="gameplay.png",
-                evidence_sha256=file_fingerprint(path),
-            )
-            localized = localize_training_badges(
-                pane,
-                recognize=lambda crops: [("+7", 0.999)] * len(crops),
-                header="Training",
-                result_grid=True,
-                source_metadata=metadata,
-            )
-            raw = {
-                "source_timestamp_ms": 10,
-                "evidence": "gameplay.png",
-                "gameplay_sha256": gameplay_fingerprint(pane),
-                "regions": {},
-            }
-            sidecar = build_sidecar(raw, localized, evidence_path=path)
-            self.assertEqual(sidecar["raw_sha256"], __import__(
-                "tracen_replay.training_badge_localization",
-                fromlist=["fingerprint"],
-            ).fingerprint(raw))
-            applied = apply(raw, sidecar, evidence_path=path)
-            self.assertIn("localized_gain.speed", applied["regions"])
-            mutated = copy.deepcopy(sidecar)
-            mutated["observations"][0]["pixel_rgb_sha256"] = hashlib.sha256(b"changed").hexdigest()
-            with self.assertRaises(ValueError):
-                apply(raw, mutated, evidence_path=path)
-        finally:
-            shutil.rmtree(directory, ignore_errors=True)
 
     def test_reader_helper_uses_same_source_geometry_and_bgr_engine_contract(self):
         pane = self._pane()

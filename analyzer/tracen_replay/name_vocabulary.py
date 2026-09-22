@@ -30,14 +30,11 @@ KNOWN_MIN = {'supporter': 3, 'skill': 2}
 # The circle grades of a skill name ("Corner Adept" and "Corner Adept ○"
 # are two skills); a repair never crosses them.
 CIRCLE_MARKERS = '○◎'
-# A name within this many edits of a known name is that name, when no other
-# known name is within the margin. These are the fallback numbers when the
-# learned confusion table (confusions.py, data/confusions.json) is absent;
-# with it, the limits and the margin are the learned ones and the distance
-# is the recognizer's own likelihood of the damage.
-MAX_EDITS = 2
+# A name of this many letters or fewer is short and takes the short limit,
+# and a length gap past the margin rules a known name out before any
+# alignment. The limits themselves come from confusions.limits(): learned
+# from data/confusions.json, or its fallback numbers without the table.
 SHORT_NAME_LETTERS = 6
-SHORT_MAX_EDITS = 1
 MARGIN_EDITS = 3
 
 
@@ -126,8 +123,8 @@ def repair(name, sightings, group, together=()):
     """The known name a rare spelling stands for, or None.
 
     ``sightings`` is the run's counter for the group; ``name`` must be rare
-    in it. The answer is the one known name within MAX_EDITS (one edit for a
-    short name) with no other known name within MARGIN_EDITS, with the same
+    in it. The answer is the one known name within the limit (the short
+    limit for a short name) with no other known name within the margin, with the same
     circle grade markers, and never one of the names in ``together``, the
     names read on the same frame as this one.
     """

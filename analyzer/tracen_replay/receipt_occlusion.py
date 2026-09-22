@@ -418,28 +418,6 @@ def _particle_line_box(box):
     return values
 
 
-def _particle_pixel(pixel):
-    """Recognize the saturated pastel animation colours in source pixels.
-
-    The friendship result animation uses pink, cyan, and yellow horseshoes.
-    These channel families deliberately exclude the warm brown receipt ink,
-    white dialogue bubble, and pale game background.  This is an obstruction
-    detector only; it does not classify a glyph or infer a name.
-    """
-    try:
-        red,green,blue=(int(channel) for channel in pixel[:3])
-    except (TypeError,ValueError,IndexError):
-        return False
-    return (
-        (red>=215 and blue>=185 and green<=215 and
-         red-green>=22 and blue-green>=12) or
-        (green>=215 and blue>=210 and red<=215 and
-         green-red>=20 and blue-red>=15) or
-        (red>=220 and green>=220 and blue<=210 and
-         abs(red-green)<=35)
-    )
-
-
 def _particle_pixels(pixels,left,top,right,bottom):
     """Vectorised :func:`_particle_pixel` over one scan rectangle.
 

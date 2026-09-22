@@ -777,18 +777,6 @@ def apply_opening_endpoint_projections(turn_ledger, projections, *, source_sha25
     return result, accepted, rejected
 
 
-def plan(report, readings, *, probe_radius_ms=DEFAULT_RADIUS_MS,
-         max_windows=DEFAULT_MAX_WINDOWS, max_duration_ms=DEFAULT_MAX_DURATION_MS):
-    """Return the bounded, source-backed windows to process.
-
-    The returned list is capped by ``max_windows`` and the total requested
-    source duration.  Use :func:`candidate_windows` when an audit also needs
-    the candidates deferred by the budget.
-    """
-    windows = _candidate_windows(report, readings, probe_radius_ms=probe_radius_ms)
-    return _budget_windows(windows, max_windows, max_duration_ms)[0]
-
-
 def _matching_channels(window, time):
     if not window['start_ms'] <= time < window['end_ms']:
         return []

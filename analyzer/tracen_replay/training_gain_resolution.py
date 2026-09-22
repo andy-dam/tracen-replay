@@ -1717,11 +1717,6 @@ def resolve_source_clipped_gain(
     }
 
 
-# Short alias for callers that do not need to distinguish this from the other
-# source-only gain resolvers.  Keep the descriptive name above in provenance.
-resolve_clipped_gain = resolve_source_clipped_gain
-
-
 def _unresolved(field: str, phase_key: Any, reason: str, observations: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     unique = []
     seen = set()

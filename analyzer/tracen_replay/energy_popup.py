@@ -272,11 +272,6 @@ def merge_energy_popup_effects(
     return result
 
 
-# Keep a descriptive alias for callers that name the semantic channel rather
-# than the visual layout.
-read_energy_recovery_popup = read_energy_popup
-
-
 __all__ = [
     "SCHEMA",
     "MIN_CONFIDENCE",

@@ -5,10 +5,8 @@ thresholds. A separately recognized title crop proves the text before the note;
 it prevents deleting a real trailing letter merely because a note follows it.
 Replaying stored observations checks pixels and crop boundaries without OCR.
 """
-import argparse
 from copy import deepcopy
 import hashlib
-import json
 from pathlib import Path
 import re
 
@@ -181,37 +179,3 @@ def apply(raw,extra,proof,original=None):
                 model_sha256=extra['model_sha256'],engine_fingerprint=extra['engine_fingerprint'])
             lines[index]=dict(line,text=fixed,original_symbol_text=line['text'],visual_symbol_observation=evidence)
     return dict(raw,lines=lines)
-
-
-def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('root',type=Path)
-    args=parser.parse_args()
-    from .vision import NeuralReader
-    capture=json.loads((args.root/'capture.json').read_text(encoding='utf-8'))
-    frames={frame['id']:frame for frame in capture['frames']}
-    reader=None;count=0
-    for path in sorted((args.root/'neural').glob('*.json')):
-        raw=json.loads(path.read_text(encoding='utf-8'))
-        if not any(_match(line) for line in raw['lines']):continue
-        frame=frames.get(path.stem)
-        if frame is None or frame['source_timestamp_ms']!=raw.get('source_timestamp_ms'):
-            raise ValueError('Song-symbol observation does not match source capture.')
-        source=args.root/frame['evidence']
-        if hashlib.sha256(source.read_bytes()).hexdigest()!=raw.get('source_frame_sha256'):
-            raise ValueError('Song-symbol source frame changed.')
-        with Image.open(source) as image:
-            _pixels(raw,image.convert('RGB').crop((148,0,958,1080)))
-        proof=args.root/raw['evidence'];target=args.root/'song-symbol-refinement'/path.name
-        if target.exists():
-            apply(raw,json.loads(target.read_text(encoding='utf-8')),proof)
-            continue
-        if reader is None:reader=NeuralReader()
-        result=prepare(raw,proof,reader)
-        target.parent.mkdir(exist_ok=True)
-        with target.open('x',encoding='utf-8') as stream:json.dump(result,stream,ensure_ascii=False,indent=2)
-        count+=len(result['observations'])
-    print(json.dumps({'new_symbol_observations':count}))
-
-
-if __name__=='__main__':main()

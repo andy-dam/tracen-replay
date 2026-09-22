@@ -407,12 +407,6 @@ def detect_training_result_layout(
     }
 
 
-def is_training_result_layout(lines: Any, **kwargs: Any) -> bool:
-    """Return whether :func:`detect_training_result_layout` is positive."""
-
-    return detect_training_result_layout(lines, **kwargs).get("result_grid") is True
-
-
 __all__ = [
     "SCHEMA",
     "VERSION",

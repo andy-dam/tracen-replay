@@ -75,21 +75,6 @@ _MAX_INTERLUDE_MS = 10 * 60_000
 _PHASE_LABELS = frozenset({"Junior Year Pre-Debut", "Finale Underway"})
 
 
-def _text_values(value):
-    if isinstance(value, str):
-        if value.strip():
-            yield value
-    elif isinstance(value, dict):
-        text = value.get("text")
-        if isinstance(text, str) and text.strip():
-            yield text
-        for nested in value.values():
-            yield from _text_values(nested)
-    elif isinstance(value, (list, tuple)):
-        for nested in value:
-            yield from _text_values(nested)
-
-
 def _ocr_lines(row, minimum_confidence=95):
     """Return only bounded-confidence retained OCR lines from one row."""
     parts = []

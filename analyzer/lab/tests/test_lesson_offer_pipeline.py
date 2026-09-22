@@ -2,7 +2,7 @@
 import json
 import unittest
 from tracen_replay.full_recording import cached_readings
-from tracen_replay.preview_observations import build
+from tracen_replay.preview_observations import build_preview_observations
 from tracen_replay.transactions import lesson_receipts
 from tracen_replay.analysis_job import _evidence_paths, _check_evidence_path
 from tests import localdata
@@ -21,7 +21,7 @@ class LessonOfferPipelineTests(unittest.TestCase):
         readings = cached_readings(capture, root)
         self.assertEqual([len(row['facts']['lesson_offer_preview']['offers'])
                           for row in readings], [3, 3])
-        previews = build(readings)['observations']
+        previews = build_preview_observations(readings)['observations']
         self.assertEqual(len(previews), 13)
         self.assertEqual(sum(row['category'] == 'purchase' for row in previews), 6)
         self.assertTrue(all(row['phase'] == 'preview' for row in previews))

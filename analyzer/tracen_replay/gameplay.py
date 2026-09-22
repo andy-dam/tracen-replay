@@ -4,7 +4,7 @@ Screen facts, confirmation requests, receipts, and arithmetic are separate recor
 Unknown effects never become invented transactions to close a residual.
 """
 import re
-from .reconcile import FIELDS, account
+from .reconcile import FIELDS
 from .stat_receipt_grammar import normalize_fixed_stat_receipt
 from .ocr_confidence import confidence_percent
 
@@ -495,50 +495,6 @@ def screen_summary(readings):
                 span['purchased_names'] = None
                 span['spent_skill_points'] = None
     return spans
-
-
-def ledger(readings, checkpoints):
-    intervals = []
-    for before, after in zip(checkpoints, checkpoints[1:]):
-        start, end = before['last_seen_ms'], after['first_seen_ms']
-        candidates = [r for r in readings if start < r['source_timestamp_ms'] <= end and r['effects']]
-        events, active, last_seen = [], None, None
-        result_rows = [r for r in readings if start<r['source_timestamp_ms']<=end and r['screen']=='training_result']
-        # Only one observed option in a short transition; never use the preview
-        # as the selected option. Repeated result readings support partial gains.
-        options = {r.get('training_option') for r in result_rows if r.get('training_option')}
-        preceding_awards = result_rows and any(r['source_timestamp_ms']<result_rows[0]['source_timestamp_ms'] and any(e['kind']=='stat_change' for e in r['effects']) for r in candidates)
-        if result_rows and not preceding_awards and len(options)==1 and result_rows[-1]['source_timestamp_ms']-start<=5000:
-            deltas, proofs = {}, []
-            for field in FIELDS:
-                seen = [(r,r['facts'].get('result_values',{}).get(field)) for r in result_rows if r.get('training_option') in options]
-                seen = [(r,v) for r,v in seen if type(v) is int]
-                if len(seen)>=2 and len({v for _,v in seen})==1 and 50<=seen[-1][0]['source_timestamp_ms']-seen[0][0]['source_timestamp_ms']<=750:
-                    delta = seen[0][1]-before['values'][field]
-                    if delta>0:
-                        deltas[field]=delta
-                        proofs.extend(r['evidence'] for r,_ in seen)
-            if deltas:
-                events.append(dict(kind='training_result_state_change',training_option=next(iter(options)),
-                                   deltas=deltas,evidence=proofs[0],supporting_frames=list(dict.fromkeys(proofs)),
-                                   source_timestamp_ms=result_rows[0]['source_timestamp_ms'],identity_verified=False))
-        for row in candidates:
-            deltas = {e['field']: e['amount'] for e in row['effects'] if e['kind']=='stat_change'}
-            if not deltas:
-                continue
-            # Only continuous overlapping compatible text is one visible receipt.
-            compatible = active and last_seen is not None and row['source_timestamp_ms']-last_seen <= 500 and set(active['deltas']) & set(deltas) and all(active['deltas'].get(k,v)==v for k,v in deltas.items())
-            if not compatible:
-                active = dict(deltas={}, source_timestamp_ms=row['source_timestamp_ms'], evidence=row['evidence'], supporting_frames=[], identity_verified=False)
-                events.append(active)
-            active['deltas'].update(deltas)
-            active['supporting_frames'].append(row['evidence'])
-            last_seen = row['source_timestamp_ms']
-        entry = account(before, after, events)
-        entry['review_required'] = True
-        entry['reason'] = 'Arithmetic agreement does not establish receipt identity or complete coverage.'
-        intervals.append(entry)
-    return intervals
 
 
 def lesson_transitions(readings):

@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 from tests import localdata
-from tracen_replay.hint_card_cache import load, prepare
+from tracen_replay.hint_card_cache import load
 
 
 class ActualHintCardCacheTests(unittest.TestCase):
