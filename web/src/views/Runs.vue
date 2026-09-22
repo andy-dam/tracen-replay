@@ -6,7 +6,6 @@ import { reviewSettles, turnWarnings } from "../warnings";
 import { progressView } from "../phases";
 import { desktop, openExternal } from "../mode";
 import RankBadge from "../components/RankBadge.vue";
-import StatBar from "../components/StatBar.vue";
 import UploadBox from "../components/UploadBox.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 
@@ -102,7 +101,8 @@ interface Run {
 }
 
 const active = (j: Job) => j.status === "queued" || j.status === "running";
-const paused = (j: Job | null) => j?.status === "paused";
+// A paused analysis, or one recorded as interrupted before interruptions were pauses: both resume.
+const paused = (j: Job | null) => j?.status === "paused" || j?.status === "interrupted";
 // An analysis left paused until its progress was deleted: the recording
 // reads as never analyzed, so the job is left out of the list.
 const expiredPause = (j: Job) => j.status === "cancelled" && j.error?.code === "pause_expired";
@@ -155,8 +155,8 @@ const dashboard = computed(() => {
   const toCheck = done.reduce((a, r) => a + facts.value[r.id].toCheck, 0);
   const turns = latest.reduce((a, r) => a + r.turns, 0);
   const minutes = Math.round(latest.reduce((a, r) => a + r.duration_ms, 0) / 60000);
-  const best = done.map((r) => ({ report: r, facts: facts.value[r.id] })).filter((x) => x.facts.final).sort((a, b) => statTotal(b.facts) - statTotal(a.facts))[0] ?? null;
-  return { runs: latest.length, turns, minutes, explained, total, pct: total ? Math.round((100 * explained) / total) : 0, toCheck, best, active: jobs.value.filter(active).length };
+  const stored = recordings.value.reduce((a, u) => a + u.size, 0);
+  return { runs: latest.length, turns, minutes, explained, total, pct: total ? Math.round((100 * explained) / total) : 0, toCheck, active: jobs.value.filter(active).length, stored, recordings: recordings.value.length };
 });
 
 // The list can be narrowed by name and put in another order.
@@ -307,10 +307,9 @@ function status(run: Run): { text: string; cls: string } | null {
     const pct = run.job.status === "running" ? ` ${Math.round(progressView(run.job, ocr).overall)}%` : "";
     return { text: run.job.status === "queued" ? "Queued" : `Analyzing${pct}`, cls: "warn" };
   }
-  if (paused(run.job)) return { text: "Paused", cls: "" };
+  if (paused(run.job)) return { text: run.job!.error?.code === "interrupted" ? "Paused by a Restart" : "Paused", cls: "" };
   if (run.report) return run.madeBy?.status === "completed_with_stage_failures" ? { text: "Some Stages Were Skipped", cls: "warn" } : null;
   if (run.job?.status === "failed") return { text: "Analysis Failed", cls: "bad" };
-  if (run.job?.status === "interrupted") return { text: "Analysis Interrupted", cls: "bad" };
   if (run.job?.status === "cancelled") return { text: "Analysis Cancelled", cls: "" };
   return { text: "Not Analyzed Yet", cls: "" };
 }
@@ -359,25 +358,29 @@ function hideBroken(e: Event) {
       <div class="dash-tile"><b>{{ dashboard.runs }}</b><span>career{{ dashboard.runs === 1 ? "" : "s" }} analyzed · {{ dashboard.turns }} turns</span></div>
       <div class="dash-tile"><b>{{ dashboard.minutes }}<small>min</small></b><span>of recording read{{ dashboard.active ? `, ${dashboard.active} ${dashboard.active === 1 ? "analysis" : "analyses"} queued or running` : "" }}</span></div>
       <div class="dash-tile up"><b>{{ dashboard.pct }}<small>%</small></b><span>of stat changes fully explained</span><div class="bar"><i :style="{ width: dashboard.pct + '%' }"></i></div></div>
-      <div class="dash-tile" :class="{ warn: dashboard.toCheck }"><b>{{ dashboard.toCheck }}</b><a href="#/check" class="dash-link">turn{{ dashboard.toCheck === 1 ? "" : "s" }} waiting for your review ›</a></div>
+      <div class="dash-tile" :class="{ warn: dashboard.toCheck }"><b>{{ dashboard.toCheck }}</b><a href="#/check" class="dash-link">turn{{ dashboard.toCheck === 1 ? "" : "s" }} waiting for your review&nbsp;›</a></div>
+      <div class="dash-tile"><b>{{ bytes(dashboard.stored) }}</b><span>in {{ dashboard.recordings }} recording{{ dashboard.recordings === 1 ? "" : "s" }}{{ hosted ? " on the service" : " on this computer" }}</span></div>
     </div>
-    <div v-if="dashboard.best" class="best">
-      <div class="best-head">
-        <span class="overline" style="margin: 0">Best Run</span>
-        <a class="best-name" :href="`#/reports/${encodeURIComponent(dashboard.best.report.id)}`" :title="dashboard.best.report.source_name">{{ dashboard.best.report.source_name }}</a>
-      </div>
-      <StatBar :stats="dashboard.best.facts.final" :open="dashboard.best.facts.open" :earned="dashboard.best.facts.earned" compact />
-      <div class="best-foot">{{ statTotal(dashboard.best.facts) }} across the five stats at the end of the run · {{ dashboard.best.report.turns }} turns · {{ clock(dashboard.best.report.duration_ms) }}</div>
-    </div>
-    <div v-else class="best"><span class="overline" style="margin: 0">Best Run</span><span class="muted small">Reading the reports…</span></div>
   </div>
   <div v-else class="dash-empty"><b>Dashboard.</b> Filled in by the first report: the stats at the end of each run with their rank letters, how much of the career the report explains, and the turns to check.</div>
 
   <UploadBox @uploaded="load" />
 
   <p v-if="loaded && !runs.length" class="muted" style="margin-top: 28px">Nothing here yet. Your first upload appears in this list.</p>
-  <ul v-else class="runs">
-    <li v-for="run in runs" :key="run.key" class="run">
+  <template v-else>
+    <div v-if="runs.length > 1" class="run-tools">
+      <input v-model="query" type="search" placeholder="Search runs by name" aria-label="Search runs by name" />
+      <select v-model="order" aria-label="Order">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="name">By Name</option>
+        <option value="stats">Highest Stats First</option>
+      </select>
+      <span v-if="query" class="count">{{ shown.length }} of {{ runs.length }}</span>
+    </div>
+    <p v-if="query && !shown.length" class="muted" style="margin-top: 16px">No run is named that.</p>
+  <ul class="runs">
+    <li v-for="run in shown" :key="run.key" class="run">
       <a class="run-thumb" :href="run.report ? `#/reports/${encodeURIComponent(run.report.id)}` : run.job ? `#/jobs/${encodeURIComponent(run.job.id)}` : undefined">
         <img v-if="run.thumb" :src="run.thumb" :crossorigin="crossOrigin" alt="" loading="lazy" @error="hideBroken" />
       </a>
@@ -392,7 +395,7 @@ function hideBroken(e: Event) {
           <span v-for="s in STATS" :key="s" class="rf">
             <RankBadge v-if="s !== 'skill_points'" :value="facts[run.report.id].final![s]" small />
             <b :title="s === 'skill_points' && facts[run.report.id].earned !== null ? `${facts[run.report.id].final![s] ?? '?'} left at the end` : undefined">{{ s === "skill_points" && facts[run.report.id].earned !== null ? facts[run.report.id].earned : (facts[run.report.id].final![s] ?? "?") }}</b>
-            <small>{{ s === "skill_points" && facts[run.report.id].earned !== null ? "Skill Pts Earned" : STAT_NAMES[s] }}</small>
+            <small>{{ s === "skill_points" && facts[run.report.id].earned !== null ? "Total Skill Pts" : STAT_NAMES[s] }}</small>
           </span>
           <span class="rf total"><b>{{ statTotal(facts[run.report.id]) }}</b><small>total</small></span>
         </div>
@@ -425,12 +428,13 @@ function hideBroken(e: Event) {
             <button v-if="!run.report && run.sourceId" class="btn small primary" :disabled="busy === run.sourceId || expired(run)" @click="analyze(run.sourceId)">Analyze</button>
             <a v-if="run.job && !run.report" class="btn small" :href="`#/jobs/${encodeURIComponent(run.job.id)}`">Details</a>
             <button v-if="run.report && run.sourceId" class="btn small" :disabled="busy === run.sourceId || expired(run)" :title="expired(run) ? 'The original is no longer kept. Upload it again to analyze it.' : ''" @click="analyze(run.sourceId)">Analyze Again</button>
+            <button v-if="desktop && (run.job || run.report?.origin === 'job')" class="btn small" title="Open the run's folder" @click="reveal(run)">Folder</button>
             <button v-if="run.recording || run.report" class="btn small danger" @click="remove(run)">Delete</button>
           </template>
         </div>
-            <button v-if="desktop && (run.job || run.report?.origin === 'job')" class="btn small" title="Open the run's folder" @click="reveal(run)">Folder</button>
       </div>
     </li>
   </ul>
+  </template>
   <ConfirmDialog v-if="deleting" :title="deleteQuestion.title" :message="deleteQuestion.message" confirm-label="Delete" danger :busy="deleteBusy" @confirm="confirmRemove" @cancel="deleting = null" />
 </template>

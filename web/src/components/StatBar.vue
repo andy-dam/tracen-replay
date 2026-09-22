@@ -32,7 +32,7 @@ function approximate(field: string): boolean {
 function title(field: string): string {
   const v = value(field);
   if (v === null) return "not observed";
-  if (field === "skill_points" && showsEarned()) return `${v} skill points earned in the run, ${balance(field) ?? "?"} left at the end`;
+  if (field === "skill_points" && showsEarned()) return `${v} skill points in total, ${balance(field) ?? "?"} unspent at the end`;
   if (props.carried) return `about ${v}, carried from the previous turn's entries`;
   if (props.open?.includes(field)) return `${v} was the last value read for it; the run's end was not on a screen the report reads`;
   return String(v);
@@ -110,7 +110,7 @@ onUnmounted(() => {
         <RankBadge v-if="f !== 'skill_points'" :value="value(f)" :small="compact" />
         <span class="sb-value" :class="{ unknown: value(f) === null, carried: approximate(f) }">{{ approximate(f) && shown[f] !== null && shown[f] !== undefined ? "≈" : "" }}{{ shown[f] ?? "?" }}</span>
       </div>
-      <div v-if="f === 'skill_points' && showsEarned()" class="sb-after">earned · {{ balance(f) ?? "?" }} left</div>
+      <div v-if="f === 'skill_points' && showsEarned()" class="sb-after">total · {{ balance(f) ?? "?" }} unspent</div>
       <div v-else-if="acct(f)" class="sb-after" :class="{ warn: isWarn(f) }" :title="statusText(acct(f)!.status)">
         <span v-if="acct(f)!.after !== null">→ {{ acct(f)!.after }}<span v-if="delta(f)" class="sb-delta" :class="delta(f)! > 0 ? 'up' : 'down'"> {{ delta(f)! > 0 ? "+" : "" }}{{ delta(f) }}</span></span>
         <span v-else>→ ?</span>
