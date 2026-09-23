@@ -26,6 +26,9 @@ from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
+from .layout import inside_pane
+from .source_clock import elapsed
+
 
 CACHE_SCHEMA = "tracen-replay/hint-card-recovery-cache-v1"
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -724,7 +727,7 @@ def _box(value: Any) -> tuple[float, float, float, float] | None:
     if not all(_finite_number(item) for item in value):
         return None
     left, top, right, bottom = (float(item) for item in value)
-    if not (148.0 <= left < right <= 958.0 and 0.0 <= top < bottom <= 1080.0):
+    if not inside_pane((left, top, right, bottom)):
         return None
     return left, top, right, bottom
 
@@ -1612,7 +1615,7 @@ def _validate_single_line_candidate(
     span_times = [item["timestamp"] for item in span_static]
     if (
         span_times != source_times
-        or any(right - left > _MAX_ROW_GAP_MS for left, right in zip(span_times, span_times[1:]))
+        or any(elapsed(left, right) > _MAX_ROW_GAP_MS for left, right in zip(span_times, span_times[1:]))
         or any(item["context"] != identity["same_context"] for item in span_static)
         or any(item["card"]["text"] != candidate["name"] for item in span_static)
         or any(item["receipt"]["amount"] != candidate["amount"] for item in span_static)
@@ -1887,7 +1890,7 @@ def _validate_candidate(
     if span_times != source_times:
         return None
     if any(
-        right - left > _MAX_ROW_GAP_MS
+        elapsed(left, right) > _MAX_ROW_GAP_MS
         for left, right in zip(span_times, span_times[1:])
     ):
         return None

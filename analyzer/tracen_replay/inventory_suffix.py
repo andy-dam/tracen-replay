@@ -6,8 +6,8 @@ returns a marker class when several thresholded views agree.  It deliberately
 does not use a skill-name catalog or infer a missing marker from a name.
 
 ``box`` uses the full-recording coordinate convention used by the OCR
-pipeline.  ``pane`` is the 810x1080 gameplay crop, whose left edge is full
-frame x=148.
+pipeline.  ``pane`` is the gameplay crop, whose left edge is at x=148 in
+those coordinates.
 """
 
 from __future__ import annotations

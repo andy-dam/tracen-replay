@@ -22,6 +22,8 @@ import math
 import unicodedata
 from typing import Any, Iterable, Mapping
 
+from .source_clock import elapsed
+
 
 """Schema identifier for the emitted committed-choice observations."""
 
@@ -475,7 +477,7 @@ def _advance_pending(
     time = _row_time(row)
     if time is None:
         return pending, None
-    if pending is None or pending["last_ms"] is None or time - pending["last_ms"] > maximum_gap_ms:
+    if pending is None or pending["last_ms"] is None or elapsed(pending["last_ms"], time) > maximum_gap_ms:
         pending = _new_pending(row, cards)
     elif _near_menu(pending["options"], cards):
         pending["rows"].append(row)
@@ -550,7 +552,7 @@ def reconstruct_committed_choices(
             pending = None
             stable = None
             continue
-        if stable is not None and time - stable["last_ms"] > maximum_gap_ms:
+        if stable is not None and elapsed(stable["last_ms"], time) > maximum_gap_ms:
             stable = None
             pending = None
 

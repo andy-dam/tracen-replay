@@ -3,18 +3,18 @@
 This module reads media. It does not classify screens or infer actions.
 """
 
+import bisect
 import json
 import math
 import re
 import subprocess
+from fractions import Fraction
 from pathlib import Path
+
+from .layout import REFERENCE_PANE, Layout, working_size
 
 
 TIMEOUT_SECONDS = 180
-# Every reading is taken in the coordinates of a 1920x1080 frame, the game at
-# 1080p. A 16:9 recording of another size, 720p to 4K, has its frames scaled
-# to it as they are decoded.
-FRAME_SIZE = (1920, 1080)
 PTS_PATTERN = re.compile(r"\bn:\s*(\d+)\s+pts:\s*(-?\d+)\s+pts_time:([\d.eE+\-]+)")
 TIME_BASE_PATTERN = re.compile(r"config in time_base:\s*(\d+)/(\d+)")
 
@@ -52,21 +52,66 @@ def probe(source):
         video = next(s for s in info["streams"] if s["codec_type"] == "video")
         duration = finite_number(info["format"]["duration"], "Media duration")
         origin = finite_number(info["format"].get("start_time", 0), "Media start")
-        width, height = int(video["width"]), int(video["height"])
+        width, height = display_size(video)
     except (ValueError, KeyError, StopIteration, TypeError) as exc:
         raise PipelineError("Source must contain a video stream with known dimensions and duration.") from exc
     if duration <= 0:
         raise PipelineError("Source must have a positive duration.")
-    if not 720 <= height <= 2160 or abs(width / height - 16 / 9) > 0.02:
-        raise PipelineError(f"A recording must be 16:9, from 1280×720 to 3840×2160; this one is {width}×{height}.")
+    frame_layout(width, height)
     return info, video, duration, origin
 
 
-def frame_scale(width, height):
-    """The decoder filter that brings a recording's frames to ``FRAME_SIZE``; empty when they already are."""
-    if (width, height) == FRAME_SIZE:
+def display_size(video):
+    """The width and height a video stream is shown at: its stored size, turned by any rotation flag.
+
+    Phones and tablets often store a portrait recording sideways with a
+    rotation flag; the decoder applies it, so the frames come out portrait.
+    """
+    width, height = int(video["width"]), int(video["height"])
+    rotation = 0.0
+    for item in video.get("side_data_list") or ():
+        if isinstance(item, dict) and "rotation" in item:
+            rotation = float(item["rotation"])
+    if not rotation:
+        rotation = float((video.get("tags") or {}).get("rotate") or 0)
+    if round(rotation) % 180:
+        width, height = height, width
+    return width, height
+
+
+def frame_layout(width, height):
+    """The working frame and game area of a recording shown at ``width`` x ``height``.
+
+    A portrait recording is the game filling the screen of a phone or tablet:
+    the game area is the whole frame, scaled evenly so that a design unit has
+    the PC pane's size. A 16:9 landscape recording is the PC client, whose
+    game area is its pane; its frames are scaled to 1920x1080. Any other shape
+    is refused, as is a game drawn smaller than it is at 720p on the PC.
+    The margins the game keeps clear are fitted later, from the frames.
+    """
+    if height > width and 0.4 <= width / height <= 0.8:
+        game = (width, height)
+    elif height < width and abs(width / height - 16 / 9) <= 0.02:
+        game = (width * REFERENCE_PANE[2] / 1920 - width * REFERENCE_PANE[0] / 1920, height)
+    else:
+        raise PipelineError(f"A recording must be the game filling a portrait screen, or the PC client "
+                            f"in 16:9; this one is {width}×{height}.")
+    unit = min(game[0] / 1080, game[1] / 1920)
+    if unit < 0.375:
+        raise PipelineError(f"The game in this {width}×{height} recording is drawn smaller than at 720p, too small to read.")
+    if unit > 2.5:
+        raise PipelineError(f"The game in this {width}×{height} recording is drawn larger than this analyzer reads.")
+    if height > width:
+        _, frame = working_size(width, height)
+        return Layout(frame, (0, 0) + frame)
+    return Layout((1920, 1080), REFERENCE_PANE)
+
+
+def frame_scale(layout, width, height):
+    """The decoder filter that scales a ``width`` x ``height`` recording's frames to the layout's frame; empty when they are that size."""
+    if tuple(layout.frame) == (width, height):
         return ""
-    return f"scale={FRAME_SIZE[0]}:{FRAME_SIZE[1]}:flags=lanczos"
+    return f"scale={layout.frame[0]}:{layout.frame[1]}:flags=lanczos"
 
 
 def frame_rate(video):
@@ -80,6 +125,50 @@ def frame_rate(video):
         if math.isfinite(rate) and rate > 0:
             return rate
     return None
+
+
+def frame_times(source, video, origin):
+    """The time of every frame of the video stream on the source timeline, in seconds, in order.
+
+    Read from the container's packets, without decoding, and timed as the
+    sampled frames are.
+    """
+    output = run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts",
+                  "-of", "csv=p=0", str(source)]).stdout
+    base = Fraction(video["time_base"])
+    return sorted(float(int(pts) * base) - origin for pts in output.split() if pts.lstrip("-").isdigit())
+
+
+def source_gaps(frames, times, fps, duration_ms, frame_rate, origin=0):
+    """The stretches the source recorded no frame in that account for a long wait between sampled frames.
+
+    The sampler keeps the first frame at least one step after the last it
+    kept, so it waits longer than a step and a source frame only where the
+    source has no frame to keep. A phone's or tablet's screen recorder skips
+    frames while the screen is still, and its recordings have many such
+    stretches; a PC recording has none. Each is ``[last frame before, first
+    frame after]`` in milliseconds, the recording's own start and end
+    standing in at its ends. A wait the source's frames do not account for
+    is left out, so the coverage audit still reports it. ``times`` are
+    ``frame_times``; a sampled frame is timed exactly from its own PTS.
+    """
+    step = 1 / fps - 1e-7  # as decode_frames selects
+    longest = 1000 / fps + (1000 / frame_rate if frame_rate else 0) + 1
+    kept = [(float(frame["source_pts"] * Fraction(frame["time_base"])) - origin, frame["source_timestamp_ms"])
+            for frame in frames]
+    gaps = []
+    if kept and times and kept[0][1] > longest and times[0] >= kept[0][0] - 1e-6:
+        gaps.append([0, kept[0][1]])
+    for (before, before_ms), (after, after_ms) in zip(kept, kept[1:]):
+        if after_ms - before_ms <= longest:
+            continue
+        index = bisect.bisect_left(times, before + step)
+        if 0 < index < len(times) and times[index] >= after - 1e-6:
+            gaps.append([round(times[index - 1] * 1000), after_ms])
+    if (kept and times and duration_ms - kept[-1][1] > longest
+            and bisect.bisect_left(times, kept[-1][0] + step) == len(times)):
+        gaps.append([max(round(times[-1] * 1000), kept[-1][1]), duration_ms])
+    return gaps
 
 
 def clear_partial_capture(directory):
@@ -100,7 +189,7 @@ def decode_frames(source, directory, start, duration, fps, origin, *, scale, att
     """Decode one bounded interval into ``directory`` and return its frame rows.
 
     ``scale`` is the recording's ``frame_scale``, so that every image written
-    is a ``FRAME_SIZE`` frame.
+    is a working frame of the recording's layout.
 
     The decoder's showinfo log is the only source of presentation timestamps;
     once in a long run its line sequence has come out inconsistent with the
@@ -149,16 +238,23 @@ def _decode_frames_once(source, directory, start, duration, fps, origin, scale):
                                 f"{len(samples)} samples for {len(files)} images at {start:.3f}s).")
         # Use integer PTS/time_base rather than rounded showinfo pts_time text.
         timestamp = int(pts) * numerator / denominator - origin
-        # Decoder/filter lookahead may log or emit a frame beyond the requested interval.
-        if timestamp < start - 0.000001 or timestamp >= start + duration - 0.000001:
+        source_ms = round(timestamp * 1000)
+        # Decoder/filter lookahead may log or emit a frame beyond the requested
+        # interval. An interval starts at a frame's whole millisecond, which a
+        # coarse time base can put a fraction of one after the frame itself.
+        if source_ms < round(start * 1000) or timestamp >= start + duration - 0.000001:
             path.unlink()
             continue
-        source_ms = round(timestamp * 1000)
         frames.append({"id": f"frame-{index+1:06d}", "source_timestamp_ms": source_ms,
                        "clip_timestamp_ms": round((timestamp-start)*1000), "source_pts": int(pts),
                        "time_base": f"{numerator}/{denominator}", "evidence": f"frames/{path.name}",
                        "screen_label": None, "confidence": None, "origin": "automatic_frame_sampling"})
-    if not frames or len(frames) > math.ceil(duration * fps) + 1:
+    # An interval can hold no frame of the recording: a screen recorder writes
+    # none while the screen is still, and an interval a few milliseconds long
+    # can fall between two frames. The decoder then yields only frames outside.
+    if not frames:
+        return frames
+    if len(frames) > math.ceil(duration * fps) + 1:
         raise PipelineError("Extracted frame count is outside the requested bounds.")
     if any(a["source_timestamp_ms"] >= b["source_timestamp_ms"] for a, b in zip(frames, frames[1:])):
         raise PipelineError("Frame presentation timestamps must be strictly increasing.")

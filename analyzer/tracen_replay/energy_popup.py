@@ -20,6 +20,8 @@ import math
 import re
 from typing import Any, Iterable, Mapping
 
+from .layout import pane_box, place
+
 
 SCHEMA = "tracen-replay/energy-popup-v1"
 MIN_CONFIDENCE = 97.0
@@ -65,7 +67,8 @@ def _box(line: Any) -> tuple[float, float, float, float] | None:
     if not all(math.isfinite(item) for item in box):
         return None
     left, top, right, bottom = box
-    if not (0.0 <= left < right <= 960.0 and 0.0 <= top < bottom <= 1080.0):
+    pane = pane_box()
+    if not (0.0 <= left < right <= pane[2] + 2.0 and 0.0 <= top < bottom <= pane[3]):
         return None
     return box
 
@@ -182,8 +185,11 @@ def read_energy_popup(
         return None
     normalized = _unique_lines(line for line in lines if isinstance(line, Mapping))
     amount_candidates: list[tuple[int, dict[str, Any]]] = []
+    # The popup is centred on the screen; the bands cover both centres.
+    amount_region = place(POPUP_AMOUNT_REGION, "mc", "sc")
+    label_region = place(POPUP_LABEL_REGION, "mc", "sc")
     for line in normalized:
-        if not _inside(line, POPUP_AMOUNT_REGION):
+        if not _inside(line, amount_region):
             continue
         text = _text(line.get("text"))
         match = _AMOUNT_RE.fullmatch(text or "")
@@ -195,7 +201,7 @@ def read_energy_popup(
         amount_candidates.append((amount, line))
     labels = [
         line for line in normalized
-        if _inside(line, POPUP_LABEL_REGION)
+        if _inside(line, label_region)
         and (_text(line.get("text")) or "").casefold() == "energy"
     ]
     if len(amount_candidates) != 1 or len(labels) != 1:

@@ -5,8 +5,7 @@ import math
 import re
 
 from .stat_state_details import (
-    _RESULT_COLUMNS,
-    _RESULT_ROWS,
+    _result_card,
     _result_component_digest,
     _result_label_box_eligible,
 )
@@ -95,10 +94,10 @@ def _result_proof_geometry(field, item):
             or not math.isfinite(float(region_confidence))
             or not 0 <= region_confidence <= 100):
         return False
-    column, row = _RESULT_COLUMNS.get(field), _RESULT_ROWS.get(field)
-    if (column is None or row is None
-            or not (column[0] <= (left + right) / 2 <= column[1])
-            or not (row[0] <= (top + bottom) / 2 <= row[1])):
+    card = _result_card(field)
+    if (card is None
+            or not (card[0] <= (left + right) / 2 <= card[2])
+            or not (card[1] <= (top + bottom) / 2 <= card[3])):
         return False
     label = item.get('label')
     label_box = _box(label.get('box')) if isinstance(label, dict) else None
@@ -115,8 +114,8 @@ def _result_proof_geometry(field, item):
     value_x, value_y = (left + right) / 2, (top + bottom) / 2
     if not (abs(label_x - value_x) <= 90
             and 18 <= value_y - label_y <= 90
-            and _RESULT_COLUMNS[field][0] <= label_x <= _RESULT_COLUMNS[field][1]
-            and _RESULT_ROWS[field][0] - 45 <= label_y <= _RESULT_ROWS[field][0] + 25):
+            and card[0] <= label_x <= card[2]
+            and card[1] - 45 <= label_y <= card[1] + 25):
         return False
     pixel = item.get('pixel')
     if not isinstance(pixel, dict) or not _same_box(pixel.get('box'), region.get('box')):

@@ -1,4 +1,5 @@
 """Arithmetic and evidence accounting, independent of OCR."""
+from .source_clock import elapsed
 
 FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill_points')
 
@@ -30,7 +31,7 @@ def stable_checkpoints(readings, minimum_samples=3, maximum_gap_ms=500):
         if group and (reading['values'] != group[-1]['values'] or
                       reading.get('turns_remaining_to_goal') != group[-1].get('turns_remaining_to_goal') or
                       reading.get('calendar_text') != group[-1].get('calendar_text') or
-                      reading['source_timestamp_ms']-group[-1]['source_timestamp_ms'] > maximum_gap_ms):
+                      elapsed(group[-1]['source_timestamp_ms'], reading['source_timestamp_ms']) > maximum_gap_ms):
             finish()
             group = []
         group.append(reading)
@@ -92,7 +93,7 @@ def preview_segments(readings, maximum_gap_ms=500):
             current = None
             continue
         option, timestamp = reading.get('preview_option'), reading['source_timestamp_ms']
-        if current is None or current['option'] != option or timestamp-current['last_seen_ms']>maximum_gap_ms:
+        if current is None or current['option'] != option or elapsed(current['last_seen_ms'], timestamp)>maximum_gap_ms:
             current = dict(option=option, first_seen_ms=timestamp, last_seen_ms=timestamp,
                            evidence=reading['evidence'], supporting_frames=[],
                            kind='training_preview', completed_action=None)

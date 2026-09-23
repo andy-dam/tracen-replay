@@ -18,14 +18,18 @@ import math
 import re
 from copy import deepcopy
 
+from .gameplay import receipt_rows
+from .layout import place_x
+from .source_clock import elapsed
+
 
 _ALLOWED_SCREENS = frozenset(("unknown", "event_outcome"))
 _MIN_CANDIDATE_CONFIDENCE = 85.0
 _MIN_COMPLETE_CONFIDENCE = 90.0
 _MAX_PRE_EVENT_MS = 500
-_RECEIPT_Y_RANGE = (770, 1000)
 # Cached gameplay crops are 810 px wide; the auxiliary profile is outside
-# this crop and must never contribute a receipt candidate.
+# this crop and must never contribute a receipt candidate.  The bounds are
+# PC pane positions; the receipt box is centred and they follow it.
 _GAMEPLAY_X_RANGE = (0, 810)
 
 _LABELS = {
@@ -74,8 +78,9 @@ def _valid_box(box):
     if any(type(value) not in (int, float) or not math.isfinite(value) for value in box):
         return False
     left, top, right, bottom = box
-    return (_GAMEPLAY_X_RANGE[0] <= left < right <= _GAMEPLAY_X_RANGE[1]
-            and _RECEIPT_Y_RANGE[0] <= top < bottom <= _RECEIPT_Y_RANGE[1])
+    band_top, band_bottom = receipt_rows()
+    return (_GAMEPLAY_X_RANGE[0] <= left < right <= place_x(_GAMEPLAY_X_RANGE[1])
+            and band_top <= top < bottom <= band_bottom)
 
 
 def _valid_evidence_path(value):
@@ -275,6 +280,7 @@ def _is_pre_event_boundary(row, title, candidate_calendar=None,
     # equal the destination event title.
     if row.get("context_title") is None and row.get("context_title_candidate"):
         return True
+    top, bottom = receipt_rows(790, 950)
     for line in (row.get("ocr") or {}).get("neural", []):
         if not isinstance(line, dict) or line.get("overlay_occluded") is True:
             continue
@@ -282,7 +288,7 @@ def _is_pre_event_boundary(row, title, candidate_calendar=None,
         box = line.get("box")
         if (confidence < _MIN_COMPLETE_CONFIDENCE
                 or not _valid_box(box)
-                or not 790 < (box[1] + box[3]) / 2 < 950
+                or not top < (box[1] + box[3]) / 2 < bottom
                 or len(str(line.get("text") or "")) <= 25):
             continue
         if _parse_candidate_text(line.get("text")) is None:
@@ -382,7 +388,7 @@ def _event_for_candidate(row, events, readings):
     before = [event for event in events
               if type(event.get("first_seen_ms")) in (int, float)
               and type(event.get("last_seen_ms")) in (int, float)
-              and 0 <= event.get("first_seen_ms", 0) - time <= _MAX_PRE_EVENT_MS
+              and 0 <= elapsed(time, event.get("first_seen_ms", 0)) <= _MAX_PRE_EVENT_MS
               and event.get("context_title") == title]
     if len(before) != 1:
         return None

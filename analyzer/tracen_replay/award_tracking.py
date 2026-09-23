@@ -1,6 +1,13 @@
 """Associate visible stat awards between two confident, stationary label reads."""
 import re
 from .animated_performance import STAT_LABELS,candidates
+from .gameplay import receipt_rows
+from .layout import place
+
+
+def _badge_region():
+    """Where the award badges sit: pinned to the centre of the clear area."""
+    return place((150,240,900,750),'mc')
 
 
 def _field(text,*,anchor=False):
@@ -15,6 +22,8 @@ def _near(a,b):
 def tracked_stats(readings,start,end):
     """No state totals or expected awards are inputs to this association."""
     tracks={};complete=[]
+    left,top,right,bottom=_badge_region()
+    receipt_top,receipt_bottom=receipt_rows()
     for row in sorted(readings,key=lambda r:r['source_timestamp_ms']):
         time=row['source_timestamp_ms']
         if not start<=time<=end:continue
@@ -22,7 +31,7 @@ def tracked_stats(readings,start,end):
         lines=row.get('ocr',{}).get('neural',[]) if row['screen']=='event_outcome' else []
         for label in lines:
             a,b,c,d=label['box'];field=_field(label['text'])
-            if field and 150<=a<c<=900 and 240<=b<d<=750 and 30<=d-b<=70:
+            if field and left<=a<c<=right and top<=b<d<=bottom and 30<=d-b<=70:
                 labels.setdefault(field,[]).append(label)
         for field in list(tracks):
             found=labels.get(field,[]);previous=tracks[field][-1]
@@ -38,7 +47,7 @@ def tracked_stats(readings,start,end):
             if forbidden:
                 if field in tracks:complete.append(tracks.pop(field))
                 continue
-            captions=[l for l in lines if l['confidence']>=95 and 770<=l['box'][1]<1000
+            captions=[l for l in lines if l['confidence']>=95 and receipt_top<=l['box'][1]<receipt_bottom
                       and re.match('^'+pattern+r'\s+went up by\b',l['text'])]
             gains=[l for l in lines if re.fullmatch(r'\+\d{1,3}',l['text']) and l['confidence']>=97
                    and 50<=l['box'][3]-l['box'][1]<=130 and -20<=b-l['box'][3]<=25
@@ -76,6 +85,7 @@ def tracked_stats(readings,start,end):
 def coexisting_cap_stats(readings,start,end,receipts):
     """Require distinct complete stat/cap labels and repeated nearby stat receipts."""
     result=[]
+    left,top,right,bottom=_badge_region()
     for row in readings:
         time=row['source_timestamp_ms']
         if not start<=time<=end or row['screen']!='event_outcome':continue
@@ -83,7 +93,7 @@ def coexisting_cap_stats(readings,start,end,receipts):
         for candidate in candidates(lines,row['screen'],stat=True,allow_cap_coexistence=True):
             field=candidate['field'];name=next(k for k,v in STAT_LABELS.items() if v==field)
             cap_labels=[l for l in lines if l['text']==name+' cap' and l['confidence']>=97
-                        and 150<=l['box'][0]<l['box'][2]<=900 and 240<=l['box'][1]<l['box'][3]<=750
+                        and left<=l['box'][0]<l['box'][2]<=right and top<=l['box'][1]<l['box'][3]<=bottom
                         and 30<=l['box'][3]-l['box'][1]<=70]
             if len(cap_labels)!=1:continue
             a,b,c,d=candidate['label_box'];x,y,z,w=cap_labels[0]['box']

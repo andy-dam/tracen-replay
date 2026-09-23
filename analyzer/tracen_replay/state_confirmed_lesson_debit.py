@@ -15,6 +15,7 @@ the accounting counts it as state-derived rather than observed.
 from __future__ import annotations
 
 from .gameplay import CURRENCIES
+from .source_clock import elapsed
 
 BASIS = 'state_confirmed_balance_drop'
 AFTER_WINDOW_MS = 20000
@@ -33,7 +34,7 @@ def _panel(row):
 
 def _repeated(rows):
     """The balance shown identically on two consecutive frames within 500 ms."""
-    if len(rows) < 2 or not 0 < rows[1]['source_timestamp_ms'] - rows[0]['source_timestamp_ms'] <= 500:
+    if len(rows) < 2 or not 0 < elapsed(rows[0]['source_timestamp_ms'], rows[1]['source_timestamp_ms']) <= 500:
         return None
     first, second = _panel(rows[0]), _panel(rows[1])
     if first is None or first != second:
@@ -85,7 +86,7 @@ def state_confirmed_lesson_debit(readings, event, group, before_rows, name, init
     previous = start
     for index, row in enumerate(later):
         time = row['source_timestamp_ms']
-        if not 0 < time - previous <= 500:
+        if not 0 < elapsed(previous, time) <= 500:
             return None
         previous = time
         if row.get('screen') not in _QUIET_SCREENS or row.get('effects'):

@@ -7,6 +7,7 @@ previously unparsed receipt belongs to a different scene.
 """
 from copy import deepcopy
 
+from .gameplay import receipt_rows
 from .hint_card_events import apply, _field
 
 
@@ -66,6 +67,7 @@ def _stage(readings, candidates, *, source_sha256):
         parts = {(o.get('timestamp_ms'), o.get('evidence')): list(o.get('receipt_parts', {}).values())
                  for o in candidate.get('observations', [])}
         narrative_boundary = False
+        top, bottom = receipt_rows(790, 950)
         for row in scoped:
             if row.get('effects') or row.get('facts', {}).get('effect_candidates'):
                 continue
@@ -83,7 +85,7 @@ def _stage(readings, candidates, *, source_sha256):
                     narrative_boundary = True
                     continue
                 if (line.get('confidence', 0) >= 95
-                        and 790 < (line['box'][1] + line['box'][3]) / 2 < 950
+                        and top < (line['box'][1] + line['box'][3]) / 2 < bottom
                         and len(line.get('text', '')) > 25
                         and not any(line.get('text') == part.get('text')
                                     and line.get('box') == part.get('box') for part in receipt_lines)):

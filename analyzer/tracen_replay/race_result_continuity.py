@@ -8,6 +8,8 @@ sequence. The dialog interrupts item visibility even when race identity persists
 from copy import deepcopy
 import re
 
+from .source_clock import elapsed
+
 
 IDENTITY_FIELDS = ('race_name', 'placing', 'fans', 'fans_gained', 'course')
 OPTIONAL_IDENTITY_FIELDS = ('race_grade',)
@@ -327,7 +329,7 @@ def _continuous_panel(rows, readings):
     times = sorted({_time(row) for row in source})
     if times[0] != start or times[-1] != end:
         return False
-    return all(b - a <= MAX_SOURCE_STEP_MS for a, b in zip(times, times[1:]))
+    return all(elapsed(a, b) <= MAX_SOURCE_STEP_MS for a, b in zip(times, times[1:]))
 
 
 def _bridge(previous, following, readings):
@@ -383,7 +385,7 @@ def _bridge(previous, following, readings):
                       for r in gap):
         return None
     times = sorted({before, after, *(_time(r) for r in gap)})
-    if any(b - a > MAX_SOURCE_STEP_MS for a, b in zip(times, times[1:])):
+    if any(elapsed(a, b) > MAX_SOURCE_STEP_MS for a, b in zip(times, times[1:])):
         return None
     modal = [r for r in gap if r.get('screen') == 'playback_confirmation']
     modal_times = {_time(r) for r in modal}
@@ -392,7 +394,7 @@ def _bridge(previous, following, readings):
         return None
     first = min(_time(r) for r in modal)
     last = max(_time(r) for r in modal)
-    if first - before > MAX_TRANSITION_MS or after - last > MAX_TRANSITION_MS:
+    if elapsed(before, first) > MAX_TRANSITION_MS or elapsed(last, after) > MAX_TRANSITION_MS:
         return None
     # An unknown screen inside the confirmed dialog could be playback starting;
     # only short transition frames at its edges are permitted.

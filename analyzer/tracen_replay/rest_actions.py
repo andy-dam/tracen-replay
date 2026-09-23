@@ -14,6 +14,7 @@ import math
 import re
 
 from .calendar_coverage import date_key
+from .source_clock import elapsed
 from .turn_boundary import (
     _calendar_text,
     _evidence,
@@ -184,7 +185,7 @@ def _confirmation_group(ordered, event_first):
         return []
     group = [candidates[-1]]
     for row in reversed(candidates[:-1]):
-        if _time(group[0]) - _time(row) > 500:
+        if elapsed(_time(row), _time(group[0])) > 500:
             break
         group.insert(0, row)
     return group
@@ -241,7 +242,7 @@ def _hub_exit_group(ordered, event):
     hubs = [row for row in _rows_between(ordered, scene_start - _HUB_LOOKBACK_MS, scene_start)
             if _time(row) is not None and scene_start - _HUB_LOOKBACK_MS <= _time(row) < scene_start
             and _is_hub(row)]
-    if not hubs or scene_start - _time(hubs[-1]) > _MAX_HUB_EXIT_GAP_MS:
+    if not hubs or elapsed(_time(hubs[-1]), scene_start) > _MAX_HUB_EXIT_GAP_MS:
         return []
     exit_time = _time(hubs[-1])
     for row in _rows_between(ordered, exit_time, scene_start):
@@ -249,7 +250,7 @@ def _hub_exit_group(ordered, event):
         if (time is not None and exit_time < time < scene_start
                 and row.get("screen") != "boundary_state_recovery"):
             return []
-    group = [row for row in hubs if exit_time - _time(row) <= _MAX_HUB_EXIT_GAP_MS]
+    group = [row for row in hubs if elapsed(_time(row), exit_time) <= _MAX_HUB_EXIT_GAP_MS]
     return group if _repeated_observation(group) else []
 
 

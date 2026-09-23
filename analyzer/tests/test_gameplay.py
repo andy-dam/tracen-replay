@@ -5,7 +5,8 @@ from contextlib import contextmanager
 import shutil
 from PIL import Image
 from tests import localdata
-from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, PANE, CURRENCIES, screen_summary
+from tracen_replay import layout
+from tracen_replay.gameplay import effects_from_lines, preview_effects, classify, lesson_transitions, CURRENCIES, screen_summary
 
 
 def line(text, confidence=95):
@@ -126,13 +127,15 @@ class GameplayTests(unittest.TestCase):
         self.assertIsNone(spans[1]['spent_skill_points'])
         self.assertEqual(spans[1]['confirmation_evidence'],'0.png')
     def test_auxiliary_pixels_never_reach_recognizer(self):
-        # Every reader is handed this crop and nothing else, so a change
-        # outside it cannot reach a reading. The side panel lives there.
-        self.assertEqual(PANE,(148,0,958,1080))
-        im=Image.new('RGB',(1920,1080),'red');im.paste('blue',PANE)
-        pane=im.crop(PANE)
+        # Every reader of a PC recording is handed this crop and nothing
+        # else, so a change outside it cannot reach a reading. The side panel
+        # lives there.
+        pane_box=layout.PC.pane
+        self.assertEqual(pane_box,(148,0,958,1080))
+        im=Image.new('RGB',(1920,1080),'red');im.paste('blue',pane_box)
+        pane=im.crop(pane_box)
         self.assertEqual(pane.size,(810,1080))
         im.paste('green',(958,0,1920,1080))
-        self.assertEqual(im.crop(PANE).tobytes(),pane.tobytes())
+        self.assertEqual(im.crop(pane_box).tobytes(),pane.tobytes())
 
 if __name__=='__main__':unittest.main()

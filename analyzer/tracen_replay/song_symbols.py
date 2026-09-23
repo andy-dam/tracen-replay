@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 import cv2
 import numpy as np
+from .gameplay import receipt_band
+from .layout import inside_pane, pane_size
 from .ocr_confidence import confidence_percent
 
 
@@ -45,7 +47,7 @@ def music_note_title_suffix(pane,box):
     sweep is still one image observation; ``independent_observations`` stays
     false in the returned proof.
     """
-    if getattr(pane,'size',None)!=(810,1080):raise ValueError('Expected isolated gameplay pixels.')
+    if getattr(pane,'size',None)!=pane_size():raise ValueError('Expected isolated gameplay pixels.')
     if not isinstance(box,(list,tuple)) or len(box)!=4:
         return None
     values=[]
@@ -63,12 +65,12 @@ def music_note_title_suffix(pane,box):
         left,top,right,bottom=values
     except (TypeError,ValueError,OverflowError):
         return None
-    if not (148<=left<right<=958 and 0<=top<bottom<=1080):return None
+    if not inside_pane((left,top,right,bottom)):return None
     image=np.array(pane.convert('RGB'))
     gray=cv2.cvtColor(image,cv2.COLOR_RGB2GRAY)
     pane_right=right-148
-    x0=max(0,pane_right-35);x1=min(810,pane_right+8)
-    y0=max(0,top-5);y1=min(1080,bottom+5)
+    x0=max(0,pane_right-35);x1=min(pane.width,pane_right+8)
+    y0=max(0,top-5);y1=min(pane.height,bottom+5)
     if x1<=x0 or y1<=y0:return None
     observations=[]
     for threshold in range(150,251,5):
@@ -111,7 +113,7 @@ def music_note_title_suffix(pane,box):
 
 
 def _music_note_observation(pane,box,thresholds):
-    if getattr(pane,'size',None)!=(810,1080):raise ValueError('Expected isolated gameplay pixels.')
+    if getattr(pane,'size',None)!=pane_size():raise ValueError('Expected isolated gameplay pixels.')
     if not isinstance(box,(list,tuple)) or len(box)!=4 or any(
             isinstance(value,bool) or not isinstance(value,(int,float)) for value in box):
         return None
@@ -122,7 +124,8 @@ def _music_note_observation(pane,box,thresholds):
     if any(not np.isfinite(value) or value!=int(value) for value in values):
         return None
     left,top,right,bottom=(int(value) for value in values)
-    if not (250<=left<right<=850 and 770<=top<bottom<=1000):return None
+    band_left,band_top,band_right,band_bottom=receipt_band()
+    if not (band_left<=left<right<=band_right and band_top<=top<bottom<=band_bottom):return None
     x0=right-148-45;y0=top-2
     gray=cv2.cvtColor(np.array(pane.convert('RGB').crop((x0,y0,right-148+3,bottom+2))),cv2.COLOR_RGB2GRAY)
     votes=[]
@@ -201,7 +204,7 @@ def _restore_symbol_separator(text,symbol):
 def _verify_proof(raw,pane,proof):
     """Verify the same source envelope used by the other pixel refinements."""
     if not isinstance(proof,dict):raise ValueError('Song-symbol proof metadata is required.')
-    if pane.size!=(810,1080):raise ValueError('Song-symbol proof requires an 810x1080 gameplay crop.')
+    if pane.size!=pane_size():raise ValueError('Song-symbol proof requires the gameplay crop.')
     image=np.asarray(pane.convert('RGB'))
     actual_gameplay=hashlib.sha256(image.tobytes()).hexdigest()
     if raw.get('gameplay_sha256')!=actual_gameplay or proof.get('gameplay_sha256')!=actual_gameplay:

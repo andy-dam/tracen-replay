@@ -43,41 +43,22 @@ provider is chosen yet.
 
 ## 4. Recordings the analyzer cannot read yet
 
-Everything read today assumes one layout. A recording must be 16:9, from
-1280x720 to 3840x2160, or the capture stage refuses it; its frames are scaled
-to 1920x1080 as they are decoded, the game pane is the constant crop
-`[148, 0, 958, 1080]`, and every later read is expressed in that pane's
-810x1080 coordinates: the performance rows, the five result badge boxes, the
-receipt band, the learned reader's crops. The detector finds text anywhere,
-but which row a number belongs to is geometry. A recording from a phone, a
-window that does not fill the screen or a non-English client is therefore
-refused with an explicit error rather than read wrongly, which is the right
-default and also the reason none of them can be analyzed.
+A recording is read in its own layout. The game lays out one interface of
+1080x1920 design units, scales it by `min(width / 1080, height / 1920)` of
+its game area, pins each part to an edge or a centre and keeps each device's
+clear margins; the analyzer places every box it reads by that rule (Layout
+in [analyzer-pipeline.md](analyzer-pipeline.md)). The PC client in 16:9 and
+the game filling a portrait phone or tablet screen are read. Still refused
+with an explicit error rather than read wrongly:
 
-How much work another layout is depends on one measurement: whether its game
-area has the same proportions as the pane above.
-
-- **Same proportions**, as a capture that pillarboxes the game or an emulator
-  at that ratio would give: locate the game area in each recording instead of
-  assuming the constant, then scale it to 810x1080. Every fixed box survives,
-  because they all live in pane coordinates, so one mapping carries the whole
-  pipeline.
-- **A phone's own proportions**: the game reflows its layout, elements
-  anchored to the top and bottom move apart, and no single scale maps the
-  boxes. That needs geometry per layout, or reads anchored to landmarks the
-  frame itself shows (row labels, panel edges) instead of constants. The fixed
-  geometry is load-bearing in the reader, the occlusion gate and the evidence
-  proofs, and the learned reader's boxes were cut at those exact coordinates,
-  so its dataset would have to be re-cut or the model retrained.
-
-Measured on a Galaxy S25+ and an iPad Pro 11, it is the second, but with one
-rule behind it: the game lays out an interface of 1080x1920 design units,
-scales it by `min(width / 1080, height / 1920)` of its game area, pins each
-part to an edge or the centre, and keeps each device's clear margins. So
-every box can be placed on any shape from its design-unit position and its
-pin, and read from the recording's own pixels; the plan is section 8 of
-[TODO.md](../TODO.md). A non-English client is the same class of problem one
-layer up, where the fixed words a receipt is repaired against are English.
+- **A game area that is neither the whole frame nor the PC client's pane**:
+  a window that does not fill the screen, a phone screen framed by a
+  stream's overlays. The game area is taken from the frame's shape today;
+  finding it in the frame instead would open these, since a layout already
+  carries a game area at any position. A 16:9 video of a phone screen is
+  taken for the PC client and is not refused yet.
+- **A non-English client**, the same class of problem one layer up, where
+  the fixed words a receipt is repaired against are English.
 
 ## 5. Source-code hygiene
 

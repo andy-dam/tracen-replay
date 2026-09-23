@@ -9,6 +9,7 @@ def refine(root,model_dir='.local/models/rapidocr'):
     from .vision import NeuralReader,parse
     from .gameplay import CURRENCIES
     from .full_recording import save_json
+    from .layout import place
     from .refine_contrast import fingerprint
     root=Path(root);dest=root/'currency-padding-refinement';dest.mkdir(exist_ok=True)
     reader=None;count=0
@@ -28,7 +29,7 @@ def refine(root,model_dir='.local/models/rapidocr'):
         image_path=root/raw['evidence'];requests=[]
         for field in missing:
             i=CURRENCIES.index(field)
-            requests.extend((field,b) for b in ((326+104*i,87,394+104*i,123),(330+104*i,84,392+104*i,125)))
+            requests.extend((field,place(b,'mc')) for b in ((326+104*i,87,394+104*i,123),(330+104*i,84,392+104*i,125)))
         with reader.Image.open(image_path) as pane:
             images=[reader.np.array(pane.convert('RGB').crop((a-148,b,c-148,d)))[:,:,::-1] for _,(a,b,c,d) in requests]
         result=reader.engine.text_rec(reader.TextRecInput(img=images));views={}

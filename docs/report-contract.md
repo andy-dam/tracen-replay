@@ -25,9 +25,10 @@ missing any of these fails to load.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `schema_version` | string | must equal `tracen-replay/full-recording-v1` |
-| `source` | object | `name`, `sha256`, `size_bytes`, `duration_ms`, `timeline_origin_seconds`, `width`, `height` (the recording's own size; frames are scaled to 1920x1080), `frame_rate` (optional, frames per second, or null when unknown), `codec` |
+| `source` | object | `name`, `sha256`, `size_bytes`, `duration_ms`, `timeline_origin_seconds`, `width`, `height` (the size the recording is shown at, after any rotation flag; frames are scaled to the `layout` frame), `frame_rate` (optional, frames per second, or null when unknown), `codec` |
+| `layout` | object, optional | how the frames are laid out: `frame` (`[width, height]` of every decoded frame), `pane` (`[left, top, right, bottom]` of the game area in it), `top` and `bottom` (the rows the game keeps clear at those edges of the game area, fitted from the frames), `fitted` (true once the margins are fitted). A PC recording has frame `[1920, 1080]`, pane `[148, 0, 958, 1080]` and no margins; a report without the field is read as that. On a phone or tablet the pane is the whole frame |
 | `clip` | object | `source_start_ms`, `duration_ms`: the sampled interval of the source (a full recording samples the whole thing) |
-| `sampling` | object | `requested_fps`, `frame_count`, `method` (`minimum_interval_on_decoded_pts`), `guarantees_all_events` (always false) |
+| `sampling` | object | `requested_fps`, `frame_count`, `method` (`minimum_interval_on_decoded_pts`), `guarantees_all_events` (always false); `source_frame_gaps_ms` (optional): the stretches, `[start, end]` in milliseconds, in which the recording itself has no frame and that account for a longer wait between two sampled frames. A phone's or tablet's screen recorder skips frames while the screen is still; a PC recording has none, and the field is left out |
 | `frames` | array | one entry per captured frame: `id`, `evidence`, `source_timestamp_ms`, `clip_timestamp_ms`, `source_pts`, `time_base`, `screen_label`, `confidence`, `origin` |
 | `observations` | array | imported reference annotations (rarely used for a full recording) |
 | `limitations` | array of strings | fixed caveats about sampling coverage |
@@ -48,7 +49,7 @@ Required (`report_contract._GAMEPLAY_ARRAYS` / `_GAMEPLAY_OBJECTS`):
 | --- | --- | --- |
 | `method` | string | always `neural_gameplay_v1` |
 | `auxiliary_log_used` | bool | always `false`; the turn ledger and causal accounting refuse to build otherwise |
-| `input_region` | array of 4 ints | the gameplay crop of the 1920x1080 frame, `[148, 0, 958, 1080]` |
+| `input_region` | array of 4 ints | the gameplay crop of the frame, the `layout` pane: `[148, 0, 958, 1080]` on a PC recording |
 | `readings` | array | one parsed reading per captured frame (`screen`, `facts`, `stats`, `evidence`, `source_timestamp_ms`) |
 | `screens` | array | per-screen-kind spans (`screen_summary`) |
 | `checkpoints` | array | stable stat snapshots |

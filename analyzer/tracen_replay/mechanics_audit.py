@@ -2,6 +2,8 @@
 from collections import Counter
 import re
 
+from .source_clock import elapsed
+
 
 _RECEIPT_PREFIX=re.compile(r'^(?:Gained \d|Learned |Acquired |(?:Max )?Energy |Friendship with |'
                           r'(?:Speed|Stamina|Power|Guts|Wit|Skill Pts|Dance|Passion|Vocals?|Visuals?|Composure) '
@@ -11,11 +13,12 @@ _SUPPORTER_PREFIX=re.compile(r'^.+? joined your\b',re.I)
 
 def plausible_receipt_line(line):
     """Recognize receipt-shaped uncertainty, without accepting an effect."""
+    from .gameplay import receipt_band
     from .vision import within
     # A receipt is a sentence of its own and starts with a capital; a line of
     # dialogue that happens to contain a keyword ("learned the reason for
     # her state") does not.
-    return (line['confidence']>=95 and within(line,(250,770,850,1000))
+    return (line['confidence']>=95 and within(line,receipt_band())
             and str(line['text'])[:1].isupper()
             and bool(_RECEIPT_PREFIX.match(line['text']) or _SUPPORTER_PREFIX.match(line['text'])))
 
@@ -197,7 +200,7 @@ def unparsed_receipt_candidates(readings):
             if effects_from_lines([line]):continue
             if any(line['text'] in e.get('raw_text','') or line['text']==e.get('original_text') for e in row.get('effects',[])):continue
             key=line['text'];time=row['source_timestamp_ms'];entry=latest.get(key)
-            if not entry or time-entry['last_seen_ms']>750:
+            if not entry or elapsed(entry['last_seen_ms'],time)>750:
                 entry=dict(first_seen_ms=time,last_seen_ms=time,raw_text=key,observations=0,evidence=[],
                            context_title=row.get('context_title'),
                            status='needs_review',scope='Possible unparsed receipt or OCR fragment; not an asserted missed effect.')

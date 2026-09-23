@@ -21,10 +21,11 @@ import math
 import re
 from typing import Any, Mapping, Sequence
 
+from .gameplay import receipt_rows
+from .layout import ORIGIN_X, pane_box, pane_size
 from .ocr_confidence import confidence_percent
 
 
-PANE = (148, 0, 958, 1080)
 VERSION = "friendship-wrapped-receipt-v1"
 METHOD = "source_bound_wrapped_friendship_receipt"
 _MIN_PREFIX_CONFIDENCE = 95.0
@@ -60,9 +61,15 @@ def _box(value: Any) -> tuple[float, float, float, float] | None:
     left, top, right, bottom = (float(item) for item in value)
     if not left < right or not top < bottom:
         return None
-    if left < PANE[0] or top < PANE[1] or right > PANE[2] or bottom > PANE[3]:
+    pane = pane_box()
+    if left < pane[0] or top < pane[1] or right > pane[2] or bottom > pane[3]:
         return None
     return left, top, right, bottom
+
+
+def _in_receipt_box(top: float, bottom: float) -> bool:
+    band_top, band_bottom = receipt_rows()
+    return band_top <= top < bottom <= band_bottom
 
 
 def _box_list(value: Sequence[float]) -> list[float | int]:
@@ -118,7 +125,7 @@ def prefix(line: Mapping[str, Any] | None) -> dict[str, Any] | None:
     if (confidence is None or confidence < _MIN_PREFIX_CONFIDENCE
             or box is None or not isinstance(text, str)):
         return None
-    if not 770 <= box[1] < box[3] <= 1000:
+    if not _in_receipt_box(box[1], box[3]):
         return None
     normalized = " ".join(text.split())
     match = _PREFIX_RE.fullmatch(normalized)
@@ -153,7 +160,7 @@ def status_prefix(line: Mapping[str, Any] | None) -> dict[str, Any] | None:
     if (confidence is None or confidence < _MIN_PREFIX_CONFIDENCE
             or box is None or not isinstance(text, str)):
         return None
-    if not 770 <= box[1] < box[3] <= 1000:
+    if not _in_receipt_box(box[1], box[3]):
         return None
     normalized = " ".join(text.split())
     match = _STATUS_PREFIX_RE.fullmatch(normalized)
@@ -300,7 +307,7 @@ def continuation_crop_box(prefix_box: Sequence[float]) -> list[float | int] | No
         return None
     left, _top, _right, bottom = box
     candidate = (left + 7.0, bottom - 8.0, left + 55.0, bottom + 18.0)
-    if _box(candidate) is None or candidate[3] > 1000:
+    if _box(candidate) is None or candidate[3] > receipt_rows()[1]:
         return None
     return _box_list(candidate)
 
@@ -326,11 +333,12 @@ def _fallback_crop_box(prefix_box: Sequence[float],
     y2 = bottom + 18.0
     if isinstance(lines, Sequence):
         later_tops = []
+        band_top, band_bottom = receipt_rows()
         for line in lines:
             if not isinstance(line, Mapping):
                 continue
             other = _box(line.get("box"))
-            if other is None or not 770 <= other[1] <= 1000:
+            if other is None or not band_top <= other[1] <= band_bottom:
                 continue
             if other[1] < bottom + 10:
                 continue
@@ -396,10 +404,10 @@ def _recognize_amount(reader: Any, pane: Any, crop_box: Sequence[float]) -> dict
     try:
         import numpy as np
 
-        if getattr(pane, "size", None) != (810, 1080):
+        if getattr(pane, "size", None) != pane_size():
             return None
         left, top, right, bottom = (int(round(item)) for item in crop_box)
-        crop = pane.crop((left - PANE[0], top, right - PANE[0], bottom)).convert("RGB")
+        crop = pane.crop((left - ORIGIN_X, top, right - ORIGIN_X, bottom)).convert("RGB")
         if crop.width < 32 or crop.height < 8:
             return None
         result = reader.engine.text_rec(
@@ -502,10 +510,10 @@ def _recognize_color_consensus(reader: Any, pane: Any,
 
         import numpy as np
 
-        if getattr(pane, "size", None) != (810, 1080):
+        if getattr(pane, "size", None) != pane_size():
             return None
         left, top, right, bottom = (int(round(item)) for item in crop_box)
-        crop = pane.crop((left - PANE[0], top, right - PANE[0], bottom)).convert("RGB")
+        crop = pane.crop((left - ORIGIN_X, top, right - ORIGIN_X, bottom)).convert("RGB")
         if crop.width < 30 or crop.height < 14:
             return None
         source_pixels = hashlib.sha256(crop.tobytes()).hexdigest()
@@ -851,7 +859,6 @@ def join(outcome_lines: Sequence[Mapping[str, Any]],
 
 __all__ = [
     "METHOD",
-    "PANE",
     "VERSION",
     "amount_line",
     "continuation_crop_box",

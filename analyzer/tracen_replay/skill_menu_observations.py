@@ -31,9 +31,10 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping
 
+from .layout import pane_size, place, place_x, place_y
+
 
 SCHEMA = "tracen-replay/skill-menu-observations-v1"
-GAMEPLAY_SIZE = (810, 1080)
 
 MENU_SCREENS = frozenset({
     "skill_selection", "skill_menu", "skill_preview", "training_skill_selection",
@@ -45,11 +46,17 @@ MIN_PRICE_CONFIDENCE = 85.0
 MIN_CONFIRM_CONFIDENCE = 90.0
 
 # The neural sidecar uses full-gameplay coordinates.  These bounds describe
-# the stable gameplay layout, rather than one recording's card positions.
+# the stable gameplay layout, rather than one recording's card positions,
+# on the PC pane.  The list is centred across and stretches from the header
+# (pinned to the top) to the controls (pinned to the bottom).
 _TITLE_X = (320, 700)
 _CONTROL_X = (650, 850)
 _CARD_Y = (370, 900)
 _CONFIRM_BOX = (430, 670, 850, 980)
+
+
+def _card_rows() -> tuple[int, int]:
+    return place_y(_CARD_Y[0], "t"), place_y(_CARD_Y[1], "b")
 _RECEIPT_RE = re.compile(r"(?:your|our)\s+trainee\s+learned\s+new\s+skills?\s*!?", re.I)
 _NAME_SUFFIX_RE = re.compile(r"\s*[○◯◎⦿]\s*$")
 
@@ -121,7 +128,7 @@ def _box(value: Any) -> list[int] | None:
             return None
         result.append(int(number))
     left, top, right, bottom = result
-    if not (0 <= left < right <= 1100 and 0 <= top < bottom <= GAMEPLAY_SIZE[1]):
+    if not (0 <= left < right <= 1100 and 0 <= top < bottom <= pane_size()[1]):
         return None
     return result
 
@@ -199,8 +206,8 @@ def _gameplay_sha256(path: str | Path) -> tuple[str, str]:
         from .frame_cache import rgb_digest
 
         pixels, size = rgb_digest(path)
-        if size != GAMEPLAY_SIZE:
-            raise SkillMenuSourceError("Skill menu gameplay evidence is not an 810x1080 pane.")
+        if size != pane_size():
+            raise SkillMenuSourceError("Skill menu gameplay evidence is not the gameplay pane.")
     except SkillMenuSourceError:
         raise
     except (OSError, ValueError) as exc:
@@ -216,12 +223,13 @@ def _selection_image(path: str | Path) -> tuple[Any, Any] | None:
         import cv2
         import numpy as np
 
+        width, height = pane_size()
         with Image.open(path) as opened:
             image = opened.convert("RGB")
-            if image.size != GAMEPLAY_SIZE:
+            if image.size != (width, height):
                 return None
             array = np.asarray(image)
-        if array.shape != (GAMEPLAY_SIZE[1], GAMEPLAY_SIZE[0], 3):
+        if array.shape != (height, width, 3):
             return None
         return array, cv2.cvtColor(array, cv2.COLOR_RGB2HSV)
     except (ImportError, OSError, TypeError, ValueError):
@@ -236,7 +244,8 @@ def _selection_anchor(control_box: list[int] | None) -> tuple[int, int] | None:
     left, top, right, bottom = control_box
     center_x = left - _ACTION_ICON_X_OFFSET
     center_y = round((top + bottom) / 2.0 - _ACTION_ICON_Y_OFFSET)
-    if not (0 <= center_x < GAMEPLAY_SIZE[0] and 0 <= center_y < GAMEPLAY_SIZE[1]):
+    width, height = pane_size()
+    if not (0 <= center_x < width and 0 <= center_y < height):
         return None
     return center_x, center_y
 
@@ -250,7 +259,8 @@ def _green_action_component(hsv: Any, anchor: tuple[int, int]) -> dict[str, Any]
     center_x, center_y = anchor
     x0, x1 = center_x - 26, center_x + 27
     y0, y1 = center_y - 24, center_y + 25
-    if x0 < 0 or y0 < 0 or x1 > GAMEPLAY_SIZE[0] or y1 > GAMEPLAY_SIZE[1]:
+    width, height = pane_size()
+    if x0 < 0 or y0 < 0 or x1 > width or y1 > height:
         return None
     crop = hsv[y0:y1, x0:x1]
     mask = (
@@ -365,8 +375,8 @@ def detect_skill_selection_marker(
     """Return a strict same-frame pixel proof for a selected draft card.
 
     ``control_box`` is the immutable OCR box of the card's numeric price.  The
-    function reads only the adjacent action control in the supplied 810x1080
-    gameplay pane.  A complete green control plus a stable five-point-star
+    function reads only the adjacent action control in the supplied gameplay
+    pane.  A complete green control plus a stable five-point-star
     feedback shape is required at every brightness threshold; an ordinary
     plus, cursor animation, clipped crop, or ambiguous shape returns ``None``.
     """
@@ -380,7 +390,7 @@ def detect_skill_selection_marker(
             from PIL import Image
 
             image = image_or_path.convert("RGB")
-            if image.size != GAMEPLAY_SIZE:
+            if image.size != pane_size():
                 return None
             import cv2
             import numpy as np
@@ -473,7 +483,8 @@ def _is_name_candidate(line: Mapping[str, Any]) -> bool:
     box = line["box"]
     if line.get("confidence", 0) < MIN_TITLE_CONFIDENCE:
         return False
-    if not (_TITLE_X[0] <= box[0] <= _TITLE_X[1] and _CARD_Y[0] <= _center(box)[1] <= _CARD_Y[1]):
+    top, bottom = _card_rows()
+    if not (place_x(_TITLE_X[0]) <= box[0] <= place_x(_TITLE_X[1]) and top <= _center(box)[1] <= bottom):
         return False
     if folded in _UI_TEXT or folded.startswith("performance point cost"):
         return False
@@ -488,10 +499,11 @@ def _is_name_candidate(line: Mapping[str, Any]) -> bool:
 
 def _control_lines(lines: list[dict[str, Any]]) -> list[tuple[str, dict[str, Any]]]:
     result: list[tuple[str, dict[str, Any]]] = []
+    top, bottom = _card_rows()
     for line in lines:
         box = line["box"]
         x, y = _center(box)
-        if not (_CONTROL_X[0] <= x <= _CONTROL_X[1] and _CARD_Y[0] <= y <= _CARD_Y[1]):
+        if not (place_x(_CONTROL_X[0]) <= x <= place_x(_CONTROL_X[1]) and top <= y <= bottom):
             continue
         label = line["text"].casefold()
         # The fixed badge may lose its final glyph under cursor/animation
@@ -671,12 +683,14 @@ def _pixel_selected_cards(
 
 def _confirm_line(lines: list[dict[str, Any]]) -> dict[str, Any] | None:
     candidates = []
+    # The Confirm button is with the controls at the bottom.
+    x1, y1, x2, y2 = place(_CONFIRM_BOX, "bc")
     for line in lines:
         if line["confidence"] < MIN_CONFIRM_CONFIDENCE or line["text"].casefold() != "confirm":
             continue
         box = line["box"]
         x, y = _center(box)
-        if _CONFIRM_BOX[0] <= x <= _CONFIRM_BOX[2] and _CONFIRM_BOX[1] <= y <= _CONFIRM_BOX[3]:
+        if x1 <= x <= x2 and y1 <= y <= y2:
             candidates.append(line)
     if len(candidates) != 1:
         return None
@@ -701,7 +715,7 @@ def _displayed_points(lines: list[dict[str, Any]], source: Mapping[str, Any], fa
             box = line["box"]
             if box[0] <= label_box[2] or abs(_center(box)[1] - _center(label_box)[1]) > 25:
                 continue
-            if _center(box)[0] > 850:
+            if _center(box)[0] > place_x(850):
                 continue
             candidates.append(line)
         if len(candidates) == 1:
@@ -801,7 +815,7 @@ def _source_proof(
         "line_count": len(lines),
         "used_line_indices": used_lines,
         "coordinate_space": "full_gameplay",
-        "gameplay_size": list(GAMEPLAY_SIZE),
+        "gameplay_size": list(pane_size()),
         "parser_input": "immutable_neural_lines" if lines else "typed_skill_menu_facts",
     }
 
@@ -1435,7 +1449,7 @@ def build_observations(
 
 
 __all__ = [
-    "SCHEMA", "GAMEPLAY_SIZE", "MENU_SCREENS", "SkillMenuSourceError",
+    "SCHEMA", "MENU_SCREENS", "SkillMenuSourceError",
     "detect_skill_selection_marker",
     "adapt_skill_menu_frame", "parse_skill_menu", "read_skill_menu",
     "skill_menu_frame_observations", "build_skill_menu_observations",

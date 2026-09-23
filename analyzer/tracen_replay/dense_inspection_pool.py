@@ -29,8 +29,10 @@ def build_reader(kind, model_dir):
     raise ValueError(f'Unknown dense reader kind: {kind!r}')
 
 
-def _initialize(model_dir, kind):
+def _initialize(model_dir, kind, layout=None):
     global _READER
+    from .layout import use
+    use(layout)
     _READER = build_reader(kind, model_dir)
 
 
@@ -49,9 +51,10 @@ def prepare_windows(source, root, windows, fps, *, kind, model_dir, workers):
     windows = [w for w in windows if isinstance(w, dict)]
     if workers is None or workers <= 1 or not windows:
         return 0
+    from .layout import current
     tasks = [(str(source), str(Path(root)), int(w['start_ms']), int(w['end_ms']), int(fps)) for w in windows]
     with ProcessPoolExecutor(max_workers=min(int(workers), len(tasks)),
-                             initializer=_initialize, initargs=(str(model_dir), kind)) as pool:
+                             initializer=_initialize, initargs=(str(model_dir), kind, current().to_dict())) as pool:
         for _ in pool.map(_run, tasks):
             pass
     return len(tasks)

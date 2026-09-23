@@ -2,6 +2,7 @@
 from collections import Counter
 from fractions import Fraction
 from .reconcile import FIELDS
+from .source_clock import Clock
 
 
 def final_crosscheck(data):
@@ -54,9 +55,12 @@ def audit(report):
     # against 4 fps: every 267 ms), a gap runs up to one source frame longer.
     source_rate=report['source'].get('frame_rate')
     errors=[];maximum_interval=1000/fps+(1000/source_rate if source_rate else 0)+1
-    if not times or times[0]>maximum_interval or duration-times[-1]>maximum_interval:errors.append('source_endpoint_gap')
+    # A stretch the source recorded no frame in is not a gap in the sampling:
+    # the time is measured without the stretches the capture recorded.
+    elapsed=Clock(report['sampling'].get('source_frame_gaps_ms') or ()).elapsed
+    if not times or elapsed(0,times[0])>maximum_interval or elapsed(times[-1],duration)>maximum_interval:errors.append('source_endpoint_gap')
     if any(b<=a for a,b in zip(times,times[1:])):errors.append('duplicate_or_out_of_order_source_timestamp')
-    if any(b-a>maximum_interval for a,b in zip(times,times[1:])):errors.append('base_sampling_gap')
+    if any(elapsed(a,b)>maximum_interval for a,b in zip(times,times[1:])):errors.append('base_sampling_gap')
     origin=report['source'].get('timeline_origin_seconds',0)
     for frame in frames:
         if 'source_pts' not in frame or 'time_base' not in frame:

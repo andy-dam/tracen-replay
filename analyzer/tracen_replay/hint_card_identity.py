@@ -6,7 +6,7 @@ returns a separate, source-bound recovery candidate only when the same
 standalone HINT card is visible at multiple source timestamps.
 
 ``recover`` consumes parsed gameplay rows and the directory containing their
-810x1080 gameplay PNGs.  It never edits a row.  A candidate requires:
+gameplay PNGs.  It never edits a row.  A candidate requires:
 
 * one event-outcome row per timestamp with one HINT header, one card name, and
   one hint receipt amount;
@@ -43,6 +43,10 @@ from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
+from .gameplay import receipt_rows
+from .layout import inside_pane, pane_size, place_x, place_y
+from .source_clock import elapsed
+
 
 _SOURCE_SHA_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _HINT_HEADER_RE = re.compile(r"^\s*hint(?:\b|[.:])", re.IGNORECASE)
@@ -54,6 +58,8 @@ _HINT_UP_RE = re.compile(
     r"^\s*(?P<name>.+?)\s+hint\s+(?:level|Lv\.?)\s+(?:went\s+up\s+by|increased\s+by)\s*(?P<amount>\d+)\s*[.!?]?\s*$",
     re.IGNORECASE,
 )
+# PC pane rows.  The hint card sits above the event's text box and moves
+# with it (see ``gameplay.receipt_rows``).
 _RECEIPT_Y_RANGE = (770.0, 1000.0)
 _CARD_Y_RANGE = (640.0, 760.0)
 _HEADER_Y_RANGE = (530.0, 680.0)
@@ -90,19 +96,16 @@ def _finite_number(value: Any) -> bool:
     return type(value) in (int, float) and math.isfinite(value)
 
 
-def _box(value: Any, *, full_frame: bool = True) -> tuple[float, float, float, float] | None:
+def _box(value: Any) -> tuple[float, float, float, float] | None:
     if not isinstance(value, (list, tuple)) or len(value) != 4:
         return None
     if not all(_finite_number(item) for item in value):
         return None
     left, top, right, bottom = (float(item) for item in value)
-    max_x = 1920.0 if full_frame else 810.0
-    if not (0.0 <= left < right <= max_x and 0.0 <= top < bottom <= 1080.0):
-        return None
     # OCR rows from this pipeline use full-frame coordinates.  Refuse boxes
     # outside the gameplay pane so a similarly shaped UI element cannot be
     # treated as the card or receipt.
-    if full_frame and not (148.0 <= left < right <= 958.0):
+    if not inside_pane((left, top, right, bottom)):
         return None
     return left, top, right, bottom
 
@@ -114,6 +117,12 @@ def _box_list(value: Sequence[float]) -> list[float | int]:
     for item in value:
         result.append(int(item) if float(item).is_integer() else float(item))
     return result
+
+
+def _in_rows(box: Sequence[float], rows: tuple[float, float]) -> bool:
+    """Whether the box's centre lies in PC pane ``rows`` as placed in this recording."""
+    top, bottom = receipt_rows(*rows)
+    return top <= _center_y(box) <= bottom
 
 
 def _center_y(box: Sequence[float]) -> float:
@@ -191,7 +200,7 @@ def _header_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             or confidence is None
             or confidence < _MIN_HEADER_CONFIDENCE
             or box is None
-            or not _HEADER_Y_RANGE[0] <= _center_y(box) <= _HEADER_Y_RANGE[1]
+            or not _in_rows(box, _HEADER_Y_RANGE)
             or not _HINT_HEADER_RE.match(text)
         ):
             continue
@@ -215,7 +224,7 @@ def _card_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             or confidence is None
             or confidence < _MIN_CARD_CONFIDENCE
             or box is None
-            or not _CARD_Y_RANGE[0] <= _center_y(box) <= _CARD_Y_RANGE[1]
+            or not _in_rows(box, _CARD_Y_RANGE)
             or _center_y(box) <= _center_y(header["box"]) + 12.0
             or line.get("overlay_occluded") is True
             or bool(line.get("overlay_boxes"))
@@ -703,7 +712,7 @@ def _wrapped_receipt_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         box = prefix.get("box")
         if parsed is None or box is None:
             continue
-        if not _RECEIPT_Y_RANGE[0] <= _center_y(box) <= _RECEIPT_Y_RANGE[1]:
+        if not _in_rows(box, _RECEIPT_Y_RANGE):
             continue
         continuation = _wrapped_continuation(lines, prefix)
         if continuation is None:
@@ -780,7 +789,7 @@ def _receipt_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             or confidence < _MIN_RECEIPT_CONFIDENCE
             or not isinstance(text, str)
             or line.get("overlay_occluded") is True
-            or not _RECEIPT_Y_RANGE[0] <= _center_y(box) <= _RECEIPT_Y_RANGE[1]
+            or not _in_rows(box, _RECEIPT_Y_RANGE)
         ):
             continue
         parsed = _parse_hint_text(text)
@@ -813,7 +822,7 @@ def _receipt_candidates(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                     or confidence is None
                     or confidence < _MIN_RECEIPT_CONFIDENCE
                     or not isinstance(text, str)
-                    or not _RECEIPT_Y_RANGE[0] <= _center_y(box) <= _RECEIPT_Y_RANGE[1]
+                    or not _in_rows(box, _RECEIPT_Y_RANGE)
                 ):
                     continue
                 parsed = _parse_hint_text(text)
@@ -1084,9 +1093,11 @@ def _raw_context_title_line(line: Mapping[str, Any]) -> tuple[str, tuple[float, 
         or confidence is None
         or confidence < 95.0
         or box is None
-        or not (240.0 <= _center_x(box) <= 850.0)
-        or not (195.0 <= _center_y(box) <= 245.0)
-        or box[3] > 250.0
+        # The title band is pinned to the top left and reaches as far as the
+        # icons pinned to the right edge.
+        or not (240.0 <= _center_x(box) <= place_x(850.0, "r"))
+        or not (place_y(195.0, "t") <= _center_y(box) <= place_y(245.0, "t"))
+        or box[3] > place_y(250.0, "t")
         or text.strip() == "MAX"
     ):
         return None
@@ -1253,7 +1264,7 @@ def _load_image(
             image = opened.convert("RGB")
     except (OSError, ValueError, TypeError, ImportError):
         return None
-    if image.size != (810, 1080):
+    if image.size != pane_size():
         return None
     try:
         evidence_sha256 = _digest(path)
@@ -1448,7 +1459,7 @@ def _wrapped_contiguous_runs(
             if not (
                 item["variant"] == previous["variant"] == _WRAPPED_HINT_KIND
                 and item["timestamp"] > previous["timestamp"]
-                and item["timestamp"] - previous["timestamp"] <= _MAX_ROW_GAP_MS
+                and elapsed(previous["timestamp"], item["timestamp"]) <= _MAX_ROW_GAP_MS
                 and item["context"] == previous["context"]
                 and item["card"]["text"] == previous["card"]["text"]
                 and item["receipt"]["amount"] == previous["receipt"]["amount"]
@@ -1497,7 +1508,7 @@ def _wrapped_run_is_consistent(run: Sequence[dict[str, Any]]) -> bool:
     for previous, current in zip(run, run[1:]):
         if (
             current["timestamp"] <= previous["timestamp"]
-            or current["timestamp"] - previous["timestamp"] > _MAX_ROW_GAP_MS
+            or elapsed(previous["timestamp"], current["timestamp"]) > _MAX_ROW_GAP_MS
             or not _wrapped_contexts_compatible(
                 previous["context"], current["context"]
             )
@@ -1921,7 +1932,7 @@ def _contiguous_runs(
             if not (
                 item["context"] == previous["context"]
                 and item["timestamp"] > previous["timestamp"]
-                and item["timestamp"] - previous["timestamp"] <= _MAX_ROW_GAP_MS
+                and elapsed(previous["timestamp"], item["timestamp"]) <= _MAX_ROW_GAP_MS
             ):
                 runs.append(current)
                 current = []

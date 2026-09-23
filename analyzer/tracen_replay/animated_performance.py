@@ -1,6 +1,10 @@
 """Read large event stat and currency awards without surrounding balance changes."""
 import re
 
+from .gameplay import receipt_rows
+from .layout import place
+from .source_clock import elapsed
+
 
 LABELS={'Dance':'dance','Passion':'passion','Vocals':'vocal','Visuals':'visual','Composure':'composure'}
 # One moment of the base sampling: an outlier read on dense frames this
@@ -38,9 +42,10 @@ def _caption(label, lines):
     """
     canonical, _field = label
     pattern=r'(?<![A-Za-z])'+re.escape(canonical.rstrip('s'))+r's?(?![A-Za-z])'
+    top,bottom=receipt_rows()
     for line in lines:
         text=' '.join(str(line.get('text','')).split())
-        if line.get('confidence',0)<95 or not 770<=line.get('box',[0,0,0,0])[1]<1000:
+        if line.get('confidence',0)<95 or not top<=line.get('box',[0,0,0,0])[1]<bottom:
             continue
         exact=re.match(r'^'+pattern+r'\s+went\s+(up|down)\s+by(?:\s+(\d{1,3}))?',text,re.I)
         if exact:
@@ -57,11 +62,14 @@ def _caption(label, lines):
 def candidates(lines,screen,*,stat=False,allow_cap_coexistence=False):
     if screen!='event_outcome':return []
     found=[]
+    # The award badges are pinned to the centre of the clear area.
+    left,top,right,bottom=place((150,240,900,750 if stat else 650),'mc')
+    receipt_top,receipt_bottom=receipt_rows()
     for label in lines:
         label_identity = None if stat else _label_field(label.get('text'))
         field=(STAT_LABELS if stat else LABELS).get(label['text']) if stat else (label_identity[1] if label_identity else None)
         a,b,c,d=label['box']
-        if not field or label['confidence']<97 or not (150<=a<c<=900 and 240<=b<d<=(750 if stat else 650) and 30<=d-b<=(70 if stat else 100)):continue
+        if not field or label['confidence']<97 or not (left<=a<c<=right and top<=b<d<=bottom and 30<=d-b<=(70 if stat else 100)):continue
         canonical = next((name for name,value in (STAT_LABELS if stat else LABELS).items() if value==field),label['text'])
         caption = _caption((canonical,field),lines) if not stat else None
         captions=[caption['line']] if caption else []
@@ -69,7 +77,7 @@ def candidates(lines,screen,*,stat=False,allow_cap_coexistence=False):
             # Stat animations retain their literal receipt anchor. Performance
             # caption normalization must not remove this shared-reader input.
             captions=[line for line in lines if line['confidence']>=95
-                      and 770<=line['box'][1]<1000
+                      and receipt_top<=line['box'][1]<receipt_bottom
                       and re.match(r'^'+re.escape(canonical)+r' went up by\b',line['text'])]
         if not captions and not stat:continue
         if not captions and not allow_cap_coexistence and any(re.match(r'^'+re.escape(canonical)+r'\s+(?:cap|Bonus)\b',l['text'],re.I) for l in lines):continue
@@ -150,7 +158,7 @@ def reconcile(event,readings,*,stat=False,receipt_observations=None):
         # A dense reread samples one moment several times, so the single
         # outlier is one moment's frames: a read within a quarter second.
         display_agreement=(stat and len(matching)>=3 and max(matching)-min(matching)>=50
-                           and bool(others) and max(others)-min(others)<=_OUTLIER_MOMENT_MS
+                           and bool(others) and elapsed(min(others),max(others))<=_OUTLIER_MOMENT_MS
                            and all(c.get('reason')=='changing_effect_value' for c in conflicts))
         if (prefix_resolution or display_agreement) and (conflicts or prior and prior['amount']!=candidate['amount']):
             event.setdefault('resolved_reading_conflicts',[]).append(dict(field=key,observed_amounts=sorted(amounts),

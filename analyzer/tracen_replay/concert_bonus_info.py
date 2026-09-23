@@ -18,10 +18,13 @@ from __future__ import annotations
 
 import re
 
+from .layout import place
+
 VERSION = 1
 BASIS = 'concert_info_bonus_changes'
 FIELDS = ('friendship_training_effectiveness', 'specialty_priority', 'support_chain_event_frequency')
-_COLUMNS = {'friendship_training_effectiveness': (265, 465), 'specialty_priority': (470, 635), 'support_chain_event_frequency': (640, 850)}
+# PC pane positions; the dialog is a popup at the screen's centre.
+_COLUMNS ={'friendship_training_effectiveness': (265, 465), 'specialty_priority': (470, 635), 'support_chain_event_frequency': (640, 850)}
 _VALUE_BAND = (365, 440)
 _HEADER = 'concert bonus changes'
 _PERCENT = re.compile(r'\+\s*(\d{1,3})\s*%')
@@ -48,7 +51,8 @@ def read_concert_bonus(lines):
     if not any(isinstance(l, dict) and _HEADER in str(l.get('text', '')).lower() for l in lines or ()):
         return {}
     result = {}
-    for field, (left, right) in _COLUMNS.items():
+    for field, columns in _COLUMNS.items():
+        left, top, right, bottom = place((columns[0], _VALUE_BAND[0], columns[1], _VALUE_BAND[1]), 'sc')
         texts = []
         for line in lines or ():
             if not isinstance(line, dict) or line.get('confidence', 0) < 85:
@@ -57,7 +61,7 @@ def read_concert_bonus(lines):
             if not isinstance(box, (list, tuple)) or len(box) != 4:
                 continue
             cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-            if left <= cx <= right and _VALUE_BAND[0] <= cy <= _VALUE_BAND[1]:
+            if left <= cx <= right and top <= cy <= bottom:
                 texts.append((box[1], box[0], str(line.get('text', ''))))
         if not texts:
             continue

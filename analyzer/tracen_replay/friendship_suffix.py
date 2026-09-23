@@ -2,6 +2,8 @@
 import re
 from copy import deepcopy
 
+from .source_clock import elapsed
+
 
 def _overlap(a,b):
     return min(a[2],b[2])-max(a[0],b[0])>=3 and min(a[3],b[3])-max(a[1],b[1])>=3
@@ -92,7 +94,7 @@ def resolve(event,rows_by_evidence):
                 for anchor,aligned in anchors:
                     t=anchor['source_timestamp_ms']
                     if aligned['provenance']['source_sha256']!=short_alignment['provenance']['source_sha256']:continue
-                    if not 0<t-time<=250 or max(abs(a-b) for a,b in zip(box,aligned['box']))>3:continue
+                    if not 0<elapsed(time,t)<=250 or max(abs(a-b) for a,b in zip(box,aligned['box']))>3:continue
                     prefix=aligned['letters'][:len(short['name'])]
                     if any(abs((a[0]+a[2]-b[0]-b[2])/2)>5
                            for (_,a),(_,b) in zip(short_alignment['letters'],prefix) if a and b):continue
@@ -100,7 +102,7 @@ def resolve(event,rows_by_evidence):
                     if any(r['screen']!='event_outcome' for r in span):continue
                     if any(e.get('kind')=='friendship_change' and e.get('name') not in (short['name'],full['name'])
                            for r in span for e in r.get('effects',[])):continue
-                    if any(b['source_timestamp_ms']-a['source_timestamp_ms']>250
+                    if any(elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])>250
                            or _dialogue_text_moved(a,b) for a,b in zip(span,span[1:])):continue
                     cursors=row.get('facts',{}).get('receipt_overlay_evidence',{}).get('overlay_boxes',[])
                     suffix=aligned['letters'][len(short['name']):]

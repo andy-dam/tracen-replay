@@ -20,13 +20,15 @@ import re
 from copy import deepcopy
 from typing import Any, Mapping, Sequence
 
+from .layout import pane_box, place, place_x
 from .ocr_confidence import confidence_percent
 
 
 VERSION = 1
 SCHEMA = "tracen-replay/current-state-layout-v1"
 
-PANE_BOUNDS = (148.0, 0.0, 958.0, 1080.0)
+# On the PC pane; the header is pinned to the top left, the stat strip to
+# the bottom.
 HEADER_BOUNDS = (148.0, 0.0, 450.0, 80.0)
 # The career stat strip is below the dialogue/performance sidebar and above
 # the action buttons.  Keeping the y-band distinct from result cards is what
@@ -78,9 +80,10 @@ def _box(value: Any) -> tuple[float, float, float, float] | None:
     left, top, right, bottom = values  # type: ignore[misc]
     if not (left < right and top < bottom):
         return None
+    pane = pane_box()
     if not (
-        PANE_BOUNDS[0] <= left < right <= PANE_BOUNDS[2]
-        and PANE_BOUNDS[1] <= top < bottom <= PANE_BOUNDS[3]
+        pane[0] <= left < right <= pane[2]
+        and pane[1] <= top < bottom <= pane[3]
     ):
         return None
     return left, top, right, bottom
@@ -130,7 +133,7 @@ def _header(lines: Sequence[Mapping[str, Any]], supplied: Any) -> dict[str, Any]
             and confidence is not None
             and confidence >= 90.0
             and text in allowed
-            and _in_bounds(box, HEADER_BOUNDS)
+            and _in_bounds(box, place(HEADER_BOUNDS, "tl"))
             and (candidate_text is None or text == candidate_text)
         ):
             candidates.append(line)
@@ -139,8 +142,9 @@ def _header(lines: Sequence[Mapping[str, Any]], supplied: Any) -> dict[str, Any]
     return _copy(candidates[0])
 
 
-# Where each label sits on the bar (the centre of its box, in frame x). The
-# columns never move, so a label is identified by its column first and its
+# Where each label sits on the bar (the centre of its box, in frame x, on the
+# PC pane; the bar is centred across). The columns never move on a
+# recording, so a label is identified by its column first and its
 # text second: on a bar whose strip colour gives the white text little
 # contrast, the recognizer returns "Sil Pts", "SSpeed" or "peed" at a
 # confidence in the sixties to eighties, and the exact spelling at 90 is
@@ -175,7 +179,7 @@ def _label_field(text: str, center_x: float, confidence: float) -> str | None:
     if confidence < NEAR_LABEL_MIN_CONFIDENCE:
         return None
     for field, column in LABEL_COLUMNS.items():
-        if abs(center_x - column) > LABEL_COLUMN_TOLERANCE:
+        if abs(center_x - place_x(column)) > LABEL_COLUMN_TOLERANCE:
             continue
         if exact == field or any(_edits(text, label) <= NEAR_LABEL_MAX_EDITS for label in FIELD_LABELS[field]):
             return field
@@ -198,17 +202,6 @@ def _merged_labels(line: Mapping[str, Any], text: str, confidence: float) -> lis
     return []
 
 
-def _edits(a: str, b: str) -> int:
-    """Levenshtein distance, for two short labels."""
-    previous = list(range(len(b) + 1))
-    for i, ca in enumerate(a, 1):
-        current = [i]
-        for j, cb in enumerate(b, 1):
-            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
-        previous = current
-    return previous[-1]
-
-
 def _labels(lines: Sequence[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     result = {field: [] for field in FIELDS}
     for line in lines:
@@ -216,7 +209,7 @@ def _labels(lines: Sequence[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]
         confidence = _confidence(line)
         if box is None or confidence is None or confidence < NEAR_LABEL_MIN_CONFIDENCE:
             continue
-        if not _in_bounds(box, CURRENT_LABEL_BOUNDS):
+        if not _in_bounds(box, place(CURRENT_LABEL_BOUNDS, "bc")):
             continue
         text = _text(line).casefold()
         for field, part in _merged_labels(line, text, confidence):
@@ -249,7 +242,7 @@ def _candidate_lines(
         confidence = _confidence(line)
         if box is None or confidence is None:
             continue
-        if not _in_bounds(box, CURRENT_PANEL_BOUNDS):
+        if not _in_bounds(box, place(CURRENT_PANEL_BOUNDS, "bc")):
             continue
         x, y = _center(box)
         # Values/caps stay in the same column and below their label.  This
@@ -420,7 +413,7 @@ def detect_current_state_layout(
         "header": header_observation,
         "header_status": header_status,
         "panel_geometry": {
-            "bounds": list(CURRENT_PANEL_BOUNDS),
+            "bounds": list(place(CURRENT_PANEL_BOUNDS, "bc")),
             "minimum_capped_stat_rows": 4,
             "rows": rows,
         },

@@ -15,13 +15,14 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from .layout import PC, current, place_x
+
 
 POLICY_NAME = "section_relative_quantity_row_v1"
 MIN_CONFIDENCE = 97.0
-SOURCE_WIDTH = 1920
-SOURCE_HEIGHT = 1080
-GAMEPLAY_LEFT = 148
-GAMEPLAY_RIGHT = 958
+# Positions on the PC pane.  The reward sections are pinned to the bottom,
+# centred: headers follow the centre across, and rows are found below their
+# visible header.
 HEADER_LEFT = 240
 HEADER_RIGHT = 650
 ROW_Y_TOLERANCE = 24
@@ -70,6 +71,9 @@ class SectionLayoutError(ValueError):
 def policy() -> dict[str, Any]:
     """Return the declared policy copied into new refinement artifacts."""
 
+    layout = current()
+    left, top, right, bottom = layout.pane_box
+    _, _, width, height = layout.frame_box
     return {
         "name": POLICY_NAME,
         "version": 1,
@@ -79,11 +83,12 @@ def policy() -> dict[str, Any]:
         "row_y_tolerance_px": ROW_Y_TOLERANCE,
         "max_row_gap_from_header_derived_px": MAX_ROW_GAP_FROM_TRANSLATED_SLOT,
         "horizontal_slot_tolerance_px": HORIZONTAL_SLOT_TOLERANCE,
-        "header_x_range": [HEADER_LEFT, HEADER_RIGHT],
+        "header_x_range": [place_x(HEADER_LEFT), place_x(HEADER_RIGHT)],
+        # The working frame's far edges and its game area, in reader coordinates.
         "source_bounds": {
-            "width": SOURCE_WIDTH,
-            "height": SOURCE_HEIGHT,
-            "gameplay_pane": [GAMEPLAY_LEFT, 0, GAMEPLAY_RIGHT, SOURCE_HEIGHT],
+            "width": width,
+            "height": height,
+            "gameplay_pane": [left, top, right, bottom],
         },
         "required_context": ["race_result", "fans", "fans_gained"],
         "sections": {
@@ -103,14 +108,16 @@ def _number(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _box(value: Any) -> tuple[float, float, float, float] | None:
+def _box(value: Any, pane: Sequence[float] | None = None) -> tuple[float, float, float, float] | None:
+    """``value`` as a box inside ``pane``, by default the game area of this recording."""
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != 4:
         return None
     numbers = [_number(part) for part in value]
     if any(part is None for part in numbers):
         return None
     left, top, right, bottom = (float(part) for part in numbers)
-    if left < GAMEPLAY_LEFT or top < 0 or right > GAMEPLAY_RIGHT or bottom > SOURCE_HEIGHT or left >= right or top >= bottom:
+    pane = pane or current().pane_box
+    if left < pane[0] or top < pane[1] or right > pane[2] or bottom > pane[3] or left >= right or top >= bottom:
         return None
     return left, top, right, bottom
 
@@ -134,10 +141,12 @@ def _center(box: Sequence[float]) -> tuple[float, float]:
 
 
 def _slot_center(spec: Mapping[str, Any]) -> tuple[float, float]:
-    box = _box(spec.get("full_box"))
+    box = _box(spec.get("full_box"), PC.pane_box)
     if box is None:
         raise SectionLayoutError("canonical slot geometry is invalid")
-    return _center(box)
+    x, y = _center(box)
+    # Rows are placed by their header; across, a slot follows the centre.
+    return place_x(x), y
 
 
 def _translated_box(
@@ -146,7 +155,7 @@ def _translated_box(
     *,
     row_center_y: float | None = None,
 ) -> tuple[int, int, int, int]:
-    box = _box(spec.get("full_box"))
+    box = _box(spec.get("full_box"), PC.pane_box)
     if box is None:
         raise SectionLayoutError("canonical slot geometry is invalid")
     group = str(spec.get("group", "")).casefold()
@@ -160,8 +169,8 @@ def _translated_box(
         # badge whose OCR box has a different height.
         canonical_center_y = _center(box)[1]
         delta = row_center_y - canonical_center_y
-    values = (box[0], box[1] + delta, box[2], box[3] + delta)
-    if values[0] < 0 or values[1] < 0 or values[2] > SOURCE_WIDTH or values[3] > SOURCE_HEIGHT or values[0] >= values[2] or values[1] >= values[3]:
+    values = (place_x(box[0]), box[1] + delta, place_x(box[2]), box[3] + delta)
+    if _box(values) is None:
         raise SectionLayoutError("translated slot geometry leaves source bounds")
     return tuple(int(round(value)) for value in values)
 
@@ -171,8 +180,9 @@ def _source_box_from_full(box: Sequence[Any], x_offset: int = 148, padding: int 
     if parsed is None:
         return None
     left, top, right, bottom = parsed
+    pane = current().pane_box
     values = (max(0, left - x_offset - padding), max(0, top - padding),
-              min(810, right - x_offset + padding), min(SOURCE_HEIGHT, bottom + padding))
+              min(pane[2] - pane[0], right - x_offset + padding), min(pane[3], bottom + padding))
     if values[0] >= values[2] or values[1] >= values[3]:
         return None
     return tuple(int(round(value)) for value in values)
@@ -186,7 +196,7 @@ def _header_candidates(raw: Mapping[str, Any], name: str) -> list[dict[str, Any]
         if _confidence(line) < MIN_CONFIDENCE:
             continue
         box = _box(line.get("box"))
-        if box is None or box[0] < HEADER_LEFT or box[2] > HEADER_RIGHT:
+        if box is None or box[0] < place_x(HEADER_LEFT) or box[2] > place_x(HEADER_RIGHT):
             # OCR from the profile/sidebar or a malformed box cannot anchor
             # the gameplay result pane.  It is ignored as unrelated text.
             continue

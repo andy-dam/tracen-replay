@@ -1,7 +1,7 @@
 """Build source-bound choice observations for the full-recording producer.
 
 ``full_recording.analyze_frames`` stores the immutable OCR sidecar and the
-810x1080 gameplay crop, but the ordinary path historically did not run the
+gameplay crop, but the ordinary path historically did not run the
 choice-only pixel observer.  This adapter is the bounded bridge between those
 existing artifacts and :mod:`event_choice_commitment`:
 
@@ -29,10 +29,10 @@ from PIL import Image
 
 from .choice_evidence import observe
 from .event_choice_commitment import reconstruct_committed_choices
+from .layout import pane_size, place
 
 
 SCHEMA = "tracen-replay/event-choice-source-adapter-v1"
-GAMEPLAY_SIZE = (810, 1080)
 
 
 def _text(value: Any) -> str | None:
@@ -89,13 +89,15 @@ def _candidate_lines(lines: Iterable[Mapping[str, Any]]) -> bool:
     """
 
     lower = []
+    # The cards move with the event's text box.
+    x1, y1, x2, y2 = place((240, 540, 740, 880), "mc", "sc")
     for line in lines:
         box = _box(line)
         text = _text(line.get("text")) if isinstance(line, Mapping) else None
         if box is None or not text:
             continue
         left, top, right, bottom = box
-        if 240 <= left <= 740 and 540 <= top <= 880:
+        if x1 <= left <= x2 and y1 <= top <= y2:
             lower.append((text, box))
     if not lower:
         return False
@@ -363,7 +365,7 @@ def _verified_pane(
         pane = open_rgb(proof)
     except (OSError, ValueError):
         return None, "unreadable_gameplay_proof"
-    if pane.size != GAMEPLAY_SIZE:
+    if pane.size != pane_size():
         return None, "unexpected_gameplay_size"
     expected = _text(raw.get("gameplay_sha256"))
     if not expected:
@@ -430,8 +432,8 @@ def same_frame_choice_observation(
     frame with no card/selection signal.
     """
 
-    if pane.size != GAMEPLAY_SIZE:
-        raise ValueError("Expected isolated 810x1080 gameplay pixels.")
+    if pane.size != pane_size():
+        raise ValueError("Expected isolated gameplay pixels.")
     if type(source_timestamp_ms) is not int or source_timestamp_ms < 0:
         raise ValueError("source_timestamp_ms must be a nonnegative integer.")
     evidence = _text(evidence)
@@ -768,7 +770,6 @@ def build_choice_observations(
 
 __all__ = [
     "SCHEMA",
-    "GAMEPLAY_SIZE",
     "same_frame_choice_observation",
     "merge_choice_observations",
     "merge_committed_choices",

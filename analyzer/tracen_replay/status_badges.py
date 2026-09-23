@@ -3,6 +3,8 @@
 from copy import deepcopy
 import re
 
+from .layout import place
+
 
 def read_badges(lines):
     def region(line, box, minimum):
@@ -15,23 +17,26 @@ def read_badges(lines):
         left, top, right, bottom = box
         return xx > x and yy > y and left <= (x+xx)/2 <= right and top <= (y+yy)/2 <= bottom
 
+    # The energy row and its mood badge are pinned to the top, centred; the
+    # hype badge sits in the panel at the top left.
     result = []
-    energy = [line for line in lines if region(line, (375, 115, 455, 165), 95)
+    energy = [line for line in lines if region(line, place((375, 115, 455, 165), 'tc'), 95)
               and line.get('text', '').strip().casefold() == 'energy']
-    moods = [line for line in lines if region(line, (705, 112, 825, 165), 97)
+    moods = [line for line in lines if region(line, place((705, 112, 825, 165), 'tc'), 97)
              and line.get('text', '').strip().casefold() in ('awful', 'bad', 'normal', 'good', 'great')]
     values = {line['text'].strip().casefold() for line in moods}
     if len(energy) == 1 and len(values) == 1:
         result.append(dict(kind='mood_status', value=next(iter(values)),
                            proof={'basis': 'gameplay_energy_row_mood_badge', 'anchor': deepcopy(energy[0]),
                                   'readings': deepcopy(moods)}))
-    headers = [line for line in lines if region(line, (150, 150, 300, 188), 97)
+    headers = [line for line in lines if region(line, place((150, 150, 300, 188), 'tl'), 97)
                and line.get('text', '').strip().casefold() == 'hype level']
-    hype_lines = [line for line in lines if region(line, (150, 195, 290, 260), 90)
+    hype_lines = [line for line in lines if region(line, place((150, 195, 290, 260), 'tl'), 90)
                   and line.get('text', '').strip().casefold() == 'hype']
     candidates = []
+    value_box = place((150, 185, 295, 224), 'tl')
     for line in lines:
-        if not region(line, (150, 185, 295, 224), 95):
+        if not region(line, value_box, 95):
             continue
         text = line.get('text', '').strip()
         combined = re.fullmatch(r'([A-Za-z]+(?: [A-Za-z]+)?)\s+Hype', text, re.IGNORECASE)

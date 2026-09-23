@@ -17,6 +17,8 @@ import math
 import re
 from collections.abc import Iterable, Mapping
 
+from .layout import current as current_layout
+from .source_clock import elapsed
 
 # Coordinates are in the full OCR coordinate space.  NeuralReader adds 148 to
 # the gameplay crop's x coordinates.  The centered completion badge in the
@@ -70,15 +72,19 @@ def _large_completion_box(box):
     center_x = (left + right) / 2
     if left >= right or top >= bottom:
         return False
-    return (
-        380 <= left <= 500
-        and 620 <= right <= 735
-        and 500 <= top <= 700
-        and 700 <= bottom <= 850
+    # The ranges are PC pane positions.  The badge is centred; on a screen of
+    # another shape the box is checked back at the PC position from either
+    # centre.
+    return any(
+        380 <= left - dx <= 500
+        and 620 <= right - dx <= 735
+        and 500 <= top - dy <= 700
+        and 700 <= bottom - dy <= 850
         and 200 <= width <= 360
         and 130 <= height <= 300
-        and 500 <= center_x <= 610
+        and 500 <= center_x - dx <= 610
         and 0.65 <= width / height <= 2.2
+        for dx, dy in {current_layout().offset("mc"), current_layout().offset("sc")}
     )
 
 
@@ -187,7 +193,7 @@ def _candidates(readings):
 
 
 def _has_sequence_break(previous, current, all_candidates, ambiguous_timestamps):
-    if current["source_timestamp_ms"] - previous["source_timestamp_ms"] > MAX_SEQUENCE_STEP_MS:
+    if elapsed(previous["source_timestamp_ms"], current["source_timestamp_ms"]) > MAX_SEQUENCE_STEP_MS:
         return True
     start = previous["source_timestamp_ms"]
     end = current["source_timestamp_ms"]
@@ -244,7 +250,7 @@ def _continuous_tail(run, detail_time, readings, ambiguous_timestamps):
         timestamp = reading["source_timestamp_ms"]
         if timestamp in ambiguous_timestamps:
             return False
-        if previous_time is not None and timestamp - previous_time > MAX_SEQUENCE_STEP_MS:
+        if previous_time is not None and elapsed(previous_time, timestamp) > MAX_SEQUENCE_STEP_MS:
             return False
         screen = reading.get("screen")
         if screen is not None and (

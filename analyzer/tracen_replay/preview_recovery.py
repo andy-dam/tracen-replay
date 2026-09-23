@@ -23,12 +23,13 @@ import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .layout import ORIGIN_X, inside_pane, pane_size, place, place_x
+
 
 VERSION = 1
 SCHEMA = "tracen-replay/preview-recovery-v1"
 STAGE = "preview_recovery"
-PANE_BOUNDS = (148, 0, 958, 1080)
-PANE_OFFSET = 148
+PANE_OFFSET = ORIGIN_X
 DEFAULT_MAX_REQUESTS = 16
 DEFAULT_MIN_CONSENSUS = 2
 
@@ -70,6 +71,22 @@ FAILURE_BOXES = (
 CONTROL_BOUNDS = (205, 150, 420, 240)
 STAT_LABEL_BOUNDS = (260, 680, 850, 735)
 CONCERT_BOUNDS = (135, 520, 360, 680)
+# All of the above are the PC pane's. The preview rows, the Failure badge and
+# the stat labels are pinned to the bottom with the stat bar; the training's
+# name controls and the performance panel's concert marker to the top left.
+
+
+def main_row_boxes() -> dict[str, Sequence[int]]:
+    return {field: place(box, "bc") for field, box in MAIN_ROW_BOXES.items()}
+
+
+def modifier_row_boxes() -> dict[str, Sequence[int]]:
+    return {field: place(box, "bc") for field, box in MODIFIER_ROW_BOXES.items()}
+
+
+def failure_boxes() -> tuple:
+    return tuple(place(box, "bc") for box in FAILURE_BOXES)
+
 
 _SIGNED_RE = re.compile(r"^\+\s*(\d{1,3})\s*[.,]?$")
 _FAILURE_RE = re.compile(r"^failure[.!r]*$", re.I)
@@ -104,8 +121,8 @@ def gameplay_fingerprint(path: str | Path) -> str:
     from .frame_cache import rgb_digest
 
     digest, size = rgb_digest(path)
-    if size != (810, 1080):
-        raise ValueError("Preview recovery evidence is not an 810x1080 gameplay pane.")
+    if size != pane_size():
+        raise ValueError("Preview recovery evidence is not a gameplay pane.")
     return digest
 
 
@@ -133,9 +150,7 @@ def _box(value: Any, *, name: str) -> list[float]:
         raise ValueError(f"Preview recovery {name} box is invalid.") from exc
     if not result[0] < result[2] or not result[1] < result[3]:
         raise ValueError(f"Preview recovery {name} box is empty.")
-    left, top, right, bottom = result
-    if not (PANE_BOUNDS[0] <= left < right <= PANE_BOUNDS[2]
-            and PANE_BOUNDS[1] <= top < bottom <= PANE_BOUNDS[3]):
+    if not inside_pane(result):
         raise ValueError(f"Preview recovery {name} box leaves gameplay bounds.")
     return result
 
@@ -174,6 +189,9 @@ def _has_result_marker(raw: Mapping[str, Any]) -> bool:
         return True
     if raw.get("result_marker_visible") is True:
         return True
+    # A SUCCESS banner follows the centre of the clear area, a Failure badge
+    # the bottom; either marks the result.
+    _left, band_top, _right, band_bottom = place((250, 600, 850, 850), "mc", "bc")
     for line in _source_lines(raw):
         if _confidence(line.get("confidence")) < 90:
             continue
@@ -182,7 +200,7 @@ def _has_result_marker(raw: Mapping[str, Any]) -> bool:
         if box is None:
             continue
         _x, y = _center(box)
-        if 600 <= y <= 850 and re.fullmatch(r"(?:success|suocess|failure)[.!r]*", text):
+        if band_top <= y <= band_bottom and re.fullmatch(r"(?:success|suocess|failure)[.!r]*", text):
             # Failure belongs to the selected menu card.  SUCCESS is the
             # committed result marker and always wins over a stale grid.
             if text.startswith("success") or text.startswith("suocess"):
@@ -194,7 +212,7 @@ def _has_failure_line(raw: Mapping[str, Any]) -> bool:
     for line in _source_lines(raw):
         box = _line_box(line)
         if (_confidence(line.get("confidence")) >= 90 and box is not None
-                and _within(line, (240, 735, 850, 850))
+                and _within(line, place((240, 735, 850, 850), "bc"))
                 and _FAILURE_RE.fullmatch(_text(line.get("text")))):
             return True
     return False
@@ -203,7 +221,7 @@ def _has_failure_line(raw: Mapping[str, Any]) -> bool:
 def _control_lines(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
     result = []
     for line in _source_lines(raw):
-        if _confidence(line.get("confidence")) < 80 or not _within(line, CONTROL_BOUNDS):
+        if _confidence(line.get("confidence")) < 80 or not _within(line, place(CONTROL_BOUNDS, "tl")):
             continue
         normalized = _text(line.get("text")).casefold()
         compact = normalized.replace(" ", "")
@@ -261,7 +279,7 @@ def _concert_marker_lines(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
 
     result = []
     for line in _source_lines(raw):
-        if _confidence(line.get("confidence")) < 80 or not _within(line, CONCERT_BOUNDS):
+        if _confidence(line.get("confidence")) < 80 or not _within(line, place(CONCERT_BOUNDS, "tl")):
             continue
         normalized = re.sub(r"[^a-z]+", " ", _text(line.get("text")).casefold()).strip()
         if normalized not in {"concert", "bonuses", "bbonuses", "concert bonuses"}:
@@ -280,14 +298,14 @@ def _has_training_control(raw: Mapping[str, Any]) -> bool:
 
 
 def _field_for_x(x: float) -> str | None:
-    matches = [field for field, (left, right) in FIELD_X_BOUNDS.items() if left <= x <= right]
+    matches = [field for field, (left, right) in FIELD_X_BOUNDS.items() if place_x(left) <= x <= place_x(right)]
     return matches[0] if len(matches) == 1 else None
 
 
 def _label_fields(raw: Mapping[str, Any]) -> set[str]:
     result: set[str] = set()
     for line in _source_lines(raw):
-        if _confidence(line.get("confidence")) < 80 or not _within(line, STAT_LABEL_BOUNDS):
+        if _confidence(line.get("confidence")) < 80 or not _within(line, place(STAT_LABEL_BOUNDS, "bc")):
             continue
         text = _compact(line.get("text")).casefold()
         for field, aliases in _LABELS.items():
@@ -332,7 +350,8 @@ def _has_concert_marker(raw: Mapping[str, Any]) -> bool:
 
 
 def _row_lines(raw: Mapping[str, Any], *, modifier: bool = False) -> list[dict[str, Any]]:
-    top, bottom = (MODIFIER_ROW_BOXES["speed"][1], MODIFIER_ROW_BOXES["speed"][3]) if modifier else (MAIN_ROW_BOXES["speed"][1], MAIN_ROW_BOXES["speed"][3])
+    row = (modifier_row_boxes() if modifier else main_row_boxes())["speed"]
+    top, bottom = row[1], row[3]
     result = []
     for line in _source_lines(raw):
         box = _line_box(line)
@@ -458,25 +477,27 @@ def candidate_requests(raw: Mapping[str, Any], *, max_requests: int | None = Non
         requests: list[dict[str, Any]] = []
     else:
         requests = []
-        for index, box in enumerate(FAILURE_BOXES):
+        for index, box in enumerate(failure_boxes()):
             requests.append(_request(
                 request_id=f"preview-failure:{index}",
                 region=f"preview.failure.{index}", field="failure",
                 kind="preview_failure", role="phase", box=box,
                 priority=100 - index, pattern="failure_badge"))
+        main_rows = main_row_boxes()
         for field in STAT_FIELDS:
             requests.append(_request(
                 request_id=f"preview-main:{field}",
                 region=f"preview.main.{field}", field=field,
-                kind="preview_stat", role="main", box=MAIN_ROW_BOXES[field],
+                kind="preview_stat", role="main", box=main_rows[field],
                 priority=70, pattern="signed_preview_amount"))
         if _has_concert_marker(raw):
+            modifier_rows = modifier_row_boxes()
             for field in STAT_FIELDS:
                 requests.append(_request(
                     request_id=f"preview-modifier:{field}",
                     region=f"preview.modifier.{field}", field=field,
                     kind="preview_stat", role="modifier",
-                    box=MODIFIER_ROW_BOXES[field], priority=60,
+                    box=modifier_rows[field], priority=60,
                     pattern="signed_preview_amount"))
     if max_requests is not None:
         if type(max_requests) is not int or max_requests < 0:
@@ -759,7 +780,7 @@ def recover_in_memory(raw: Mapping[str, Any], pane: Any, *, reader: Any,
         raise TypeError("Preview recovery raw observation must be a mapping.")
     if type(min_consensus) is not int or min_consensus < 1:
         raise ValueError("Preview recovery min_consensus must be positive.")
-    if getattr(pane, "size", None) != (810, 1080):
+    if getattr(pane, "size", None) != pane_size():
         raise ValueError("Preview recovery accepts only the gameplay crop.")
     requests = candidate_requests(raw, max_requests=max_requests)
     if not requests:
@@ -826,7 +847,7 @@ def _validate_sidecar_request(request: Mapping[str, Any]) -> None:
             raise ValueError("Preview recovery stat request field or role is invalid.")
         field = request["field"]
         role = request["role"]
-        expected = MAIN_ROW_BOXES[field] if role == "main" else MODIFIER_ROW_BOXES[field]
+        expected = main_row_boxes()[field] if role == "main" else modifier_row_boxes()[field]
         if list(request["box"]) != list(expected):
             raise ValueError("Preview recovery stat request geometry is invalid.")
         expected_values = {
@@ -846,9 +867,10 @@ def _validate_sidecar_request(request: Mapping[str, Any]) -> None:
     elif request.get("kind") == "preview_failure":
         if request.get("field") != "failure" or request.get("role") != "phase":
             raise ValueError("Preview recovery failure request is invalid.")
-        if list(request["box"]) not in [list(item) for item in FAILURE_BOXES]:
+        placed = failure_boxes()
+        if list(request["box"]) not in [list(item) for item in placed]:
             raise ValueError("Preview recovery failure request geometry is invalid.")
-        index = next(index for index, box in enumerate(FAILURE_BOXES)
+        index = next(index for index, box in enumerate(placed)
                      if list(box) == list(request["box"]))
         expected_values = {
             "id": f"preview-failure:{index}",
@@ -1093,7 +1115,7 @@ def validated_recovery(raw: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 __all__ = [
-    "SCHEMA", "STAGE", "VERSION", "PANE_BOUNDS", "MAIN_ROW_BOXES",
+    "SCHEMA", "STAGE", "VERSION", "MAIN_ROW_BOXES",
     "MODIFIER_ROW_BOXES", "FAILURE_BOXES", "candidate_requests", "discover",
     "recover_in_memory", "recover", "fresh", "generate", "validate",
     "validated_recovery", "apply", "load", "attach",

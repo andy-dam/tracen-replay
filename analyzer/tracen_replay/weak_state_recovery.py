@@ -33,6 +33,7 @@ import re
 from pathlib import Path, PureWindowsPath
 from typing import Any, Mapping, Sequence
 
+from .layout import ORIGIN_X, pane_box, pane_size, place, place_y
 from .reconcile import FIELDS
 from .stats import BOXES as STAT_BOXES
 
@@ -41,9 +42,11 @@ SCHEMA = "tracen-replay/weak-state-recovery-v1"
 STAGE = "weak_state_recovery"
 VERSION = 1
 
-# Coordinates are in the 1920x1080 source frame's gameplay pane coordinate
-# system.  The pane itself begins at x=148 and is 810x1080 pixels wide.
-PANE_BOUNDS = (148, 0, 958, 1080)
+# Coordinates are in the reader's coordinate system: the gameplay pane's
+# pixels shifted right by 148. Fixed boxes are the PC pane's and are placed
+# on the recording being read; the result banner's centre lies in this band,
+# pinned to the centre of the clear area.
+_BANNER_CENTRES = (250, 635, 850, 815)
 STATE_CONFIDENCE_FLOOR = 97.0
 PANEL_COMPONENT_CONFIDENCE_FLOOR = 97.0
 PANEL_LOCALIZED_CONFIDENCE_FLOOR = 90.0
@@ -138,8 +141,8 @@ def gameplay_fingerprint(path: str | Path) -> str:
     from .frame_cache import rgb_digest
 
     digest, size = rgb_digest(path)
-    if size != (810, 1080):
-        raise ValueError("Weak-state gameplay evidence must be 810x1080 pixels.")
+    if size != pane_size():
+        raise ValueError("Weak-state gameplay evidence must be the gameplay pane.")
     return digest
 
 
@@ -152,13 +155,14 @@ def _number(value: Any, *, name: str) -> float:
     return result
 
 
-def _box(value: Any, *, name: str, bounds: Sequence[float] = PANE_BOUNDS) -> list[float]:
+def _box(value: Any, *, name: str, bounds: Sequence[float] | None = None) -> list[float]:
     if not isinstance(value, (list, tuple)) or len(value) != 4:
         raise ValueError(f"{name} box is invalid.")
     result = [_number(item, name=f"{name} box coordinate") for item in value]
     left, top, right, bottom = result
     if not left < right or not top < bottom:
         raise ValueError(f"{name} box is empty.")
+    bounds = pane_box() if bounds is None else bounds
     if not (bounds[0] <= left < right <= bounds[2]
             and bounds[1] <= top < bottom <= bounds[3]):
         raise ValueError(f"{name} box is outside the gameplay source pane.")
@@ -256,11 +260,12 @@ def _expand_line_box(line: Mapping[str, Any], *, left: float = 5,
         source = [float(part) for part in raw]
     except (TypeError, ValueError):
         return None
+    pane = pane_box()
     candidate = [
-        max(PANE_BOUNDS[0], source[0] - left),
-        max(PANE_BOUNDS[1], source[1] - top),
-        min(PANE_BOUNDS[2], source[2] + right),
-        min(PANE_BOUNDS[3], source[3] + bottom),
+        max(pane[0], source[0] - left),
+        max(pane[1], source[1] - top),
+        min(pane[2], source[2] + right),
+        min(pane[3], source[3] + bottom),
     ]
     try:
         return [int(round(part)) for part in _box(candidate, name="source crop")]
@@ -299,9 +304,9 @@ def _request(*, request_id: str, region: str, channel: str,
 def _panel_rows() -> tuple[tuple[str, str, int, int], ...]:
     # Importing the layout keeps this module aligned with the existing parser
     # while avoiding a second, divergent coordinate table.
-    from .vision import _PERFORMANCE_PANEL_ROWS
+    from .vision import _performance_panel_rows
 
-    return tuple(_PERFORMANCE_PANEL_ROWS)
+    return tuple(_performance_panel_rows())
 
 
 def _component_candidates(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -522,7 +527,7 @@ def _weak_stat_candidates(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
             region=f"current.{field}",
             channel="stats",
             field=field,
-            box=box,
+            box=place(box, "bc"),
             kind="current_stat",
             pattern="current_stat",
             minimum_confidence=90,
@@ -562,7 +567,7 @@ def _training_result_candidates(raw: Mapping[str, Any], existing: set[str]) -> l
     # The result banner is centered below the result grid.  Keep this band
     # broad enough for scaled UI variants, while deriving the final crop from
     # the same-frame detector geometry.
-    banner_band = (250, 635, 850, 815)
+    banner_band = place(_BANNER_CENTRES, "mc")
     candidates = []
     for line in lines:
         if not _eligible_line(line) or not _center_in(line, banner_band):
@@ -734,7 +739,7 @@ def _variant_images(pane: Any, box: Sequence[int]) -> list[tuple[str, Any]]:
     import numpy as np
 
     left, top, right, bottom = [int(value) for value in box]
-    array = np.asarray(pane.convert("RGB"))[top:bottom, left - PANE_BOUNDS[0]:right - PANE_BOUNDS[0]]
+    array = np.asarray(pane.convert("RGB"))[top:bottom, left - ORIGIN_X:right - ORIGIN_X]
     if array.size == 0:
         raise ValueError("Weak-state source crop is empty.")
     raw = Image.fromarray(array, mode="RGB")
@@ -1074,7 +1079,7 @@ def _validate_request_contract(request: Mapping[str, Any]) -> None:
             "priority": 20,
             "component": "current",
         }
-        if list(request.get("box", ())) != list(STAT_BOXES[index]):
+        if list(request.get("box", ())) != list(place(STAT_BOXES[index], "bc")):
             raise ValueError("Weak-state current-stat crop geometry is invalid.")
     elif kind == "panel_component":
         component = request.get("component")
@@ -1165,8 +1170,9 @@ def _validate_request_contract(request: Mapping[str, Any]) -> None:
         }
         left, top, right, bottom = [float(value) for value in request["box"]]
         width, height = right - left, bottom - top
-        if not (250 <= (left + right) / 2 <= 850
-                and 635 <= (top + bottom) / 2 <= 815
+        band = place(_BANNER_CENTRES, "mc")
+        if not (band[0] <= (left + right) / 2 <= band[2]
+                and band[1] <= (top + bottom) / 2 <= band[3]
                 and 40 <= width <= 600 and 20 <= height <= 180):
             raise ValueError("Weak-state training-result banner geometry is invalid.")
     else:
@@ -1203,7 +1209,7 @@ def _validate_panel_heading_geometry(request: Mapping[str, Any]) -> None:
     left, top, right, bottom = [float(value) for value in request["box"]]
     width, height = right - left, bottom - top
     if not (148 <= left < right <= 360 and 10 <= width <= 220
-            and 10 <= height <= 70 and 235 <= (top + bottom) / 2 <= 325):
+            and 10 <= height <= 70 and place_y(235, "t") <= (top + bottom) / 2 <= place_y(325, "t")):
         raise ValueError("Weak-state panel-heading geometry is invalid.")
 
 

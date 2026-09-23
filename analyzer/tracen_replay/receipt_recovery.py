@@ -9,6 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 import re
 
+from .gameplay import receipt_rows
 from .reconcile import FIELDS
 
 
@@ -20,7 +21,8 @@ _CAPTION = re.compile(
 def caption_identity(line):
     """Identify a numeric receipt's resource without reading its amount."""
     box = line.get('box', [])
-    if len(box) != 4 or not 770 <= box[1] < box[3] <= 1000:
+    top, bottom = receipt_rows()
+    if len(box) != 4 or not top <= box[1] < box[3] <= bottom:
         return None
     confidence = line.get('pre_occlusion_confidence', line.get('confidence', 0))
     if confidence < 90:

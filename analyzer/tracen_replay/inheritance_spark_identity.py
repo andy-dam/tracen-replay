@@ -17,6 +17,10 @@ consumer cannot count them as separate confirmed sparks.
 from copy import deepcopy
 import math
 
+from .gameplay import receipt_rows
+from .layout import inside_pane
+from .source_clock import elapsed
+
 
 MIN_CONFIDENCE = 95
 MAX_ADJACENT_MS = 250
@@ -34,7 +38,7 @@ def _valid_box(box):
     # OverflowError before the coordinate bounds below reject the value.
     if any(type(value) is float and not math.isfinite(value) for value in box):
         return False
-    return 148 <= box[0] < box[2] <= 958 and 0 <= box[1] < box[3] <= 1080
+    return inside_pane(box)
 
 
 def _center(box):
@@ -53,6 +57,7 @@ def _lines(row):
     if not isinstance(ocr, dict) or not isinstance(ocr.get('neural'), list):
         return []
     result = []
+    top, bottom = receipt_rows(780, 960)
     for line in ocr['neural']:
         if not isinstance(line, dict) or not isinstance(line.get('text'), str):
             continue
@@ -62,7 +67,7 @@ def _lines(row):
                 or (type(confidence) is float and not math.isfinite(confidence))
                 or confidence < MIN_CONFIDENCE
                 or line.get('overlay_occluded') is True
-                or not 780 <= _center(box) <= 960):
+                or not top <= _center(box) <= bottom):
             continue
         result.append(line)
     return result
@@ -201,7 +206,7 @@ def _track(event, left, right, first, second, source_successors):
     if first['timestamp'] == second['timestamp']:
         return None
     start, end = sorted((first['timestamp'], second['timestamp']))
-    if end - start > MAX_ADJACENT_MS:
+    if elapsed(start, end) > MAX_ADJACENT_MS:
         return None
     if not _adjacent_source_rows(start, end, source_successors):
         return None

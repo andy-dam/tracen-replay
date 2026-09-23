@@ -116,7 +116,7 @@ def discover(report: dict[str, Any], root: str | Path) -> dict[str, Any]:
 
     from .performance_panel_refinement import PANEL_FIELDS, _field_from_reader
     from .status_badge_refinement import _candidate_records
-    from .vision import _PERFORMANCE_PANEL_ROWS, _performance_panel_field, _performance_panel_identity
+    from .vision import _performance_panel_field, _performance_panel_identity, _performance_panel_rows
 
     root = Path(root).resolve()
     frames = report.get("frames") if isinstance(report, dict) else None
@@ -199,7 +199,7 @@ def discover(report: dict[str, Any], root: str | Path) -> dict[str, Any]:
             raw.get("current_grid") or raw.get("result_grid")
         ) else None
         if identity is not None:
-            rows_by_field = {field: label_y for field, _label, label_y, _cap_y in _PERFORMANCE_PANEL_ROWS}
+            rows_by_field = {field: label_y for field, _label, label_y, _cap_y in _performance_panel_rows()}
             for field in PANEL_FIELDS:
                 field_proof = _performance_panel_field(
                     lines, field, rows_by_field[field], regions=raw.get("regions", {})

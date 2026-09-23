@@ -3,6 +3,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+from .layout import place
 
 from .training_gain_resolution import (
     candidate_recovery_policy,
@@ -44,6 +45,8 @@ def _card_moment_before(readings, first_seen):
     rows = [r for r in readings if isinstance(r, dict) and type(r.get('source_timestamp_ms')) is int
             and first_seen - _CARD_MOMENT_LOOKBACK_MS <= r['source_timestamp_ms'] < first_seen]
     best = None
+    # The result cards, pinned to the centre of the clear area.
+    card_band = place((250, 700, 850, 1005), 'mc')
     for row in rows:
         if row.get('screen') not in ('unknown', 'training_result_candidate'):
             continue
@@ -56,7 +59,7 @@ def _card_moment_before(readings, first_seen):
             box = line.get('box') if isinstance(line, dict) else None
             if not isinstance(box, (list, tuple)) or len(box) != 4 or (line.get('confidence') or 0) < 90:
                 continue
-            if not (250 <= box[0] and box[2] <= 850 and 700 <= box[1] and box[3] <= 1005):
+            if not (card_band[0] <= box[0] and box[2] <= card_band[2] and card_band[1] <= box[1] and box[3] <= card_band[3]):
                 continue
             text = str(line.get('text', '')).strip().lower()
             if text in _CARD_LABELS:

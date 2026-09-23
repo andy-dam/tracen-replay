@@ -21,6 +21,7 @@ from copy import deepcopy
 
 from .reconcile import FIELDS
 from .gameplay import CURRENCIES
+from .source_clock import elapsed
 # A result card is the same card on a frame whose banner left the screen a
 # candidate, so both count as the training's own frames.
 from .learned_reader import RESULT_SCREENS as _RESULT_SCREENS
@@ -460,7 +461,7 @@ def _clipped_badge_mode(event, readings, read_key, field, residual):
     seen = set()
     for row in readings:
         time = row.get('source_timestamp_ms')
-        if row.get('screen') != 'training_result' or type(time) is not int or not start - 250 <= time <= end + 250:
+        if row.get('screen') != 'training_result' or type(time) is not int or elapsed(time, start) > 250 or elapsed(end, time) > 250:
             continue
         facts = row.get('facts') or {}
         if read_key == 'deltas':
@@ -488,7 +489,7 @@ def _caption_owner(data, candidate, field, channel, event_refs):
     for index, event in enumerate(data['events']):
         if event.get('kind') != 'outcome':
             continue
-        if not event['first_seen_ms'] - 500 <= time <= event['last_seen_ms'] + 500:
+        if elapsed(time, event['first_seen_ms']) > 500 or elapsed(event['last_seen_ms'], time) > 500:
             continue
         kind = 'stat_change' if channel == 'stats' else 'performance_change'
         if any(e.get('kind') == kind and e.get('field') == field and type(e.get('amount')) is int

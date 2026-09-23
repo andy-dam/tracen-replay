@@ -1,10 +1,12 @@
 """Suppress repeated stat receipts only across observed stationary OCR gaps."""
 import re
 import math
+from .gameplay import receipt_rows
 from .receipt_continuity import (
     _effect_key, _effect_signature, _explicit_observations, _is_boundary,
     _same_line_geometry, _same_receipt_slot, _titles_are_compatible, _valid_box,
 )
+from .source_clock import elapsed
 
 
 _LABELS={'speed':'Speed','stamina':'Stamina','power':'Power','guts':'Guts',
@@ -19,11 +21,12 @@ def _slot(row,effect):
     label=_LABELS.get(effect.get('field'))
     if label is None or type(effect.get('amount')) is not int:return None
     candidates=[]
+    top,bottom=receipt_rows(790,950)
 
     def add(line,source):
         if not isinstance(line,dict):return
         box=line.get('box',[])
-        if not _valid_box(box) or not 790<(box[1]+box[3])/2<950:return
+        if not _valid_box(box) or not top<(box[1]+box[3])/2<bottom:return
         confidence=line.get('confidence')
         # ``pre_occlusion_confidence`` is useful for planning, but cannot
         # certify continuity after the visible line was occluded.  Source
@@ -101,9 +104,10 @@ def _blank_receipt_band(row):
     """Nothing read at all where the receipt lines sit, and nothing parsed."""
     facts=row.get('facts') if isinstance(row.get('facts'),dict) else {}
     if row.get('screen','unknown')!='unknown' or row.get('effects') or facts.get('effect_candidates') or facts.get('occluded_receipt_lines'):return False
+    top,bottom=receipt_rows(790,950)
     for line in (row.get('ocr') or {}).get('neural',[]):
         box=line.get('box',[]) if isinstance(line,dict) else []
-        if _valid_box(box) and 790<(box[1]+box[3])/2<950:return False
+        if _valid_box(box) and top<(box[1]+box[3])/2<bottom:return False
     return True
 
 
@@ -114,15 +118,14 @@ def _bridge(left,right,effect,rows,by_evidence):
     after=_explicit_observations(right,effect,by_evidence)
     if not before or not after:return None
     a,b=before[-1],after[0]
-    if not 0<b[0]-a[0]<=1000:return None
+    if not 0<elapsed(a[0],b[0])<=1000:return None
     if any(sum(r['source_timestamp_ms']==t for r in rows)!=1 for t in (a[0],b[0])):return None
     middle=[r for r in rows if a[0]<r['source_timestamp_ms']<b[0]]
     if not middle:return None
     chain=[a[2]]+middle+[b[2]]
-    # Consecutive samples only: a 4-per-second step lands on the recording's
-    # own frame grid, up to one frame late (267 ms at 30 fps), and a skipped
-    # sample is twice that.
-    if any(not 0<y['source_timestamp_ms']-x['source_timestamp_ms']<=_STEP_MS for x,y in zip(chain,chain[1:])):return None
+    # Consecutive samples only: one sampling step as ``source_clock`` counts
+    # it, with slack; a skipped sample is two.
+    if any(not 0<elapsed(x['source_timestamp_ms'],y['source_timestamp_ms'])<=_STEP_MS for x,y in zip(chain,chain[1:])):return None
     slots=[_slot(row,effect) for row in chain]
     if slots[0] is None or slots[-1] is None:return None
     # The one sample between two reads may show nothing in the receipt band

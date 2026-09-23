@@ -4,6 +4,9 @@ from bisect import bisect_left, bisect_right
 from copy import deepcopy
 import re
 
+from .layout import place, place_y
+from .source_clock import elapsed
+
 
 _TRAINING_OPTIONS = ('Speed', 'Stamina', 'Power', 'Guts', 'Wit')
 # ``training_events`` already uses this continuity bound when it builds a
@@ -29,6 +32,8 @@ _TRAINING_NAMES = {
 # The small "Lvl" is the part of the heading the text reader gets wrong most:
 # "Lvi", "LvI", "Lv1". Those spellings cannot be any other word on this line.
 _HEADING_RE = re.compile(r'([A-Za-z]{2,8})\s*Lv[lIi1|!]\s*(\d{1,2})?')
+# Where the heading's centre lies on the PC pane; its banner is pinned to the
+# top left, so across nothing moves.
 _HEADING_BOX = (210, 160, 420, 200)
 
 
@@ -83,12 +88,13 @@ def heading_option(lines):
     read clearly and is a known name of that same option.
     """
     found = set()
+    heading_box = place(_HEADING_BOX, 'tl')
     for line in lines:
         if not isinstance(line, dict) or len(line.get('box', [])) != 4:
             continue
         left, top, right, bottom = line['box']
-        if not (_HEADING_BOX[0] <= (left + right) / 2 <= _HEADING_BOX[2]
-                and _HEADING_BOX[1] <= (top + bottom) / 2 <= _HEADING_BOX[3]):
+        if not (heading_box[0] <= (left + right) / 2 <= heading_box[2]
+                and heading_box[1] <= (top + bottom) / 2 <= heading_box[3]):
             continue
         confidence = line.get('confidence', 0)
         parsed = parse_heading(line.get('text'), exact=True)
@@ -120,7 +126,7 @@ def _read_identity(lines, screen, option, minimum_confidence, corroborated=False
     for line in eligible:
         parsed = parse_heading(line.get('text'), exact=not corroborated)
         x, y, xx, yy = line['box']
-        if parsed and parsed[0] == option and 200 <= x <= 330 and 155 <= y <= 200 and yy > y:
+        if parsed and parsed[0] == option and 200 <= x <= 330 and place_y(155, 't') <= y <= place_y(200, 't') and yy > y:
             headings.append((line, parsed[1]))
     if len(headings) != 1:
         return {}
@@ -326,7 +332,7 @@ def _group_interval(rows, option):
     if not matching or explicit_options != {expected}:
         return None
     matching.sort()
-    if any(right - left > _MAX_RESULT_CONTINUITY_GAP_MS
+    if any(elapsed(left, right) > _MAX_RESULT_CONTINUITY_GAP_MS
            for left, right in zip(matching, matching[1:])):
         return None
     return matching[0], matching[-1]

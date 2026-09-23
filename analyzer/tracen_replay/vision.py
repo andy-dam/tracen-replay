@@ -7,7 +7,8 @@ import math
 import os
 import re
 from pathlib import Path
-from .gameplay import PANE,CURRENCIES,classify,effects_from_lines,preview_effects
+from .gameplay import CURRENCIES,classify,effects_from_lines,preview_effects,receipt_band as placed_receipt_band
+from .layout import ORIGIN_X,pane_box,pane_size,place,place_x,place_y
 from .crop_provenance import resolve_gain_regions,source_amounts
 from .reconcile import FIELDS
 from .stats import BOXES
@@ -107,10 +108,11 @@ def animation_gain_badges(lines):
             continue
         cy = (top + bottom) / 2
         cx = (left + right) / 2
-        if not (760 <= cy <= 1040 and 200 <= cx <= 900):
+        band = place((200, 760, 900, 1040), 'mc')
+        if not (band[1] <= cy <= band[3] and band[0] <= cx <= band[2]):
             continue
         found.append(dict(amount=int(match[1]), text=line.get('text'), confidence=line.get('confidence'),
-                          box=[left, top, right, bottom], row='top' if cy < 935 else 'bottom'))
+                          box=[left, top, right, bottom], row='top' if cy < place_y(935, 'm') else 'bottom'))
     return found
 
 
@@ -146,13 +148,14 @@ def _normalize_crop_box(box):
     left, top, right, bottom = coordinates
     if not left < right or not top < bottom:
         raise ValueError('OCR crop box must have positive width and height.')
-    if (left < PANE[0] or top < PANE[1]
-            or right > PANE[2] or bottom > PANE[3]):
+    pane = pane_box()
+    if (left < pane[0] or top < pane[1]
+            or right > pane[2] or bottom > pane[3]):
         raise ValueError('OCR crop box lies outside the gameplay pane.')
     normalized = [math.floor(left), math.floor(top),
                   math.ceil(right), math.ceil(bottom)]
-    if (normalized[0] < PANE[0] or normalized[1] < PANE[1]
-            or normalized[2] > PANE[2] or normalized[3] > PANE[3]
+    if (normalized[0] < pane[0] or normalized[1] < pane[1]
+            or normalized[2] > pane[2] or normalized[3] > pane[3]
             or normalized[0] >= normalized[2]
             or normalized[1] >= normalized[3]):
         raise ValueError('OCR crop box cannot be represented in the gameplay pane.')
@@ -248,7 +251,7 @@ def _valid_race_result_header_line(line):
         return False
     left, top, right, bottom = coordinates
     if (left < 0 or top < 0 or right <= left or bottom <= top
-            or not within(dict(line, box=coordinates), _RACE_RESULT_HEADER_BOX)):
+            or not within(dict(line, box=coordinates), place(_RACE_RESULT_HEADER_BOX, 'tc'))):
         return False
     return True
 
@@ -329,14 +332,14 @@ def terminal_skill_point_observation(lines):
     labels=[line for line in lines if isinstance(line,dict)
             and line.get('confidence',0)>=90
             and line.get('text','').strip()=='Remaining Skill Points'
-            and within(line,(400,550,590,600))]
+            and within(line,place((400,550,590,600),'sc'))]
     if len(labels)!=1:
         return False,None,None
     matches=[]
     for line in lines:
         if not isinstance(line,dict) or line.get('confidence',0)<97:
             continue
-        if not within(line,(585,550,710,600)):
+        if not within(line,place((585,550,710,600),'sc')):
             continue
         match=re.fullmatch(r'(\d{1,4})\s*pt\(s\)',line.get('text','').strip())
         if match:
@@ -366,10 +369,11 @@ def training_preview(raw):
             and phase.get('result_proven') is False):
         return True
     if not raw['current_grid'] or raw['header'].strip().lower()!='training':return False
+    band=place((250,750,850,850),'bc')
     for line in raw['lines']:
         if not _failure_banner_word(line['text']) or line['confidence']<90:continue
         left,top,right,bottom=line['box']
-        if (250<=left<right<=850 and 750<=top<bottom<=850
+        if (band[0]<=left<right<=band[2] and band[1]<=top<bottom<=band[3]
             and right-left<=110 and bottom-top<=45):return True
     return False
 
@@ -403,25 +407,10 @@ class CompactInputEngine:
 # the current stat bar.
 STRIP_PROBE_BOXES=tuple((x,700,x+35,719) for x in (310,410,510,610,710))
 STRIP_PROBE_MIN=.35
-
-# The lean OCR experiment (TRACEN_REPLAY_OCR_LEAN=skip|reuse|both). Every fixed
-# box a parser reads detected lines from, in frame coordinates: a detected line
-# whose centre lies in none of them is read by no rule (the Skip and Quick
-# buttons, the far edges). A line whose crop is the same pixels as a line in
-# the same place on the last pane this process read is recognised again for
-# nothing; the recogniser is deterministic on identical pixels.
-_READ_ZONES=((250,770,850,1000),(240,195,850,245),(780,450,950,535),(720,580,950,635),(690,457,810,495),(690,395,800,875),
-             (585,550,710,600),(550,225,850,280),(500,325,650,380),(480,205,550,255),(440,85,760,116),(440,130,820,245),
-             (430,650,700,760),(430,0,760,80),(400,595,710,635),(400,550,590,600),(390,28,830,62),(300,500,400,540),
-             (280,900,425,936),(280,85,650,125),(280,425,810,456),(280,160,550,355),(260,790,850,1005),(260,457,810,495),
-             (260,0,390,80),(250,500,830,900),(240,735,850,850),(210,160,420,200),(150,250,270,285),(148,0,450,30),(140,850,700,960))
-_LEAN_REUSE_MEAN=1.0
-# A changed glyph is a few dozen pixels that moved by far more than noise;
-# in a long line those are under one percent of the crop, so the test is a
-# count of strongly changed pixels, not a percentile.
-_LEAN_REUSE_CHANGED_LEVEL=40
-_LEAN_REUSE_CHANGED_PIXELS=2
-_LEAN_REUSE_IOU=.9
+# The screen's title at the top left of the career screens.
+HEADER_BOX=(148,0,450,30)
+# Two points on the training result grid whose blue fill marks its cards.
+RESULT_GRID_PROBES=tuple((x,911,x+35,934) for x in (270,470))
 
 
 def _strip_saturation(colors):
@@ -471,9 +460,6 @@ class NeuralReader:
             self.engine=CompactInputEngine(RapidOCR(params=dict(PARAMS,**{'Global.model_root_dir':str(model_dir),
                 'Rec.lang_type':LangRec.EN,'Rec.ocr_version':OCRVersion.PPOCRV5,'Rec.model_type':ModelType.MOBILE})))
         self.models={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(model_dir).glob('*.onnx') if p.name in ('PP-OCRv6_det_small.onnx','en_PP-OCRv5_rec_mobile.onnx')}
-        self.lean=os.environ.get('TRACEN_REPLAY_OCR_LEAN','').strip().lower()
-        self._reuse_prev=None
-        self.lean_counts=dict(detected=0,skipped=0,reused=0,recognised=0)
         from .code_identity import function_digest
         component_code = b''.join(
             function_digest(globals()[name])
@@ -553,26 +539,26 @@ class NeuralReader:
 
     def read_training(self,pane):
         """Inspect result crops and attach a typed panel when its menu is visible."""
-        if pane.size!=(810,1080):raise ValueError('Expected the gameplay crop.')
+        if pane.size!=pane_size():raise ValueError('Expected the gameplay crop.')
         array=self.np.array(pane.convert('RGB'))
         def crop(b):
             left, top, right, bottom = _normalize_crop_box(b)
-            return array[top:bottom,left-PANE[0]:right-PANE[0],::-1]
-        requests=[('header',(155,0,250,29)),('option',(220,162,400,198))]
+            return array[top:bottom,left-ORIGIN_X:right-ORIGIN_X,::-1]
+        requests=[('header',place((155,0,250,29),'tl')),('option',place((220,162,400,198),'tl'))]
         blue=[]
-        for x in (270,470):
-            c=crop((x,911,x+35,934)).astype('int16')
+        for box in RESULT_GRID_PROBES:
+            c=crop(place(box,'mc')).astype('int16')
             blue.append(float(((c[:,:,0]>c[:,:,2]+25)&(c[:,:,1]>c[:,:,2]+15)&(c[:,:,0]>100)).mean()))
         grid=min(blue)>.45
         boxes=[(300,832,414,890),(498,832,610,890),(696,832,812,890),(300,950,414,1008),(498,950,610,1008),(696,950,812,1008)]
-        requests += [('gain.'+f,b) for f,b in zip(FIELDS,boxes)]
-        requests += [('wide_gain.'+f,((250,448,646)[i%3],812 if i<3 else 930,(462,660,858)[i%3],909 if i<3 else 1027)) for i,f in enumerate(FIELDS)]
-        requests += [('result.'+f,((322,518,714)[i%3],834 if i<3 else 952,(322,518,714)[i%3]+126,876 if i<3 else 994)) for i,f in enumerate(FIELDS)]
-        requests += [('result.skill_points',(708,952,810,990))]
+        requests += [('gain.'+f,place(b,'mc')) for f,b in zip(FIELDS,boxes)]
+        requests += [('wide_gain.'+f,place(((250,448,646)[i%3],812 if i<3 else 930,(462,660,858)[i%3],909 if i<3 else 1027),'mc')) for i,f in enumerate(FIELDS)]
+        requests += [('result.'+f,place(((322,518,714)[i%3],834 if i<3 else 952,(322,518,714)[i%3]+126,876 if i<3 else 994),'mc')) for i,f in enumerate(FIELDS)]
+        requests += [('result.skill_points',place((708,952,810,990),'mc'))]
         # The performance sidebar remains visible while the lower result cards
         # animate.  Keep these signed rows as typed source regions so the
         # preview producer can distinguish them from result totals.
-        requests += [('performance_gain.'+f,(245,296+56*i,319,333+56*i))
+        requests += [('performance_gain.'+f,place((245,296+56*i,319,333+56*i),'tl'))
                      for i,f in enumerate(CURRENCIES)]
         requests=[(name,_normalize_crop_box(box)) for name,box in requests]
         result=self.engine.text_rec(self.TextRecInput(img=[crop(b) for _,b in requests]))
@@ -683,86 +669,8 @@ class NeuralReader:
             pass
         return raw
 
-    def _engine_lines(self,bgr):
-        """Detect and recognise a pane as the engine does, with the lean levers between the two steps.
-
-        With ``skip`` a detected line no parser reads (its centre in none of
-        _READ_ZONES) is not recognised. With ``reuse`` a detected line whose
-        crop is the same pixels, within noise, as a line in the same place on
-        the last pane this process read takes that line's text, score and
-        word boxes instead of being recognised again. ``both`` does both. Off,
-        the engine's own call runs unchanged.
-        """
-        lean=getattr(self,'lean','')
-        if lean not in ('skip','reuse','both'):
-            return self.engine(bgr,return_word_box=True)
-        self.lean=lean
-        if not hasattr(self,'lean_counts'):self.lean_counts=dict(detected=0,skipped=0,reused=0,recognised=0)
-        if not hasattr(self,'_reuse_prev'):self._reuse_prev=None
-        from rapidocr.main import RapidOCRError,RapidOCROutput,TextClsOutput,TextDetOutput,filter_by_indices,map_boxes_to_original
-        np=self.np
-        eng=self.engine._engine
-        eng.update_params(return_word_box=True)
-        ori=eng.load_img(np.ascontiguousarray(bgr))
-        img,op_record=eng.preprocess_img(ori)
-        try:
-            cropped,det=eng.detect_and_crop(img,op_record)
-        except RapidOCRError:
-            self._reuse_prev=None
-            return RapidOCROutput()
-        height,width=ori.shape[:2]
-        quads=map_boxes_to_original(det.boxes.copy(),copy.deepcopy(op_record),height,width)
-        gray=ori[:,:,1].astype(np.int16)
-        prev_gray,prev_entries=self._reuse_prev if self._reuse_prev is not None else (None,[])
-        def bounds(quad):
-            return (float(quad[:,0].min()),float(quad[:,1].min()),float(quad[:,0].max()),float(quad[:,1].max()))
-        def iou(a,b):
-            ix=max(0,min(a[2],b[2])-max(a[0],b[0]));iy=max(0,min(a[3],b[3])-max(a[1],b[1]));inter=ix*iy
-            union=(a[2]-a[0])*(a[3]-a[1])+(b[2]-b[0])*(b[3]-b[1])-inter
-            return inter/union if union>0 else 0
-        todo=[];reused=[]
-        for index,quad in enumerate(quads):
-            box=bounds(quad)
-            self.lean_counts['detected']+=1
-            if self.lean in ('skip','both'):
-                cx,cy=(box[0]+box[2])/2+PANE[0],(box[1]+box[3])/2
-                if not any(x0<=cx<=x1 and y0<=cy<=y1 for x0,y0,x1,y1 in _READ_ZONES):
-                    self.lean_counts['skipped']+=1
-                    continue
-            if self.lean in ('reuse','both') and prev_gray is not None:
-                match=max(prev_entries,key=lambda e:iou(e['box'],box),default=None)
-                if match is not None and iou(match['box'],box)>=_LEAN_REUSE_IOU:
-                    x0=max(0,int(min(box[0],match['box'][0]))-2);y0=max(0,int(min(box[1],match['box'][1]))-2)
-                    x1=min(width,int(max(box[2],match['box'][2]))+3);y1=min(height,int(max(box[3],match['box'][3]))+3)
-                    diff=np.abs(gray[y0:y1,x0:x1]-prev_gray[y0:y1,x0:x1])
-                    if diff.size and float(diff.mean())<=_LEAN_REUSE_MEAN and int((diff>_LEAN_REUSE_CHANGED_LEVEL).sum())<=_LEAN_REUSE_CHANGED_PIXELS:
-                        self.lean_counts['reused']+=1
-                        reused.append(dict(match,quad=quad,box=box))
-                        continue
-            todo.append(index)
-        entries=[]
-        if todo:
-            self.lean_counts['recognised']+=len(todo)
-            subset=TextDetOutput(boxes=det.boxes[todo],scores=filter_by_indices(det.scores,todo),elapse=det.elapse)
-            try:
-                rec=eng.recognize_txt([cropped[i] for i in todo])
-                out=eng.build_final_output(ori,subset,TextClsOutput(),rec,[cropped[i] for i in todo],op_record)
-            except RapidOCRError:
-                out=RapidOCROutput()
-            if out.txts:
-                words=list(getattr(out,'word_results',None) or ())
-                if len(words)!=len(out.txts):words=[()]*len(out.txts)
-                for quad,text,score,word in zip(out.boxes,out.txts,out.scores,words):
-                    entries.append(dict(quad=quad,box=bounds(quad),text=text,score=score,words=word))
-        entries.extend(reused)
-        self._reuse_prev=(gray,entries)
-        if not entries:
-            return RapidOCROutput()
-        return RapidOCROutput(img=ori,boxes=np.array([e['quad'] for e in entries]),txts=tuple(e['text'] for e in entries),
-                              scores=tuple(e['score'] for e in entries),word_results=tuple(e['words'] for e in entries))
-
     def read(self,pane):
-        if pane.size != (810,1080):
+        if pane.size != pane_size():
             raise ValueError('Neural OCR accepts only the gameplay crop.')
         strip_saturation=_strip_saturation
         array=self.np.array(pane.convert('RGB'))
@@ -770,30 +678,31 @@ class NeuralReader:
         # costs nothing and changes no text or score; it is kept for the
         # receipt band alone, where an obstruction over a line has to be
         # judged word by word.
-        result=self._engine_lines(array[:,:,::-1])
+        result=self.engine(array[:,:,::-1],return_word_box=True)
+        receipt_band=placed_receipt_band()
         lines=[]
         if result.txts:
             found=getattr(result,'word_results',None) or ((),)*len(result.txts)
             for box,text,score,words in zip(result.boxes,result.txts,result.scores,found):
                 line=dict(text=text,confidence=round(float(score)*100,4),
                     box=[round(float(box[:,0].min()))+148,round(float(box[:,1].min())),round(float(box[:,0].max()))+148,round(float(box[:,1].max()))])
-                if words and 770<=line['box'][1]<1000:
+                if words and receipt_band[1]<=line['box'][1]<receipt_band[3]:
                     line['word_boxes']=[dict(text=word,box=_word_box(quad)) for word,_score,quad in words]
                 lines.append(line)
         def crop(box):
             left, top, right, bottom = _normalize_crop_box(box)
-            return array[top:bottom,left-PANE[0]:right-PANE[0],::-1]
+            return array[top:bottom,left-ORIGIN_X:right-ORIGIN_X,::-1]
         def blue(box):
             colors=crop(box).astype('int16')
             return float(((colors[:,:,0]>colors[:,:,2]+25)&(colors[:,:,1]>colors[:,:,2]+15)&(colors[:,:,0]>100)).mean())
-        header=' '.join(l['text'] for l in lines if within(l,(148,0,450,30)) and l['confidence']>=90)
+        header=' '.join(l['text'] for l in lines if within(l,place(HEADER_BOX,'tl')) and l['confidence']>=90)
         text='\n'.join(l['text'] for l in lines)
-        grid=min(blue((x,911,x+35,934)) for x in (270,470))>.45 and header.lower().startswith('training')
+        grid=min(blue(place(box,'mc')) for box in RESULT_GRID_PROBES)>.45 and header.lower().startswith('training')
         # The label strip of the stat bar takes the trainee's theme colour:
         # blue on one recording, pink and orange on two others. The probe
         # asks only for a saturated strip under every label; the geometry
         # proof below, and the fixed value crops it opens, decide the rest.
-        current=min(strip_saturation(crop(box)) for box in STRIP_PROBE_BOXES)>STRIP_PROBE_MIN
+        current=min(strip_saturation(crop(place(box,'bc'))) for box in STRIP_PROBE_BOXES)>STRIP_PROBE_MIN
         result_layout = detect_training_result_layout(
             lines,
             header=header,
@@ -835,6 +744,7 @@ class NeuralReader:
                 if isinstance(row, dict) and isinstance(row.get('field'), str)
             } if current_layout.get('current_grid') is True else {}
             for field, base_box in zip(FIELDS, BOXES):
+                base_box = place(base_box, 'bc')
                 request_box = base_box
                 row = layout_rows.get(field)
                 value_line = row.get('value') if isinstance(row, dict) else None
@@ -855,7 +765,7 @@ class NeuralReader:
                     except (TypeError, ValueError, OverflowError):
                         pass
                 requests.append((f'current.{field}', request_box))
-            requests += [('countdown',(264,57,325,101))]
+            requests += [('countdown',place((264,57,325,101),'tc'))]
         panel_requests, component_metadata, localized_metadata, cap_metadata = _performance_panel_requests(lines, current)
         requests += panel_requests
         if not grid:
@@ -864,21 +774,21 @@ class NeuralReader:
             stat_cap_metadata = {name: meta for name, _box, meta in stat_cap_requests}
         if grid:
             gain_boxes=[(300,832,414,890),(498,832,610,890),(696,832,812,890),(300,950,414,1008),(498,950,610,1008),(696,950,812,1008)]
-            requests += [(f'gain.{f}',b) for f,b in zip(FIELDS,gain_boxes)]
-            requests += [(f'result.{f}',((322,518,714)[i%3],834 if i<3 else 952,(322,518,714)[i%3]+126,876 if i<3 else 994)) for i,f in enumerate(FIELDS)]
-            requests += [('result.skill_points',(708,952,810,990))]
+            requests += [(f'gain.{f}',place(b,'mc')) for f,b in zip(FIELDS,gain_boxes)]
+            requests += [(f'result.{f}',place(((322,518,714)[i%3],834 if i<3 else 952,(322,518,714)[i%3]+126,876 if i<3 else 994),'mc')) for i,f in enumerate(FIELDS)]
+            requests += [('result.skill_points',place((708,952,810,990),'mc'))]
             # The performance sidebar stays visible while the result cards
             # animate, and the shared detector can merge a row's current value
             # and its award into one low-confidence line (``58+26``).  Request
             # the same signed rows read_training uses so the dedicated crop can
             # recover that award on an ordinary reading too.
-            requests += [(f'performance_gain.{f}',(245,296+56*i,319,333+56*i)) for i,f in enumerate(CURRENCIES)]
+            requests += [(f'performance_gain.{f}',place((245,296+56*i,319,333+56*i),'tl')) for i,f in enumerate(CURRENCIES)]
         if 'spend performance points to learn' in text.lower():
-            requests += [(f'projected_performance.{f}',(392+83*i,846,425+83*i,876)) for i,f in enumerate(CURRENCIES)]
+            requests += [(f'projected_performance.{f}',place((392+83*i,846,425+83*i,876),'sc')) for i,f in enumerate(CURRENCIES)]
             boxes=[(308,376,365,404),(403,376,455,404),(497,376,549,404),(591,376,644,404),(683,376,735,404),(756,376,817,404)]
-            requests += [(f'modal_current.{f}',b) for f,b in zip(FIELDS,boxes)]
+            requests += [(f'modal_current.{f}',place(b,'sc')) for f,b in zip(FIELDS,boxes)]
         elif header.lower().startswith('lessons'):
-            requests += [(f'performance.{f}',(344+104*i,88,394+104*i,123)) for i,f in enumerate(CURRENCIES)]
+            requests += [(f'performance.{f}',place((344+104*i,88,394+104*i,123),'mc')) for i,f in enumerate(CURRENCIES)]
         requests=[(name,_normalize_crop_box(box)) for name,box in requests]
         regions={}
         def recognition_crop(name, box):
@@ -991,6 +901,19 @@ _PERFORMANCE_PANEL_ROWS = (
 )
 
 
+def _performance_panel_rows():
+    """The panel's rows at this recording's heights.
+
+    The panel is pinned to the top left: across, it never moves, and down it
+    moves with the top of the game's clear area.
+    """
+    shift = place_y(0, 't')
+    if not shift:
+        return _PERFORMANCE_PANEL_ROWS
+    return tuple((field, label, label_y + shift, cap_y + shift)
+                 for field, label, label_y, cap_y in _PERFORMANCE_PANEL_ROWS)
+
+
 def _performance_panel_line_eligible(line):
     """Return whether one OCR line may supply a panel value.
 
@@ -1022,7 +945,7 @@ def _performance_panel_component_requests(lines):
     components when one row has exactly one explicit merged observation.
     """
     requests = []
-    for field, _label, label_y, _cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field, _label, label_y, _cap_y in _performance_panel_rows():
         band = (190, label_y - 30, 335, label_y + 15)
         merged = []
         for line in lines:
@@ -1124,7 +1047,7 @@ def _performance_panel_localized_requests(lines):
     # and the row whose own value the detector missed would never be reread.
     badge_parts=_performance_more_badge_parts(lines)
     badges=_performance_more_badge_numbers(lines,lines)
-    for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field,_label,label_y,_cap_y in _performance_panel_rows():
         band=(160,label_y-27,275,label_y+5)
         plain=[]
         merged=[]
@@ -1152,7 +1075,7 @@ def _performance_panel_localized_requests(lines):
     if right-left<35:
         return []
     requests=[]
-    for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field,_label,label_y,_cap_y in _performance_panel_rows():
         source=observed.get(field)
         if source is not None and field not in merged_fields:
             # Asked for however the line read. A clipped box reads its own
@@ -1220,7 +1143,8 @@ def _performance_panel_heading(lines):
     """
     if not isinstance(lines, list):
         return False
-    return any(isinstance(l, dict) and l.get('text') == 'Performance' and within(l, (150, 250, 270, 285))
+    heading = place((150, 250, 270, 285), 'tl')
+    return any(isinstance(l, dict) and l.get('text') == 'Performance' and within(l, heading)
                for l in lines)
 
 
@@ -1268,12 +1192,12 @@ def _performance_panel_identity(lines):
     # The two-line heading is more resistant to incidental UI text than a
     # single keyword.  Keep the geometry broad enough for ordinary OCR box
     # jitter while requiring one unambiguous instance of each word.
-    header = candidates('Performance', (145, 245, 280, 290))
+    header = candidates('Performance', place((145, 245, 280, 290), 'tl'))
     # ``Points`` is a fixed UI keyword.  A detector can clip its final
     # characters while retaining the distinctive prefix; allow only these
     # explicit grammar forms at the lower anchor floor and keep the original
     # OCR text in the returned proof.
-    points_header = candidates('Points', (155, 265, 280, 315), 80,
+    points_header = candidates('Points', place((155, 265, 280, 315), 'tl'), 80,
                                aliases=('Poin','Point'))
     if len(header) != 1 or len(points_header) != 1:
         return None
@@ -1281,7 +1205,7 @@ def _performance_panel_identity(lines):
     labels = {}
     caps = {}
     cap_values = {}
-    for field, label, label_y, cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field, label, label_y, cap_y in _performance_panel_rows():
         row_labels = candidates(label, (140, label_y - 25, 205, label_y + 25))
         row_caps = [line for line in lines if line.get('confidence', 0) >= 80
                     and re.fullmatch(r'/\s*(\d{1,4})', text(line))
@@ -1315,7 +1239,7 @@ def _performance_panel_identity_from_localized(lines, regions, stats):
            for value in stats['values'].values()) < 3:
         return None
     source_rows=[]
-    for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field,_label,label_y,_cap_y in _performance_panel_rows():
         band=(160,label_y-30,280,label_y+15)
         values=[]
         for line in (lines if isinstance(lines,list) else ()):
@@ -1332,7 +1256,7 @@ def _performance_panel_identity_from_localized(lines, regions, stats):
         return None
     cap_values={field:None for field,_label,_label_y,_cap_y in _PERFORMANCE_PANEL_ROWS}
     cap_count=0
-    for field,_label,_label_y,cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field,_label,_label_y,cap_y in _performance_panel_rows():
         caps=[line for line in lines if _performance_panel_line_eligible(line)
               and line.get('confidence',0)>=80
               and re.fullmatch(r'/\s*(\d{1,4})',
@@ -1541,7 +1465,7 @@ def _panel_clipped_value(current, slot_candidates):
 def _performance_panel_cap_requests(lines):
     """Request bounded rereads for absent or ambiguous panel cap rows."""
     requests = []
-    for field, _label, _label_y, cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field, _label, _label_y, cap_y in _performance_panel_rows():
         candidates = []
         for line in lines:
             if not _performance_panel_line_eligible(line):
@@ -1574,11 +1498,12 @@ def _main_stat_cap_requests(lines):
     it never supplies a cap value or borrows one from another frame/layout.
     """
     requests = []
-    for field, (left, _top, right, _bottom) in zip(FIELDS[:5], BOXES[:5]):
+    for field, box in zip(FIELDS[:5], BOXES[:5]):
+        left, _top, right, _bottom = place(box, 'bc')
         headers = [line for line in lines
                    if _performance_panel_line_eligible(line)
                    and str(line.get('text', '')).strip().casefold() == field
-                   and within(line, (left - 24, 650, right + 24, 785))]
+                   and within(line, (left - 24, place_y(650, 'b'), right + 24, place_y(785, 'b')))]
         if len(headers) != 1:
             continue
         header = headers[0]
@@ -1608,7 +1533,7 @@ def _main_stat_cap_requests(lines):
 def _performance_panel_values(lines, identity, regions=None):
     """Read independently labeled panel values; omit ambiguous values."""
     points = {}
-    for field, _label, label_y, _cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field, _label, label_y, _cap_y in _performance_panel_rows():
         observation = _performance_panel_field(
             lines, field, label_y,
             minimum_confidence=identity.get('value_minimum_confidence',97),
@@ -1945,7 +1870,7 @@ def performance_panel_facts(lines, screen, stats, regions=None):
         result={'performance_points': _performance_panel_values(lines, identity, regions)}
         if localized_identity:
             provenance={}
-            for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
+            for field,_label,label_y,_cap_y in _performance_panel_rows():
                 observation=_performance_panel_field(
                     lines,field,label_y,
                     minimum_confidence=identity.get('value_minimum_confidence',90),
@@ -1963,7 +1888,7 @@ def performance_panel_facts(lines, screen, stats, regions=None):
         return {}
     points={};projected={};provenance={}
     for i,field in enumerate(CURRENCIES):
-        observation=_performance_panel_field(lines,field,320+56*i,regions=regions)
+        observation=_performance_panel_field(lines,field,place_y(320+56*i,'t'),regions=regions)
         if observation['status'] not in ('no_confident_panel_value',):
             provenance[field]=observation
         current=observation.get('current')
@@ -2067,8 +1992,8 @@ def _dedicated_result_performance_gains(facts, regions, screen, raw=None):
                 or not all(math.isfinite(value) for value in coordinates)
                 or not coordinates[0] < coordinates[2]
                 or not coordinates[1] < coordinates[3]
-                or coordinates[0] < PANE[0] or coordinates[1] < PANE[1]
-                or coordinates[2] > PANE[2] or coordinates[3] > PANE[3]):
+                or coordinates[0] < pane_box()[0] or coordinates[1] < pane_box()[1]
+                or coordinates[2] > pane_box()[2] or coordinates[3] > pane_box()[3]):
             continue
         center_x = (coordinates[0] + coordinates[2]) / 2
         center_y = (coordinates[1] + coordinates[3]) / 2
@@ -2275,7 +2200,10 @@ def _race_runner_card(raw, lines):
         return [line for line in lines if line.get('confidence', 0) >= minimum
                 and normalized(line).lower() == value.lower() and within(line, box)]
 
-    attributes = exact('Attributes', (600, 85, 820, 165))
+    # The card's attribute panel is pinned to the right, at the centre of the
+    # clear area; the race banner to the top, the runner's name and the
+    # commentary to the bottom.
+    attributes = exact('Attributes', place((600, 85, 820, 165), 'mr'))
     if len(attributes) != 1:
         return None
 
@@ -2294,31 +2222,31 @@ def _race_runner_card(raw, lines):
     }
     stats={}
     for field,label in stat_labels.items():
-        labels=exact(label,(620,165,815,365))
+        labels=exact(label,place((620,165,815,365),'mr'))
         if len(labels) != 1:
             stats[field]=None
             continue
         label_line=labels[0];top=label_line['box'][1]-12;bottom=label_line['box'][3]+12
-        values=number_in((800,top,950,bottom))
+        values=number_in((place_x(800,'r'),top,place_x(950,'r'),bottom))
         stats[field]=values[0][0] if len(values)==1 else None
 
     race_grade_values=[normalized(line) for line in lines if line.get('confidence',0)>=90
-                       and within(line,(260,0,390,80))
+                       and within(line,place((260,0,390,80),'tc'))
                        and re.fullmatch(r'(?:G[123]|OP|EX|PRE-OP)',normalized(line),re.I)]
     race_names=[_split_race_grade(normalized(line))[1] for line in lines if line.get('confidence',0)>=90
-                and within(line,(430,0,760,80))
+                and within(line,place((430,0,760,80),'tc'))
                 and any(char.isalpha() for char in normalized(line))
                 and not re.fullmatch(r'(?:G[123]|OP|EX|PRE-OP)',normalized(line),re.I)]
     race_name=race_names[0] if len(set(race_names))==1 else None
     race_grade=race_grade_values[0] if len(set(race_grade_values))==1 else None
 
     runner_names=[normalized(line) for line in lines if line.get('confidence',0)>=90
-                  and within(line,(430,650,700,760))
+                  and within(line,place((430,650,700,760),'bc'))
                   and any(char.isalpha() for char in normalized(line))]
     runner_name=runner_names[0] if len(set(runner_names))==1 else None
     bib_values=[]
     for line in lines:
-        if line.get('confidence',0)<90 or not within(line,(140,850,700,960)):
+        if line.get('confidence',0)<90 or not within(line,place((140,850,700,960),'bl')):
             continue
         match=re.search(r'\bNo\.\s*(\d{1,2})\s*[,.:]',normalized(line),re.I)
         if match:bib_values.append(int(match[1]))
@@ -2326,31 +2254,31 @@ def _race_runner_card(raw, lines):
 
     aptitude={}
     for field,label in (('turf','Turf'),('medium','Medium'),('pace','Pace')):
-        labels=exact(label,(730,350,845,475))
+        labels=exact(label,place((730,350,845,475),'mr'))
         if len(labels)!=1:
             aptitude[field]=None
             continue
         label_line=labels[0];center=(label_line['box'][1]+label_line['box'][3])/2
         values=[normalized(line) for line in lines if line.get('confidence',0)>=90
-                and within(line,(830,center-25,920,center+25))
+                and within(line,(place_x(830,'r'),center-25,place_x(920,'r'),center+25))
                 and re.fullmatch(r'[SABC]',normalized(line),re.I)]
         aptitude[field]=values[0].upper() if len(set(values))==1 else None
 
-    mood_labels=exact('Mood',(620,450,760,530))
+    mood_labels=exact('Mood',place((620,450,760,530),'mr'))
     mood_values=[normalized(line) for line in lines if line.get('confidence',0)>=90
-                 and within(line,(780,450,950,535))
+                 and within(line,place((780,450,950,535),'mr'))
                  and re.fullmatch(r'[A-Z][A-Z ]{2,20}',normalized(line))]
     mood=mood_values[0] if len(set(mood_values))==1 else None
 
     strategy={field:None for field in ('end','late','pace','front')}
     strategy_labels=[]
     for field,label in (('end','END'),('late','LATE'),('pace','PACE'),('front','FRONT')):
-        matches=exact(label,(720,535,950,600))
+        matches=exact(label,place((720,535,950,600),'mr'))
         if len(matches)==1:
             strategy_labels.append((field,(matches[0]['box'][0]+matches[0]['box'][2])/2))
     strategy_values=[]
     for line in lines:
-        if line.get('confidence',0)<90 or not within(line,(720,580,950,635)):
+        if line.get('confidence',0)<90 or not within(line,place((720,580,950,635),'mr')):
             continue
         match=re.fullmatch(r'\d{1,2}',normalized(line))
         if match:strategy_values.append((int(match[0]),(line['box'][0]+line['box'][2])/2))
@@ -2359,8 +2287,8 @@ def _race_runner_card(raw, lines):
         field,label_x=min(strategy_labels,key=lambda item:abs(item[1]-x))
         if abs(label_x-x) <= 35 and strategy[field] is None:strategy[field]=value
 
-    change=exact('Change',(760,590,900,675))
-    runners=exact('Runners',(800,700,950,800))
+    change=exact('Change',place((760,590,900,675),'mr'))
+    runners=exact('Runners',place((800,700,950,800),'br'))
     controls={
         'change': {
             'label': 'Change',
@@ -2448,7 +2376,9 @@ def parse(raw):
         # Full detector boxes preserve leading digits that tight fixed crops can cut off.
         result={}
         for i,field in enumerate(CURRENCIES):
-            box=(382+83*i,840,436+83*i,883) if modal else (337+104*i,85,407+104*i,126)
+            # The lesson confirmation is a popup at the screen's centre; the
+            # lessons screen's own counters follow the centre of the clear area.
+            box=place((382+83*i,840,436+83*i,883),'sc') if modal else place((337+104*i,85,407+104*i,126),'mc')
             candidates=[l for l in lines if within(l,box)]
             # A detector can merge adjacent counters during the modal fade.
             # Such a box is not an observation of either individual currency.
@@ -2489,7 +2419,7 @@ def parse(raw):
     elif 'Concert Info' in text and 'Concert Bonus Changes' in text:screen='concert_info'
     if screen=='unknown' and raw['header'].lower().startswith('complete career') and 'remaining performance points' in text.lower():screen='career_completion_hub'
     if screen=='unknown' and raw['header'].lower().startswith('training') and not raw['current_grid']:
-        lower=[l['text'] for l in lines if l['confidence']>=90 and within(l,(260,790,850,1005))]
+        lower=[l['text'] for l in lines if l['confidence']>=90 and within(l,place((260,790,850,1005),'mc'))]
         labels={t for t in lower if t in ('Speed','Stamina','Power','Guts','Wit','Skill Pts')}
         totals=[t for t in lower if re.search(r'\d{1,4}/\d{3,4}',t)]
         if len(labels)>=2 and len(totals)>=2:screen='training_result_candidate'
@@ -2508,7 +2438,8 @@ def parse(raw):
         animation_badges = animation_gain_badges(lines)
         if animation_badges and training_result_scaffold_visible(lines):
             screen = 'training_result'
-    outcome_lines=[l for l in lines if l['confidence']>=95 and within(l,(250,770,850,1000))]
+    receipt_band=placed_receipt_band()
+    outcome_lines=[l for l in lines if l['confidence']>=95 and within(l,receipt_band)]
     for first in list(outcome_lines):
         if first['text'].startswith('Learned ') and not re.search(r'[.!]$',first['text']):
             following=[l for l in lines if 90<=l['confidence']<95 and 0<l['box'][1]-first['box'][1]<40 and re.fullmatch(r'Class[.!]',l['text'])]
@@ -2516,7 +2447,7 @@ def parse(raw):
     # A receipt that lost its number often reads under the band's gate; the
     # gain popup naming its stat on the same frame vouches for the line.
     from .gameplay import cut_receipt_lines
-    outcome_lines.extend(l for l in cut_receipt_lines(lines,(250,770,850,1000)) if l not in outcome_lines)
+    outcome_lines.extend(l for l in cut_receipt_lines(lines,receipt_band) if l not in outcome_lines)
     outcome_lines.sort(key=lambda l:(l['box'][1],l['box'][0]))
     from .receipt_wrapping import join as join_wrapped_friendship_receipts
     outcome_lines=join_wrapped_friendship_receipts(
@@ -2711,7 +2642,7 @@ def parse(raw):
         if race_totals:
             stats.update(values=race_totals['values'],observation_profile=race_totals['profile'],
                          field_observations=race_totals['field_observations'])
-    calendar=[l['text'] for l in lines if within(l,(390,28,830,62)) and l['confidence']>=95
+    calendar=[l['text'] for l in lines if within(l,place((390,28,830,62),'tc')) and l['confidence']>=95
               and re.fullmatch(r'(?:Junior|Classic|Senior) Year (?:Pre-Debut|(?:Early|Late) [A-Z][a-z]{2})|Finale Underway',l['text'])]
     stats['calendar_text']=' '.join(calendar) or None
     facts={}
@@ -2769,7 +2700,7 @@ def parse(raw):
     if screen=='race_result' and raw.get('race_identity_refinement'):
         facts['race_identity_refinement']=raw['race_identity_refinement']
     achieved=[l for l in lines if l['confidence']>=95
-              and within(l,(440,85,760,116)) and l['text'].strip()=='Goal Achieved!']
+              and within(l,place((440,85,760,116),'tc')) and l['text'].strip()=='Goal Achieved!']
     if len(achieved)==1:
         facts['goal_status_observation']=dict(status='achieved',raw_text=achieved[0]['text'],
             confidence=achieved[0]['confidence'],box=achieved[0]['box'],
@@ -2784,7 +2715,7 @@ def parse(raw):
     if screen=='concert_info':
         current={};planned={};bonus_evidence={}
         for i,field in enumerate(('friendship_training_effectiveness','specialty_priority','support_chain_event_frequency')):
-            observations=[l for l in lines if l['confidence']>=90 and within(l,((270,460,650)[i],380,(460,650,840)[i],425))]
+            observations=[l for l in lines if l['confidence']>=90 and within(l,place(((270,460,650)[i],380,(460,650,840)[i],425),'sc'))]
             for observation in observations:
                 value=re.sub(r'\s+','',observation['text'])
                 # The level slot is numeric. Preserve this constrained OCR
@@ -2805,9 +2736,11 @@ def parse(raw):
     stat_animation=candidates(lines,screen,stat=True)
     if stat_animation:facts['animated_stat_candidates']=stat_animation
     if screen=='career_summary':
+        # The details window sits at the screen's centre during a career and
+        # at the clear area's centre on the screens after it.
         final={}
         for i,field in enumerate(FIELDS[:5]):
-            candidates=[l for l in lines if within(l,(305+113*i,282,382+113*i,324)) and number(l) is not None]
+            candidates=[l for l in lines if within(l,place((305+113*i,282,382+113*i,324),'mc','sc')) and number(l) is not None]
             final[field]=number(candidates[0]) if len(candidates)==1 else None
         facts['final_attributes']=final
         facts['owned_skill_list_complete']=False
@@ -2816,9 +2749,9 @@ def parse(raw):
     if screen=='career_completion_hub':
         final={}
         for i,field in enumerate(FIELDS[:5]):
-            candidates=[l for l in lines if within(l,(718,316+31*i,785,349+31*i)) and number(l) is not None]
+            candidates=[l for l in lines if within(l,place((718,316+31*i,785,349+31*i),'mc')) and number(l) is not None]
             final[field]=number(candidates[0]) if len(candidates)==1 else None
-        point_lines=[l for l in lines if l['confidence']>=95 and within(l,(280,900,425,936))]
+        point_lines=[l for l in lines if l['confidence']>=95 and within(l,place((280,900,425,936),'bc'))]
         matches=[re.fullmatch(r'Skill Pts\s*(\d{1,4})',l['text']) for l in point_lines]
         numbers={int(m[1]) for m in matches if m}
         final['skill_points']=numbers.pop() if len(numbers)==1 else None
@@ -2834,29 +2767,30 @@ def parse(raw):
             if skill_point_proof:
                 facts['current_skill_points_provenance']=skill_point_proof
         if any(l['confidence']>=97 and l['text']=='Remaining Performance Points'
-               and within(l,(400,595,710,635)) for l in lines):
+               and within(l,place((400,595,710,635),'sc')) for l in lines):
             boundaries=(335,425,535,625,720,815);remaining={}
             for i,field in enumerate(CURRENCIES):
-                values={number(l) for l in lines if within(l,(boundaries[i],632,boundaries[i+1],678))
+                values={number(l) for l in lines if within(l,place((boundaries[i],632,boundaries[i+1],678),'sc'))
                         and number(l) is not None}
                 remaining[field]=values.pop() if len(values)==1 else None
             facts['remaining_performance_points']=remaining
     if screen=='career_account_totals':
         # Post-career account awards are not another race or career stat gain.
+        # The screen follows the centre of the clear area.
         facts['counts_as_career_action']=False
         for name,box in (('account_fans',(275,400,850,465)),('monthly_fans',(275,535,850,590))):
             matches=[re.fullmatch(r'([\d,]+)\s*\(\s*\+([\d,]+)\s*\)',l['text'])
-                     for l in lines if l['confidence']>=97 and within(l,box)]
+                     for l in lines if l['confidence']>=97 and within(l,place(box,'mc'))]
             values={(int(m[1].replace(',','')),int(m[2].replace(',',''))) for m in matches if m}
             if len(values)==1:
                 total,increase=values.pop();facts[name]=dict(total=total,increase=increase)
         if 'monthly_fans' in facts:
             facts['monthly_fans']['scope']='club' if any(l['text']=='Club' and l['confidence']>=97
-                                                       and within(l,(300,500,400,540)) for l in lines) else 'unknown'
-        levels={number(l) for l in lines if within(l,(480,205,550,255)) and number(l) is not None}
+                                                       and within(l,place((300,500,400,540),'mc')) for l in lines) else 'unknown'
+        levels={number(l) for l in lines if within(l,place((480,205,550,255),'mc')) and number(l) is not None}
         if len(levels)==1:facts['bond_level']=levels.pop()
         matches=[re.fullmatch(r'([\d,]+)/([\d,]+)\(\+([\d,]+)\)',l['text'])
-                 for l in lines if l['confidence']>=97 and within(l,(550,225,850,280))]
+                 for l in lines if l['confidence']>=97 and within(l,place((550,225,850,280),'mc'))]
         values={tuple(int(part.replace(',','')) for part in m.groups()) for m in matches if m}
         if len(values)==1:
             current,required,increase=values.pop()
@@ -3029,16 +2963,16 @@ def parse(raw):
             # A gain halved above the cap is drawn in parentheses, "(+6)", and
             # reads a little lower than the plain "+12"; it is the game's own
             # number for what the lesson will add.
-            candidates=[l for l in lines if within(l,(boundaries[i],403,boundaries[i+1],431))
+            candidates=[l for l in lines if within(l,place((boundaries[i],403,boundaries[i+1],431),'sc'))
                         and (l['confidence']>=97 or (l['confidence']>=90 and re.fullmatch(r'\(\s*\+\s*\d+\s*\)',l['text'].strip())))]
             matches=[re.fullmatch(r'(?:\(\s*)?\+\s*(\d+)(?:\s*\))?',l['text'].strip()) for l in candidates]
             numbers={int(m[1]) for m in matches if m}
             if len(numbers)==1:gains[field]=numbers.pop()
-        confirmation_names=[l['text'].strip() for l in lines if within(l,(280,85,650,125)) and l['confidence']>=95 and any(c.isalpha() for c in l['text'])]
+        confirmation_names=[l['text'].strip() for l in lines if within(l,place((280,85,650,125),'sc')) and l['confidence']>=95 and any(c.isalpha() for c in l['text'])]
         facts.update(name_candidates=confirmation_names,
                      projected_performance_points=currencies(True),current_stats=values('modal_current'),
                      projected_stat_gains=gains,
-                     projected_effects=preview_effects([l for l in lines if l['confidence']>=97 and within(l,(440,130,820,245))], typed=True),awarded_effects=[])
+                     projected_effects=preview_effects([l for l in lines if l['confidence']>=97 and within(l,place((440,130,820,245),'sc'))], typed=True),awarded_effects=[])
         # A confirmation title is the same-frame identity for its projected
         # effect.  Carry it through the parser-owned typed fact so the preview
         # adapter can keep the offer linked without searching nearby receipts
@@ -3094,7 +3028,7 @@ def parse(raw):
         facts.update(points_semantics='possibly_projected_remaining_points',spent_skill_points=None,item_list_complete=False)
         labels=[l for l in lines if l['text']=='Skill Points' and l['confidence']>=97]
         if len(labels)==1:
-            label=labels[0];candidates=[l for l in lines if within(l,(label['box'][2],label['box'][1]-10,850,label['box'][3]+10)) and number(l) is not None]
+            label=labels[0];candidates=[l for l in lines if within(l,(label['box'][2],label['box'][1]-10,place_x(850),label['box'][3]+10)) and number(l) is not None]
             if len(candidates)==1:facts['displayed_skill_points']=number(candidates[0])
         if screen=='skill_selection' and 'skill_point_refinement' in raw:
             from .refine_skill_points import counter_reading
@@ -3107,13 +3041,18 @@ def parse(raw):
                 facts['skill_point_refinement_basis']='same_frame_counter_crops'
         if screen=='skill_confirmation':
             # Fixed card headings only; a scrollbar means this cannot establish list completeness.
-            facts['visible_skill_names']=[l['text'].strip() for l in lines if l['confidence']>=97 and 365<=l['box'][0]<=390 and any(within(l,(365,y-15,740,y+15)) for y in (129,283,437,590,743))]
+            # The confirmation is a popup at the screen's centre.
+            facts['visible_skill_names']=[l['text'].strip() for l in lines if l['confidence']>=97 and place_x(365)<=l['box'][0]<=place_x(390)
+                                          and any(within(l,place((365,y-15,740,y+15),'sc')) for y in (129,283,437,590,743))]
         if screen=='skill_selection':
+            # The skill list runs from the menu's head, pinned to the top, to
+            # its controls, pinned to the bottom: a taller screen shows more rows.
             cards=[]
-            controls=[l for l in lines if within(l,(690,395,800,875)) and ((number(l) is not None and l['box'][2]>=766) or (l['text']=='Obtained' and l['confidence']>=90))]
+            list_box=(place_x(690),place_y(395,'t'),place_x(800),place_y(875,'b'))
+            controls=[l for l in lines if within(l,list_box) and ((number(l) is not None and l['box'][2]>=place_x(766)) or (l['text']=='Obtained' and l['confidence']>=90))]
             for control in controls:
                 cy=(control['box'][1]+control['box'][3])/2
-                headings=[l for l in lines if l['confidence']>=95 and 355<=l['box'][0]<=380 and within(l,(360,cy-65,680,cy-35))
+                headings=[l for l in lines if l['confidence']>=95 and place_x(355)<=l['box'][0]<=place_x(380) and within(l,(place_x(360),cy-65,place_x(680),cy-35))
                           and not re.match(r'(?:Slightly|Moderately|Increase|Recover|Gain|Control)\b',l['text'])]
                 if len(headings)==1:
                     heading=headings[0];name=re.sub(r'\s*[○◯◎]\s*$','',heading['text']).strip()
@@ -3124,27 +3063,29 @@ def parse(raw):
                                       variant=variants.pop() if len(variants)==1 else None,variant_verified=False))
             facts['skill_cards']=cards
     if screen=='race_result':
+        # The result's race banner and placing are pinned to the top, its
+        # rewards to the bottom.
         item_headers=[l for l in lines if l['text']=='Items' and l['confidence']>=97
-                      and within(l,(250,500,830,900))]
+                      and within(l,place((250,500,830,900),'bc'))]
         quantities=[]
         if len(item_headers)==1:
             for line in lines:
                 match=re.fullmatch(r'[x\u00d7]\s*(\d{1,6})',line['text'])
                 if (match and line['confidence']>=97 and
-                    within(line,(260,item_headers[0]['box'][3],825,940))):
+                    within(line,(place_x(260),item_headers[0]['box'][3],place_x(825),place_y(940,'b')))):
                     quantities.append(dict(quantity=int(match[1]),name=None,
                         box=line['box'],raw_text=line['text'],confidence=line['confidence']))
         facts['visible_item_quantities']=quantities
         m=re.search(r'Fans\s+([\d,]+)\s*\(\+([\d,]+)\)',text,re.I)
         facts.update(fans=int(m[1].replace(',','')),fans_gained=int(m[2].replace(',','')))
-        names=[_split_race_grade(l['text'])[1] for l in lines if l['confidence']>=95 and within(l,(280,425,810,456))
+        names=[_split_race_grade(l['text'])[1] for l in lines if l['confidence']>=95 and within(l,place(_RACE_RESULT_HEADER_BOX,'tc'))
                and not re.fullmatch(r'DEBUT|G[123]|OP|PRE-OP|EX',l['text'],re.I)]
-        places=[re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)',l['text'],re.I) for l in lines if l['confidence']>=95 and within(l,(280,160,550,355))]
+        places=[re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)',l['text'],re.I) for l in lines if l['confidence']>=95 and within(l,place((280,160,550,355),'tc'))]
         places={int(m[1]) for m in places if m}
-        descriptions=[l['text'] for l in lines if l['confidence']>=97 and within(l,(260,457,810,495)) and re.search(r'\b(?:Turf|Dirt)\b',l['text'])]
+        descriptions=[l['text'] for l in lines if l['confidence']>=97 and within(l,place((260,457,810,495),'tc')) and re.search(r'\b(?:Turf|Dirt)\b',l['text'])]
         course=re.search(r'^(.+?)\s+(Turf|Dirt)\s+(\d+)m\s+\(([^)]+)\)\s+(Right|Left|Straight)(?:\s*/\s*(Outer|Inner))?',' '.join(descriptions),re.I)
         conditions=[l['text'].lower() for l in lines if l['confidence']>=97
-                    and within(l,(690,457,810,495))
+                    and within(l,place((690,457,810,495),'tc'))
                     and re.fullmatch(r'Firm|Good|Heavy',l['text'],re.I)]
         race_grade, race_grade_provenance = _race_result_grade_observation(lines)
         facts.update(race_name=names[0] if len(names)==1 else None,placing=places.pop() if len(places)==1 else None,
@@ -3157,13 +3098,16 @@ def parse(raw):
     runner_card=_race_runner_card(raw,lines)
     if runner_card is not None:
         facts['race_runner_attributes']=runner_card
-    title_lines=[l for l in lines if within(l,(240,195,850,245)) and l['confidence']>=95 and l['box'][3]<=250 and l['text']!='MAX']
+    # The event's title banner is pinned to the top left and reaches as far
+    # as the icons pinned to the right edge.
+    left,top,_,bottom=place((240,195,850,245),'tl');title_band=(left,top,place_x(850,'r'),bottom);title_bottom=place_y(250,'t')
+    title_lines=[l for l in lines if within(l,title_band) and l['confidence']>=95 and l['box'][3]<=title_bottom and l['text']!='MAX']
     titles=[l['text'] for l in title_lines]
     # Where the caption sat: a later read of its tail on the same pixels is
     # the same caption wiping off, not another event's.
     title_box=[min(l['box'][0] for l in title_lines),min(l['box'][1] for l in title_lines),
                max(l['box'][2] for l in title_lines),max(l['box'][3] for l in title_lines)] if title_lines else None
-    candidate_titles=[l['text'] for l in lines if within(l,(240,195,850,245)) and l['confidence']>=90 and l['box'][3]<=250 and l['text']!='MAX']
+    candidate_titles=[l['text'] for l in lines if within(l,title_band) and l['confidence']>=90 and l['box'][3]<=title_bottom and l['text']!='MAX']
     result = dict(screen=screen,stats=stats,training_option=option if screen=='training_result' else None,
                   effects=effects,facts=facts,completed_action='training' if screen=='training_result' else None,
                   context_title=' '.join(titles) or None,context_title_candidate=' '.join(candidate_titles) or None,

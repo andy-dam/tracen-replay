@@ -11,6 +11,7 @@ from copy import deepcopy
 
 from .calendar_coverage import date_key
 from .reconcile import FIELDS
+from .source_clock import elapsed
 
 
 SCHEMA = 'tracen-replay/turn-ledger-v1'
@@ -253,7 +254,7 @@ def _corroborated_source_state(readings, fields, channel, start_ms, action_time,
         if (not observed_fields or (not partial and len(observed_fields)!=len(fields))
             or (partial and len(observed_fields)==len(fields))):
             continue
-        witnesses = [r for r in observations if abs(r['time']-snapshot['time']) <= 1000]
+        witnesses = [r for r in observations if abs(elapsed(snapshot['time'], r['time'])) <= 1000]
         first, last = min(r['time'] for r in witnesses), max(r['time'] for r in witnesses)
         if uncertain(first, last) or any(e['first_seen_ms'] <= last and e['last_seen_ms'] >= first for e in timeline):
             continue
