@@ -315,7 +315,14 @@ the direction is supplied around what was read, recorded as
 stay blocked; the receipt is stated by the frames that carry it. The cursor is found on the
 bubble even when parked over a word: the letters under and beside it take a
 share of its surroundings, so a third of them white is enough
-(`CURSOR_WHITE_SURROUND`).
+(`CURSOR_WHITE_SURROUND`). It is found by its shape, not its green alone:
+the fill of the game's pointer is an arrow pointing up and to the left,
+whose head widens about a pixel a row along a straight left edge to five or
+more pixels wide. Compression can pale the tip out of the mask or dip a
+row, so the edge is judged on rows three or more pixels wide and small dips
+pass; green scenery or icons of the pointer's size on a phone or tablet do
+not have the shape. The search reaches a pointer's height past the receipt
+rows, so a pointer they cut is judged by its whole shape.
 
 **Result banners and rereads.** A training's identity heading counts on
 result frames even when a level digit was not read. A result word missing
