@@ -226,7 +226,7 @@ The service already carries every bound below as a flag
 | Bound | Flag | Hosted value | Why |
 | --- | --- | --- | --- |
 | Accounts per address | built in | 5 an hour | a script cannot fill the user table |
-| Upload size | `-upload-limit-gb` | 3 | a 1080p career is 0.7 to 1.9 GB |
+| Upload size | `-upload-limit-gb` | 8 | a 1080p career is 0.7 to 1.9 GB; a phone or tablet career at its own resolution 2 to 5 GB |
 | Recording length | `-max-duration` | 3h | a career is 30 to 45 minutes; a stream VOD of hours is not a career |
 | Uploads kept per account | `-max-recordings` | 10 | originals live 90 days, so an account holds a few weeks of play |
 | Bytes kept per account | `-max-recording-gb` | 20 | ten originals |
@@ -543,7 +543,7 @@ What a stranger cannot do:
   never names a path; every file the service opens is confined under its
   own directory. A 5xx tells the client one fixed sentence and the log the
   detail.
-- **Fill the disk.** One upload is at most 3 GB; a user keeps at most five
+- **Fill the disk.** One upload is at most 8 GB; a user keeps at most five
   uploads and 8 GB; all uploads together at most the configured total,
   past which uploads are refused as temporary; uploads are probed with
   ffprobe before they are recorded and refused when they are not a video,
