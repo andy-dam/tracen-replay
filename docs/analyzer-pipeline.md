@@ -229,6 +229,10 @@ every frame it showed, is the dim zero the game draws for an empty balance;
 so is an empty slot on the menu before the purchase alone when the dialog's
 leftover prices are complete and project it as zero (the menu after may read
 the dim 0 itself), recorded as `initial_dim_zero_fields`.
+The menu's first frame after a receipt can still show the balance from
+before that purchase. A menu frame that disagrees with the settled balance
+of its visit on any currency shows another balance, so a currency read only
+there does not give this visit's balance.
 When the names a skill confirmation showed each carry a price and those
 prices sum to exactly the cart's net cost, nothing scrolled off the list: the
 visible names are the whole purchase (`visible_names_cost_the_cart_net`).
