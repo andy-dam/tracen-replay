@@ -136,6 +136,7 @@ if __name__ == '__main__':
 
 
 from tracen_replay.preview_confirmed_gains import preview_only_training_groups
+from tracen_replay.transactions import training_events
 
 
 def panel_row(time, screen, points, projected=None):
@@ -223,3 +224,17 @@ class PreviewOnlyTrainingTests(unittest.TestCase):
         self.assertEqual(preview_only_training_groups(readings, [dict(kind='training', first_seen_ms=49000, last_seen_ms=49750)]), [])
         groups = preview_only_training_groups(readings, [dict(kind='training', first_seen_ms=48000, last_seen_ms=48700)])
         self.assertEqual([g['option'] for g in groups], ['guts'])
+
+    def test_a_run_measured_from_before_an_earlier_commit_is_not_a_second_training(self):
+        # Tablet career, Senior Late Oct: speed committed with no result frame
+        # recognised; the unrecognised result screen still names speed, so the
+        # next turn's speed preview joins it into one run that starts before
+        # any panel shows the first training's gains.
+        after = dict(BEFORE, speed=214, power=231, skill_points=129)
+        blank = dict(source_timestamp_ms=51500, screen='unknown', evidence='blank.png', stats={}, effects=[], facts={})
+        result_screen = [dict(preview(time, 'speed', {}), screen='unknown') for time in (53000, 53250)]
+        readings = [home(50000, BEFORE), preview(51000, 'speed', PREVIEW), preview(51250, 'speed', PREVIEW), blank,
+                    *result_screen, home(54000, after), preview(54500, 'speed', PREVIEW), preview(54750, 'speed', PREVIEW),
+                    home(57000, after)]
+        trainings = [e for e in training_events(readings) if e['kind'] == 'training']
+        self.assertEqual([(e['first_seen_ms'], e['deltas']) for e in trainings], [(51500, PREVIEW)])

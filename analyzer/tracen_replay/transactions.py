@@ -2202,7 +2202,7 @@ def training_events(readings,states=()):
     # only its preview run and the next panels.  When those confirm the
     # preview, the training is recorded with its preview frames as the
     # evidence window and an explicit marker that no result screen was seen.
-    confirmed_panels=set()
+    confirmed_panels=set();committed=[]
     for group in preview_only_training_groups(readings,events):
         confirmed=preview_confirmed_gains(readings,group,{})
         if not confirmed:continue
@@ -2212,6 +2212,9 @@ def training_events(readings,states=()):
         if panel_key in confirmed_panels:
             events[:]=[e for e in events if not (e.get('preview_only') and e['training_option']==panel_key[0]
                        and next(iter(e['preview_confirmed_gains'].values()))['after'].get('source_timestamp_ms')==panel_key[1])]
+        # A difference measured from a panel read before an earlier such
+        # training was committed holds that training's gains, not new ones.
+        elif any(next(iter(confirmed.values()))['before']['source_timestamp_ms']<time for time in committed):continue
         confirmed_panels.add(panel_key)
         performance_confirmed=preview_confirmed_gains(readings,group,{},channel='performance')
         # The gain is applied when the card is clicked, i.e. after the last
@@ -2221,6 +2224,7 @@ def training_events(readings,states=()):
         last_preview=group['preview_rows'][-1]['source_timestamp_ms']
         following=[r for r in readings if type(r.get('source_timestamp_ms')) is int and r['source_timestamp_ms']>last_preview]
         applied_row=min(following,key=lambda r:r['source_timestamp_ms']) if following else group['preview_rows'][-1]
+        committed.append(applied_row['source_timestamp_ms'])
         applied=[applied_row['evidence']] if isinstance(applied_row.get('evidence'),str) else []
         deltas={f:p['value'] for f,p in confirmed.items()}
         proofs={f:applied+[e for e in p['evidence'] if e not in applied] for f,p in confirmed.items()}
