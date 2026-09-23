@@ -231,6 +231,18 @@ def _validate_layout(report):
         _integer(_required(layout, key, "report.layout"), f"report.layout.{key}", minimum=0)
     if "fitted" in layout:
         _boolean(layout["fitted"], "report.layout.fitted")
+    if "crop" in layout:
+        # The part of the recording the working frame is cut from: left, top,
+        # width and height in the recording's own pixels.
+        crop = _array(layout["crop"], "report.layout.crop")
+        if len(crop) != 4:
+            _error("report.layout.crop", "must contain a left, a top, a width and a height")
+        for index, value in enumerate(crop):
+            _integer(value, f"report.layout.crop[{index}]", minimum=1 if index >= 2 else 0)
+        source = report.get("source") if isinstance(report.get("source"), dict) else {}
+        if (type(source.get("width")) is int and type(source.get("height")) is int
+                and (crop[0] + crop[2] > source["width"] or crop[1] + crop[3] > source["height"])):
+            _error("report.layout.crop", "must lie inside the recording")
 
 
 def _validate_recognition(report):

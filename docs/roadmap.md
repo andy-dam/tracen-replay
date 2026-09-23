@@ -47,16 +47,16 @@ A recording is read in its own layout. The game lays out one interface of
 1080x1920 design units, scales it by `min(width / 1080, height / 1920)` of
 its game area, pins each part to an edge or a centre and keeps each device's
 clear margins; the analyzer places every box it reads by that rule (Layout
-in [analyzer-pipeline.md](analyzer-pipeline.md)). The PC client in 16:9 and
-the game filling a portrait phone or tablet screen are read. Still refused
-with an explicit error rather than read wrongly:
+in [analyzer-pipeline.md](analyzer-pipeline.md)). The PC client in 16:9,
+the game filling a portrait phone or tablet screen, and such a portrait game
+placed inside a wider landscape video are read. Still refused with an
+explicit error rather than read wrongly:
 
-- **A game area that is neither the whole frame nor the PC client's pane**:
-  a window that does not fill the screen, a phone screen framed by a
-  stream's overlays. The game area is taken from the frame's shape today;
-  finding it in the frame instead would open these, since a layout already
-  carries a game area at any position. A 16:9 video of a phone screen is
-  taken for the PC client and is not refused yet.
+- **A game whose surroundings change as much as it does**: a game inside a
+  wider video is found by its picture changing more than what surrounds it.
+  Beside a moving background (a blurred copy of the video, a large live
+  camera) no such area stands out and the recording is refused; finding the
+  game by its lasting edges as well would open these.
 - **A non-English client**, the same class of problem one layer up, where
   the fixed words a receipt is repaired against are English.
 

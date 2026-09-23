@@ -9,7 +9,7 @@ from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor,as_complet
 import threading
 import time
 import traceback
-from .pipeline import probe,decode_frames,clear_partial_capture,display_size,frame_layout,frame_rate,frame_scale,frame_times,source_gaps,PipelineError
+from .pipeline import probe,decode_frames,clear_partial_capture,display_size,frame_layout,frame_rate,frame_scale,frame_times,game_area,source_gaps,PipelineError
 from . import layout as geometry
 from . import source_clock
 from .proof_writer import save_while
@@ -441,8 +441,6 @@ def capture(source,root,fps):
     source=Path(source).resolve();root=Path(root)
     info,video,duration,origin=probe(source)
     width,height=display_size(video)
-    layout=frame_layout(width,height)
-    scale=frame_scale(layout,width,height)
     if not 1<=fps<=8:raise PipelineError('Base sampling must be 1 to 8 FPS.')
     with source.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
     root.mkdir(parents=True,exist_ok=True)
@@ -452,6 +450,10 @@ def capture(source,root,fps):
     save_json(identity_path,identity)
     if (root/'capture.json').exists():
         return _load_cached_capture(root/'capture.json', digest, fps)
+    # A landscape recording is the PC client, or a phone or tablet's game
+    # placed inside a wider video; where its game is drawn says which.
+    layout=frame_layout(width,height,game_area(source,width,height,duration) if width>height else None)
+    scale=frame_scale(layout,width,height)
     frames=[]
     for index,start in enumerate(range(0,int(duration)+1,120)):
         length=min(120,duration-start)
@@ -537,6 +539,11 @@ def rehydrate_frames(source,root,fps):
     identity=json.loads(identity_path.read_text(encoding='utf-8'))
     if identity!=dict(source_sha256=digest,fps=fps):
         raise PipelineError('Existing output belongs to a different source or sampling configuration.')
+    if not (root/'capture.json').exists():
+        raise PipelineError('Cannot rehydrate a run without capture.json.')
+    # The frames are cut and scaled the way the capture recorded them.
+    width,height=display_size(video)
+    scale=frame_scale(geometry.Layout.from_dict(json.loads((root/'capture.json').read_text(encoding='utf-8')).get('layout')),width,height)
     parts=0;decoded=0
     for manifest in sorted(root.glob('part-*/frames.json')):
         part=manifest.parent;prefix=part.name
@@ -553,8 +560,7 @@ def rehydrate_frames(source,root,fps):
             for stale in scratch.iterdir():stale.unlink()
         else:
             scratch.mkdir(parents=True)
-        width,height=display_size(video)
-        produced=decode_frames(source,scratch,start,length,fps,origin,scale=frame_scale(frame_layout(width,height),width,height))
+        produced=decode_frames(source,scratch,start,length,fps,origin,scale=scale)
         for row in produced:
             row['id']=f'{prefix}-'+row['id'];row['evidence']=f'{prefix}/'+row['evidence']
             row['clip_timestamp_ms']=row['source_timestamp_ms']

@@ -181,7 +181,8 @@ class ReportContractTests(unittest.TestCase):
                     1.0,
                     0.0,
                 ),
-            ), patch("tracen_replay.full_recording.decode_frames", return_value=[frame]):
+            ), patch("tracen_replay.full_recording.decode_frames", return_value=[frame]), \
+                    patch("tracen_replay.full_recording.game_area", return_value=None):
                 report = capture(source, root / "output", 1)
             self.assertEqual(report["schema_version"], FULL_RECORDING_SCHEMA)
             saved = json.loads((root / "output" / "capture.json").read_text(encoding="utf-8"))
@@ -391,11 +392,18 @@ class ReportContractTests(unittest.TestCase):
         report = valid_report()
         report["layout"] = dict(frame=[608, 1316], pane=[0, 0, 608, 1316], top=53, bottom=0, fitted=True)
         self.assertIs(validate(report), report)
+        # A game cut from a wider video records where it was cut from.
+        framed = copy.deepcopy(report)
+        framed["layout"]["crop"] = [0, 0, 10, 10]
+        self.assertIs(validate(framed), framed)
         for field, value, message in (
                 ("pane", [0, 0, 700, 1316], "must lie inside the frame"),
                 ("frame", [608], "must contain a width and a height"),
                 ("top", -1, "must be at least 0"),
-                ("fitted", "yes", "must be a boolean")):
+                ("fitted", "yes", "must be a boolean"),
+                ("crop", [0, 0, 10], "must contain a left, a top, a width and a height"),
+                ("crop", [0, 0, 0, 10], "must be at least 1"),
+                ("crop", [0, 0, 99999, 10], "must lie inside the recording")):
             broken = copy.deepcopy(report)
             broken["layout"][field] = value
             with self.subTest(field=field), self.assertRaisesRegex(ReportContractError, message):

@@ -57,7 +57,12 @@ def probe(source):
         raise PipelineError("Source must contain a video stream with known dimensions and duration.") from exc
     if duration <= 0:
         raise PipelineError("Source must have a positive duration.")
-    frame_layout(width, height)
+    # A landscape recording's game is located when it is captured; it can be
+    # no taller than the recording.
+    if width <= height:
+        frame_layout(width, height)
+    elif height / 1920 < 0.375:
+        raise PipelineError(f"The game in this {width}×{height} recording is drawn smaller than at 720p, too small to read.")
     return info, video, duration, origin
 
 
@@ -79,17 +84,21 @@ def display_size(video):
     return width, height
 
 
-def frame_layout(width, height):
+def frame_layout(width, height, area=None):
     """The working frame and game area of a recording shown at ``width`` x ``height``.
 
     A portrait recording is the game filling the screen of a phone or tablet:
     the game area is the whole frame, scaled evenly so that a design unit has
     the PC pane's size. A 16:9 landscape recording is the PC client, whose
-    game area is its pane; its frames are scaled to 1920x1080. Any other shape
-    is refused, as is a game drawn smaller than it is at 720p on the PC.
-    The margins the game keeps clear are fitted later, from the frames.
+    game area is its pane; its frames are scaled to 1920x1080. A game placed
+    inside a 16:9 video (``area``, from ``game_area``) is cut out of it and
+    read like a portrait recording of that part. Any other shape is refused,
+    as is a game drawn smaller than it is at 720p on the PC. The margins the
+    game keeps clear are fitted later, from the frames.
     """
-    if height > width and 0.4 <= width / height <= 0.8:
+    if area is not None:
+        game = tuple(area[2:])
+    elif height > width and 0.4 <= width / height <= 0.8:
         game = (width, height)
     elif height < width and abs(width / height - 16 / 9) <= 0.02:
         game = (width * REFERENCE_PANE[2] / 1920 - width * REFERENCE_PANE[0] / 1920, height)
@@ -101,14 +110,112 @@ def frame_layout(width, height):
         raise PipelineError(f"The game in this {width}×{height} recording is drawn smaller than at 720p, too small to read.")
     if unit > 2.5:
         raise PipelineError(f"The game in this {width}×{height} recording is drawn larger than this analyzer reads.")
+    if area is not None:
+        _, frame = working_size(*game)
+        return Layout(frame, (0, 0) + frame, crop=tuple(area))
     if height > width:
         _, frame = working_size(width, height)
         return Layout(frame, (0, 0) + frame)
     return Layout((1920, 1080), REFERENCE_PANE)
 
 
+# Frames sampled across a landscape recording to find where its game is drawn.
+AREA_SAMPLES = 24
+# Grey levels the busiest tenth of columns must change by between those
+# frames for the change to show where the game is; a career changes by tens.
+AREA_MINIMUM_CHANGE = 5
+
+
+def _busy_run(change):
+    """The widest run of positions that change at least half as much as the busiest tenth of them."""
+    import numpy
+    busy = numpy.append(change >= numpy.percentile(change, 90) / 2, False)
+    best, start = (0, 0), None
+    for index, value in enumerate(busy):
+        if value and start is None:
+            start = index
+        elif not value and start is not None:
+            if index - start > best[1] - best[0]:
+                best = (start, index)
+            start = None
+    return best
+
+
+def locate_game(change, width, height):
+    """The game area (left, top, width, height) in a 16:9 recording's per-pixel change; None for the PC client's pane.
+
+    ``change`` is how much each pixel changed between frames sampled across
+    the recording. The game's picture changes all through a career, while
+    what surrounds it changes less: the PC client's panels beside its pane,
+    and the overlay, bars or still picture around a phone or tablet's screen
+    placed in a wider video. The game area is the widest run of columns that
+    change at least half as much as the busiest tenth of columns, cut to the
+    rows within it that change that much. When that is the PC client's pane,
+    the PC layout reads it; when it is portrait, it is a phone or tablet's
+    game, read in its own shape. Anything else is refused. A recording that
+    hardly changes anywhere shows no game area: in 16:9 it is read as the PC
+    client, by its shape.
+    """
+    import numpy
+    columns = change.mean(axis=0)
+    pc_shape = abs(width / height - 16 / 9) <= 0.02
+    if numpy.percentile(columns, 90) < AREA_MINIMUM_CHANGE and pc_shape:
+        return None
+    left, right = _busy_run(columns)
+    top, bottom = _busy_run(change[:, left:right].mean(axis=1))
+    tolerance = max(2, round(4 * width / 1920))
+    pane = (REFERENCE_PANE[0] * width / 1920, REFERENCE_PANE[2] * width / 1920)
+    if (pc_shape and abs(left - pane[0]) <= tolerance and abs(right - pane[1]) <= tolerance
+            and top <= tolerance and height - bottom <= tolerance):
+        return None
+    if not 0.4 <= (right - left) / max(1, bottom - top) <= 0.8:
+        raise PipelineError("The game was not found in this 16:9 recording: it is not the PC client, and no "
+                            "portrait part of it changes the way the game's screen does.")
+    return (left, top, right - left, bottom - top)
+
+
+def game_area(source, width, height, duration):
+    """Where the game is drawn in a 16:9 recording (see ``locate_game``), from frames sampled across it.
+
+    The frames are decoded one at a time, in grey at the recording's own size.
+    """
+    import numpy
+    change = numpy.zeros((height, width), dtype=numpy.float32)
+    previous, count = None, 0
+    for index in range(AREA_SAMPLES):
+        seconds = duration * (0.05 + 0.9 * index / (AREA_SAMPLES - 1))
+        grey = numpy.frombuffer(_grey_frame(source, seconds), dtype=numpy.uint8)
+        if grey.size != width * height:
+            continue
+        grey = grey.reshape(height, width).astype(numpy.float32)
+        if previous is not None:
+            change += numpy.abs(grey - previous)
+            count += 1
+        previous = grey
+    if count < 2:
+        raise PipelineError("Too few frames of this recording could be decoded to find where its game is drawn.")
+    return locate_game(change / count, width, height)
+
+
+def _grey_frame(source, seconds):
+    try:
+        return subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-ss", f"{seconds:.3f}", "-i", str(source),
+                               "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+                              stdin=subprocess.DEVNULL, capture_output=True, timeout=TIMEOUT_SECONDS, check=True).stdout
+    except FileNotFoundError as exc:
+        raise PipelineError("ffmpeg is missing. Install FFmpeg and put ffmpeg and ffprobe on PATH.") from exc
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return b""
+
+
 def frame_scale(layout, width, height):
-    """The decoder filter that scales a ``width`` x ``height`` recording's frames to the layout's frame; empty when they are that size."""
+    """The decoder filter that cuts a ``width`` x ``height`` recording's frames to the layout's crop and scales them to its frame; empty when there is nothing to do."""
+    if layout.crop is not None:
+        left, top, crop_width, crop_height = layout.crop
+        cut = f"crop={crop_width}:{crop_height}:{left}:{top}"
+        if tuple(layout.frame) == (crop_width, crop_height):
+            return cut
+        return f"{cut},scale={layout.frame[0]}:{layout.frame[1]}:flags=lanczos"
     if tuple(layout.frame) == (width, height):
         return ""
     return f"scale={layout.frame[0]}:{layout.frame[1]}:flags=lanczos"

@@ -74,6 +74,10 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(Layout.from_dict(PHONE.to_dict()), PHONE)
         self.assertEqual(Layout.from_dict(None), PC)
         self.assertEqual(PHONE.to_dict(), dict(frame=[608, 1316], pane=[0, 0, 608, 1316], top=53, bottom=0))
+        # A game cut from a wider video keeps where it was cut from.
+        framed = Layout((714, 1080), (0, 0, 714, 1080), crop=(605, 3, 710, 1074))
+        self.assertEqual(Layout.from_dict(framed.to_dict()), framed)
+        self.assertEqual(framed.to_dict()['crop'], [605, 3, 710, 1074])
 
     def test_the_working_frame_gives_a_design_unit_the_pc_pane_size(self):
         self.assertEqual(working_size(1080, 2340), (0.5625, (608, 1316)))
@@ -155,6 +159,13 @@ class LayoutFitTests(unittest.TestCase):
                   _label('Quick', 1038 + 236, 554 - 202)]
         fitted = layout_fit.fit(self.report, self.root, self.reader(labels))
         self.assertEqual(fitted, PHONE)
+
+    def test_a_game_cut_from_a_wider_video_keeps_its_crop_when_fitted(self):
+        labels = [_label('turn(s)', 61 + 53, 201 - 101), _label('Back', 1024 + 236, 75),
+                  _label('Quick', 1038 + 236, 554 - 202)]
+        report = dict(self.report, layout=dict(self.report['layout'], crop=[420, 0, 1080, 2340]))
+        fitted = layout_fit.fit(report, self.root, self.reader(labels))
+        self.assertEqual((fitted.crop, fitted.top, fitted.bottom), ((420, 0, 1080, 2340), PHONE.top, PHONE.bottom))
 
     def test_a_pc_layout_is_not_fitted(self):
         report = dict(layout=PC.to_dict(), frames=[])

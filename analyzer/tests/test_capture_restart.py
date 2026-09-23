@@ -38,6 +38,7 @@ class CaptureRestart(unittest.TestCase):
         video = video or {"width": 1920, "height": 1080, "codec_name": "h264"}
         with patch.object(full_recording, "probe", return_value=({}, video, duration, 0.0)), \
                 patch.object(full_recording, "decode_frames", side_effect=decode), \
+                patch.object(full_recording, "game_area", return_value=None), \
                 patch.object(full_recording, "validate_output"):
             return full_recording.capture(source, root, 4.0)
 

@@ -8,7 +8,8 @@ first): the crop `(148, 0, 958, 1080)`, an 810x1080 image. The side log
 panel lies entirely outside that crop; a viewer can leave it open, but its
 pixels never reach the recognizer, and no current module reads it. On a
 phone or tablet the game area is the whole frame, scaled so its text has the
-same size. Positions below are given where they sit on the PC pane; on
+same size; a phone or tablet's game placed inside a wider video is cut out
+of it first. Positions below are given where they sit on the PC pane; on
 another shape each one moves with the part of the screen it is pinned to
 (see Layout in [analyzer-pipeline.md](analyzer-pipeline.md)).
 
