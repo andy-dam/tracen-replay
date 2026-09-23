@@ -2371,7 +2371,11 @@ def _race_runner_card(raw, lines):
 
 
 def parse(raw):
-    lines=raw['lines'];regions=raw['regions'];text='\n'.join(l['text'] for l in lines if l['confidence']>=90)
+    # A race result's short grey label "Fans" is read with less certainty on
+    # a phone's or tablet's smaller type (88 to 90); the fan count beside it
+    # carries its own proof, so the label counts from 80.
+    lines=raw['lines'];regions=raw['regions'];text='\n'.join(l['text'] for l in lines if l['confidence']>=90
+        or (l['confidence']>=80 and l['text'].strip().lower()=='fans'))
     header=raw['header']
     if raw.get('inspection')=='training_result_only' and not header:
         observed=regions.get('header',{})

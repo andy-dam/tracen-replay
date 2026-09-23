@@ -25,6 +25,19 @@ class RaceCourseConditionTests(unittest.TestCase):
         raw['lines'].pop(1)
         self.assertIsNone(parse(raw)['facts']['course_condition'])
 
+    def test_a_fans_label_read_less_surely_beside_its_count_is_a_race_result(self):
+        # A phone's smaller type reads the grey label at 88 to 90; the count
+        # beside it is read surely. Below 80 the label counts for nothing.
+        for confidence, screen in ((89, 'race_result'), (79, 'unknown')):
+            raw = self.raw()
+            raw['lines'][0:1] = [dict(text='Fans', confidence=confidence, box=[270, 700, 330, 730]),
+                                 dict(text='1,200 (+200)', confidence=97, box=[380, 700, 600, 730])]
+            result = parse(raw)
+            with self.subTest(confidence=confidence):
+                self.assertEqual(result['screen'], screen)
+                if screen == 'race_result':
+                    self.assertEqual((result['facts']['fans'], result['facts']['fans_gained']), (1200, 200))
+
     def test_weak_wrong_position_partial_and_duplicate_labels_abstain(self):
         for replacement in ({'confidence':96.9}, {'box':[300,700,365,730]},
                             {'text':'Heav'}, {'text':'Great'}):

@@ -208,7 +208,9 @@ confidence gate of 95; one the popup vouches for joins the band from 90.
 Grade, placing, fan totals, course and condition are each read from their
 own fixed box on the race-result screen: race name at confidence 95 or
 higher, placing as an exact ordinal (`1st`..`99th`) at confidence 95 or
-higher, fan totals from the `Fans N (+M)` text, course from a description
+higher, fan totals from the `Fans N (+M)` text (the short grey `Fans` label
+counts from confidence 80, since smaller type reads it at 88 to 90 and the
+count beside it carries its own proof), course from a description
 line at confidence 97 or higher, and course condition (`Firm`/`Good`/
 `Heavy`) at confidence 97 or higher. Race grade is normalized to a fixed
 set of values (`DEBUT`, `G1`, `G2`, `G3`, `OP`, `PRE-OP`, `EX`); anything
