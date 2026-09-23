@@ -827,7 +827,7 @@ def read_goal_turns(lines, countdown_region=None):
     number_observations = []
     bounds = place(_GOAL_COUNTDOWN_BOUNDS, 'tc')
     for line in lines:
-        if not isinstance(line, dict) or line.get('confidence', 0) < 90:
+        if not isinstance(line, dict) or line.get('confidence', 0) < 80:
             continue
         if not _valid_box(line.get('box')):
             continue
@@ -837,6 +837,10 @@ def read_goal_turns(lines, countdown_region=None):
         if not _within_box(box, bounds):
             continue
         text = re.sub(r'\s+', ' ', str(line.get('text', '')).strip()).casefold()
+        # The fixed words beside the number are short and read less surely
+        # on smaller type; they count from 80, the number itself from 90.
+        if line.get('confidence', 0) < 90 and text not in ('turn(s)', 'left'):
+            continue
         if text == 'turn(s)':
             turn_anchors.append(line)
         else:

@@ -159,6 +159,17 @@ class TrainingResultStateDetailsTests(unittest.TestCase):
         self.assertNotIn('speed', events[0].get('result_state_crosschecks', {}))
 
 
+    def test_the_countdowns_fixed_words_count_when_read_less_surely(self):
+        # "left" read at 88 beside a sure "10"; the number itself still needs 90.
+        lines = [_line('10', (255, 52, 329, 108), 97.0), _line('turn(s)', (321, 63, 375, 84)),
+                 _line('left', (321, 79, 356, 102), 88.0)]
+        self.assertEqual(read_goal_turns(lines)[0], 10)
+        lines[0] = _line('10', (255, 52, 329, 108), 88.0)
+        self.assertEqual(read_goal_turns(lines), (None, None))
+        lines[0] = _line('10', (255, 52, 329, 108), 97.0)
+        lines[2] = _line('left', (321, 79, 356, 102), 79.0)
+        self.assertEqual(read_goal_turns(lines), (None, None))
+
     def test_goal_countdown_excludes_concert_countdown(self):
         lines = [
             _line('11 turn(s)', (276, 124, 368, 154)),
