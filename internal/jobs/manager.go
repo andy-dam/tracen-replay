@@ -267,11 +267,17 @@ func (m *Manager) acquire() bool {
 	return true
 }
 
+// release gives a place back and wakes Run, so a queued analysis can take it.
 func (m *Manager) release() {
+	m.free()
+	m.wakeLoop()
+}
+
+// free gives a place back without waking Run.
+func (m *Manager) free() {
 	m.mu.Lock()
 	m.active--
 	m.mu.Unlock()
-	m.wakeLoop()
 }
 
 // Hub exposes the event hub for subscribers.
@@ -513,7 +519,10 @@ func (m *Manager) Run(ctx context.Context) error {
 			ok = false
 		}
 		if !ok {
-			m.release()
+			// The place goes back unused. Waking the loop for it would only
+			// ask the empty queue again at once, over and over; a new
+			// analysis wakes the loop itself.
+			m.free()
 			select {
 			case <-ctx.Done():
 				return nil

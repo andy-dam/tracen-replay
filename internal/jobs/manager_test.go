@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -578,5 +579,45 @@ func TestReadersFallBackToTheFixedCounts(t *testing.T) {
 	h.waitStatus(job.ID, jobs.Succeeded)
 	if got.Workers != 3 || got.DenseWorkers != 2 {
 		t.Fatalf("command: %+v", got)
+	}
+}
+
+// countingStore counts how often the queue is asked for its next job.
+type countingStore struct {
+	*store.Store
+	asked atomic.Int64
+}
+
+func (s *countingStore) NextQueued(ctx context.Context) (jobs.Job, bool, error) {
+	s.asked.Add(1)
+	return s.Store.NextQueued(ctx)
+}
+
+// With nothing queued the loop looks once a second; it once woke itself each
+// time it gave its unused place back and kept a processor core busy.
+func TestAnIdleLoopWaitsBetweenLooksAtTheQueue(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "tracen.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	counted := &countingStore{Store: st}
+	manager, err := jobs.NewManager(jobs.Config{DataDir: dir, Python: "python", WorkDir: dir, Workers: 2, QueueLimit: 2,
+		Recordings: oneUpload{}}, counted, &scriptedRunner{started: make(chan string, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() {
+		manager.Run(ctx)
+		close(stopped)
+	}()
+	time.Sleep(500 * time.Millisecond)
+	cancel()
+	<-stopped
+	if asked := counted.asked.Load(); asked > 2 {
+		t.Fatalf("an idle loop asked the queue %d times in half a second", asked)
 	}
 }
