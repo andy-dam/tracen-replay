@@ -186,6 +186,11 @@ has its own frame-rate and budget, spent across the whole run:
 | `weak_state_recovery` | (same-frame, no new decode) a field on an already-captured frame is missing or below the confidence floor | n/a | up to 16 crop requests per frame |
 | `preview_recovery` | (same-frame, no new decode) a translucent Grand Live training-preview row overlaps a Concert Bonuses row in one detector box | n/a | up to 16 crop requests per frame |
 
+A resumed run spends these budgets, and automatic refinement's frame budgets,
+the same way. Work a stopped run already saved counts toward a budget like new
+work, and saved work beyond it is left unused, so a resumed run rereads exactly
+what a run that was never stopped rereads.
+
 ## Assembly
 
 `full_recording.assemble` builds `gameplay_tracking`: the final `readings`

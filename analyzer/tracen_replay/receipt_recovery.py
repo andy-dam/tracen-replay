@@ -149,7 +149,7 @@ def recover(source, root, source_info, readings, events, *, allow_ocr=True,
     that the corresponding effect was recovered.
     """
     from .full_recording import save_json
-    from .inspect_receipts import inspect, merge
+    from .inspect_receipts import inspect, merge, window_readings
     from .inspect_training import reparse_inspection
     from .vision import NeuralReader
     root = Path(root)
@@ -174,17 +174,22 @@ def recover(source, root, source_info, readings, events, *, allow_ocr=True,
     processed, pending = [], []
     used_ms = 0
     reader = None
-    new_windows = 0
+    used = 0
     steps = []
+    # Every window counts toward the budget, read before a pause or not, so a
+    # resumed run reads the windows a run straight through reads.
     for window in requested:
         start, end = window['start_ms'], window['end_ms']
-        if (start, end, fps) not in completed:
-            if not allow_ocr or new_windows >= max_windows or used_ms+end-start > max_duration_ms:
-                pending.append(window)
-                continue
+        if used >= max_windows or used_ms+end-start > max_duration_ms:
+            pending.append(window)
+            continue
+        used_ms += end-start
+        used += 1
+        done = (start, end, fps) in completed
+        if not done and not allow_ocr:
+            pending.append(window)
+        elif not done:
             steps.append((window, 'new'))
-            used_ms += end-start
-            new_windows += 1
         elif allow_ocr:
             # Check the actual cached frames/model even when the window was
             # previously completed. Reparse-only validates source proof below.
@@ -212,7 +217,9 @@ def recover(source, root, source_info, readings, events, *, allow_ocr=True,
             if fingerprint in models and models[fingerprint] != raw['model_sha256']:
                 raise ValueError('One receipt OCR fingerprint has different models')
             models[fingerprint] = raw['model_sha256']
-        fresh = reparse_inspection(inspection, directory)
+        # Only frames of this run's windows: one a paused run read past the
+        # budget is not one a run straight through reads.
+        fresh = reparse_inspection(window_readings(inspection, processed, fps), directory)
         # All image paths inside the new observations refer to this cache.
         # Preserve source pointers and timestamps; only relocate actual files.
         def relocate(value):

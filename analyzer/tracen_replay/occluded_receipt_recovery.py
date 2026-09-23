@@ -765,187 +765,6 @@ def _trigger_matches(row: dict[str, Any], windows: Any) -> list[dict[str, Any]]:
     return result
 
 
-def _validate_replay_windows(value: Any, label: str) -> list[dict[str, Any]]:
-    """Validate the source-bound plan used by a cached replay.
-
-    ``last-plan.json`` is mutable metadata, even when the underlying receipt
-    pixels and OCR cache have been hash checked by the replay manifest.  Keep
-    the replay contract closed over timestamps, owner identity and physical
-    geometry.  In particular, labels, names and amounts are not accepted as
-    plan inputs, so a hand-edited plan cannot turn an arbitrary readable line
-    into a promoted effect.
-    """
-
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        raise ValueError(f"Occluded-receipt recovery {label} must be an array.")
-    window_keys = {"start_ms", "end_ms", "reason", "triggers", "fps"}
-    trigger_keys = {
-        "source_timestamp_ms", "evidence", "line_box", "source_line_text_sha256",
-        "kind", "owner_ref",
-        "owner_start_ms", "owner_end_ms", "window_start_ms", "window_end_ms",
-        "physical_overlay_count", "owner_context_title",
-    }
-    result: list[dict[str, Any]] = []
-    seen: set[tuple[int, int, tuple[tuple[Any, ...], ...]]] = set()
-    for index, raw in enumerate(value):
-        if not isinstance(raw, dict):
-            raise ValueError(f"Occluded-receipt recovery {label}[{index}] must be an object.")
-        unknown = set(raw) - window_keys
-        if unknown:
-            names = ", ".join(sorted(map(str, unknown)))
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] has unsupported fields: {names}."
-            )
-        start, end = raw.get("start_ms"), raw.get("end_ms")
-        if type(start) is not int or type(end) is not int or start < 0 or end <= start:
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] has invalid bounds."
-            )
-        if end - start > MAX_WINDOW_MS:
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] exceeds the five-second bound."
-            )
-        triggers = raw.get("triggers")
-        if not isinstance(triggers, list) or not triggers:
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] must have triggers."
-            )
-        normalized_triggers: list[dict[str, Any]] = []
-        identities: list[tuple[Any, ...]] = []
-        for trigger_index, trigger in enumerate(triggers):
-            if not isinstance(trigger, dict):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}].triggers[{trigger_index}] is invalid."
-                )
-            unknown = set(trigger) - trigger_keys
-            if unknown:
-                names = ", ".join(sorted(map(str, unknown)))
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}].triggers[{trigger_index}] "
-                    f"has unsupported fields: {names}."
-                )
-            timestamp = trigger.get("source_timestamp_ms")
-            if type(timestamp) is not int or timestamp < 0 or not start <= timestamp < end:
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger timestamp is outside its window."
-                )
-            evidence = trigger.get("evidence")
-            if not _safe_relative_name(evidence):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger evidence is invalid."
-                )
-            if trigger.get("kind") != "occluded_receipt_line":
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger kind is invalid."
-                )
-            line_box = trigger.get("line_box")
-            if not _valid_box(line_box):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger geometry is invalid."
-                )
-            source_text_sha256 = trigger.get("source_line_text_sha256")
-            if not _valid_digest(source_text_sha256):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger source text binding is invalid."
-                )
-            owner_ref = trigger.get("owner_ref")
-            if owner_ref is not None and (not isinstance(owner_ref, str) or not owner_ref.strip()):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger owner is invalid."
-                )
-            owner_start, owner_end = trigger.get("owner_start_ms"), trigger.get("owner_end_ms")
-            if owner_ref is None:
-                if owner_start is not None or owner_end is not None:
-                    raise ValueError(
-                        f"Occluded-receipt recovery {label}[{index}] unowned trigger has owner bounds."
-                    )
-            elif (
-                type(owner_start) is not int or type(owner_end) is not int
-                or owner_start < 0 or owner_end < owner_start
-                or not owner_start <= timestamp <= owner_end
-            ):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger owner bounds are invalid."
-                )
-            trigger_start = trigger.get("window_start_ms")
-            trigger_end = trigger.get("window_end_ms")
-            if (
-                type(trigger_start) is not int or type(trigger_end) is not int
-                or trigger_start < 0 or trigger_end <= trigger_start
-                or not trigger_start <= timestamp < trigger_end
-            ):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger window is invalid."
-                )
-            if trigger_end - trigger_start > MAX_WINDOW_MS:
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger window exceeds the five-second bound."
-                )
-            if trigger_start < start or trigger_end > end:
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger window escapes its parent window."
-                )
-            overlay_count = trigger.get("physical_overlay_count")
-            if type(overlay_count) is not int or overlay_count < 1:
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger overlay count is invalid."
-                )
-            context = trigger.get("owner_context_title")
-            if context is not None and (not isinstance(context, str) or not context.strip()):
-                raise ValueError(
-                    f"Occluded-receipt recovery {label}[{index}] trigger context is invalid."
-                )
-            normalized = {
-                "source_timestamp_ms": timestamp,
-                "evidence": evidence,
-                "line_box": list(line_box),
-                "source_line_text_sha256": source_text_sha256,
-                "kind": "occluded_receipt_line",
-                "owner_ref": owner_ref.strip() if isinstance(owner_ref, str) else None,
-                "owner_start_ms": owner_start,
-                "owner_end_ms": owner_end,
-                "window_start_ms": trigger_start,
-                "window_end_ms": trigger_end,
-                "physical_overlay_count": overlay_count,
-            }
-            if isinstance(context, str):
-                normalized["owner_context_title"] = context.strip()
-            normalized_triggers.append(normalized)
-            identities.append((timestamp, evidence, tuple(line_box), owner_ref))
-        reason = raw.get("reason")
-        if reason is not None and (not isinstance(reason, str) or not reason.strip()):
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] reason is invalid."
-            )
-        fps = raw.get("fps")
-        if fps is not None and (type(fps) is not int or not 4 <= fps <= 60):
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] fps is invalid."
-            )
-        identity = (start, end, tuple(sorted(identities, key=repr)))
-        if identity in seen:
-            raise ValueError(
-                f"Occluded-receipt recovery {label}[{index}] duplicates another window."
-            )
-        # Capped source requests can overlap when their union exceeds the
-        # five-second inspection limit. Each trigger retains its own bounds;
-        # overlap alone does not create an additional effect observation.
-        seen.add(identity)
-        item: dict[str, Any] = {
-            "start_ms": start,
-            "end_ms": end,
-            "triggers": normalized_triggers,
-        }
-        if isinstance(reason, str):
-            item["reason"] = reason.strip()
-        if fps is not None:
-            item["fps"] = fps
-        result.append(item)
-    return result
-
-
 def _validate_inspection_windows(
     value: Any,
     duration_ms: int,
@@ -992,28 +811,6 @@ def _validate_inspection_windows(
         seen.add(key)
         result.append(dict(start_ms=start, end_ms=end, fps=fps, reason=reason.strip()))
     return result
-
-
-def _validate_plan_metadata(value: Any, source_sha256: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    """Validate a recovery plan before reusing any of its processed rows."""
-
-    if not isinstance(value, dict) or value.get("schema") != SCHEMA:
-        raise OccludedReceiptRecoveryError("Receipt recovery plan schema is invalid.")
-    if value.get("source_sha256") != source_sha256:
-        raise OccludedReceiptRecoveryError("Receipt recovery plan belongs to another recording.")
-    requested_fps = value.get("requested_fps")
-    if type(requested_fps) is not int or not 4 <= requested_fps <= 60:
-        raise OccludedReceiptRecoveryError("Receipt recovery plan requested_fps is invalid.")
-    arrays: list[list[dict[str, Any]]] = []
-    for label in ("requested_windows", "processed_windows", "pending_windows"):
-        raw = value.get(label)
-        if not isinstance(raw, list):
-            raise OccludedReceiptRecoveryError(f"Receipt recovery plan {label} must be an array.")
-        try:
-            arrays.append(_validate_replay_windows(raw, label))
-        except ValueError as exc:
-            raise OccludedReceiptRecoveryError(str(exc)) from exc
-    return arrays[0], arrays[1], arrays[2]
 
 
 def _window_key(window: dict[str, Any], default_fps: int) -> tuple[int, int, int]:
@@ -3203,6 +3000,7 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
     from .full_recording import save_json
     from .inspect_receipts import inspect
     from .inspect_receipts import merge
+    from .inspect_receipts import window_readings
     from .inspect_training import reparse_inspection
     from .vision import NeuralReader
 
@@ -3234,8 +3032,6 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
 
     existing = None
     existing_windows: list[dict[str, Any]] = []
-    prior_processed: list[dict[str, Any]] = []
-    resumed_unfinished_inspection = False
     if manifest.exists():
         existing = _load_json(manifest, "Receipt recovery inspection")
         if not isinstance(existing, dict) or existing.get("source_sha256") != source_info["sha256"]:
@@ -3243,50 +3039,6 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
         _, existing_windows = _validate_inspection_cache(
             existing, directory, source_info["sha256"], duration_ms
         )
-        plan_path = directory / "last-plan.json"
-        if plan_path.is_file():
-            prior_plan = _load_json(plan_path, "Receipt recovery plan")
-        else:
-            # Inspection writes source-bound frames before the final plan.
-            # After interruption, reuse those frames only when every cached
-            # window is an exact request independently recomputed from the
-            # current source rows. No ownership is inferred from the cache.
-            requested_by_key = {_window_key(window, fps): window
-                                for window in requested_with_fps}
-            cached_keys = {(window['start_ms'], window['end_ms'], window['fps'])
-                           for window in existing_windows}
-            if not cached_keys <= requested_by_key.keys():
-                raise OccludedReceiptRecoveryError(
-                    'Unfinished receipt inspection contains windows outside the current source plan.'
-                )
-            prior_plan = dict(
-                schema=SCHEMA, source_sha256=source_info['sha256'],
-                manifest_sha256=_sha256_file(manifest), requested_fps=fps,
-                requested_windows=requested_with_fps,
-                processed_windows=[window for key, window in requested_by_key.items() if key in cached_keys],
-                pending_windows=[window for key, window in requested_by_key.items() if key not in cached_keys],
-            )
-            resumed_unfinished_inspection = True
-        _, prior_processed, _ = _validate_plan_metadata(
-            prior_plan, source_info["sha256"]
-        )
-        declared_manifest = prior_plan.get("manifest_sha256")
-        if not _valid_digest(declared_manifest):
-            raise OccludedReceiptRecoveryError(
-                "Receipt recovery plan is not bound to its inspection manifest."
-            )
-        if declared_manifest != _sha256_file(manifest):
-            raise OccludedReceiptRecoveryError("Receipt recovery plan is stale.")
-        actual_keys = {
-            (window["start_ms"], window["end_ms"], window["fps"])
-            for window in existing_windows
-        }
-        for index, processed_window in enumerate(prior_processed):
-            key = _window_key(processed_window, int(prior_plan.get("requested_fps", fps)))
-            if key not in actual_keys:
-                raise OccludedReceiptRecoveryError(
-                    f"Receipt recovery processed_windows[{index}] is not an inspected cache window."
-                )
     old_count = len(existing.get("readings", [])) if isinstance(existing, dict) else 0
     completed = {
         (window["start_ms"], window["end_ms"], window["fps"])
@@ -3294,18 +3046,23 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
     }
     processed, pending = [], []
     used_ms = 0
-    new_windows = 0
+    used = 0
     reader = None
     steps = []
+    # Every window counts toward the budget, read before a pause or not, so a
+    # resumed run reads the windows a run straight through reads. A saved
+    # window this plan does not pick is left unused.
     for window in requested:
+        if used >= max_windows or used_ms + window["end_ms"] - window["start_ms"] > max_duration_ms:
+            pending.append(dict(window, fps=fps))
+            continue
+        used_ms += window["end_ms"] - window["start_ms"]
+        used += 1
         key = (window["start_ms"], window["end_ms"], fps)
-        if key not in completed:
-            if not allow_ocr or new_windows >= max_windows or used_ms + window["end_ms"] - window["start_ms"] > max_duration_ms:
-                pending.append(dict(window, fps=fps))
-                continue
+        if key not in completed and not allow_ocr:
+            pending.append(dict(window, fps=fps))
+        elif key not in completed:
             steps.append((window, "new"))
-            used_ms += window["end_ms"] - window["start_ms"]
-            new_windows += 1
         elif allow_ocr:
             steps.append((window, "revalidate"))
         else:
@@ -3351,7 +3108,7 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
     }
     registered_processed: list[dict[str, Any]] = []
     registered_keys: set[tuple[int, int, int]] = set()
-    for candidate in [*prior_processed, *processed]:
+    for candidate in processed:
         key = _window_key(candidate, fps)
         if key not in actual_window_keys:
             raise OccludedReceiptRecoveryError(
@@ -3362,7 +3119,7 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
         registered_keys.add(key)
         registered_processed.append(dict(candidate, fps=key[2]))
     processed = registered_processed
-    fresh = reparse_inspection(inspection, directory)
+    fresh = reparse_inspection(window_readings(inspection, processed, fps), directory)
 
     def relocate(value: Any) -> Any:
         if isinstance(value, dict):
@@ -3374,17 +3131,7 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
         return value
 
     relocated = relocate(fresh)
-    # A previously inspected subwindow remains the only source-bound scope
-    # when a later plan merges it into a larger request.  Its triggers came
-    # from the same hashed plan and are checked against the immutable base
-    # rows by scoped_observations.
-    scope_windows = list(prior_processed)
-    prior_keys = {_window_key(window, fps) for window in scope_windows}
-    scope_windows.extend(
-        window for window in processed
-        if _window_key(window, fps) not in prior_keys
-    )
-    promoted = scoped_observations(readings, relocated, scope_windows)
+    promoted = scoped_observations(readings, relocated, processed)
     promoted_times = {row.get("source_timestamp_ms") for row in promoted}
     unassigned = [
         dict(
@@ -3415,7 +3162,6 @@ def recover(source: str | Path, root: str | Path, source_info: dict[str, Any],
         unpromoted_observations=unassigned,
         ocr_engine_fingerprint=reader.fingerprint if reader else None,
         observed_ocr_models=models,
-        resumed_unfinished_inspection=resumed_unfinished_inspection,
         complete_event_history=False,
     )
     save_json(directory / "last-plan.json", metadata)

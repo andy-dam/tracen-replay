@@ -203,3 +203,16 @@ class ReceiptInspectionTests(unittest.TestCase):
         self.assertEqual(read("Friendship with Sirius Symbolididn't go up.")['effects'][0]['name'],'Sirius Symboli')
         self.assertEqual(read('Friendship with Light Hello ismaxed out.')['effects'][0]['value'],'maximum')
         self.assertEqual(read('Energy went down by]8.')['effects'],[])
+
+    def test_window_readings_keep_only_the_frames_of_the_named_windows(self):
+        # A frame of an overlapping window, or of the same span read at
+        # another rate, is not one of the window's own frames.
+        from tracen_replay.inspect_receipts import window_readings
+        inspection=dict(source_sha256='s'*64,windows=[],readings=[
+            dict(source_timestamp_ms=1000,evidence='receipt-inspection/900-1400-30/frame-000001.png'),
+            dict(source_timestamp_ms=1100,evidence='receipt-inspection/1000-1500-30/frame-000001.png'),
+            dict(source_timestamp_ms=1200,evidence='receipt-inspection/900-1400-60/frame-000001.png')])
+        kept=window_readings(inspection,[dict(start_ms=900,end_ms=1400)],30)
+        self.assertEqual([r['source_timestamp_ms'] for r in kept['readings']],[1000])
+        self.assertEqual(kept['source_sha256'],'s'*64)
+        self.assertEqual(len(inspection['readings']),3)

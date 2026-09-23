@@ -1098,7 +1098,7 @@ class TrainingReader:
 def recover(source, root, source_info, readings, events, *, allow_ocr=True,
             model_dir='.local/models/rapidocr', max_windows=96, max_duration_ms=120000, dense_workers=1):
     from .full_recording import save_json
-    from .inspect_receipts import inspect
+    from .inspect_receipts import inspect,window_readings
     from .inspect_training import reparse_inspection
     root=Path(root); directory=root/'training-gain-recovery'; manifest=directory/'receipt-inspection.json'
     requested=plan(readings,events)
@@ -1109,17 +1109,20 @@ def recover(source, root, source_info, readings, events, *, allow_ocr=True,
         if json.loads(capture.read_text(encoding='utf-8'))['source']!=source_info:raise ValueError('Training recovery source changed')
     else:save_json(capture,dict(source=source_info))
     prior=json.loads(manifest.read_text(encoding='utf-8')) if manifest.exists() else dict(readings=[],windows=[])
-    initial_count=len(prior['readings']);processed=[];pending=[];budget=0;new_windows=0;reader=None
-    # Decide the plan first (same budget rule as before), OCR the new windows in
-    # a pool, then record them sequentially in plan order.
+    initial_count=len(prior['readings']);processed=[];pending=[];budget=0;used=0;reader=None
+    # Decide the plan first, OCR the new windows in a pool, then record them
+    # sequentially in plan order. Every window counts toward the budget, read
+    # before a pause or not, so a resumed run reads the windows a run straight
+    # through reads, and only their readings are promoted.
     steps=[]
     for window in requested:
         cached=any(w['start_ms']==window['start_ms'] and w['end_ms']==window['end_ms'] and w['fps']==60 for w in prior['windows'])
         duration=window['end_ms']-window['start_ms']
-        if not cached and (not allow_ocr or new_windows>=max_windows or budget+duration>max_duration_ms):
+        if used>=max_windows or budget+duration>max_duration_ms:
             pending.append(window);continue
-        if not cached:new_windows+=1;budget+=duration
-        steps.append((window,cached))
+        used+=1;budget+=duration
+        if not cached and not allow_ocr:pending.append(window)
+        else:steps.append((window,cached))
     if allow_ocr:
         from .dense_inspection_pool import prepare_windows
         prepare_windows(source,directory,[w for w,cached in steps if not cached],60,kind='training',model_dir=model_dir,workers=dense_workers)
@@ -1130,7 +1133,7 @@ def recover(source, root, source_info, readings, events, *, allow_ocr=True,
     if not manifest.exists():
         return readings,dict(requested_windows=requested,processed_windows=processed,pending_windows=pending,new_frames=0)
     inspection=json.loads(manifest.read_text(encoding='utf-8'))
-    fresh=reparse_inspection(inspection,directory)
+    fresh=reparse_inspection(window_readings(inspection,processed,60),directory)
     for row in fresh:row['evidence']='training-gain-recovery/'+row['evidence']
     merged,candidate_recoveries=promote_with_metadata(readings,fresh,processed)
     metadata=dict(method='bounded_native_training_gain_recovery',source_sha256=(

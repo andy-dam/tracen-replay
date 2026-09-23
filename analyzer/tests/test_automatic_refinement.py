@@ -150,6 +150,36 @@ class AutomaticRefinementTests(unittest.TestCase):
             excluded = [item for item in result["unresolved"] if "budget_exhausted" in item["reason"]]
             self.assertEqual([item["frame_id"] for item in excluded], ["second"])
 
+    def test_a_resumed_run_refines_what_an_uninterrupted_run_refines(self):
+        # A paused run wrote the first frame's sidecar, and one past the
+        # budget a later run left; resumed with a budget of two it refines
+        # only the second frame, keeps the first and removes the third.
+        with workspace_temp() as root:
+            names = ("first", "second", "third")
+            report = self._report(*names)
+            folder = root / "performance-panel-refinement"
+            folder.mkdir()
+            for name in ("first", "third"):
+                (folder / f"{name}.json").write_text("{}", encoding="utf-8")
+            discovered = {
+                "panel": [
+                    {"frame_id": name, "source_timestamp_ms": index * 250, "fields": ["dance"],
+                     "status": "candidate" if name == "second" else "existing",
+                     "sidecar": f"performance-panel-refinement/{name}.json"}
+                    for index, name in enumerate(names)
+                ],
+                "status": [], "missing": [], "malformed": [],
+            }
+            with patch("tracen_replay.automatic_refinement.discover", return_value=discovered):
+                result = run(report, root, allow_ocr=False, max_panel_frames=2)
+
+            self.assertEqual(result["selected"]["panel_frames"], ["second"])
+            self.assertEqual(result["existing_sidecars"]["performance_panel"], 1)
+            self.assertTrue((folder / "first.json").is_file())
+            self.assertFalse((folder / "third.json").exists())
+            excluded = [item for item in result["unresolved"] if "budget_exhausted" in item["reason"]]
+            self.assertEqual([(item["frame_id"], item["status"]) for item in excluded], [("third", "candidate")])
+
     def test_generators_find_source_frame_evidence_in_fresh_capture_envelope(self):
         from tracen_replay.performance_panel_refinement import _selected_frames as panel_frames
         from tracen_replay.status_badge_refinement import _selected_frames as status_frames

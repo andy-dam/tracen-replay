@@ -225,9 +225,18 @@ def _window_setup(source,root,start,end,fps):
     if not 4<=fps<=60:raise PipelineError('Receipt sampling must be 4 to 60 FPS.')
     with Path(source).open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
     if digest!=capture['source']['sha256']:raise PipelineError('Receipt source mismatch.')
-    directory=root/'receipt-inspection'/f'{start}-{end}-{fps}';directory.mkdir(parents=True,exist_ok=True)
+    directory=root/_window_folder(start,end,fps);directory.mkdir(parents=True,exist_ok=True)
     frames_dir=directory/'frames';frames_dir.mkdir(exist_ok=True);manifest=directory/'frames.json'
     return capture,digest,directory,frames_dir,manifest
+
+
+def _window_folder(start,end,fps):return f'receipt-inspection/{start}-{end}-{fps}'
+
+
+def window_readings(inspection,windows,fps):
+    """``inspection`` with only the readings of ``windows``, each sampled at ``fps``."""
+    folders={_window_folder(w['start_ms'],w['end_ms'],fps) for w in windows}
+    return dict(inspection,readings=[r for r in inspection['readings'] if Path(r['evidence']).parent.as_posix() in folders])
 
 
 def _window_frames(source,capture,directory,frames_dir,manifest,start,end,fps,completed):

@@ -1,5 +1,7 @@
 import copy
+import json
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from tracen_replay.receipt_recovery import caption_identity, plan, scoped_observations, recover
@@ -44,6 +46,51 @@ class ReceiptRecoveryTests(unittest.TestCase):
                 self.assertEqual(merged, original)
                 self.assertEqual(len(metadata['pending_windows']), 1)
                 self.assertEqual(metadata['processed_windows'], [])
+
+    def _resume(self, saved, fresh=()):
+        """Recover two receipts with a budget of one window; window ``saved``, read before a pause, holds ``fresh``."""
+        from tests.test_gameplay import workspace_temp
+        readings = [dict(row(time, 'Speed went up by'), effects=[], facts={}, stats={}) for time in (1000, 9000)]
+        events = [event(900, 1100), event(8900, 9100)]
+        windows = plan(readings, events, 10000)
+        window = dict(start_ms=windows[saved]['start_ms'], end_ms=windows[saved]['end_ms'], fps=30)
+        folder = 'receipt-inspection/{start_ms}-{end_ms}-{fps}'.format(**window)
+        rows = {f"{folder}/{item['source_timestamp_ms']}.png": item for item in fresh}
+        with workspace_temp() as root:
+            directory = root / 'numeric-receipt-recovery'
+            (directory / folder).mkdir(parents=True)
+            for evidence in rows:
+                (directory / evidence).with_suffix('.v2.json').write_text(json.dumps(dict(
+                    engine_fingerprint='f', model_sha256={'model.onnx': 'm'*64})), encoding='utf-8')
+            (directory / 'receipt-inspection.json').write_text(json.dumps(dict(
+                source_sha256='a'*64, windows=[window],
+                readings=[dict(source_timestamp_ms=item['source_timestamp_ms'], evidence=evidence)
+                          for evidence, item in rows.items()])), encoding='utf-8')
+            with patch('tracen_replay.inspect_receipts.inspect'), \
+                 patch('tracen_replay.dense_inspection_pool.prepare_windows', return_value=0) as prepare, \
+                 patch('tracen_replay.vision.NeuralReader', return_value=SimpleNamespace(fingerprint='f')), \
+                 patch('tracen_replay.inspect_training.reparse_inspection',
+                       side_effect=lambda inspection, _: [rows[r['evidence']] for r in inspection['readings']]):
+                merged, metadata = recover('unused.mp4', root, {'sha256': 'a'*64, 'duration_ms': 10000},
+                                           readings, events, max_windows=1)
+        return windows, readings, merged, metadata, prepare.call_args.args[2]
+
+    def test_a_window_a_paused_run_read_counts_toward_the_budget(self):
+        (first, second), _, _, metadata, new = self._resume(0)
+        self.assertEqual(metadata['processed_windows'], [first])
+        self.assertEqual(metadata['pending_windows'], [second])
+        self.assertEqual(new, [])
+
+    def test_a_saved_window_past_the_budget_is_not_promoted(self):
+        # A run straight through never reads the second window, so its saved
+        # amount stays out of the readings.
+        fresh = row(9000, 'Speed went up by 5.')
+        fresh.update(effects=[dict(kind='stat_change', field='speed', amount=5)], facts={}, stats={})
+        (first, _), readings, merged, metadata, new = self._resume(1, [fresh])
+        self.assertEqual(metadata['processed_windows'], [first])
+        self.assertEqual(new, [first])
+        self.assertEqual(merged, readings)
+        self.assertEqual(metadata['unpromoted_observations'], [])
 
     def test_numeric_probe_preserves_other_observations_and_keeps_numeric_conflicts(self):
         from tracen_replay.inspect_receipts import merge
