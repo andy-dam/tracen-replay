@@ -139,7 +139,7 @@ directory, so no user path is hardcoded):
 | `-registration` | `open` | who may create an account: `open`, `invite` (a code from `-invite-code`) or `closed` |
 | `-invite-code` | unset | comma-separated invite codes accepted with `-registration invite` |
 | `-ffprobe` | `ffprobe` | ffprobe executable; every upload is probed and refused when it is not a video or is over the limits below |
-| `-upload-limit-gb` | `3` | largest upload accepted |
+| `-upload-limit-gb` | `8` | largest upload accepted |
 | `-max-recordings` | `5` | uploads one user may keep at once; 0 for no limit |
 | `-max-recording-gb` | `8` | space one user's uploads may take together; 0 for no limit |
 | `-max-storage-gb` | `100` | space all uploads may take together; further uploads are refused as temporary (`storage_full`); 0 for no limit |
@@ -508,6 +508,6 @@ message next to the control that caused it.
   access to the data directory can read every recording and report.
 - By default a user keeps five uploads and 8 GB, starts three analyses a
   day (one at a time) and the service starts 24 a day; an upload is at most
-  3 GB and three hours long; uploads are deleted 14 days after they were
+  8 GB and three hours long; uploads are deleted 14 days after they were
   made once nothing is analyzing them, and their reports stay. Each bound
   is a flag (see the table above) and 0 turns it off.
