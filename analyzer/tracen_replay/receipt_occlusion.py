@@ -376,12 +376,41 @@ def _vertical_hit(box,band,region):
     return min(band[1],box[3])-max(band[0],box[1])>MIN_GLYPH_OVERLAP_PX
 
 
+def _arrow(component):
+    """Whether a green fill has the pointer's shape.
+
+    The game's pointer points up and to the left: row by row its head reaches
+    about a pixel further right along a straight left edge, to five or more
+    pixels wide (the pointer's size follows the screen, not the game), with
+    the tail below. Compression blurs it: the paler green of the tip can
+    fall outside the mask, leaving a stray pixel off the edge or starting
+    the fill a few rows down, and a row can dip, so the edge is judged on
+    rows three or more pixels wide and small dips pass. Green scenery,
+    stripes and icons of the pointer's size do not have this shape.
+    """
+    spans={}
+    for x,y in component:
+        low,high=spans.get(y,(x,x));spans[y]=(min(low,x),max(high,x))
+    rows=[spans[y] for y in sorted(spans)]
+    widths=[high-low+1 for low,high in rows]
+    peak=widths.index(max(widths))
+    solid=[i for i in range(peak+1) if widths[i]>=3]
+    if not solid:return False
+    first=solid[0];edge=[rows[i][0] for i in solid]
+    return (peak>=3 and widths[peak]>=5 and peak-first>=2 and max(edge)-min(edge)<=3
+            and all(widths[i+1]>=widths[i]-3 for i in range(peak))
+            and .4<=(widths[peak]-widths[first])/(peak-first)<=2)
+
+
 def overlay_boxes(pane):
     import numpy as np
     if pane.size != pane_size():raise ValueError('Expected the gameplay crop.')
     pixels=np.asarray(pane.convert('RGB')).astype('int16')
     band_top,band_bottom=receipt_rows()
-    band=pixels[band_top:band_bottom]
+    # The search reaches a pointer's height past the receipt rows, so a
+    # pointer they cut is judged by its whole shape.
+    search_top,search_bottom=max(0,band_top-26),min(pixels.shape[0],band_bottom+26)
+    band=pixels[search_top:search_bottom]
     r,g,b=band[:,:,0],band[:,:,1],band[:,:,2]
     mask=(g>140)&(g>r*1.3)&(g>b*1.2)&(r<170)&(b<170)
     ys,xs=np.nonzero(mask);pending=set(zip(xs.tolist(),ys.tolist()));boxes=[]
@@ -392,8 +421,9 @@ def overlay_boxes(pane):
             for neighbor in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
                 if neighbor in pending:
                     pending.remove(neighbor);stack.append(neighbor);component.append(neighbor)
-        xs,ys=zip(*component);left,right=min(xs),max(xs)+1;top,bottom=min(ys)+band_top,max(ys)+band_top+1
-        if not (20<=len(component)<=180 and 5<=right-left<=20 and 8<=bottom-top<=26):continue
+        xs,ys=zip(*component);left,right=min(xs),max(xs)+1;top,bottom=min(ys)+search_top,max(ys)+search_top+1
+        if bottom<=band_top or band_bottom<=top:continue
+        if not (20<=len(component)<=180 and 5<=right-left<=20 and 8<=bottom-top<=26 and _arrow(component)):continue
         neighborhood=pixels[max(band_top,top-10):min(band_bottom,bottom+10),max(0,left-10):min(pane.width,right+10)]
         white=(neighborhood.min(axis=2)>190)&(neighborhood.max(axis=2)-neighborhood.min(axis=2)<55)
         # The cursor sits on the white receipt bubble; parked over a word,

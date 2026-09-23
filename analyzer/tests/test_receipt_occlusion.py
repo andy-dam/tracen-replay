@@ -162,6 +162,23 @@ class ReceiptOcclusionTests(unittest.TestCase):
         ImageDraw.Draw(pane).rectangle((354,874,383,883),fill=(60,40,30))
         self.assertEqual(overlay_boxes(pane),[])
 
+    def test_only_the_pointers_arrow_is_a_pointer(self):
+        green=(100,190,60)
+        # Green of the pointer's size on the bubble that is not an arrow (a
+        # phone's scenery, an icon) is no pointer.
+        for shape in ([(364,860),(373,860),(368,872)],[(364,860),(371,860),(371,872),(364,872)]):
+            _,pane=self.sample(False)
+            ImageDraw.Draw(pane).polygon(shape,fill=green)
+            self.assertEqual(overlay_boxes(pane),[],shape)
+        # A pointer drawn smaller (a smaller game window) is one.
+        _,pane=self.sample(False)
+        ImageDraw.Draw(pane).polygon([(364,860),(370,866),(367,866),(368,870),(366,871)],fill=green)
+        self.assertEqual(len(overlay_boxes(pane)),1)
+        # So is one the top of the receipt rows cuts, judged by its whole shape.
+        _,pane=self.sample(False)
+        ImageDraw.Draw(pane).polygon([(400,764),(409,773),(405,773),(406,779),(403,780)],fill=green)
+        self.assertEqual([box[1] for box in overlay_boxes(pane)],[761])
+
     def test_changed_pixels_and_wrong_crop_are_rejected(self):
         source,pane=self.sample();pane.putpixel((0,0),(0,0,0))
         with self.assertRaises(ValueError):annotate(source,pane)
