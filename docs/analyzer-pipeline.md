@@ -468,7 +468,13 @@ second of the Rest's own scene, nothing else was sampled between the two, and
 the receipt could be nobody else's: no companion line, no treated condition,
 and not the infirmary's own scene (`basis:
 hub_exit_repeated_recovery_and_turn_boundary_without_a_sampled_confirmation`,
-`identity_basis: hub_exit_and_receipt`).
+`identity_basis: hub_exit_and_receipt`). The scene can open on the trainee's
+first words for a moment before its title shows: an unlabelled frame with no
+title and no stat bar, within two seconds of the first titled frame, is the
+scene too. The hub must be where the turn's action was chosen: a training's
+or race's result since the hub's date began (or, before the debut and in the
+finale, since its countdown to the goal) means the hub came back for that
+turn's own events, and no Rest is asserted.
 
 ## Turn ledger
 
