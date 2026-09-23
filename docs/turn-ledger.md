@@ -24,6 +24,9 @@ successive confirmed calendar or countdown observations
   text (`date_key`).
 - **`countdown_segment`**: a pre-debut phase identified only by its "N turns
   to goal" countdown, when the calendar text itself does not carry a date.
+  The number is read at confidence 90 or higher beside the words `turn(s)`
+  and `left`, which count from 80: they are short and read less surely on
+  a phone's smaller type and in re-encoded videos.
   A phase whose countdown was never read stays an **`unresolved_phase`**
   instead of being split or numbered by guesswork. The exception is the
   phase's opening frames: when the phase is read before its first countdown
