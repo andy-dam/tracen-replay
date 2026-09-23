@@ -297,11 +297,25 @@ def discover(report: dict[str, Any], root: str | Path) -> dict[str, Any]:
     }
 
 
-def _select(items: list[dict[str, Any]], limit: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _select(root: Path, items: list[dict[str, Any]], limit: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The first ``limit`` weak frames to refine, and the ones left over.
+
+    A frame whose sidecar an interrupted run already wrote counts toward the
+    budget like one still to refine, so a run resumed after a pause refines
+    the same frames as one that ran straight through. A sidecar beyond the
+    budget is one such a run never writes: it is removed, and its frame is
+    left over like any other.
+    """
     if type(limit) is not int or limit < 0:
         raise ValueError("Automatic refinement frame budget must be a non-negative integer.")
-    candidates = [item for item in items if item.get("status") == "candidate"]
-    return candidates[:limit], candidates[limit:]
+    weak = [item for item in items if item.get("status") in ("candidate", "existing")]
+    left = []
+    for item in weak[limit:]:
+        if item["status"] == "existing":
+            (root / item["sidecar"]).unlink(missing_ok=True)
+            item = dict(item, status="candidate")
+        left.append(item)
+    return [item for item in weak[:limit] if item["status"] == "candidate"], left
 
 
 def _range_for(items: list[dict[str, Any]]) -> tuple[int, int] | None:
@@ -341,16 +355,17 @@ def run(
 
     root = Path(root).resolve()
     discovered = discover(report, root)
-    panel_existing = [item for item in discovered["panel"] if item["status"] == "existing"]
-    status_existing = [item for item in discovered["status"] if item["status"] == "existing"]
     weak_items = discovered.get("weak", [])
     numeric_items = discovered.get("numeric", [])
-    weak_existing = [item for item in weak_items if item["status"] == "existing"]
-    numeric_existing = [item for item in numeric_items if item["status"] == "existing"]
-    panel_selected, panel_budget_excluded = _select(discovered["panel"], max_panel_frames)
-    status_selected, status_budget_excluded = _select(discovered["status"], max_status_frames)
-    weak_selected, weak_budget_excluded = _select(weak_items, max_weak_frames)
-    numeric_selected, numeric_budget_excluded = _select(numeric_items, max_numeric_frames)
+    panel_selected, panel_budget_excluded = _select(root, discovered["panel"], max_panel_frames)
+    status_selected, status_budget_excluded = _select(root, discovered["status"], max_status_frames)
+    weak_selected, weak_budget_excluded = _select(root, weak_items, max_weak_frames)
+    numeric_selected, numeric_budget_excluded = _select(root, numeric_items, max_numeric_frames)
+
+    def kept(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [item for item in items if item["status"] == "existing" and (root / item["sidecar"]).is_file()]
+    panel_existing, status_existing = kept(discovered["panel"]), kept(discovered["status"])
+    weak_existing, numeric_existing = kept(weak_items), kept(numeric_items)
     audit: dict[str, Any] = {
         "schema_version": SCHEMA,
         "source_sha256": report.get("source", {}).get("sha256"),

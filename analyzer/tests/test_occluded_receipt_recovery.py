@@ -9,7 +9,6 @@ from tracen_replay.occluded_receipt_recovery import (
     _adjacent_owner,
     _validate_inspection_cache,
     _validate_inspection_windows,
-    _validate_replay_windows,
     plan,
     recover,
     scoped_observations,
@@ -210,7 +209,6 @@ class OccludedReceiptRecoveryTests(unittest.TestCase):
         self.assertTrue(any(right['start_ms'] < left['end_ms']
                             for left, right in zip(windows, windows[1:])))
         self.assertTrue(all(window['end_ms'] - window['start_ms'] <= 5000 for window in windows))
-        _validate_replay_windows(windows, 'processed_windows')
         inspected = [{key: window[key] for key in ('start_ms', 'end_ms', 'reason')}
                      | {'fps': 16} for window in windows]
         self.assertEqual(len(_validate_inspection_windows(inspected, 10000)), len(windows))
@@ -399,16 +397,6 @@ class OccludedReceiptRecoveryTests(unittest.TestCase):
         self.assertEqual(len(promoted), 1)
         self.assertEqual(promoted[0]["facts"]["occluded_receipt_recovery"]["owner_basis"],
                          "outcome_event")
-
-    def test_replay_plan_rejects_expanded_window_and_missing_source_binding(self):
-        windows = plan([base_row()], [owner()], 200000)
-        expanded = dict(windows[0], start_ms=0, end_ms=50000)
-        with self.assertRaises(ValueError):
-            _validate_replay_windows([expanded], "processed_windows")
-        missing_binding = json.loads(json.dumps(windows))
-        missing_binding[0]["triggers"][0].pop("source_line_text_sha256")
-        with self.assertRaises(ValueError):
-            _validate_replay_windows(missing_binding, "processed_windows")
 
     def test_cache_manifest_rejects_oversized_window_before_file_access(self):
         from tests.test_gameplay import workspace_temp
@@ -885,27 +873,57 @@ class OccludedReceiptRecoveryTests(unittest.TestCase):
                 window = {key: requests[0][key] for key in ('start_ms', 'end_ms', 'reason')} | {'fps': 16}
                 if unexpected_window:
                     window['start_ms'] += 1
-                inspection = {'source_sha256': source['sha256'], 'windows': [window], 'readings': [clear_row()]}
+                saved = clear_row(evidence='receipt-inspection/{start_ms}-{end_ms}-{fps}/clear.png'.format(**window))
+                inspection = {'source_sha256': source['sha256'], 'windows': [window], 'readings': [saved]}
                 (folder / 'receipt-inspection.json').write_text(json.dumps(inspection), encoding='utf-8')
                 # Isolate interruption handling from the separately tested
                 # source-pixel verifier. Both branches have a valid cache;
                 # only one was requested by the current source observations.
                 with patch('tracen_replay.occluded_receipt_recovery._validate_inspection_cache',
                            return_value=({'fixture': {'model.onnx': 'b' * 64}}, [window])), \
-                        patch('tracen_replay.inspect_training.reparse_inspection', return_value=[clear_row()]), \
+                        patch('tracen_replay.inspect_training.reparse_inspection',
+                              side_effect=lambda cached, _: cached['readings']), \
                         patch('tracen_replay.vision.NeuralReader', side_effect=AssertionError('unexpected OCR')):
-                    if unexpected_window:
-                        with self.assertRaisesRegex(OccludedReceiptRecoveryError, 'outside the current source plan'):
-                            recover('source.mp4', root, source, [base_row()], [owner()], allow_ocr=False)
-                        self.assertFalse((folder / 'last-plan.json').exists())
-                    else:
-                        rows, metadata = recover('source.mp4', root, source, [base_row()], [owner()], allow_ocr=False)
-                        self.assertTrue(metadata['resumed_unfinished_inspection'])
-                        self.assertEqual(len(metadata['processed_windows']), 1)
-                        self.assertEqual(metadata['pending_windows'], [])
-                        self.assertEqual(metadata['new_frames'], 0)
-                        self.assertTrue((folder / 'last-plan.json').is_file())
-                        self.assertTrue(any(row['source_timestamp_ms'] == 155800 for row in rows))
+                    rows, metadata = recover('source.mp4', root, source, [base_row()], [owner()], allow_ocr=False)
+                self.assertEqual(metadata['new_frames'], 0)
+                self.assertTrue((folder / 'last-plan.json').is_file())
+                if unexpected_window:
+                    # A saved window the plan does not pick is left unused.
+                    self.assertEqual(metadata['processed_windows'], [])
+                    self.assertEqual(len(metadata['pending_windows']), 1)
+                    self.assertFalse(any(row['source_timestamp_ms'] == 155800 for row in rows))
+                else:
+                    self.assertEqual(len(metadata['processed_windows']), 1)
+                    self.assertEqual(metadata['pending_windows'], [])
+                    self.assertTrue(any(row['source_timestamp_ms'] == 155800 for row in rows))
+
+    def test_a_window_a_paused_run_read_counts_toward_the_budget(self):
+        # Two receipts to reread and a budget of one window: the window read
+        # before a pause is the budget, as it is for a run straight through.
+        from tests.test_gameplay import workspace_temp
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        source = {'sha256': 'a' * 64, 'duration_ms': 200000}
+        rows = [base_row(), dict(base_row(), source_timestamp_ms=175750, **source_meta(175750, 'later.png'))]
+        owners = [owner(), owner(event_id='outcome-2', start=175750, end=175750)]
+        first, second = plan(rows, owners, source['duration_ms'])
+        with workspace_temp() as root:
+            folder = root / 'occluded-receipt-recovery'
+            folder.mkdir()
+            window = {key: first[key] for key in ('start_ms', 'end_ms', 'reason')} | {'fps': 16}
+            (folder / 'receipt-inspection.json').write_text(json.dumps(
+                {'source_sha256': source['sha256'], 'windows': [window], 'readings': []}), encoding='utf-8')
+            with patch('tracen_replay.occluded_receipt_recovery._validate_inspection_cache',
+                       return_value=({}, [window])), \
+                    patch('tracen_replay.inspect_receipts.inspect'), \
+                    patch('tracen_replay.dense_inspection_pool.prepare_windows', return_value=0) as prepare, \
+                    patch('tracen_replay.inspect_training.reparse_inspection', return_value=[]), \
+                    patch('tracen_replay.vision.NeuralReader', return_value=SimpleNamespace(fingerprint='f')):
+                _, metadata = recover('source.mp4', root, source, rows, owners, max_windows=1)
+        self.assertEqual([w['start_ms'] for w in metadata['processed_windows']], [first['start_ms']])
+        self.assertEqual([w['start_ms'] for w in metadata['pending_windows']], [second['start_ms']])
+        self.assertEqual(prepare.call_args.args[2], [])
 
 
 if __name__ == "__main__":

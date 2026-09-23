@@ -130,6 +130,25 @@ class TrainingGainRecoveryTests(unittest.TestCase):
                 self.assertEqual(metadata['processed_windows'],[])
                 self.assertEqual(metadata['new_frames'],0)
 
+    def test_a_window_a_paused_run_read_counts_toward_the_budget(self):
+        # Two trainings to reread and a budget of one window: the window read
+        # before a pause is the budget, as it is for a run straight through.
+        rows=[row(100,{'speed':1}),row(150,{'speed':13}),row(9100,{'speed':1}),row(9150,{'speed':13})]
+        events=[dict(id=f'training-{start}',kind='training',first_seen_ms=start,last_seen_ms=start+310,
+                     conflicting_readings={'speed':[1,13]}) for start in (90,9090)]
+        first,second=plan(rows,events)
+        with workspace_temp() as root:
+            directory=root/'training-gain-recovery';directory.mkdir()
+            (directory/'receipt-inspection.json').write_text(json.dumps(dict(
+                source_sha256='source',windows=[dict(start_ms=first['start_ms'],end_ms=first['end_ms'],fps=60)],readings=[])),
+                encoding='utf-8')
+            with patch('tracen_replay.inspect_receipts.inspect'), \
+                 patch('tracen_replay.dense_inspection_pool.prepare_windows',return_value=0), \
+                 patch('tracen_replay.vision.NeuralReader',side_effect=AssertionError('Unexpected OCR')):
+                _,metadata=recover(root/'source.mp4',root,{'sha256':'source'},rows,events,max_windows=1)
+        self.assertEqual(metadata['processed_windows'],[first])
+        self.assertEqual(metadata['pending_windows'],[second])
+
     def test_changed_source_cache_is_rejected_before_probe(self):
         rows=[row(100,{'speed':1})]
         events=[dict(id='training',kind='training',first_seen_ms=90,last_seen_ms=400,

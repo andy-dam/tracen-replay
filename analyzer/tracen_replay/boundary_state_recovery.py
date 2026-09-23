@@ -986,7 +986,7 @@ def recover(source, root, report, readings, *, allow_ocr=True,
         )
 
     from .full_recording import save_json
-    from .inspect_receipts import inspect
+    from .inspect_receipts import inspect, window_readings
     from .inspect_training import reparse_inspection
     from .vision import NeuralReader
 
@@ -1056,7 +1056,8 @@ def recover(source, root, report, readings, *, allow_ocr=True,
     if inspection.get('source_sha256') != source_info.get('sha256'):
         raise ValueError('Boundary recovery inspection belongs to another recording')
     models = _cached_model_provenance(inspection, directory)
-    fresh = reparse_inspection(inspection, directory)
+    # Only frames of this run's windows, as a run straight through has.
+    fresh = reparse_inspection(window_readings(inspection, processed, fps), directory)
     relocated = _relocate(fresh, directory, root)
     promoted = promote(readings, relocated, processed)
     original_times = {_valid_time(row) for row in readings if _valid_time(row) is not None}
