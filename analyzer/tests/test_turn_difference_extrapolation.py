@@ -448,6 +448,21 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(doc['gameplay_tracking']['events'][0]['learned_reader_values'], dict(speed=140))
         self.assertEqual(turn_field(result, 'speed')['status'], 'balanced_observations')
 
+    def test_a_gain_the_totals_settled_that_the_card_showed_twice_was_read(self):
+        # The totals gave speed 9 after a badge read disagreed on one frame.
+        for frames, basis in ((((152, '+9'), (158, '+9')), 'observed_learned_training_gain'),
+                              (((152, '+9'),), 'state_derived'),
+                              (((152, '+9'), (155, '+7'), (158, '+9')), 'state_derived')):
+            doc = report(deltas=dict(speed=9, guts=13, skill_points=8))
+            doc['gameplay_tracking']['events'][0]['result_state_derived_fields'] = ['speed']
+            self.card(doc, *((time, dict(speed=text)) for time, text in frames))
+            result = build(doc)
+            speed = next(c for c in result['contributions'] if c['field'] == 'speed')
+            with self.subTest(frames=frames):
+                self.assertEqual((speed['amount'], speed['basis']), (9, basis))
+                if basis == 'observed_learned_training_gain':
+                    self.assertEqual(speed['evidence'], ['card-152.png', 'card-158.png'])
+
     def test_amounts_counted_before_the_card_are_part_of_the_value(self):
         for shown, confirmed in (('114/', True), ('109/', False)):
             doc = report()
