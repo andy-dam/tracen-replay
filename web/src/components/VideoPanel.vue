@@ -21,6 +21,8 @@ const muted = ref(false);
 const volume = ref(1);
 const fullscreen = ref(false);
 const scrubbing = ref(false);
+// A phone or tablet recording is taller than it is wide; its box is tall.
+const portrait = ref(false);
 const FRAME_MS = 1000 / 60;
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 const speed = ref(1);
@@ -61,6 +63,7 @@ function onReady() {
   ready.value = true;
   const el = video.value;
   if (!el) return;
+  portrait.value = el.videoHeight > el.videoWidth;
   el.playbackRate = speed.value;
   el.volume = volume.value;
   el.muted = muted.value;
@@ -184,12 +187,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
 
 <template>
   <div ref="panel" class="video-panel" :class="{ fullscreen }">
-    <div class="video" @click="available && !failed && toggle()">
+    <div class="video" :class="{ portrait }" @click="available && !failed && toggle()">
       <template v-if="available && !failed">
         <video ref="video" :src="src" :crossorigin="crossOrigin" preload="metadata" playsinline @loadedmetadata="onReady" @timeupdate="onTime" @seeked="onTime" @play="playing = true" @pause="playing = false" @error="onError"></video>
         <button v-if="!playing" class="play-big" type="button" title="play" @click.stop="toggle">▶</button>
       </template>
-      <img v-else-if="shown !== null" :src="api.frameUrl(reportId, shown)" :crossorigin="crossOrigin" :alt="`frame at ${clockMs(shown)}`" />
+      <img v-else-if="shown !== null" :src="api.frameUrl(reportId, shown)" :crossorigin="crossOrigin" :alt="`frame at ${clockMs(shown)}`" @load="portrait = ($event.target as HTMLImageElement).naturalHeight > ($event.target as HTMLImageElement).naturalWidth" />
       <p v-else class="small" style="padding: 24px; text-align: center">Pick a turn or an entry to see that moment.</p>
     </div>
     <div v-if="available && !failed" class="player">

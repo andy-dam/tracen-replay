@@ -41,7 +41,7 @@ import { NOTICES_URL, REPO_URL } from "../legal";
       <h2>What Is Read</h2>
       <ul class="guide-list">
         <li><b>Read.</b> The calendar and stat bar, training previews and results, support events and choices, award popups, race results, the Grand Concert lesson menu and receipts, concert bonuses, skill purchases, energy, mood and friendship receipts, rests and outings.</li>
-        <li><b>Not Read.</b> Story text, supporter introductions, the side panel, and anything without a number or a named effect. Recordings other than the English game in 16:9 landscape, 720p to 4K, are not supported.</li>
+        <li><b>Not Read.</b> Story text, supporter introductions, the side panel, and anything without a number or a named effect. Recordings other than the English game in 16:9 landscape, 720p to 4K, or in portrait on a phone or tablet, are not supported.</li>
       </ul>
     </section>
 
