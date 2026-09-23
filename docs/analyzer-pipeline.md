@@ -657,7 +657,11 @@ leading digits is not different. A match by value is also stored under
 open are also closed that way: a panel the recognizer read without the stat,
 and a skill-point difference in a turn that also has a race, which the
 training takes instead of the race when the model saw that many skill points
-on its card.
+on its card. A training's gain that an earlier step worked out from the
+panel totals (`state_derived` or `state_constrained`, such as a badge put in
+dispute by a digit hidden on one frame) is observed the same way when the
+model read exactly that gain on two of the card's frames and another gain
+on none; the contribution's evidence is then those frames.
 
 ## Timeline document export
 

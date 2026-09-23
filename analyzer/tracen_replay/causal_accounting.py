@@ -10,7 +10,8 @@ lesson without an observed cost, or the one skill batch whose charge was never
 read (basis ``turn_difference``). When that owner is a training and the
 learned reader read exactly the difference as the stat's gain on its card,
 or the value the stat lands on with it, the amount is observed instead
-(basis ``observed_learned_training_gain``);
+(basis ``observed_learned_training_gain``), as is a training gain worked out
+from the result totals that the reader read on two of the card's frames;
 the reader's reads never make a difference, they only match one. Boundary source probes may make a turn
 opening available after reassembly, but this module never promotes a terminal
 observation or a later state into an endpoint.
@@ -29,7 +30,7 @@ from .learned_reader import RESULT_SCREENS as _RESULT_SCREENS
 
 CHANNELS = {'stats': tuple(FIELDS), 'performance': tuple(CURRENCIES)}
 # Bases that are read off the screen rather than worked out; the learned reader's
-# gain counts only where it equals a difference the stat bars left unexplained.
+# gain counts only where it equals a difference the stat bars worked out.
 _OBSERVED_BASES = ('observed_receipt', 'observed_training_gain', 'observed_learned_training_gain', 'committed_skill_debit')
 
 _STATE_CONSTRAINED_BASES = frozenset({
@@ -586,6 +587,15 @@ def build(report):
                     ]
                 if basis == 'committed_skill_debit':
                     evidence = event.get('evidence', [])
+                if basis in ('state_derived', 'state_constrained') and channel == 'stats' and event['kind'] == 'training':
+                    # The totals can settle a gain before the card's reads are
+                    # weighed (a digit hidden on one frame puts the badge in
+                    # dispute). When the learned reader read this very gain on
+                    # two of the card's frames and another on none, the card
+                    # showed it: the amount was read, not worked out.
+                    learned = _learned_gain_frames(event, data['readings'], field, amount)
+                    if len(learned) >= 2 and not _learned_gain_contradictions(event, data['readings'], field, amount):
+                        basis, evidence = 'observed_learned_training_gain', learned
                 add(f'{parent}/{key}/{field}', parent, event, channel, field, amount, evidence,
                     basis, conflicts=_field_conflicts(event, channel, field))
     for index, purchase in enumerate(data.get('lesson_purchases', [])):
