@@ -8,7 +8,8 @@ video, and anything the analyzer flags can be checked and corrected there.
 
 Recordings must be the English game, either the PC client in 16:9
 landscape, from 1280×720 to 3840×2160, or a phone's or tablet's own screen
-recording with the game filling the screen in portrait. A PC recording is
+recording with the game filling the screen in portrait, alone or placed
+inside a landscape video beside still overlays or bars. A PC recording is
 scaled to 1920×1080, and below it more of the small text goes unread; only
 the gameplay pane is read, not the side panel. A phone or tablet recording
 is read in its own shape.

@@ -8,10 +8,12 @@ from unittest.mock import patch
 
 from PIL import Image
 
+import numpy
+
 from tests import localdata
 from tracen_replay.layout import REFERENCE_PANE
 from tracen_replay.pipeline import (PipelineError, decode_frames, display_size, frame_layout, frame_rate,
-                                    frame_scale, probe)
+                                    frame_scale, game_area, locate_game, probe)
 
 
 class FrameSizeTests(unittest.TestCase):
@@ -31,10 +33,45 @@ class FrameSizeTests(unittest.TestCase):
         self.assertEqual((tablet.frame, tablet.pane), ((754, 1080), (0, 0, 754, 1080)))
         self.assertEqual(frame_scale(phone, 1080, 2340), "scale=608:1316:flags=lanczos")
 
+    def test_a_game_placed_inside_a_wider_video_is_cut_out_and_read_in_its_own_shape(self):
+        layout = frame_layout(1920, 1080, (605, 3, 710, 1074))
+        self.assertEqual((layout.frame, layout.pane, layout.crop), ((714, 1080), (0, 0, 714, 1080), (605, 3, 710, 1074)))
+        self.assertEqual(frame_scale(layout, 1920, 1080), "crop=710:1074:605:3,scale=714:1080:flags=lanczos")
+        with self.assertRaises(PipelineError):
+            frame_layout(1920, 1080, (0, 0, 300, 400))
+
     def test_other_shapes_and_games_too_small_to_read_are_refused(self):
         for size in ((1920, 1200), (2560, 1080), (1080, 1080), (1080, 3000), (360, 780)):
             with self.subTest(size=size), self.assertRaises(PipelineError):
                 frame_layout(*size)
+
+    def change(self, width, height, left, top, right, bottom, around=1.0):
+        """How much each pixel changed across a recording: the game's area busy, the rest ``around``."""
+        change = numpy.full((height, width), around, dtype=numpy.float32)
+        change[top:bottom, left:right] = 60.0
+        return change
+
+    def test_the_pc_clients_pane_keeps_the_pc_layout(self):
+        # The client's panels beside the pane change too, but less than half as much.
+        self.assertIsNone(locate_game(self.change(1920, 1080, 148, 0, 958, 1080, around=20.0), 1920, 1080))
+        self.assertIsNone(locate_game(self.change(1280, 720, 99, 0, 639, 720), 1280, 720))
+
+    def test_a_portrait_game_placed_in_a_wider_video_is_its_game_area(self):
+        self.assertEqual(locate_game(self.change(1920, 1080, 605, 3, 1315, 1077), 1920, 1080), (605, 3, 710, 1074))
+        # A 16:10 video holds no PC client: a pane-shaped busy area in it is a game placed there.
+        self.assertEqual(locate_game(self.change(1920, 1200, 148, 0, 958, 1200), 1920, 1200), (148, 0, 810, 1200))
+
+    def test_a_landscape_video_without_a_portrait_game_is_refused(self):
+        for change in (numpy.full((1080, 1920), 30.0, dtype=numpy.float32), self.change(1920, 1080, 100, 0, 1700, 1080)):
+            with self.subTest(), self.assertRaisesRegex(PipelineError, "not found"):
+                locate_game(change, 1920, 1080)
+
+    def test_a_recording_that_hardly_changes_is_read_by_its_shape(self):
+        still = numpy.full((1080, 1920), 0.5, dtype=numpy.float32)
+        still[:, 300:900] = 2.0
+        self.assertIsNone(locate_game(still, 1920, 1080))
+        with self.assertRaisesRegex(PipelineError, "not found"):
+            locate_game(numpy.full((1200, 1920), 0.5, dtype=numpy.float32), 1920, 1200)
 
     def test_a_rotation_flag_turns_the_stored_size(self):
         video = {"width": 2778, "height": 1940, "side_data_list": [{"rotation": -90}]}
@@ -115,7 +152,7 @@ class PipelineIntegrationTests(unittest.TestCase):
             self.assertEqual(image.size, (608, 1316))
 
     def test_a_recording_of_another_shape_is_refused(self):
-        for size in ("640x360", "1920x1200", "1080x1080"):
+        for size in ("640x360", "1080x1080"):
             with self.subTest(size=size):
                 source = self.root / f"{size}.mkv"
                 subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
@@ -123,6 +160,17 @@ class PipelineIntegrationTests(unittest.TestCase):
                                check=True, capture_output=True)
                 with self.assertRaisesRegex(PipelineError, size.replace('x', '×')):
                     probe(source)
+
+    def test_the_game_placed_inside_a_wider_video_is_found_from_its_change(self):
+        # A portrait strip that changes on every frame, over a still picture;
+        # the recording is 16:10, so its game is located rather than refused.
+        source = self.root / "framed.mkv"
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=1920x1200:r=10:d=3",
+                        "-f", "lavfi", "-i", "color=c=gray:s=720x1080:r=10:d=3", "-filter_complex",
+                        "[1]noise=alls=100:allf=t[game];[0][game]overlay=600:60", "-c:v", "ffv1", str(source)],
+                       check=True, capture_output=True)
+        _, video, duration, _ = probe(source)
+        self.assertEqual(game_area(source, *display_size(video), duration), (600, 60, 720, 1080))
 
     def test_bad_media_is_refused(self):
         bad = self.root / "invalid.mp4"

@@ -41,12 +41,16 @@ class Layout:
     ``frame`` is the working frame's size; ``pane`` the game area in it
     (left, top, right, bottom); ``top`` and ``bottom`` the rows the game
     keeps clear at those edges of the game area (a camera cutout, a home
-    bar), in working pixels.
+    bar), in working pixels. ``crop`` is the part of the recording the
+    working frame is cut from (left, top, width, height in the recording's
+    own pixels), for a game placed inside a wider video; None when the
+    working frame is the whole recording.
     """
     frame: tuple
     pane: tuple
     top: int = 0
     bottom: int = 0
+    crop: tuple = None
 
     @property
     def pane_width(self):
@@ -124,13 +128,18 @@ class Layout:
         return list(moved) if isinstance(box, list) else moved
 
     def to_dict(self):
-        return dict(frame=list(self.frame), pane=list(self.pane), top=self.top, bottom=self.bottom)
+        out = dict(frame=list(self.frame), pane=list(self.pane), top=self.top, bottom=self.bottom)
+        if self.crop is not None:
+            out['crop'] = list(self.crop)
+        return out
 
     @classmethod
     def from_dict(cls, value):
         if not value:
             return PC
-        return cls(tuple(value['frame']), tuple(value['pane']), int(value.get('top', 0)), int(value.get('bottom', 0)))
+        crop = value.get('crop')
+        return cls(tuple(value['frame']), tuple(value['pane']), int(value.get('top', 0)), int(value.get('bottom', 0)),
+                   tuple(crop) if crop is not None else None)
 
 
 PC = Layout((1920, 1080), REFERENCE_PANE)

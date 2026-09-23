@@ -15,6 +15,7 @@ than read it wrongly.
 A PC recording's game area is the client's pane, which keeps no margins,
 and is not fitted.
 """
+import dataclasses
 import statistics
 from pathlib import Path
 
@@ -76,4 +77,4 @@ def fit(report, root, reader):
         raise PipelineError("The game's interface in this recording does not sit where its frame's width puts it.")
     top = max(0, round(statistics.median(down['t'])))
     bottom = max(0, round(layout.pane_height - 1080 - statistics.median(down['b'])))
-    return Layout(layout.frame, layout.pane, top, bottom)
+    return dataclasses.replace(layout, top=top, bottom=bottom)

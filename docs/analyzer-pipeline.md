@@ -17,16 +17,29 @@ that stage's contribution.
 
 ## Capture
 
-`full_recording.capture` takes an English recording of one of two shapes:
-the PC client in 16:9, from 1280x720 to 3840x2160, or the game filling a
-portrait phone or tablet screen (its width 0.4 to 0.8 of its height), with the
-game drawn no smaller than in a 720p PC recording. Any rotation flag is
-applied first. Frames are scaled evenly as they are decoded so that the
-game's text has the size it has in a 1920x1080 PC recording, whatever the
-shape: a PC recording becomes 1920x1080, a phone at 1080x2340 becomes
-608x1316, a tablet at 1940x2778 becomes 754x1080. Nothing is cropped or
-padded to another shape. The frame's layout is recorded in `capture.json`
-as `layout` (see Layout below). It hashes
+`full_recording.capture` takes an English recording of the game: the PC
+client in 16:9, from 1280x720 to 3840x2160; the game filling a portrait
+phone or tablet screen (its width 0.4 to 0.8 of its height); or such a
+portrait game placed inside a wider landscape video, beside an overlay, bars
+or a still picture. The game must be drawn no smaller than in a 720p PC
+recording. Any rotation flag is applied first. A landscape recording's game
+is located before it is decoded (`pipeline.game_area`): across 24 frames
+sampled over the recording, the game's picture changes all through a career
+while what surrounds it changes less (the PC client's panels beside its
+pane, the overlay around a phone's screen). The game area is the widest run
+of columns changing at least half as much as the busiest tenth of columns,
+cut to the rows within it that change that much. When that is the PC
+client's pane, the recording is read as the PC client; a portrait area
+elsewhere is cut out of every frame as it is decoded and read like a phone
+recording of that part (the cut is kept as `layout.crop`); anything else is
+refused. A recording that hardly changes anywhere shows no game area and,
+in 16:9, is read as the PC client. Frames are scaled evenly as they are decoded so that the game's
+text has the size it has in a 1920x1080 PC recording, whatever the shape: a
+PC recording becomes 1920x1080, a phone at 1080x2340 becomes 608x1316, a
+tablet at 1940x2778 becomes 754x1080, a game 710x1074 inside a 1920x1080
+video becomes 714x1080. Nothing is padded to another shape. The frame's
+layout is recorded in `capture.json` as `layout` (see Layout below), and
+frames decoded again later are cut and scaled by it. It hashes
 the source file (SHA-256) and decodes it through `ffmpeg` in 120-second parts
 so a long recording can resume from `part-NNN/frames.json` if a prior attempt
 was interrupted. Each part is decoded with an `ffmpeg select` filter that
@@ -91,8 +104,9 @@ on the PC pane, such as the event text box and the popup that also lists
 receipts, covers every place the pins put it, and a moved box is kept inside
 the game area.
 
-The game area is the PC client's pane on a 16:9 recording and the whole
-frame on a phone or tablet. The rows a phone or tablet keeps clear, for a
+The game area is the PC client's pane on a PC recording and the whole
+frame on a phone or tablet, or on a game cut from a wider video. The rows a
+phone or tablet keeps clear, for a
 camera cutout or a home bar, are fitted by `layout_fit` from labels every
 career shows many times (the turn counter, the goal banner, Rest,
 Infirmary, Back and Quick): at the median over 90 sampled frames, the shift

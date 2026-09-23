@@ -21,7 +21,7 @@ import { FLAG_GUIDE } from "../warnings";
       <h2>How to Record</h2>
       <ul class="guide-list">
         <li><b>PC.</b> The English game full screen in 16:9 landscape, from 1280×720 to 3840×2160. Below 1920×1080, more small text goes unread. Only the gameplay pane on the left is read, not the side panel.</li>
-        <li><b>Phone or Tablet.</b> The English game in portrait, from the device's own screen recorder. A phone screen framed inside a landscape video is not read. Other shapes and languages are not supported.</li>
+        <li><b>Phone or Tablet.</b> The English game in portrait, from the device's own screen recorder, alone or placed inside a landscape video beside still overlays or bars. A landscape video whose surroundings move as much as the game is not read. Other shapes and languages are not supported.</li>
         <li><b>One File per Career.</b> Record from the first turn to the finale in a single mp4, mov, webm or mkv file. A full career is 1 to 4 GB.</li>
         <li><b>No Overlays.</b> A webcam, chat or any other overlay on top of the game covers numbers that have to be read.</li>
         <li><b>Skipping Animations.</b> Allowed. Skipped results are read again at 60 frames per second.</li>
