@@ -706,7 +706,12 @@ on its card. A training's gain that an earlier step worked out from the
 panel totals (`state_derived` or `state_constrained`, such as a badge put in
 dispute by a digit hidden on one frame) is observed the same way when the
 model read exactly that gain on two of the card's frames and another gain
-on none; the contribution's evidence is then those frames.
+on none; the contribution's evidence is then those frames. A gain worked
+out as the result panel's totals less the panel before the training takes
+that panel as the last full one, except for a field the frames after it
+read repeatedly as another value: that value, from its last frame, is the
+field's prior total, since one misread digit on the panel would otherwise
+become a gain.
 
 ## Timeline document export
 

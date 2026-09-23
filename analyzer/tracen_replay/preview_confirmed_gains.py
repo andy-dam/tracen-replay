@@ -295,36 +295,64 @@ def result_total_gains(readings, group, deltas, channel='stats'):
         return {}
     ordered = sorted((r for r in readings if _time(r) is not None), key=_time)
     times = [_time(r) for r in ordered]
-    before_rows = [r for r in ordered[bisect_left(times, first - SNAPSHOT_LOOKBACK_MS):bisect_left(times, first)]
-                   if r.get('screen') != 'training_result' and r not in rows and _full_snapshot(r, channel)]
-    before_rows = _after_last_result(before_rows, ordered[bisect_left(times, first - SNAPSHOT_LOOKBACK_MS):bisect_left(times, first)], rows)
+    window = ordered[bisect_left(times, first - SNAPSHOT_LOOKBACK_MS):bisect_left(times, first)]
+    before_rows = [r for r in window if r.get('screen') != 'training_result' and r not in rows and _full_snapshot(r, channel)]
+    before_rows = _after_last_result(before_rows, window, rows)
     if not before_rows:
         return {}
     before_row = before_rows[-1]
     before = _full_snapshot(before_row, channel)
+    # A field the frames after the last full panel read repeatedly as another
+    # value was misread on that panel (or changed since): the repeated value,
+    # from its last frame, is the field's prior total.
+    anchors = {field: before_row for field in fields}
+    later = _after_last_result([r for r in window if _time(r) > _time(before_row) and r not in rows
+                                and r.get('screen') != 'training_result'], window, rows)
+    for field in fields:
+        reads = [(r, _field_value(r, field, channel)) for r in later]
+        reads = [(r, value) for r, value in reads if type(value) is int]
+        run = []
+        for r, value in reversed(reads):
+            if run and value != run[0][1]:
+                break
+            run.append((r, value))
+        if len(run) >= 2 and run[0][1] != before[field]:
+            before[field] = run[0][1]
+            anchors[field] = run[0][0]
     after = _stable_result_totals(result_rows, before, channel)
     if not after:
         return {}
-    between = [r for r in ordered[bisect_left(times, _time(before_row)):bisect_left(times, first)]
-               if _time(before_row) < _time(r) < first and r not in rows]
-    receipts = _intervening_effects(between, channel)
     proofs = {}
     for field in fields:
         if field not in after:
             continue
-        gain = after[field] - before[field] - receipts.get(field, 0)
+        anchor = anchors[field]
+        between = [r for r in ordered[bisect_left(times, _time(anchor)):bisect_left(times, first)]
+                   if _time(anchor) < _time(r) < first and r not in rows]
+        receipt = _intervening_effects(between, channel).get(field, 0)
+        gain = after[field] - before[field] - receipt
         if gain < 0 or (field in deltas and deltas[field] != gain):
             return {}
         if field in deltas or gain == 0:
             continue
         proofs[field] = dict(
             value=gain, basis='result_panel_totals_minus_prior_snapshot',
-            before=dict(source_timestamp_ms=_time(before_row), evidence=before_row.get('evidence'), value=before[field]),
+            before=dict(source_timestamp_ms=_time(anchor), evidence=anchor.get('evidence'), value=before[field]),
             after=dict(source_timestamp_ms=_time(result_rows[0]), value=after[field],
                        evidence=[r.get('evidence') for r in result_rows]),
-            intervening_receipts=receipts.get(field, 0),
-            evidence=[before_row.get('evidence')] + [r.get('evidence') for r in result_rows])
+            intervening_receipts=receipt,
+            evidence=[anchor.get('evidence')] + [r.get('evidence') for r in result_rows])
     return proofs
+
+
+def _field_value(row, field, channel):
+    """One field of a row's panel, read whether or not the whole panel was."""
+    if channel == 'performance':
+        values = _facts(row).get('performance_points')
+    else:
+        stats = row.get('stats') if isinstance(row.get('stats'), dict) else {}
+        values = stats.get('values')
+    return values.get(field) if isinstance(values, dict) else None
 
 
 def badge_contradictions(readings, group, deltas, channel='stats'):
