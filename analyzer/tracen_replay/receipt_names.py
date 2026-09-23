@@ -796,6 +796,16 @@ def _dialogue_text_moved(first,second):
     return False
 
 
+def _same_line_slot(ba,bb):
+    """Two line boxes in one receipt slot: nearly the same box, on the same row."""
+    if len(ba)!=4 or len(bb)!=4:return False
+    width=max(0,min(ba[2],bb[2])-max(ba[0],bb[0]))
+    height=max(0,min(ba[3],bb[3])-max(ba[1],bb[1]))
+    intersection=width*height
+    union=(ba[2]-ba[0])*(ba[3]-ba[1])+(bb[2]-bb[0])*(bb[3]-bb[1])-intersection
+    return union>0 and intersection/union>=.8 and abs((ba[1]+ba[3]-bb[1]-bb[3])/2)<=3
+
+
 def flag_friendship_identity_conflicts(event,rows_by_evidence):
     """Abstain when adjacent views of one receipt slot disagree on a name.
 
@@ -804,13 +814,7 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
     """
     _resolve_source_bound_friendship_identities(event, rows_by_evidence)
     effects=[e for e in event['effects'] if e['kind'] in ('friendship_change','friendship_status')]
-    def same_slot(ba,bb):
-        if len(ba)!=4 or len(bb)!=4:return False
-        width=max(0,min(ba[2],bb[2])-max(ba[0],bb[0]))
-        height=max(0,min(ba[3],bb[3])-max(ba[1],bb[1]))
-        intersection=width*height
-        union=(ba[2]-ba[0])*(ba[3]-ba[1])+(bb[2]-bb[0])*(bb[3]-bb[1])-intersection
-        return union>0 and intersection/union>=.8 and abs((ba[1]+ba[3]-bb[1]-bb[3])/2)<=3
+    same_slot=_same_line_slot
     def occluded_bridge(ta,tb,pa,pb,ba,bb,effect):
         if abs(ta-tb)!=500:return False
         middle=(ta+tb)//2
@@ -1386,7 +1390,7 @@ def _drop_conflicts(event, fields, reasons):
         if not (item.get('field') in fields and item.get('reason') in reasons)]
 
 
-def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary=None):
+def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary=None, rows_by_evidence=None):
     """Fold a recipient spelling the run produced only here into the one it knows.
 
     Adjacent views of one receipt slot can disagree on the recipient's name
@@ -1397,9 +1401,12 @@ def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary
     while a damaged spelling is read on the frames of this one receipt and
     nowhere else.  When exactly one candidate of a disputed slot recurs
     elsewhere and every other candidate is known only here, the recurring
-    spelling is the receipt and the others are its evidence.  Two spellings
-    that both recur, or none that does, leave the slot as undecided as the
-    conflict handler left it.
+    spelling is the receipt and the others are its evidence.  When none
+    recurs, the spellings may still repair to one known name.  Failing both,
+    the slot's own views may settle it: a spelling read only between two
+    reads of another, in unbroken runs of the slot's views, is a misread of
+    it.  Otherwise the slot stays as undecided as the conflict handler left
+    it.
     """
     candidates = event.get('ambiguous_effect_candidates')
     if not isinstance(candidates, list):
@@ -1422,6 +1429,7 @@ def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary
         if len(members) < 2:
             continue
         known = None
+        target = None
         if len(recurring) == 1:
             target = recurring[0]
             resolution = 'uncorroborated_spelling_joins_recurring_recipient'
@@ -1437,12 +1445,18 @@ def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary
                 repaired.add(repair(name, vocabulary.get('supporter') or {}, 'supporter',
                                     (vocabulary.get('together') or {}).get(name, ()))
                              if _group(candidate['effect']) == 'supporter' else None)
-            if len(repaired) != 1 or None in repaired:
-                continue
-            known = repaired.pop()
-            target = members[0]
-            resolution = 'disputed_spellings_repaired_to_known_recipient'
-        else:
+            if len(repaired) == 1 and None not in repaired:
+                known = repaired.pop()
+                target = members[0]
+                resolution = 'disputed_spellings_repaired_to_known_recipient'
+        if target is None:
+            # The run cannot settle it, but the slot's own views can: its line
+            # cannot change and change back, so a spelling read only between
+            # two reads of another is a misread of that one, even a misread
+            # the run happens to produce elsewhere too.
+            target = _slot_misread_target(members, rows_by_evidence)
+            resolution = 'misread_between_reads_of_one_name_in_one_slot'
+        if target is None:
             continue
         effect = deepcopy(target['effect'])
         if known is not None:
@@ -1463,6 +1477,48 @@ def collapse_uncorroborated_recipient_variants(event, name_sightings, vocabulary
         folded.extend(members)
     if folded:
         event['ambiguous_effect_candidates'] = [c for c in candidates if not any(c is f for f in folded)]
+
+
+def _slot_misread_target(members, rows_by_evidence):
+    """The candidate every other candidate of a disputed slot misreads, or None.
+
+    The slot's views a sampling step apart at most, with the dialogue not
+    moving, form unbroken runs. The target starts and ends every run another
+    candidate is read in, so each other spelling is read only between two
+    reads of it. A view that cannot be placed settles nothing.
+    """
+    if not rows_by_evidence:
+        return None
+    views = []
+    for candidate in members:
+        effect = candidate['effect']
+        texts = {effect.get('raw_text'), effect.get('original_text')} - {None}
+        for proof in _candidate_frames(candidate):
+            row = rows_by_evidence.get(proof)
+            lines = [line for line in (row or {}).get('ocr', {}).get('neural', [])
+                     if line.get('confidence', 0) >= 95 and line.get('text') in texts]
+            if len(lines) != 1:
+                return None
+            views.append((row['source_timestamp_ms'], proof, lines[0]['box'], candidate))
+    views.sort(key=lambda view: (view[0], view[1]))
+    if not views or not all(_same_line_slot(views[0][2], view[2]) for view in views):
+        return None
+    runs = [[views[0]]]
+    for view in views[1:]:
+        last = runs[-1][-1]
+        if (elapsed(last[0], view[0]) <= 250
+                and not _dialogue_text_moved(rows_by_evidence[last[1]], rows_by_evidence[view[1]])):
+            runs[-1].append(view)
+        else:
+            runs.append([view])
+    starts = {id(run[0][3]): run[0][3] for run in runs if any(view[3] is not run[0][3] for view in run)}
+    if len(starts) != 1:
+        return None
+    target = next(iter(starts.values()))
+    if any(any(view[3] is not target for view in run) and (run[0][3] is not target or run[-1][3] is not target)
+           for run in runs):
+        return None
+    return target
 
 
 _CIRCLE_MARKERS = '\u25cb\u25ce'

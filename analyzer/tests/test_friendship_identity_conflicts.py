@@ -83,6 +83,47 @@ class FriendshipIdentityConflictsTests(unittest.TestCase):
         self.assertTrue(all(c['evidence'] for c in event['ambiguous_effect_candidates']))
         self.assertTrue(all(c['evidence_pairs'] for c in event['conflicting_readings']))
 
+    def slot_views(self,names,times):
+        """One receipt slot read with ``names`` at ``times``, as an event and its rows."""
+        rows={};effects={};evidence={}
+        for time,name in zip(times,names):
+            text=f'Friendship with {name} is maxed out.'
+            rows[f'{time}.png']=dict(source_timestamp_ms=time,screen='event_outcome',evidence=f'{time}.png',
+                                     ocr=dict(neural=[dict(text=text,confidence=99,box=[300,800,900,830])]))
+            effects.setdefault(name,dict(kind='friendship_status',name=name,value='maximum',amount=None,raw_text=text,confidence=99))
+            evidence.setdefault(f'friendship_status||{name}',[]).append(f'{time}.png')
+        return dict(effects=list(effects.values()),field_evidence=evidence,conflicting_readings=[]),rows
+
+    def test_a_misread_between_two_reads_of_one_name_is_that_name(self):
+        from tracen_replay import source_clock
+        from tracen_replay.receipt_names import collapse_uncorroborated_recipient_variants, flag_friendship_identity_conflicts
+        self.addCleanup(source_clock.use)
+
+        def settle(names,times):
+            # None repairs to a known name, and the run reads the clean name
+            # and one of the misreads elsewhere too, so no spelling alone
+            # recurs.
+            source_clock.use(times,250)
+            event,rows=self.slot_views(names,times)
+            flag_friendship_identity_conflicts(event,rows)
+            sightings={('friendship_status',n):names.count(n) for n in names}
+            sightings[('friendship_status','Light Hello')]+=40;sightings[('friendship_status','Light Hell')]+=1
+            collapse_uncorroborated_recipient_variants(event,sightings,None,rows)
+            return event
+        # Four 30 fps samples of one slot: the name read clean on the first
+        # and last, misread on the two between.
+        names,times=['Light Hello','Light He!','Light Hell','Light Hello'],[0,267,533,800]
+        event=settle(names,times)
+        self.assertEqual([(e['name'],e['name_resolution']) for e in event['effects']],
+                         [('Light Hello','misread_between_reads_of_one_name_in_one_slot')])
+        self.assertEqual(sorted(a['name'] for a in event['effects'][0]['alternate_name_evidence']),['Light He!','Light Hell'])
+        self.assertEqual((event['conflicting_readings'],event['ambiguous_effect_candidates']),([],[]))
+        # A spelling also read after the last clean read settles nothing.
+        event=settle(names+['Light He!'],times+[1067])
+        self.assertEqual(event['effects'],[])
+        self.assertEqual({c['effect']['name'] for c in event['ambiguous_effect_candidates']},
+                         {'Light Hello','Light He!','Light Hell'})
+
     def setUp(self):
         self.rows=json.loads(Path('analyzer/tests/fixtures/friendship-name-conflict-293250.json').read_text(encoding='utf-8'))
 

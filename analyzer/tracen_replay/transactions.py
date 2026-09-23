@@ -2735,7 +2735,7 @@ def outcome_events(readings):
         quarantine_receipt_identity_conflicts(event, rows_by_evidence, effect_kind='skill_hint_change')
         # A candidate the run corroborates nowhere else joins the reading it
         # damaged; the rest stay candidates for the reader to decide.
-        collapse_uncorroborated_recipient_variants(event,name_sightings,vocabulary)
+        collapse_uncorroborated_recipient_variants(event,name_sightings,vocabulary,rows_by_evidence)
         collapse_uncorroborated_circle_base_variants(event,name_sightings)
         # One line of a scrolling list read three ways is still one award.
         from .receipt_names import collapse_same_list_item_hint_variants
