@@ -3061,6 +3061,15 @@ def outing_actions(readings,events):
         confirmed=bool(requests)
         if not confirmed and recovery:
             requests=[r for r in readings if r['screen']=='outing_selection' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
+        # A supporter's outing taken at full energy recovers nothing. Its scene
+        # names the supporter, and a menu that offered that supporter is the
+        # request: a menu the player backed out of is not followed by that
+        # supporter's own outing.
+        named=False
+        if not confirmed and not recovery and companions:
+            requests=[r for r in readings if r['screen']=='outing_selection' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000
+                      and companions&{str(l.get('text','')).strip() for l in (r.get('ocr') or {}).get('neural') or () if l.get('confidence',0)>=90}]
+            named=bool(requests)
         if not requests:continue
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
@@ -3078,7 +3087,7 @@ def outing_actions(readings,events):
         # An outing without a recovery receipt is proven the same way once its
         # confirmation was sampled: by its scene following within moments and
         # the next date after it (``outing_turn_evidence``).
-        if not (confirmed and (recovery or extra)) and any(0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 and a['stats']['values']==b['stats']['values']
+        if not ((confirmed or named) and (recovery or extra)) and any(0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 and a['stats']['values']==b['stats']['values']
                for a,b in zip(hubs,hubs[1:])):continue
         if time in used:continue
         used.add(time)
@@ -3109,7 +3118,8 @@ def outing_turn_evidence(readings,event,request):
     time=request['source_timestamp_ms'];title=event.get('context_title')
     if not title:return []
     confirmations=[r for r in readings if r['screen']=='outing_confirmation' and 0<=elapsed(r['source_timestamp_ms'],time)<=1000]
-    if len({r['source_timestamp_ms'] for r in confirmations})<2:return []
+    # A menu request offered the supporter the scene names (see outing_actions).
+    if len({r['source_timestamp_ms'] for r in confirmations})<2 and request['screen']!='outing_selection':return []
     narrative=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms'] and r.get('context_title')==title]
     if len({r['source_timestamp_ms'] for r in narrative})<2 or narrative[0]['source_timestamp_ms']-time>3000:return []
     # The scene fades the calendar on some of its frames; the frames that

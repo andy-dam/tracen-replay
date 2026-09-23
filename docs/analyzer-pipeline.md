@@ -457,7 +457,13 @@ outing is: the confirmation sampled on two frames, the titled scene starting
 within three seconds of it, its frames that show the calendar agreeing on one
 date, and the next date within five seconds of the receipt
 (`outing_request_support_event_and_observed_next_date`); the hub frames
-between the confirmation and the scene do not count against it. A Rest is its prompt, a receipt
+between the confirmation and the scene do not count against it. A
+supporter's outing taken at full energy recovers nothing; when no
+confirmation was sampled, a Recreation menu frame that offered the supporter
+the scene names (the name read on the menu at confidence 90 or higher) is
+the request, proven the same way, and the hub frames before the scene do not
+count against it either: a menu the player backed out of is not followed by
+that supporter's own outing. A Rest is its prompt, a receipt
 read on two frames with the same amount, and the next date within thirty
 seconds of the result or of the point-spending screens that follow it. The
 plain prompt is known by its screen label and wording; the summer camp's

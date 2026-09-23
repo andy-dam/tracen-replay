@@ -46,6 +46,37 @@ class OutingTitledSceneTests(unittest.TestCase):
         self.assertEqual(outing_actions(rows[:-2], [event]), [])
         self.assertEqual(outing_actions([row(988000, 'outing_selection')] + rows[2:], [event]), [])
 
+    def test_a_menu_that_offered_the_scenes_supporter_is_the_request(self):
+        # An outing at full energy: no confirmation sampled and no recovery.
+        # The scene names the supporter the menu offered; the hub shows for a
+        # moment before it, and the next date after it.
+        def dated(r, text):
+            r['stats']['calendar_text'] = text
+            return r
+
+        def menu(time, name):
+            r = row(time, 'outing_selection')
+            r['ocr'] = dict(neural=[dict(text=text, confidence=97, box=[0, 0, 1, 1])
+                                    for text in ('Recreation', name, 'Event Progress')])
+            return r
+        award = [dict(kind='stat_change', field='guts', amount=19), dict(kind='friendship_status', name='Light Hello')]
+        scene = 'Hidden Beneath the Regolith'
+        rows = [menu(1193459, 'Light Hello'), menu(1193726, 'Light Hello'),
+                dated(row(1193993, 'unknown', values=VALUES), 'Senior Year Early Apr'),
+                dated(row(1194260, 'unknown', values=VALUES), 'Senior Year Early Apr'),
+                dated(row(1195061, 'unknown', title=scene), 'Senior Year Early Apr'),
+                dated(row(1195327, 'unknown', title=scene), 'Senior Year Early Apr'),
+                dated(row(1201634, 'event_outcome', title=scene, effects=award), 'Senior Year Early Apr'),
+                dated(row(1203502, 'unknown', values=VALUES), 'Senior Year Late Apr'),
+                dated(row(1203769, 'unknown', values=VALUES), 'Senior Year Late Apr')]
+        event = dict(id='outcome-1', kind='outcome', first_seen_ms=1201634, last_seen_ms=1203235, context_title=scene,
+                     evidence='1201634.png', effects=list(award))
+        self.assertEqual([(a['kind'], a.get('name'), a['request_observed_at_ms']) for a in outing_actions(rows, [event])],
+                         [('outing', scene, 1193726)])
+        # A menu that offered someone else is not this outing's request.
+        other = [menu(1193459, 'Mejiro Ramonu'), menu(1193726, 'Mejiro Ramonu')] + rows[2:]
+        self.assertEqual(outing_actions(other, [event]), [])
+
     def test_an_untitled_hub_between_blocks_only_a_menu_request(self):
         # The game shows the hub for a moment after the confirmation, before
         # the outing's own scene: with the confirmation sampled, the recovery
