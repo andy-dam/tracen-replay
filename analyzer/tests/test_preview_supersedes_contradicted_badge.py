@@ -40,6 +40,43 @@ class PreviewSupersedesContradictedBadgeTests(unittest.TestCase):
         self.assertEqual(event['direct_gain_provenance']['speed']['superseded_conflicting_readings'], [8, 18])
         self.assertIn('speed', event['result_state_derived_fields'])
 
+    def test_a_reading_the_card_repeated_against_one_misread_frame_stays_read(self):
+        # Speed read 18 on three frames and misread as 13 on one; the preview
+        # and the totals confirm 18. With the 18 on two frames only, the
+        # totals decide and the amount is worked out, as above.
+        for times, derived in (((55750, 55800, 55850), False), ((55750, 55800), True)):
+            rows = [result(t, dict(speed=18, power=7, skill_points=9)) for t in times]
+            rows.append(result(56000, dict(speed=13, power=7, skill_points=9)))
+            readings = [home(52000, BEFORE), preview(54750), preview(55000), *rows, home(60000, AFTER)]
+            event = training_events(readings)[0]
+            with self.subTest(frames=len(times)):
+                self.assertEqual(event['deltas']['speed'], 18)
+                self.assertEqual(event['conflicting_readings_superseded_by_preview_confirmation'], dict(speed=[13, 18]))
+                self.assertEqual('speed' in event.get('result_state_derived_fields', []), derived)
+                if not derived:
+                    provenance = event['direct_gain_provenance']['speed']
+                    self.assertEqual(provenance['basis'], 'repeated_read_confirmed_by_totals')
+                    self.assertEqual(provenance['evidence'], [f'result-{t}.png' for t in times])
+
+    def test_a_performance_award_the_card_repeated_against_one_misread_frame_stays_read(self):
+        # Composure read +23 on three frames and +20 on one; the menu
+        # projected +23 and the panel rose by 23.
+        points = dict(dance=31, passion=38, vocal=27, visual=26, composure=20)
+        rows = [result(t, dict(speed=18, power=7, skill_points=9)) for t in (55750, 55800, 55850, 56000)]
+        for row, award in zip(rows, (23, 23, 20, 23)):
+            row['facts']['awarded_performance_gains'] = dict(composure=award)
+        before, after = home(52000, BEFORE), home(60000, AFTER)
+        before['facts']['performance_points'] = dict(points)
+        after['facts']['performance_points'] = dict(points, composure=43)
+        previews = [preview(54750), preview(55000)]
+        for row in previews:
+            row['facts']['projected_performance_gains'] = dict(composure=23)
+        event = training_events([before, *previews, *rows, after])[0]
+        self.assertEqual(event['performance_deltas'], dict(composure=23))
+        self.assertNotIn('composure', event.get('result_state_derived_fields', []))
+        self.assertEqual(event['performance_reading_resolutions']['composure']['basis'], 'repeated_read_confirmed_by_totals')
+        self.assertEqual(event['performance_evidence']['composure'], ['result-55750.png', 'result-55800.png', 'result-56000.png'])
+
     def test_a_preview_matching_no_badge_reading_leaves_the_conflict_open(self):
         rows = [result(55750, dict(speed=5, power=7, skill_points=9)), result(55767, dict(speed=5, power=7, skill_points=9)),
                 result(56000, dict(speed=500, power=7, skill_points=9)), result(56017, dict(speed=500, power=7, skill_points=9))]

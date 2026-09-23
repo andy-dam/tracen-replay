@@ -621,6 +621,14 @@ turn's difference still leaves is left open rather than folded into the
 training. A read that is not the gain's start contradicts the card, and the
 card then settles nothing.
 
+A card that showed one gain on three frames or more, at least 50 ms apart,
+and another on a single frame showed the repeated number: when the card's
+preview and the totals around the training confirm it, the single frame was
+misread and the amount stays a badge reading (basis
+`repeated_read_confirmed_by_totals`, the other read kept as superseded), for
+a stat and for a performance row alike. Two readings each seen more than
+once stay in dispute.
+
 The opposite case is settled rather than flagged. A card read as two or three
 gains for one field (a digit cut by the sparkle, a glyph misread under the
 glow, beside the number the badge settles on) carries them as

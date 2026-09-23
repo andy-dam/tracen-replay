@@ -1679,6 +1679,23 @@ def _fold_result_continuations(groups):
     return kept
 
 
+def _repeated_read(observations):
+    """The value a card showed on three frames or more, at least 50 ms apart overall, against one other read; else None.
+
+    ``observations`` are (row, value) pairs of one field on one card. A
+    single frame that disagrees with such a repeated read is a misread of
+    that frame, not a second number on the card.
+    """
+    by_value={}
+    for row,value in observations:
+        by_value.setdefault(value,set()).add(row['source_timestamp_ms'])
+    for value,times in by_value.items():
+        if (len(times)>=3 and max(times)-min(times)>=50
+                and sum(len(other) for read,other in by_value.items() if read!=value)==1):
+            return value
+    return None
+
+
 def training_events(readings,states=()):
     from .preview_confirmed_gains import preview_confirmed_gains, preview_only_training_groups
     groups=[];current=None
@@ -1709,8 +1726,10 @@ def training_events(readings,states=()):
         deltas={};proofs={};conflicts={};phase_candidates={};prefix_resolutions={};direct_provenance={}
         candidate_recovery_provenance={}
         source_clipped_resolutions={}
+        observed={}
         for field in FIELDS:
             observations=source_gain_observations(group['rows'], field)
+            observed[field]=observations
             from .training_gain_resolution import resolve_source_clipped_gain
             clipping=resolve_source_clipped_gain(
                 group['rows'], field,
@@ -1902,7 +1921,9 @@ def training_events(readings,states=()):
         # witnesses (the card preview and the result/home totals) agree with
         # one of the badge readings, and the others are recorded as
         # superseded rather than left as an open conflict.  A preview amount
-        # that matches none of the readings never overrides them.
+        # that matches none of the readings never overrides them.  When the
+        # confirmed reading is the one the card repeated against a single
+        # misread frame, the badge was read: it stays a badge reading.
         superseded={}
         kept={}
         for f,p in confirmed.items():
@@ -1911,6 +1932,14 @@ def training_events(readings,states=()):
                 kept[f]=p
             elif isinstance(readings_for_field,list) and p.get('value') in readings_for_field:
                 superseded[f]=list(readings_for_field)
+                if _repeated_read(observed.get(f,()))==p['value']:
+                    frames={r['evidence']:(r,n) for r,n in observed[f] if n==p['value']}
+                    proof=direct_gain_proof(p['value'],list(frames.values()),basis='repeated_read_confirmed_by_totals')
+                    deltas[f]=p['value'];proofs[f]=proof['evidence']
+                    direct_provenance[f]=dict(proof,superseded_conflicting_readings=list(readings_for_field),
+                                              totals_confirmation=p.get('basis'))
+                    if f not in events[-1]['repeated_fields']:events[-1]['repeated_fields'].append(f)
+                    continue
                 kept[f]=dict(p,superseded_conflicting_readings=list(readings_for_field))
         confirmed=kept
         for f in superseded:
@@ -1957,7 +1986,7 @@ def training_events(readings,states=()):
             events[-1]['result_total_gains']=totals
             events[-1]['repeated_fields']=[field for field,paths in proofs.items() if len(paths)>=2]
         events[-1]['_group_rows']=group['rows']
-        performance={};performance_proofs={};performance_candidates={}
+        performance={};performance_proofs={};performance_candidates={};performance_observed={}
         for field in CURRENCIES:
             candidates=[_performance_gain_candidate(row, field)
                         for row in group['rows']]
@@ -1975,6 +2004,7 @@ def training_events(readings,states=()):
                 if is_committed_training_result_row(r)
                 and field in r.get('facts', {}).get('awarded_performance_gains', {})
             ]
+            performance_observed[field]=observations
             values={value for _,value in observations}
             if len(values)==1:
                 value=next(iter(values));performance[field]=value
@@ -1989,12 +2019,9 @@ def training_events(readings,states=()):
                         weak_observations=resolution['weak_observations'],
                         corroborating_observations=resolution['corroborating_observations'])
             elif len(values)>1:
-                by_value={v:{r['source_timestamp_ms'] for r,n in observations if n==v} for v in values}
-                complete=[v for v,times in by_value.items() if len(times)>=3 and max(times)-min(times)>=50
-                          and sum(len(other_times) for n,other_times in by_value.items() if n!=v)==1
-                          and all(str(v).startswith(str(n)) for n in values)]
-                if len(complete)==1:
-                    value=complete[0];performance[field]=value
+                repeated=_repeated_read(observations)
+                if repeated is not None and all(str(repeated).startswith(str(n)) for n in values):
+                    value=repeated;performance[field]=value
                     performance_proofs[field]=[r['evidence'] for r,n in observations if n==value]
                     events[-1].setdefault('performance_reading_resolutions',{})[field]=dict(
                         observed_amounts=sorted(values),accepted_amount=value,
@@ -2013,6 +2040,17 @@ def training_events(readings,states=()):
                 performance_kept[f]=p
             elif isinstance(readings_for_field,list) and p.get('value') in readings_for_field:
                 performance_superseded[f]=list(readings_for_field)
+                observations=performance_observed.get(f,())
+                if _repeated_read(observations)==p['value']:
+                    # The row the card repeated against a single misread
+                    # frame, confirmed by the totals: read, not worked out.
+                    performance[f]=p['value']
+                    performance_proofs[f]=list(dict.fromkeys(r['evidence'] for r,n in observations if n==p['value']))
+                    events[-1].setdefault('performance_reading_resolutions',{})[f]=dict(
+                        observed_amounts=list(readings_for_field),accepted_amount=p['value'],
+                        basis='repeated_read_confirmed_by_totals',totals_confirmation=p.get('basis'),
+                        outlier_evidence=[r['evidence'] for r,n in observations if n!=p['value']])
+                    continue
                 performance_kept[f]=dict(p,superseded_conflicting_readings=list(readings_for_field))
         performance_confirmed=performance_kept
         if performance_superseded and isinstance(performance_conflicts,dict):
