@@ -52,8 +52,12 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         got=plan([result],[event])
         self.assertEqual([(w['start_ms'],w['end_ms'],w['reason']) for w in got],[(400,1900,'committed_result_missing_signed_gain_observation')])
         self.assertEqual(got[0]['fields'],['guts','power','skill_points','speed','stamina','wit'])
-        # With another gain accepted, the single frame owns its own narrow reread.
-        self.assertEqual(plan([result],[dict(event,deltas={'speed':1})])[0]['reason'],'single_frame_training_gain')
+        # With another gain accepted, the single frame owns its own reread,
+        # which projects the committed card's performance awards as well.
+        single=plan([result],[dict(event,deltas={'speed':1})])[0]
+        self.assertEqual(single['reason'],'single_frame_training_gain')
+        self.assertTrue(single['source_result_projection'])
+        self.assertEqual(single['performance_fields'],['dance','passion','vocal','visual','composure'])
     def test_a_card_left_on_screen_longer_than_the_span_is_reread_from_its_first_frames(self):
         result=dict(row(1000,{}),training_option='speed')
         result['facts'].update(result_values={'speed':334},training_outcome='success')

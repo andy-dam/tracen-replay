@@ -362,6 +362,10 @@ def plan(readings, events):
             option = event.get('training_option')
             if isinstance(option, str) and option.strip():
                 request['training_option'] = option.strip()
+                if committed:
+                    # A committed card's reread projects its performance
+                    # awards with its gains, as the whole-card rule does.
+                    request.update(performance_fields=list(_PERFORMANCE_FIELDS), source_result_projection=True)
             requests.append(request)
             continue
 
