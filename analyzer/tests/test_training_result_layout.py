@@ -223,27 +223,31 @@ class TrainingResultLayoutTests(unittest.TestCase):
         # The result cards' title strips take the trainee's theme colour, seen
         # blue, lavender, pink and orange, and the body under a strip is grey
         # or white in every theme, with the stat's value in dark text. The
-        # probe asks for that shape at either of the two lower-row cards it
-        # looks at, on the PC and on a tablet.
+        # probe asks for that shape at any of the five stat cards it looks
+        # at, on the PC and on a tablet.
         from tracen_replay import layout
         from tracen_replay.layout import PC, Layout
         from tracen_replay.vision import RESULT_PROBE_CARDS, _result_grid_shown
 
-        def shown(current, strip, body, cards=RESULT_PROBE_CARDS, buttons=False, text=True):
+        def shown(current, strip, body, cards=RESULT_PROBE_CARDS, buttons=False, text=True, below=None):
             with layout.using(current):
                 width, height = layout.pane_size()
                 array = np.full((height, width, 3), (60, 140, 50), dtype="uint8")
-                for left, right in cards:
-                    x0, y0, x1, y1 = layout.place((left, 910, right, 942), "mc")
+                for left, right, dy in cards:
+                    x0, y0, x1, y1 = layout.place((left, 910 + dy, right, 942 + dy), "mc")
                     array[y0:y1, x0 - 148:x1 - 148] = strip
                     if buttons:
                         array[y0:y1:4, x0 - 148:x1 - 148] = (250, 230, 90)
-                    x0, y0, x1, y1 = layout.place((left, 942, right, 995), "mc")
+                    x0, y0, x1, y1 = layout.place((left, 942 + dy, right, 995 + dy), "mc")
                     array[y0:y1, x0 - 148:x1 - 148] = body
                     if text:
-                        x0, y0, x1, y1 = layout.place((left + 70, 960, right - 20, 985), "mc")
+                        x0, y0, x1, y1 = layout.place((left + 70, 960 + dy, right - 20, 985 + dy), "mc")
                         for x in range(x0 - 148, x1 - 148, 6):
                             array[y0:y1, x:x + 2] = (110, 60, 30)
+                    if below is not None:
+                        x0, y0, x1, y1 = layout.place((left, 986 + dy, right, 995 + dy), "mc")
+                        array[y0:y1, x0 - 148:x1 - 148] = below
+                        array[y0:y1:3, x0 - 148:x1 - 148] = (70, 90, 200)
                 return _result_grid_shown(lambda box: array[box[1]:box[3], box[0] - 148:box[2] - 148])
 
         tablet = Layout((754, 1080), (0, 0, 754, 1080), top=0, bottom=20)
@@ -253,16 +257,21 @@ class TrainingResultLayoutTests(unittest.TestCase):
             for strip, body in themes:
                 with self.subTest(frame=current.frame, strip=strip):
                     self.assertTrue(shown(current, strip, body))
-                    # One card under a gain badge still leaves the other.
-                    self.assertTrue(shown(current, strip, body, cards=RESULT_PROBE_CARDS[1:]))
+                    # Gain badges over the others leave a single card, of
+                    # either row, enough.
+                    for card in (RESULT_PROBE_CARDS[2], RESULT_PROBE_CARDS[4]):
+                        self.assertTrue(shown(current, strip, body, cards=(card,)))
             with self.subTest(frame=current.frame):
                 # Grass under a flat patch, a colourless strip, a striped
-                # button above a pale band, or a flat patch over the white
-                # glow of the menu fading out, with no text, is no card.
+                # button above a pale band, a flat patch over the white glow
+                # of the menu fading out, with no text, or the menu's flat
+                # water over a pale deck with a button's marks and the button
+                # below, is no card.
                 self.assertFalse(shown(current, (60, 140, 50), (60, 140, 50)))
                 self.assertFalse(shown(current, (128, 128, 128), (250, 250, 250)))
                 self.assertFalse(shown(current, (225, 110, 170), (250, 250, 250), buttons=True))
                 self.assertFalse(shown(current, (196, 178, 240), (246, 249, 249), text=False))
+                self.assertFalse(shown(current, (84, 201, 255), (255, 252, 255), below=(150, 210, 250)))
 
 
 if __name__ == "__main__":

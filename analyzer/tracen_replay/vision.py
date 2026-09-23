@@ -409,15 +409,18 @@ STRIP_PROBE_BOXES=tuple((x,700,x+35,719) for x in (310,410,510,610,710))
 STRIP_PROBE_MIN=.35
 # The screen's title at the top left of the career screens.
 HEADER_BOX=(148,0,450,30)
-# The two lower-row training result cards the grid probe looks at, Guts and
-# Wit, by their left and right edges in frame coordinates. On each, a box of
-# the title strip left of the stat's icon, the band of the card's body just
-# below the strip, across the card, and the rows of the body that hold the
-# stat's value, right of its grade letter.
-RESULT_PROBE_CARDS=((265,447),(462,644))
+# The five stat cards of the training result grid the probe looks at, by
+# their left and right edges in frame coordinates and their row's offset
+# from the lower row: Speed, Stamina and Power above, Guts and Wit below. On
+# each, a box of the title strip left of the stat's icon, the band of the
+# card's body just below the strip, across the card, the rows of the body
+# that hold the stat's value, right of its grade letter, and the band of the
+# body below the value.
+RESULT_PROBE_CARDS=((265,447,-116),(462,644,-116),(658,843,-116),(265,447,0),(462,644,0))
 RESULT_STRIP_ROWS=(914,934)
 RESULT_BODY_ROWS=(945,951)
 RESULT_VALUE_ROWS=(955,990)
+RESULT_BOTTOM_ROWS=(988,993)
 
 
 def _strip_saturation(colors):
@@ -438,34 +441,42 @@ def _flatness(colors):
     return float(colors.reshape(-1,3).std(axis=0).mean())
 
 
-def _result_card_shown(strip,body,values):
+def _colourless_band(colors):
+    """Whether a crop is a flat grey or white band: little colour, little change."""
+    colors=colors.astype('int16')
+    return float((colors.max(axis=2)-colors.min(axis=2)).mean())<25 and _flatness(colors)<15
+
+
+def _result_card_shown(strip,body,values,bottom):
     """Whether a result card shows: a flat coloured title strip over a colourless body holding dark text.
 
     The strip takes the trainee's theme colour, brighter on the card of the
-    trained stat; the body below it is grey or white in every theme, with
-    the stat's value in dark text. The training menu's round buttons at the
-    same place are not flat; grass, dirt or a splash drawing under a flat
-    patch is not colourless across the card; and the white glow of the menu
-    fading out after a training is chosen, which is, holds no text.
+    trained stat; the body below it is grey or white in every theme, flat
+    above and below the stat's value, which is dark text. The training
+    menu's round buttons at the same places are not flat; grass, dirt or a
+    splash drawing under a flat patch is not colourless across the card; the
+    white glow of the menu fading out after a training is chosen holds no
+    text; and a flat patch of the menu's background over another does not
+    close with a flat band under its dark marks.
     """
-    spread=body.astype('int16').max(axis=2)-body.astype('int16').min(axis=2)
     values=values.astype('int16')
     ink=values.max(axis=2)<140
     paper=(values.min(axis=2)>150)&(values.max(axis=2)-values.min(axis=2)<30)
-    return (_strip_saturation(strip)>.45 and _flatness(strip)<30
-            and float(spread.mean())<25 and _flatness(body)<15
-            and float(ink.mean())>=.03 and float(paper.mean())>=.4)
+    return (_strip_saturation(strip)>.45 and _flatness(strip)<30 and _colourless_band(body)
+            and float(ink.mean())>=.03 and float(paper.mean())>=.4 and _colourless_band(bottom))
 
 
 def _result_grid_shown(crop):
-    """Whether either probed card of the result grid's lower row shows.
+    """Whether any probed stat card of the result grid shows.
 
-    Gain badges pop up over the cards and often cover one of them.
+    Gain badges pop up over the cards and often cover two or three of them.
     """
-    return any(_result_card_shown(crop(place((left+5,RESULT_STRIP_ROWS[0],left+40,RESULT_STRIP_ROWS[1]),'mc')),
-                                  crop(place((left+10,RESULT_BODY_ROWS[0],right-10,RESULT_BODY_ROWS[1]),'mc')),
-                                  crop(place((left+55,RESULT_VALUE_ROWS[0],right-10,RESULT_VALUE_ROWS[1]),'mc')))
-               for left,right in RESULT_PROBE_CARDS)
+    return any(_result_card_shown(
+                   crop(place((left+5,RESULT_STRIP_ROWS[0]+dy,left+40,RESULT_STRIP_ROWS[1]+dy),'mc')),
+                   crop(place((left+10,RESULT_BODY_ROWS[0]+dy,right-10,RESULT_BODY_ROWS[1]+dy),'mc')),
+                   crop(place((left+55,RESULT_VALUE_ROWS[0]+dy,right-10,RESULT_VALUE_ROWS[1]+dy),'mc')),
+                   crop(place((left+10,RESULT_BOTTOM_ROWS[0]+dy,right-10,RESULT_BOTTOM_ROWS[1]+dy),'mc')))
+               for left,right,dy in RESULT_PROBE_CARDS)
 
 
 @contextlib.contextmanager

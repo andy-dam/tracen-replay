@@ -82,17 +82,18 @@ one of the five training tabs; it is recorded as a preview and never
 treated as a completed action, regardless of how many frames repeat it.
 
 A frame is read as a training result when the `Training` header shows and
-either of two lower-row result cards shows its shape: a flat title strip of
-any colour above a card body that is flat and grey or white across the card
-and holds the stat's value in dark text. The strip takes the trainee's
-theme colour, as the stat bar's does, and the trained stat's card is drawn
-brighter; a probe that asked for blue never fired on three of eight
-careers' result cards. The training menu's round buttons at the same place
-are not flat, grass or a splash drawing under a flat patch is not colourless
-across a card, and the white glow of the menu fading out after a training
-is chosen holds no text, so none of them passes. When gain badges cover
-both cards, the same-frame text layout (header, banner and labelled totals)
-decides instead.
+any of the five stat cards shows its shape: a flat title strip of any
+colour above a card body that is grey or white and flat across the card
+above and below the stat's value, which is dark text. The strip takes the
+trainee's theme colour, as the stat bar's does, and the trained stat's card
+is drawn brighter; a probe that asked for blue never fired on three of
+eight careers' result cards. The training menu's round buttons at the same
+places are not flat, grass or a splash drawing under a flat patch is not
+colourless across a card, the white glow of the menu fading out after a
+training is chosen holds no text, and a flat patch of the menu's background
+over another does not close with a flat band, so none of them passes. Gain
+badges often cover two or three cards; when they cover all five, the
+same-frame text layout (header, banner and labelled totals) decides instead.
 
 A training result's outcome comes from the large `SUCCESS`/`FAILURE`
 banner, read in a fixed position. An exact spelling at confidence 97 or
