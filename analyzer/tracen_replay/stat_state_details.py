@@ -889,7 +889,7 @@ def read_main_stat_caps(raw):
     or conflicting text stays missing; no default cap values are supplied.
     """
     # The lower stat bar remains a direct source observation while a career
-    # menu is open, even when the blue current-grid pixel probe is false.  A
+    # menu is open, even when the current-grid strip probe is false.  A
     # result grid is a different layout and is never allowed to supply these
     # caps.  The non-grid path below requires all five labeled current values
     # at the stat-bar geometry, so a stray ``/number`` in an unrelated panel

@@ -1815,8 +1815,8 @@ def produce_preview_panel_from_lines(
         # because it contains a longer digit.
         return None
     lines = _preview_source_lines(source)
-    # The fast colour marker is normally enough, but can be false for a
-    # translucent or pink/red training card.  In that case use the same
+    # The fast strip marker is normally enough, but can be false under a
+    # translucent transition overlay.  In that case use the same
     # source-only menu proof as the bounded recovery reader: Training header,
     # selected option, stat-label band, Failure badge, and no result marker.
     # A result grid or SUCCESS marker still vetoes this path.

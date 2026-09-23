@@ -1,9 +1,9 @@
 """Source-anchored discovery of the applied training-result card layout.
 
-The normal neural reader has a cheap colour probe for the result cards.  That
-probe is useful when the cards are fully blue, but the applied cards can be
-pink, red, grey, or covered by the friendship-training animation.  This
-module provides the semantic geometry gate used before the reader schedules
+The normal neural reader has a cheap pixel probe for the result cards: a
+flat title strip of any colour over a colourless body.  Gain badges and the
+friendship-training animation can cover the probed cards.  This module
+provides the semantic geometry gate used before the reader schedules
 result-card crops.
 
 The detector deliberately uses only observations from one gameplay frame:

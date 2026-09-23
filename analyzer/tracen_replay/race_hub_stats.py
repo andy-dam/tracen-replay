@@ -12,18 +12,18 @@ COLUMNS=((285,377),(382,474),(478,568),(577,666),(670,752),(752,840))
 
 
 def pixel_layout(image):
-    """Use the same five blue-label checks as the ordinary current grid."""
+    """Use the same five label-strip checks as the ordinary current grid.
+
+    The strip takes the trainee's theme colour here too, so the check asks
+    for a saturated strip of any colour.
+    """
     import numpy as np
+    from .vision import STRIP_PROBE_MIN, _strip_saturation
     if image.size!=pane_size():return False
-    array=np.asarray(image.convert('RGB')).astype('int16')
+    array=np.asarray(image.convert('RGB'))
     top=place_y(760,'b')
-    fractions=[]
-    for x in (310,410,510,610,710):
-        x=place_x(x)
-        colors=array[top:top+19,x-148:x-148+35]
-        fractions.append(float(((colors[:,:,2]>colors[:,:,0]+25)&
-            (colors[:,:,1]>colors[:,:,0]+15)&(colors[:,:,2]>100)).mean()))
-    return min(fractions)>.35
+    return min(_strip_saturation(array[top:top+19,place_x(x)-148:place_x(x)-148+35])
+               for x in (310,410,510,610,710))>STRIP_PROBE_MIN
 
 
 def observation(lines, *, grid_verified=False):

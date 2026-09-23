@@ -423,8 +423,8 @@ def _phase_candidate(raw: Mapping[str, Any]) -> bool:
         return False
     if raw.get("current_grid") is True:
         return _has_training_control(raw) and _has_stat_layout(raw)
-    # The fast blue/colour probe can miss the selectable stat cards when a
-    # friendship card is pink/red or a transition overlay is translucent.
+    # The fast strip probe can miss the stat bar under a translucent
+    # transition overlay.
     # Permit the bounded recovery pass when the source itself still proves a
     # training menu: a Training header, one selected option/control, and the
     # fixed stat-label band.  The Failure badge is useful corroboration, but

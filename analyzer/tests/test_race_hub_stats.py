@@ -81,13 +81,18 @@ class RaceHubStatsTests(unittest.TestCase):
 
     def test_pixel_grid_requires_all_five_bands_at_the_supported_position(self):
         from PIL import Image, ImageDraw
-        pane=Image.new('RGB',(810,1080),'white');draw=ImageDraw.Draw(pane)
-        self.assertFalse(pixel_layout(pane))
-        for x in (310,410,510,610,710):
-            draw.rectangle((x-148,760,x-148+34,778),fill=(50,130,220))
-        self.assertTrue(pixel_layout(pane))
-        draw.rectangle((710-148,760,710-148+34,778),fill='white')
-        self.assertFalse(pixel_layout(pane))
+        # The strip takes the trainee's theme colour: blue, lavender, pink and
+        # orange all count, grey does not.
+        for colour,shown in (((50,130,220),True),((150,140,220),True),((217,159,219),True),
+                             ((241,163,101),True),((128,128,128),False)):
+            with self.subTest(colour=colour):
+                pane=Image.new('RGB',(810,1080),'white');draw=ImageDraw.Draw(pane)
+                self.assertFalse(pixel_layout(pane))
+                for x in (310,410,510,610,710):
+                    draw.rectangle((x-148,760,x-148+34,778),fill=colour)
+                self.assertEqual(pixel_layout(pane),shown)
+                draw.rectangle((710-148,760,710-148+34,778),fill='white')
+                self.assertFalse(pixel_layout(pane))
         self.assertFalse(pixel_layout(Image.new('RGB',(1920,1080),(50,130,220))))
 
     def test_pixel_layout_can_replace_flickering_labels_but_not_numeric_confidence(self):
