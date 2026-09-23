@@ -151,8 +151,8 @@ class TrainingResultLayoutTests(unittest.TestCase):
         self.assertGreaterEqual(result["rejections"]["line_confidence"], 3)
 
     def test_neural_reader_promotes_pink_result_from_source_layout(self):
-        # Exercise the normal reader branch with a detector result whose blue
-        # probes are deliberately false.  The result flag must come from the
+        # Exercise the normal reader branch with a detector result whose card
+        # probe is deliberately false.  The result flag must come from the
         # shared source-layout proof before result crops are requested.
         from unittest.mock import patch
 
@@ -218,6 +218,44 @@ class TrainingResultLayoutTests(unittest.TestCase):
             training_raw["training_result_layout"]["status"],
             "recognized",
         )
+
+    def test_the_card_probe_asks_for_a_card_of_any_colour(self):
+        # The result cards' title strips take the trainee's theme colour, seen
+        # blue, lavender, pink and orange, and the body under a strip is grey
+        # or white in every theme. The probe asks for that shape at either of
+        # the two lower-row cards it looks at, on the PC and on a tablet.
+        from tracen_replay import layout
+        from tracen_replay.layout import PC, Layout
+        from tracen_replay.vision import RESULT_PROBE_CARDS, _result_grid_shown
+
+        def shown(current, strip, body, cards=RESULT_PROBE_CARDS, buttons=False):
+            with layout.using(current):
+                width, height = layout.pane_size()
+                array = np.full((height, width, 3), (60, 140, 50), dtype="uint8")
+                for left, right in cards:
+                    x0, y0, x1, y1 = layout.place((left, 910, right, 942), "mc")
+                    array[y0:y1, x0 - 148:x1 - 148] = strip
+                    if buttons:
+                        array[y0:y1:4, x0 - 148:x1 - 148] = (250, 230, 90)
+                    x0, y0, x1, y1 = layout.place((left, 942, right, 995), "mc")
+                    array[y0:y1, x0 - 148:x1 - 148] = body
+                return _result_grid_shown(lambda box: array[box[1]:box[3], box[0] - 148:box[2] - 148])
+
+        tablet = Layout((754, 1080), (0, 0, 754, 1080), top=0, bottom=20)
+        themes = (((95, 125, 205), (178, 178, 178)), ((160, 140, 220), (254, 254, 254)),
+                  ((225, 110, 170), (250, 250, 250)), ((240, 130, 80), (252, 252, 252)))
+        for current in (PC, tablet):
+            for strip, body in themes:
+                with self.subTest(frame=current.frame, strip=strip):
+                    self.assertTrue(shown(current, strip, body))
+                    # One card under a gain badge still leaves the other.
+                    self.assertTrue(shown(current, strip, body, cards=RESULT_PROBE_CARDS[1:]))
+            with self.subTest(frame=current.frame):
+                # Grass under a flat patch, a colourless strip, or a striped
+                # button above a pale band is no card.
+                self.assertFalse(shown(current, (60, 140, 50), (60, 140, 50)))
+                self.assertFalse(shown(current, (128, 128, 128), (250, 250, 250)))
+                self.assertFalse(shown(current, (225, 110, 170), (250, 250, 250), buttons=True))
 
 
 if __name__ == "__main__":

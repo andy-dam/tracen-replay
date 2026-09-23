@@ -409,8 +409,13 @@ STRIP_PROBE_BOXES=tuple((x,700,x+35,719) for x in (310,410,510,610,710))
 STRIP_PROBE_MIN=.35
 # The screen's title at the top left of the career screens.
 HEADER_BOX=(148,0,450,30)
-# Two points on the training result grid whose blue fill marks its cards.
-RESULT_GRID_PROBES=tuple((x,911,x+35,934) for x in (270,470))
+# The two lower-row training result cards the grid probe looks at, Guts and
+# Wit, by their left and right edges in frame coordinates. On each, a box of
+# the title strip left of the stat's icon, and the band of the card's body
+# just below the strip, across the card.
+RESULT_PROBE_CARDS=((265,447),(462,644))
+RESULT_STRIP_ROWS=(914,934)
+RESULT_BODY_ROWS=(945,951)
 
 
 def _strip_saturation(colors):
@@ -424,6 +429,35 @@ def _strip_saturation(colors):
     colors=colors.astype('int16')
     spread=colors.max(axis=2)-colors.min(axis=2)
     return float(((spread>40)&(colors.max(axis=2)>120)).mean())
+
+
+def _flatness(colors):
+    """The mean spread of a crop's three channels: near 0 for a flat fill."""
+    return float(colors.reshape(-1,3).std(axis=0).mean())
+
+
+def _result_card_shown(strip,body):
+    """Whether a result card shows: a flat coloured title strip over a flat colourless body.
+
+    The strip takes the trainee's theme colour, brighter on the card of the
+    trained stat, and the body below it is grey or white in every theme.
+    The training menu's round buttons at the same place are not flat, and
+    grass, dirt or a splash drawing under a flat patch is not colourless
+    across the card.
+    """
+    spread=body.astype('int16').max(axis=2)-body.astype('int16').min(axis=2)
+    return (_strip_saturation(strip)>.45 and _flatness(strip)<30
+            and float(spread.mean())<25 and _flatness(body)<15)
+
+
+def _result_grid_shown(crop):
+    """Whether either probed card of the result grid's lower row shows.
+
+    Gain badges pop up over the cards and often cover one of them.
+    """
+    return any(_result_card_shown(crop(place((left+5,RESULT_STRIP_ROWS[0],left+40,RESULT_STRIP_ROWS[1]),'mc')),
+                                  crop(place((left+10,RESULT_BODY_ROWS[0],right-10,RESULT_BODY_ROWS[1]),'mc')))
+               for left,right in RESULT_PROBE_CARDS)
 
 
 @contextlib.contextmanager
@@ -545,11 +579,7 @@ class NeuralReader:
             left, top, right, bottom = _normalize_crop_box(b)
             return array[top:bottom,left-ORIGIN_X:right-ORIGIN_X,::-1]
         requests=[('header',place((155,0,250,29),'tl')),('option',place((220,162,400,198),'tl'))]
-        blue=[]
-        for box in RESULT_GRID_PROBES:
-            c=crop(place(box,'mc')).astype('int16')
-            blue.append(float(((c[:,:,0]>c[:,:,2]+25)&(c[:,:,1]>c[:,:,2]+15)&(c[:,:,0]>100)).mean()))
-        grid=min(blue)>.45
+        grid=_result_grid_shown(crop)
         boxes=[(300,832,414,890),(498,832,610,890),(696,832,812,890),(300,950,414,1008),(498,950,610,1008),(696,950,812,1008)]
         requests += [('gain.'+f,place(b,'mc')) for f,b in zip(FIELDS,boxes)]
         requests += [('wide_gain.'+f,place(((250,448,646)[i%3],812 if i<3 else 930,(462,660,858)[i%3],909 if i<3 else 1027),'mc')) for i,f in enumerate(FIELDS)]
@@ -650,9 +680,9 @@ class NeuralReader:
                 result_grid=result_grid,
             )
             if result_layout.get('result_grid') is True:
-                # The fixed blue probe can miss the pink/red/grey applied
-                # cards.  This same-frame banner + labeled-card proof is the
-                # source-bound replacement signal for the stored raw record.
+                # Gain badges can cover both probed cards.  This same-frame
+                # banner + labeled-card proof is the source-bound replacement
+                # signal for the stored raw record.
                 result_grid = True
                 raw['result_grid'] = True
                 raw['header'] = raw.get('header') or result_layout['header']['text']
@@ -692,12 +722,11 @@ class NeuralReader:
         def crop(box):
             left, top, right, bottom = _normalize_crop_box(box)
             return array[top:bottom,left-ORIGIN_X:right-ORIGIN_X,::-1]
-        def blue(box):
-            colors=crop(box).astype('int16')
-            return float(((colors[:,:,0]>colors[:,:,2]+25)&(colors[:,:,1]>colors[:,:,2]+15)&(colors[:,:,0]>100)).mean())
         header=' '.join(l['text'] for l in lines if within(l,place(HEADER_BOX,'tl')) and l['confidence']>=90)
         text='\n'.join(l['text'] for l in lines)
-        grid=min(blue(place(box,'mc')) for box in RESULT_GRID_PROBES)>.45 and header.lower().startswith('training')
+        # The result cards take the trainee's theme colour as the stat bar
+        # does; the probe asks for a card's shape, not its colour.
+        grid=_result_grid_shown(crop) and header.lower().startswith('training')
         # The label strip of the stat bar takes the trainee's theme colour:
         # blue on one recording, pink and orange on two others. The probe
         # asks only for a saturated strip under every label; the geometry
@@ -721,8 +750,8 @@ class NeuralReader:
             # applied result layouts remain a separate parser phase.
             current = True
         if result_layout.get('result_grid') is True:
-            # Friendship result cards may be pink/red/grey while the legacy
-            # blue probe is false.  Promote only the independently observed
+            # Gain badges or the friendship-training animation can cover both
+            # probed cards.  Promote only the independently observed
             # same-frame result layout; selectable menus remain vetoed by the
             # helper's current-grid gate.
             grid = True
