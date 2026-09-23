@@ -9,6 +9,10 @@ chain proves continuity.
 import re
 import math
 
+from .gameplay import receipt_rows
+from .layout import inside_pane
+from .source_clock import elapsed
+
 
 _ALLOWED_RECEIPT_SCREENS = frozenset(("unknown", "event_outcome"))
 _MAX_BRIDGE_STEP_MS = 250
@@ -43,7 +47,7 @@ def _line_confidence(line):
 def _valid_box(box):
     return (isinstance(box, (list, tuple)) and len(box) == 4
             and all(type(value) in (int, float) and math.isfinite(value) for value in box)
-            and 148 <= box[0] < box[2] <= 958 and 0 <= box[1] < box[3] <= 1080)
+            and inside_pane(box))
 
 
 def _same_receipt_slot(first, second):
@@ -54,7 +58,8 @@ def _same_receipt_slot(first, second):
     second_height = second[3] - second[1]
     first_center = (first[1] + first[3]) / 2
     second_center = (second[1] + second[3]) / 2
-    return (785 <= first_center <= 965 and 785 <= second_center <= 965
+    top, bottom = receipt_rows(785, 965)
+    return (top <= first_center <= bottom and top <= second_center <= bottom
             and abs(first[0] - second[0]) <= 12
             and abs(first[2] - second[2]) <= 20
             and abs(first_height - second_height) <= 10
@@ -135,13 +140,14 @@ def _is_boundary(row):
         return True
     parsed = {" ".join(str(effect.get("raw_text", "")).split()).casefold()
               for effect in row.get("effects", []) if isinstance(effect, dict) and effect.get("raw_text")}
+    top, bottom = receipt_rows(790, 950)
     for line in row.get("ocr", {}).get("neural", []):
         box = line.get("box", [])
         confidence = _line_confidence(line)
         if (line.get("overlay_occluded") is True):
             continue
         if (confidence >= 95 and _valid_box(box)
-                and 790 < (box[1] + box[3]) / 2 < 950
+                and top < (box[1] + box[3]) / 2 < bottom
                 and len(str(line.get("text", ""))) > 25
                 and not _receiptish_text(line.get("text"))
                 and " ".join(str(line.get("text", "")).split()).casefold() not in parsed):
@@ -406,7 +412,7 @@ def find_occluded_hint_bridge(left_event, left_effect, right_event, right_effect
                    for previous, current in zip(centers, centers[1:])):
                 continue
             proof_times = [item[0] for item in track]
-            if any(later - earlier > _MAX_BRIDGE_STEP_MS for earlier, later in zip(proof_times, proof_times[1:])):
+            if any(elapsed(earlier, later) > _MAX_BRIDGE_STEP_MS for earlier, later in zip(proof_times, proof_times[1:])):
                 continue
             candidates.append((right_time - left_time, -left_time, left_evidence, right_evidence, supports, track))
 

@@ -17,9 +17,16 @@ that stage's contribution.
 
 ## Capture
 
-`full_recording.capture` requires an English 16:9 recording from 1280x720 to
-3840x2160; one of any size but 1920x1080 has its frames scaled to 1920x1080 as
-they are decoded, so every later stage reads the same frame. It hashes
+`full_recording.capture` takes an English recording of one of two shapes:
+the PC client in 16:9, from 1280x720 to 3840x2160, or the game filling a
+portrait phone or tablet screen (its width 0.4 to 0.8 of its height), with the
+game drawn no smaller than in a 720p PC recording. Any rotation flag is
+applied first. Frames are scaled evenly as they are decoded so that the
+game's text has the size it has in a 1920x1080 PC recording, whatever the
+shape: a PC recording becomes 1920x1080, a phone at 1080x2340 becomes
+608x1316, a tablet at 1940x2778 becomes 754x1080. Nothing is cropped or
+padded to another shape. The frame's layout is recorded in `capture.json`
+as `layout` (see Layout below). It hashes
 the source file (SHA-256) and decodes it through `ffmpeg` in 120-second parts
 so a long recording can resume from `part-NNN/frames.json` if a prior attempt
 was interrupted. Each part is decoded with an `ffmpeg select` filter that
@@ -28,6 +35,29 @@ timestamps (`sampling.method: minimum_interval_on_decoded_pts`); it does not
 resample onto an invented time grid, so a variable frame rate source yields
 whatever original frames satisfy the spacing. The base rate is 1 to 8 FPS,
 4 by default.
+
+A phone's or tablet's screen recorder writes a frame only when the screen
+changes, so its recordings have stretches without frames, sometimes longer
+than a second, and nothing on screen changes in them. The capture reads the
+recording's own frame times from its packets (without decoding) and records
+every stretch that accounts for a longer wait between two sampled frames as
+`sampling.source_frame_gaps_ms`; the coverage audit leaves those stretches
+out, so it still tells a frame the sampler missed from a stretch the
+recording has no frame in.
+
+A sampled frame lands on its step exactly only when the recording has a
+frame there: a 60 fps recording does on every 250 ms step, a 30 fps one lags
+each step by up to a frame, and a phone's by anything up to a second. The
+limits of a few steps on how long something may go unseen, or how far apart
+two sightings may be (a receipt or a training result before a new event
+starts, a request dialog's run of frames, a menu visit, a hint card's rows),
+are counted in steps of a 60 fps recording: `source_clock` measures time
+without the part of each sampling interval beyond one step, so the same
+limit means the same number of samples on any recording, and a 60 fps
+recording measures plain time. Budgets of several seconds and minimum
+display times stay in plain time, since a screen the recorder wrote no frame
+of was still shown. A re-read window that falls inside a stretch holds no
+frames, and is read as such.
 
 A frame's identity is its integer decoder PTS and time base, from which
 `source_timestamp_ms` is computed exactly (`round(pts * numerator/denominator
@@ -41,10 +71,42 @@ duration, per-frame PTS/timestamp/evidence path, and the sampling
 configuration. A second run against the same `--output` directory reuses it
 after checking the source hash and requested FPS still match.
 
+## Layout
+
+The game lays out one interface of 1080x1920 design units, scaled by
+`min(width / 1080, height / 1920)` of its game area, and pins each part to
+an edge or a centre: vertically to the top of the area the device keeps
+clear, the centre of that area, the centre of the whole game area (where
+popup windows sit) or its bottom; across to the left, the centre or the
+right. Decoding at the scale above gives a design unit 0.5625 pixels, as on
+the PC pane, so the parts differ between shapes only in where their pins put
+them.
+
+Every fixed box and position threshold in the analyzer is written where it
+sits on the PC pane, in the reader's coordinates (pane pixels, x shifted
+right by 148), with the pin it follows. `layout.place` moves it by that
+pin's offset for the recording being read; on a PC recording every offset
+is zero and the box is itself. A region that parts pinned differently share
+on the PC pane, such as the event text box and the popup that also lists
+receipts, covers every place the pins put it, and a moved box is kept inside
+the game area.
+
+The game area is the PC client's pane on a 16:9 recording and the whole
+frame on a phone or tablet. The rows a phone or tablet keeps clear, for a
+camera cutout or a home bar, are fitted by `layout_fit` from labels every
+career shows many times (the turn counter, the goal banner, Rest,
+Infirmary, Back and Quick): at the median over 90 sampled frames, the shift
+of the labels pinned to the top gives the top margin and of those pinned to
+the bottom the bottom margin. A recording where those labels are not found,
+or do not sit across where the frame's width puts them, is refused rather
+than read wrongly. The fitted layout is written back to `capture.json`,
+and every reader process uses it.
+
 ## OCR and base readings
 
-Each frame's gameplay pane (a fixed 810x1080 crop at pixel region
-`(148, 0, 958, 1080)` of the 1920x1080 frame) is read by a `NeuralReader`
+Each frame's game area (on a PC recording the 810x1080 crop at pixel region
+`(148, 0, 958, 1080)` of the 1920x1080 frame; on a phone or tablet the whole
+frame) is read by a `NeuralReader`
 built on RapidOCR 3.9.2 over ONNX Runtime, using the `PP-OCRv6_det_small`
 text detector and the English `en_PP-OCRv5_rec_mobile` recognizer. Model
 weights live under `--model-dir` (`.local/models/rapidocr` by default) and

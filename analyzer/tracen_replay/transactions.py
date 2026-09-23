@@ -5,7 +5,7 @@ import math
 import re
 import unicodedata
 from .reconcile import FIELDS,stable_checkpoints,account
-from .gameplay import lesson_transitions, CURRENCIES, screen_summary
+from .gameplay import lesson_transitions, CURRENCIES, receipt_rows, screen_summary
 from .skill_chains import cart_bundles,reconcile_skill_chains
 from .receipt_continuity import collapse_cross_event_hint_duplicates
 from .receipt_stat_continuity import collapse_cross_event_stat_duplicates
@@ -24,6 +24,7 @@ from .training_gain_phases import (
 from .training_identity import summarize as summarize_training_identity
 from .training_gain_resolution import candidate_recovery_policy
 from .ocr_confidence import confidence_percent
+from .source_clock import elapsed
 
 
 _RACE_GRADE_RE = re.compile(r'^(?:DEBUT|G[123]|OP|PRE[- ]?OP|EX)$', re.I)
@@ -61,7 +62,7 @@ def skill_point_states(readings,states):
         value=row['facts'].get('current_skill_points')
         eligible=row['screen']=='career_completion_hub' and type(value) is int and value>=0
         if group and (not eligible or value!=group[-1]['facts']['current_skill_points']
-                      or not 0<row['source_timestamp_ms']-group[-1]['source_timestamp_ms']<=500):
+                      or not 0<elapsed(group[-1]['source_timestamp_ms'],row['source_timestamp_ms'])<=500):
             finish();group=[]
         if eligible:group.append(row)
     finish()
@@ -374,7 +375,7 @@ def skill_transactions(readings,states):
     spans=screen_summary(readings);transactions=[]
     for span in spans:
         if span['screen']!='skill_receipt' or span.get('completed_action')!='skill_purchase_batch':continue
-        if transactions and span['first_seen_ms']-transactions[-1]['last_seen_ms']<=500:
+        if transactions and elapsed(transactions[-1]['last_seen_ms'],span['first_seen_ms'])<=500:
             transactions[-1]['last_seen_ms']=span['last_seen_ms'];continue
         preceding=[s for s in spans if s['screen']=='skill_confirmation' and 0<span['first_seen_ms']-s['last_seen_ms']<=15000]
         if not preceding:continue
@@ -394,10 +395,10 @@ def skill_transactions(readings,states):
             if cart:
                 tail=[]
                 for row in reversed(cart):
-                    if tail and (row['facts']['displayed_skill_points']!=tail[-1]['facts']['displayed_skill_points'] or tail[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500):break
+                    if tail and (row['facts']['displayed_skill_points']!=tail[-1]['facts']['displayed_skill_points'] or elapsed(row['source_timestamp_ms'],tail[-1]['source_timestamp_ms'])>500):break
                     tail.append(row)
                 cart=list(reversed(tail))
-            post=[r for r in readings if r['screen']=='skill_selection' and 0<r['source_timestamp_ms']-span['last_seen_ms']<=1500 and type(r['facts'].get('displayed_skill_points')) is int]
+            post=[r for r in readings if r['screen']=='skill_selection' and 0<elapsed(span['last_seen_ms'],r['source_timestamp_ms'])<=1500 and type(r['facts'].get('displayed_skill_points')) is int]
             numbers={r['facts']['displayed_skill_points'] for r in cart+post}
             intervening=[r for r in readings if before['last_seen_ms']<r['source_timestamp_ms']<span['first_seen_ms']]
             unsafe=any(r['screen'] in ('training_result','skill_receipt') or any(e['kind']=='stat_change' and e['field']=='skill_points' for e in r['effects']) for r in intervening)
@@ -448,7 +449,7 @@ def skill_transactions(readings,states):
             if not before or not before['last_seen_ms']<row['source_timestamp_ms']<confirmation['first_seen_ms']:continue
             value=row['facts'].get('displayed_skill_points')
             if type(value) is not int:continue
-            if active and (value!=active[-1]['facts']['displayed_skill_points'] or row['source_timestamp_ms']-active[-1]['source_timestamp_ms']>500):
+            if active and (value!=active[-1]['facts']['displayed_skill_points'] or elapsed(active[-1]['source_timestamp_ms'],row['source_timestamp_ms'])>500):
                 counter_groups.append(active)
                 active=[]
             active.append(row)
@@ -714,7 +715,7 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
         # The cursor can hide one counter on a frame; the repeated balance is
         # the nearest pair of complete, equal frames within half a second.
         for a,b in zip(rows,rows[1:]):
-            if complete(a) and complete(b) and 0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 \
+            if complete(a) and complete(b) and 0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 \
                     and a['facts']['performance_points']==b['facts']['performance_points']:
                 return [a,b]
         return None
@@ -755,7 +756,7 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
     first=min(r['source_timestamp_ms'] for r in group)
     last=max(r['source_timestamp_ms'] for r in group)
     span=[r for r in readings if before[-1]['source_timestamp_ms']<=r['source_timestamp_ms']<=after[-1]['source_timestamp_ms']]
-    if any(not 0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 for a,b in zip(span,span[1:])):return None
+    if any(not 0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 for a,b in zip(span,span[1:])):return None
     returned=[]
     for r in span:
         t=r['source_timestamp_ms']
@@ -772,7 +773,7 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
                 (e.get('name') not in aliases or not event['first_seen_ms']<=t<=event['last_seen_ms'])) for e in r['effects']):return None
     # A single transition frame can show the menu beneath the receipt. A
     # sustained return to the menu is cancellation/another visit, not proof.
-    if len(returned)>1 or returned and event['first_seen_ms']-returned[0]['source_timestamp_ms']>500:return None
+    if len(returned)>1 or returned and elapsed(returned[0]['source_timestamp_ms'],event['first_seen_ms'])>500:return None
     cost={k:initial[k]-final[k] for k in CURRENCIES}
     if any(v<0 for v in cost.values()) or not any(v>0 for v in cost.values()):return None
     return dict(cost=cost,matched=after[-1],proofs=[dict(role=role,values=values,
@@ -824,7 +825,7 @@ def lesson_receipts(readings, outcomes):
                    and len(r['facts'].get('name_candidates') or [])==1]
             run=[]
             for row in reversed(named):
-                if run and run[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
+                if run and elapsed(row['source_timestamp_ms'],run[-1]['source_timestamp_ms'])>500:break
                 run.append(row)
             confirmed={r['facts']['name_candidates'][0] for r in run}
             if len(confirmed)==1 and acquired and all(e.get('kind')=='named_acquisition' for e in acquired):
@@ -885,7 +886,7 @@ def lesson_receipts(readings, outcomes):
             # Only the final continuous request belongs to this receipt.
             group=[last]
             for row in reversed([r for r in readings if r['source_timestamp_ms']<last['source_timestamp_ms']]):
-                if group[-1]['source_timestamp_ms']-row['source_timestamp_ms']>500:break
+                if elapsed(row['source_timestamp_ms'],group[-1]['source_timestamp_ms'])>500:break
                 # The Learn press blanks the dialog for a frame; a blank frame
                 # with no reading of its own does not end the request run.
                 if (row['screen']=='unknown' and not row.get('effects') and not row['facts'].get('performance_points')
@@ -907,7 +908,7 @@ def lesson_receipts(readings, outcomes):
             if before_rows:
                 tail=before_rows[-1]['source_timestamp_ms'];recent=[]
                 for row in reversed(before_rows):
-                    if tail-row['source_timestamp_ms']>500:break
+                    if elapsed(row['source_timestamp_ms'],tail)>500:break
                     recent.append(row);tail=row['source_timestamp_ms']
                 before_rows=list(reversed(recent))
             before=before_rows[-1] if before_rows else None
@@ -1683,11 +1684,13 @@ def training_events(readings,states=()):
         time=row.get('source_timestamp_ms')
         if type(time) is not int or time < 0:
             continue
+        # The half second between result frames is counted in sampling steps
+        # (``source_clock``).
         if row.get('screen')!='training_result':
-            if current and time-current['last_seen_ms']>500:current=None
+            if current and elapsed(current['last_seen_ms'],time)>500:current=None
             continue
         option=row.get('training_option');time=row['source_timestamp_ms']
-        if current is None or time-current['last_seen_ms']>500 or (option and current['option'] and option!=current['option']):
+        if current is None or elapsed(current['last_seen_ms'],time)>500 or (option and current['option'] and option!=current['option']):
             current=dict(kind='training',option=option,first_seen_ms=time,last_seen_ms=time,rows=[]);groups.append(current)
         current['last_seen_ms']=time
         if option:current['option']=option
@@ -2470,7 +2473,7 @@ def _caption_head_cut(current,row):
     be another event's caption, but this read sits where the fuller caption
     sat, the same right edge and the same rows, within the same half second.
     """
-    if not current or row['source_timestamp_ms']-current['last_seen_ms']>500:return False
+    if not current or elapsed(current['last_seen_ms'],row['source_timestamp_ms'])>500:return False
     title=row.get('context_title');previous=current.get('context_title')
     box=row.get('context_title_box');anchor=current.get('context_title_box')
     if not title or not previous or not _caption_box(box) or not _caption_box(anchor):return False
@@ -2485,7 +2488,7 @@ def _caption_box(box):
 
 def continued_title(current,row):
     """A weaker full caption can link a truncated title, never invent an award."""
-    if not current or row['source_timestamp_ms']-current['last_seen_ms']>500:return None
+    if not current or elapsed(current['last_seen_ms'],row['source_timestamp_ms'])>500:return None
     title=row.get('context_title');previous=current.get('context_title')
     if not title or not previous or title==previous:return None
     if row.get('context_title_candidate')==previous:full=previous
@@ -2519,7 +2522,8 @@ def outcome_events(readings):
             # It does not extend the 500 ms gap or supply any accepted effect.
             from .mechanics_audit import plausible_receipt_line
             lines=row.get('ocr',{}).get('neural',[])
-            long_lines=[l for l in lines if l['confidence']>=95 and 790<(l['box'][1]+l['box'][3])/2<950 and len(l['text'])>25]
+            band_top,band_bottom=receipt_rows(790,950)
+            long_lines=[l for l in lines if l['confidence']>=95 and band_top<(l['box'][1]+l['box'][3])/2<band_bottom and len(l['text'])>25]
             def repeats_receipt(line):
                 if not current or not plausible_receipt_line(line):return False
                 text=' '.join(line['text'].casefold().split())
@@ -2550,7 +2554,7 @@ def outcome_events(readings):
             changed_title=(current and row.get('context_title') and current['context_title']
                            and not _same_caption(row['context_title'],current['context_title']) and not continued_title(current,row)
                            and not _caption_head_cut(current,row))
-            if current and (narrative or changed_title or row['screen'] not in ('unknown','event_outcome') or time-current['last_seen_ms']>500):current=None
+            if current and (narrative or changed_title or row['screen'] not in ('unknown','event_outcome') or elapsed(current['last_seen_ms'],time)>500):current=None
             elif current and long_lines:
                 current.setdefault('receipt_continuity_evidence',[]).append(dict(
                     source_timestamp_ms=time,evidence=row['evidence'],
@@ -2561,7 +2565,9 @@ def outcome_events(readings):
         continuation=continued_title(current,row)
         if continuation:title=continuation
         head_cut=_caption_head_cut(current,row)
-        if current is None or time-current['last_seen_ms']>500 or (title and current['context_title'] and not _same_caption(title,current['context_title']) and not continuation and not head_cut):
+        # The half second a receipt may go unseen is counted in sampling
+        # steps (``source_clock``).
+        if current is None or elapsed(current['last_seen_ms'],time)>500 or (title and current['context_title'] and not _same_caption(title,current['context_title']) and not continuation and not head_cut):
             current=dict(id=f'outcome-{len(events)+1:04d}',kind='outcome',first_seen_ms=time,last_seen_ms=time,evidence=row['evidence'],
                          context_title=title,context_title_box=row.get('context_title_box'),effects={},field_evidence={},
                          conflicting_readings=[],action_time_ms=None,pending_effects={},effect_observations={})
@@ -3022,7 +3028,7 @@ def outing_actions(readings,events):
         # An outing without a recovery receipt is proven the same way once its
         # confirmation was sampled: by its scene following within moments and
         # the next date after it (``outing_turn_evidence``).
-        if not (confirmed and (recovery or extra)) and any(0<b['source_timestamp_ms']-a['source_timestamp_ms']<=500 and a['stats']['values']==b['stats']['values']
+        if not (confirmed and (recovery or extra)) and any(0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 and a['stats']['values']==b['stats']['values']
                for a,b in zip(hubs,hubs[1:])):continue
         if time in used:continue
         used.add(time)
@@ -3052,7 +3058,7 @@ def outing_turn_evidence(readings,event,request):
     from .calendar_coverage import date_key
     time=request['source_timestamp_ms'];title=event.get('context_title')
     if not title:return []
-    confirmations=[r for r in readings if r['screen']=='outing_confirmation' and 0<=time-r['source_timestamp_ms']<=1000]
+    confirmations=[r for r in readings if r['screen']=='outing_confirmation' and 0<=elapsed(r['source_timestamp_ms'],time)<=1000]
     if len({r['source_timestamp_ms'] for r in confirmations})<2:return []
     narrative=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms'] and r.get('context_title')==title]
     if len({r['source_timestamp_ms'] for r in narrative})<2 or narrative[0]['source_timestamp_ms']-time>3000:return []
@@ -3085,7 +3091,7 @@ def performance_accounting(readings,events,lessons):
         valid=row['screen'] in ('lesson_selection','training_preview') and all(type(values.get(f)) is int for f in CURRENCIES)
         if not valid:
             finish();group=[];continue
-        if group and (values!=group[-1]['facts']['performance_points'] or row['source_timestamp_ms']-group[-1]['source_timestamp_ms']>500):
+        if group and (values!=group[-1]['facts']['performance_points'] or elapsed(group[-1]['source_timestamp_ms'],row['source_timestamp_ms'])>500):
             finish();group=[]
         group.append(row)
     finish();transactions=[]
@@ -3134,7 +3140,7 @@ def _counts_on(earlier,later):
     change, and nothing else is shown in between.
     """
     if later.get('_interrupted') or len(earlier['rows'])!=1:return False
-    if later['first_seen_ms']-earlier['last_seen_ms']>1000:return False
+    if elapsed(earlier['last_seen_ms'],later['first_seen_ms'])>1000:return False
     fans_a,gained_a=earlier['_key'];fans_b,gained_b=later['_key']
     return (type(fans_a) is int and type(fans_b) is int and type(gained_a) is int
             and gained_a==gained_b and fans_b>fans_a)
@@ -3280,7 +3286,7 @@ def races(readings,reward_observations=()):
             same=(len(items)==len(previous) and all(a['quantity']==b['quantity'] and
                 a['section']==b['section'] and
                 all(abs(x-y)<=8 for x,y in zip(a['box'],b['box'])) for a,b in zip(items,previous)))
-            if pending and (not same or row['source_timestamp_ms']-pending[-1]['source_timestamp_ms']>500):
+            if pending and (not same or elapsed(pending[-1]['source_timestamp_ms'],row['source_timestamp_ms'])>500):
                 finish_items();pending=[]
             if items:pending.append(row)
         finish_items()
@@ -3321,7 +3327,7 @@ def concerts(readings,events,lessons):
     result=[]
     for span in screen_summary(readings):
         if span['screen']!='concert_result':continue
-        if result and span['first_seen_ms']-result[-1]['last_seen_ms']<=1000:
+        if result and elapsed(result[-1]['last_seen_ms'],span['first_seen_ms'])<=1000:
             result[-1]['last_seen_ms']=span['last_seen_ms'];continue
         rewards=[e for e in events if e['kind']=='outcome' and 0<e['first_seen_ms']-span['last_seen_ms']<=15000
             and re.fullmatch(r'The (?:First|Second|Third|Fourth|Grand) Concert Ends!',e.get('context_title') or '',re.I)]

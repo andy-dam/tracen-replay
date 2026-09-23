@@ -25,19 +25,21 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
+from .layout import pane_size, place_x
+
 
 SCHEMA = "tracen-replay/lesson-offer-source-adapter-v1"
 COST_REFINEMENT_SCHEMA = "tracen-replay/lesson-offer-cost-refinement-v1"
-GAMEPLAY_SIZE = (810, 1080)
 COST_FIELDS = ("dance", "passion", "vocal", "visual", "composure")
 MIN_TITLE_CONFIDENCE = 90.0
 MIN_EFFECT_CONFIDENCE = 85.0
 MIN_COST_CONFIDENCE = 60.0
 
 # These are full-gameplay coordinates from the neural sidecar.  The PNG under
-# ``gameplay/`` is the 810-pixel-wide pane and therefore uses x - PANE_LEFT
-# when an image crop is needed by another consumer.
-_COST_COLUMNS = ((455, 515), (530, 600), (610, 680), (690, 760), (765, 835))
+# ``gameplay/`` is the pane and therefore uses x - PANE_LEFT when an image
+# crop is needed by another consumer.  The x positions are the PC pane's; the
+# lesson cards are centred across and follow the centre (``place_x``).
+_COST_COLUMNS =((455, 515), (530, 600), (610, 680), (690, 760), (765, 835))
 _PROMPT = "select a technique or song to learn."
 
 _EFFECT_FIELDS = {
@@ -108,7 +110,7 @@ def _box(value: Any) -> list[int] | None:
             return None
         numbers.append(int(numeric))
     left, top, right, bottom = numbers
-    if not (0 <= left < right <= 1100 and 0 <= top < bottom <= GAMEPLAY_SIZE[1]):
+    if not (0 <= left < right <= 1100 and 0 <= top < bottom <= pane_size()[1]):
         return None
     return numbers
 
@@ -160,8 +162,8 @@ def _gameplay_sha256(path: str | Path) -> tuple[str, str]:
     try:
         from .frame_cache import open_rgb, rgb_sha256
 
-        if open_rgb(path).size != GAMEPLAY_SIZE:
-            raise LessonOfferSourceError("Lesson offer gameplay evidence is not an 810x1080 pane.")
+        if open_rgb(path).size != pane_size():
+            raise LessonOfferSourceError("Lesson offer gameplay evidence is not the gameplay pane.")
         pixels = rgb_sha256(path)
     except LessonOfferSourceError:
         raise
@@ -264,7 +266,7 @@ def _effects(lines: list[dict[str, Any]], title: dict[str, Any], label_box: list
     for line in lines:
         box = line["box"]
         center_x, center_y = _center(box)
-        if not (430 <= box[0] <= 760 and center_x <= 780):
+        if not (place_x(430) <= box[0] <= place_x(760) and center_x <= place_x(780)):
             continue
         if not title_bottom + 12 <= center_y <= label_center_y - 65:
             continue
@@ -338,7 +340,7 @@ def _cost_candidates(lines: list[dict[str, Any]], label_box: list[int]) -> list[
         if not label_top - 8 <= center_y <= label_bottom + 10:
             continue
         for index, (left, right) in enumerate(_COST_COLUMNS):
-            if left <= center_x <= right:
+            if place_x(left) <= center_x <= place_x(right):
                 result[index].append(line)
                 break
     return result
@@ -513,7 +515,7 @@ def _source_proof(
         raw_fingerprint_sha256=_legacy_digest(dict(raw)),
         geometry_sha256=_digest(selected_geometry),
         coordinate_space="full_gameplay",
-        gameplay_size=list(GAMEPLAY_SIZE),
+        gameplay_size=list(pane_size()),
         parser_input="immutable_neural_lines",
         line_count=len(lines),
     )
@@ -577,8 +579,8 @@ def adapt_lesson_offer_frame(
         try:
             from .frame_cache import open_rgb, rgb_sha256
             source_pane = open_rgb(gameplay_path)
-            if source_pane.size != GAMEPLAY_SIZE:
-                raise LessonOfferSourceError("Lesson offer gameplay evidence is not an 810x1080 pane.")
+            if source_pane.size != pane_size():
+                raise LessonOfferSourceError("Lesson offer gameplay evidence is not the gameplay pane.")
             actual_gameplay = rgb_sha256(gameplay_path)
         except LessonOfferSourceError:
             raise
@@ -1167,7 +1169,6 @@ def refine_lesson_offer_costs(
 __all__ = [
     "SCHEMA",
     "COST_REFINEMENT_SCHEMA",
-    "GAMEPLAY_SIZE",
     "COST_FIELDS",
     "LessonOfferSourceError",
     "adapt_lesson_offer_frame",

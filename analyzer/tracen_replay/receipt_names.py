@@ -5,6 +5,10 @@ import hashlib
 import math
 import re
 
+from .gameplay import receipt_rows
+from .layout import inside_pane, pane_box
+from .source_clock import elapsed
+
 
 _SOURCE_BOUND_IDENTITY_BASIS = "source_bound_clean_adjacent_receipt_line"
 _FRIENDSHIP_EFFECT_KINDS = frozenset(("friendship_change", "friendship_status"))
@@ -51,7 +55,9 @@ def _identity_box(value):
            or not math.isfinite(float(item)) for item in value):
         return False
     left, top, right, bottom = (float(item) for item in value)
-    return 148 <= left < right <= 958 and 770 <= top < bottom <= 1000
+    pane_left, _, pane_right, _ = pane_box()
+    band_top, band_bottom = receipt_rows()
+    return pane_left <= left < right <= pane_right and band_top <= top < bottom <= band_bottom
 
 
 def _identity_boxes_intersect(first, second):
@@ -609,7 +615,7 @@ def _identity_observations_all_degraded(effect, event, rows_by_evidence, observa
 
 def _same_identity_occurrence(clean, other_observations):
     for observation in other_observations:
-        if abs(clean["source_timestamp_ms"] - observation["source_timestamp_ms"]) > 250:
+        if abs(elapsed(clean["source_timestamp_ms"], observation["source_timestamp_ms"])) > 250:
             continue
         if _identity_same_slot(clean["line_box"], observation["line"].get("box")):
             return True
@@ -663,7 +669,7 @@ def _source_bound_variant_observations(
             other_row.get("source_timestamp_ms")
         ) is not int:
             return False
-        if abs(clean_timestamp - other_row["source_timestamp_ms"]) > 250:
+        if abs(elapsed(clean_timestamp, other_row["source_timestamp_ms"])) > 250:
             return False
         if not _identity_same_slot(
             clean_record.get("line_box"), other_line.get("box")
@@ -771,12 +777,13 @@ def _dialogue_text_moved(first,second):
     This only vetoes identity inference. It does not accept either recipient
     or promote an OCR reading, and it does not need a character-name catalog.
     """
+    top,bottom=receipt_rows(780,960)
     def lines(row):
         found={}
         for line in row.get('ocr',{}).get('neural',[]):
             box=line.get('box',[])
             if len(box)!=4 or line.get('confidence',0)<95:continue
-            if not 780<=(box[1]+box[3])/2<=960:continue
+            if not top<=(box[1]+box[3])/2<=bottom:continue
             found.setdefault(line.get('text'),[]).append(box)
         return found
     a,b=lines(first),lines(second)
@@ -827,7 +834,7 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
         # Dense and base samples need not land at the same cadence. An
         # explicitly anchored OCR gap can connect a stationary unknown slot
         # without treating its corrupted recipient as a new person.
-        if not 250<abs(ta-tb)<=500 or effect['kind']!='friendship_change':return False
+        if not 250<abs(elapsed(ta,tb))<=500 or effect['kind']!='friendship_change':return False
         start,end=sorted((ta,tb))
         for gap in event.get('receipt_continuity_evidence',[]):
             if gap.get('basis')!='matching_named_amount_receipt_ocr_gap' or gap.get('accepted_as_effect') is not False:continue
@@ -872,9 +879,9 @@ def flag_friendship_identity_conflicts(event,rows_by_evidence):
             pairs=[];bridges=[];gap_bridges=[]
             for ta,pa,ba in first:
                 for tb,pb,bb in second:
-                    bridge=occluded_bridge(ta,tb,pa,pb,ba,bb,left) if abs(ta-tb)>250 else False
-                    gap_bridge=receipt_gap_bridge(ta,tb,pa,pb,ba,bb,left) if abs(ta-tb)>250 else False
-                    if not (0<abs(ta-tb)<=250 or bridge or gap_bridge):continue
+                    bridge=occluded_bridge(ta,tb,pa,pb,ba,bb,left) if abs(elapsed(ta,tb))>250 else False
+                    gap_bridge=receipt_gap_bridge(ta,tb,pa,pb,ba,bb,left) if abs(elapsed(ta,tb))>250 else False
+                    if not (0<abs(elapsed(ta,tb))<=250 or bridge or gap_bridge):continue
                     if _dialogue_text_moved(rows_by_evidence[pa],rows_by_evidence[pb]):continue
                     if same_slot(ba,bb):
                         pairs.append([pa,pb])
@@ -918,7 +925,9 @@ def flag_inheritance_identity_conflicts(event,rows_by_evidence):
     def valid_box(box):
         return (isinstance(box,(list,tuple)) and len(box)==4
                 and all(type(value) in (int,float) and math.isfinite(value) for value in box)
-                and 148<=box[0]<box[2]<=958 and 0<=box[1]<box[3]<=1080)
+                and inside_pane(box))
+
+    band_top,band_bottom=receipt_rows(780,960)
 
     def center(box):return (box[1]+box[3])/2
 
@@ -935,7 +944,7 @@ def flag_inheritance_identity_conflicts(event,rows_by_evidence):
             if (not isinstance(line,dict) or not valid_box(box) or
                 type(confidence) not in (int,float) or not math.isfinite(confidence) or
                 confidence<95 or line.get('overlay_occluded') is True or
-                not 780<=center(box)<=960 or not isinstance(line.get('text'),str)):
+                not band_top<=center(box)<=band_bottom or not isinstance(line.get('text'),str)):
                 continue
             result.append(line)
         return result
@@ -995,7 +1004,7 @@ def flag_inheritance_identity_conflicts(event,rows_by_evidence):
         if not isinstance(ocr,dict) or not isinstance(ocr.get('neural'),list):return []
         return [line for line in ocr['neural']
                 if isinstance(line,dict) and valid_box(line.get('box',[]))
-                and 780<=center(line['box'])<=960
+                and band_top<=center(line['box'])<=band_bottom
                 and isinstance(line.get('text'),str)
                 and re.match(r'^\s*Inspired\s+by\b',line['text'],re.I)]
 
@@ -1079,7 +1088,7 @@ def flag_inheritance_identity_conflicts(event,rows_by_evidence):
         if len(tracks)==1:return tracks[0]
         if {item['mode'] for item in tracks}!={'upward_scroll'}:return None
         times=sorted({time for item in tracks for time in item['timestamp_pair']})
-        if any(later-earlier>250 for earlier,later in zip(times,times[1:])):return None
+        if any(elapsed(earlier,later)>250 for earlier,later in zip(times,times[1:])):return None
         links={evidence:set() for item in tracks for pair in [item['evidence_pair']]
                for evidence in pair}
         for item in tracks:
@@ -1175,6 +1184,7 @@ def _occluded_wrapped_hint_bridge(start,end,effect,rows_by_evidence):
     before,middle,after=selected
     if _dialogue_text_moved(before,middle) or _dialogue_text_moved(middle,after):return None
     prefix=f"Gained {effect['amount']} hint level(s) for "
+    top,bottom=receipt_rows(780,960)
     def parts(row):
         lines=row.get('ocr',{}).get('neural',[])
         matches=[]
@@ -1183,7 +1193,7 @@ def _occluded_wrapped_hint_bridge(start,end,effect,rows_by_evidence):
             if a.get('text','')+' '+b.get('text','')!=effect.get('raw_text'):continue
             ba,bb=a.get('box',[]),b.get('box',[])
             if len(ba)!=4 or len(bb)!=4:continue
-            if not 780<=ba[1]<bb[1]<=960 or bb[1]-ba[1]>=40 or abs(ba[0]-bb[0])>15:continue
+            if not top<=ba[1]<bb[1]<=bottom or bb[1]-ba[1]>=40 or abs(ba[0]-bb[0])>15:continue
             matches.append((a,b))
         return matches
     a,b=parts(before),parts(after)
@@ -1255,6 +1265,9 @@ def collapse_punctuated_hint_variants(event,rows_by_evidence):
     """
     hints=[e for e in event['effects'] if e['kind']=='skill_hint_change']
     removed=[]
+    # The receipt rows, and the skill label drawn above the text box.
+    receipt_top,receipt_bottom=receipt_rows(780,960)
+    label_top,label_bottom=receipt_rows(600,780)
     def observations(effect):
         key='skill_hint_change||'+effect['name']
         result=[]
@@ -1264,7 +1277,7 @@ def collapse_punctuated_hint_variants(event,rows_by_evidence):
             lines=row.get('ocr',{}).get('neural',[])
             matches=[l for l in lines if l.get('text')==effect.get('raw_text')
                      and l.get('confidence',0)>=95 and len(l.get('box',[]))==4
-                     and 780<=(l['box'][1]+l['box'][3])/2<=960]
+                     and receipt_top<=(l['box'][1]+l['box'][3])/2<=receipt_bottom]
             if len(matches)==1:result.append((row['source_timestamp_ms'],proof,lines))
         return result
     for weak in hints:
@@ -1280,12 +1293,12 @@ def collapse_punctuated_hint_variants(event,rows_by_evidence):
             a={t for t,_,_ in first};b={t for t,_,_ in second}
             if not a or len(b)<2 or a&b:continue
             times=sorted(a|b)
-            if any(y-x>250 for x,y in zip(times,times[1:])):continue
+            if any(elapsed(x,y)>250 for x,y in zip(times,times[1:])):continue
             labels=[]
             for t,proof,lines in first:
                 matches=[l for l in lines if l.get('text')==strong['name']
                          and l.get('confidence',0)>=95 and len(l.get('box',[]))==4
-                         and 600<=(l['box'][1]+l['box'][3])/2<=780]
+                         and label_top<=(l['box'][1]+l['box'][3])/2<=label_bottom]
                 if len(matches)==1:labels.append((t,proof))
             if len({t for t,_ in labels})<2:continue
             candidates.append((strong,labels))
@@ -1612,6 +1625,7 @@ def _separator_hint_observations(effect,event,rows_by_evidence):
     proofs=event.get('field_evidence',{}).get(key,[])
     if not isinstance(proofs,list):return []
     result=[]
+    top,bottom=receipt_rows(780,960)
     for proof in dict.fromkeys(item for item in proofs if isinstance(item,str)):
         row=rows_by_evidence.get(proof)
         if not isinstance(row,dict) or type(row.get('source_timestamp_ms')) is not int:continue
@@ -1632,8 +1646,8 @@ def _separator_hint_observations(effect,event,rows_by_evidence):
                     or confidence<95 or not isinstance(box,(list,tuple)) or len(box)!=4
                     or not all(type(value) in (int,float) and -10000<=value<=10000
                                and math.isfinite(value) for value in box)
-                    or not 148<=box[0]<box[2]<=958 or not 0<=box[1]<box[3]<=1080
-                    or not 780<=(box[1]+box[3])/2<=960):continue
+                    or not inside_pane(box)
+                    or not top<=(box[1]+box[3])/2<=bottom):continue
             lines.append(line)
         if len(lines)==1:
             result.append(dict(timestamp=row['source_timestamp_ms'],evidence=proof,
@@ -1655,7 +1669,7 @@ def _separator_hint_line_compatible(first,second):
 
 def _separator_hint_pair_compatible(first,second):
     """Require adjacent, same-context source observations for one receipt."""
-    if first['timestamp']==second['timestamp'] or abs(first['timestamp']-second['timestamp'])>250:return False
+    if first['timestamp']==second['timestamp'] or abs(elapsed(first['timestamp'],second['timestamp']))>250:return False
     left,right=first['row'],second['row']
     if left.get('screen')!='event_outcome' or right.get('screen')!='event_outcome':
         return False

@@ -28,6 +28,7 @@ from .crop_provenance import (
     source_refinement_candidate_is_bound,
     source_signed_candidates,
 )
+from .layout import inside_pane
 from .ocr_confidence import confidence_percent
 
 
@@ -131,7 +132,7 @@ def _box(value: Any) -> tuple[float, float, float, float] | None:
         return None
     if not all(math.isfinite(part) for part in (left, top, right, bottom)):
         return None
-    if not (148.0 <= left < right <= 958.0 and 0.0 <= top < bottom <= 1080.0):
+    if not inside_pane((left, top, right, bottom)):
         return None
     return left, top, right, bottom
 

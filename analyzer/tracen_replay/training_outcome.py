@@ -4,11 +4,16 @@ from pathlib import PureWindowsPath
 import re
 from typing import Mapping
 
+from .layout import inside_pane, place, place_y
+
 
 SOURCE_BOUND_BASIS = 'source_bound_same_frame_crop_consensus'
 SOURCE_BOUND_REGION = 'weak_state_recovery.training_result_banner'
 CLIPPED_SUCCESS_BASIS = 'training_result_banner_final_glyph_clipped'
 _SHA256 = re.compile(r'^[0-9a-fA-F]{64}$')
+# Where the result banner's centre may lie on the PC pane; the banner is
+# pinned to the centre of the clear area.
+_BANNER_CENTRES = (300, 600, 800, 790)
 
 
 def _exact_banner_value(text):
@@ -58,8 +63,7 @@ def _valid_source_box(value):
         return False
     if not all(type(item) in (int, float) for item in value):
         return False
-    left, top, right, bottom = [float(item) for item in value]
-    return (148 <= left < right <= 958 and 0 <= top < bottom <= 1080)
+    return inside_pane([float(item) for item in value])
 
 
 def _safe_source_path(value):
@@ -107,8 +111,9 @@ def _valid_banner_geometry(value):
         return False
     left, top, right, bottom = [float(item) for item in value]
     width, height = right - left, bottom - top
-    return (250 <= (left + right) / 2 <= 850
-            and 635 <= (top + bottom) / 2 <= 815
+    band = place((250, 635, 850, 815), 'mc')
+    return (band[0] <= (left + right) / 2 <= band[2]
+            and band[1] <= (top + bottom) / 2 <= band[3]
             and 40 <= width <= 600 and 20 <= height <= 180)
 
 
@@ -135,27 +140,32 @@ def _training_result_scaffold(lines):
     controls = set()
     labels = set()
     totals = 0
+    # The header is pinned to the top, the Skip and Quick controls to the
+    # bottom, the result cards to the centre of the clear area.
+    header_bottom = place_y(120, 't')
+    control_band = place((300, 960, 850, 1080), 'bc')
+    card_band = place((260, 760, 850, 1030), 'mc')
     for line in lines:
         if not eligible_line(line):
             continue
         text = re.sub(r'\s+', ' ', str(line.get('text', '')).strip())
         box = [float(value) for value in line['box']]
         left, top, right, bottom = box
-        center_y = (top + bottom) / 2
-        if text.casefold() == 'training' and top < 120:
+        center_x, center_y = (left + right) / 2, (top + bottom) / 2
+        if text.casefold() == 'training' and top < header_bottom:
             header = True
         if (text.casefold() in ('skip', 'quick')
-                and 960 <= center_y <= 1080
-                and 300 <= (left + right) / 2 <= 850):
+                and control_band[1] <= center_y <= control_band[3]
+                and control_band[0] <= center_x <= control_band[2]):
             controls.add(text.casefold())
         if (text.casefold() in ('speed', 'stamina', 'power', 'guts', 'wit', 'skill pts')
-                and 760 <= center_y <= 1030
-                and 260 <= (left + right) / 2 <= 850):
+                and card_band[1] <= center_y <= card_band[3]
+                and card_band[0] <= center_x <= card_band[2]):
             labels.add(text.casefold())
         compact = re.sub(r'\s+', '', text)
         if (re.fullmatch(r'[A-Za-z]?\d{1,4}/\d{3,4}', compact)
-                and 760 <= center_y <= 1030
-                and 260 <= (left + right) / 2 <= 850):
+                and card_band[1] <= center_y <= card_band[3]
+                and card_band[0] <= center_x <= card_band[2]):
             totals += 1
     return header and controls == {'skip', 'quick'} and len(labels) >= 2 and totals >= 2
 
@@ -191,8 +201,9 @@ def _clipped_success_line(line):
     if not _valid_banner_geometry(box):
         return None
     left, top, right, bottom = [float(value) for value in box]
-    if not (300 <= (left + right) / 2 <= 800
-            and 600 <= (top + bottom) / 2 <= 790
+    band = place(_BANNER_CENTRES, 'mc')
+    if not (band[0] <= (left + right) / 2 <= band[2]
+            and band[1] <= (top + bottom) / 2 <= band[3]
             and right > left and bottom - top >= 40):
         return None
     observed = deepcopy(dict(line))
@@ -589,11 +600,12 @@ def classify_result_screen(lines, header, screen):
             or header.strip().casefold() != 'training'):
         return screen
     eligible = []
+    band = place((300, 600, 800, 800), 'mc')
     for line in lines:
         box = line.get('box', [])
         if (len(box) == 4 and all(type(value) in (int, float) for value in box)
-                and 300 <= box[0] < box[2] <= 800
-                and 600 <= box[1] < box[3] <= 800
+                and band[0] <= box[0] < box[2] <= band[2]
+                and band[1] <= box[1] < box[3] <= band[3]
                 and 40 <= box[3] - box[1] <= 160):
             eligible.append(line)
     # Keep the banner candidate geometry filter above, while giving clipped
@@ -649,7 +661,8 @@ def banner_facts(lines, screen, *, context_lines=None):
         if len(box) != 4:
             continue
         left, top, right, bottom = box
-        if not (300 <= (left + right) / 2 <= 800 and 600 <= (top + bottom) / 2 <= 790
+        band = place(_BANNER_CENTRES, 'mc')
+        if not (band[0] <= (left + right) / 2 <= band[2] and band[1] <= (top + bottom) / 2 <= band[3]
                 and right > left and bottom - top >= 40):
             continue
         if exact and line['confidence'] >= 97:

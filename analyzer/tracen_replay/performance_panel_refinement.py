@@ -17,14 +17,19 @@ import math
 import re
 from pathlib import Path
 
-from .vision import _PERFORMANCE_PANEL_ROWS, _performance_panel_line_eligible, within
+from .layout import pane_size
+from .vision import _PERFORMANCE_PANEL_ROWS, _performance_panel_line_eligible, _performance_panel_rows, within
 
 
 REFINEMENT_DIR = "performance-panel-refinement"
 STAGE = "performance_panel_refinement"
 VERSION = 1
 PANEL_FIELDS = tuple(row[0] for row in _PERFORMANCE_PANEL_ROWS)
-PANEL_ROWS = {row[0]: row for row in _PERFORMANCE_PANEL_ROWS}
+
+
+def _panel_row(field):
+    """The panel row of ``field`` at this recording's heights, or None."""
+    return next((row for row in _performance_panel_rows() if row[0] == field), None)
 _MERGED_RE = re.compile(r"^(\d{1,3})\+(\d{1,3})$")
 _CURRENT_RE = re.compile(r"^(\d{1,3})$")
 _PROJECTED_RE = re.compile(r"^\+?(\d{1,3})$")
@@ -53,8 +58,8 @@ def gameplay_fingerprint(path):
 
     with Image.open(path) as image:
         image = image.convert("RGB")
-        if image.size != (810, 1080):
-            raise ValueError("Performance panel evidence is not an 810x1080 gameplay pane.")
+        if image.size != pane_size():
+            raise ValueError("Performance panel evidence is not the gameplay pane.")
         return hashlib.sha256(image.tobytes()).hexdigest()
 
 
@@ -146,7 +151,7 @@ def _validate_localized_current(observation, field):
         raise ValueError(f"Performance panel {field} localized current role is invalid.")
     if observation.get("geometry_basis") != "fixed_row_panel_geometry":
         raise ValueError(f"Performance panel {field} localized current geometry is invalid.")
-    row = PANEL_ROWS.get(field)
+    row = _panel_row(field)
     if row is None or not within(observation, (160, row[2] - 35, 280, row[2] + 20)):
         raise ValueError(f"Performance panel {field} localized current row geometry is invalid.")
     return int(match[1]), box
@@ -234,7 +239,7 @@ def _validate_localized_field(original, field, field_spec):
     lines = original.get("lines") if isinstance(original, dict) else None
     if not isinstance(lines, list):
         raise ValueError("Performance panel source observation has no immutable lines.")
-    row = PANEL_ROWS[field]
+    row = _panel_row(field)
     source_values = []
     for line in lines:
         if not isinstance(line, dict):
@@ -263,7 +268,7 @@ def _validate_localized_field(original, field, field_spec):
     # a panel fact merely because the sidecar supplied a plausible box.
     source_rows = []
     source_caps = []
-    for source_field, _label, source_label_y, source_cap_y in _PERFORMANCE_PANEL_ROWS:
+    for source_field, _label, source_label_y, source_cap_y in _performance_panel_rows():
         row_values = []
         row_band = (160, source_label_y - 27, 280, source_label_y + 5)
         cap_band = (185, source_cap_y - 25, 280, source_cap_y + 25)
@@ -487,7 +492,7 @@ def candidate_fields(raw):
     requests = []
     observed = {}
     merged_fields = set()
-    for field, _label, label_y, _cap_y in _PERFORMANCE_PANEL_ROWS:
+    for field, _label, label_y, _cap_y in _performance_panel_rows():
         band = (160, label_y - 27, 280, label_y + 5)
         plain = []
         merged = []
@@ -523,7 +528,7 @@ def candidate_fields(raw):
         left = max(160, round(lefts[middle] - 8))
         right = min(275, round(rights[middle] + 14))
         if right - left >= 35:
-            for field, _label, label_y, _cap_y in _PERFORMANCE_PANEL_ROWS:
+            for field, _label, label_y, _cap_y in _performance_panel_rows():
                 source = observed.get(field)
                 try:
                     strong = source is not None and float(source.get("confidence", 0)) >= 90
@@ -688,7 +693,7 @@ def generate(root, *, start_ms, end_ms, frame_ids=None, fields=None,
         # rows that were neither directly visible nor resolved by a bounded
         # localized reread.
         direct_fields=set()
-        for field,_label,label_y,_cap_y in _PERFORMANCE_PANEL_ROWS:
+        for field,_label,label_y,_cap_y in _performance_panel_rows():
             band=(160,label_y-27,280,label_y+5)
             direct=[line for line in raw.get('lines',[])
                     if line.get('confidence',0)>=90 and within(line,band)

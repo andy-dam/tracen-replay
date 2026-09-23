@@ -21,6 +21,8 @@ import math
 import re
 from typing import Any, Mapping
 
+from .source_clock import elapsed
+
 
 _HEX64 = re.compile(r"^[0-9a-fA-F]{64}$")
 _DEFAULT_SCREEN = "event_outcome"
@@ -293,7 +295,7 @@ def _compatible(left: dict[str, Any], right: dict[str, Any],
         return False
     if not _same_semantics(left_effect, right_effect):
         return False
-    gap = abs(left["timestamp_ms"] - right["timestamp_ms"])
+    gap = abs(elapsed(left["timestamp_ms"], right["timestamp_ms"]))
     return (0 < gap <= _MAX_SOURCE_GAP_MS
             and _same_slot(left["line_box"], right["line_box"]))
 
@@ -326,7 +328,7 @@ def _group_valid(group: list[int], effects: list[Mapping[str, Any]],
     if any(len(indices) > 1 for indices in by_timestamp.values()):
         return False
     ordered = sorted(all_observations, key=lambda item: (item["timestamp_ms"], item["evidence"]))
-    if any((right["timestamp_ms"] - left["timestamp_ms"]) > _MAX_SOURCE_GAP_MS
+    if any(elapsed(left["timestamp_ms"], right["timestamp_ms"]) > _MAX_SOURCE_GAP_MS
            for left, right in zip(ordered, ordered[1:])):
         return False
     return _same_known_rows_between(ordered[0]["timestamp_ms"], ordered[-1]["timestamp_ms"],
@@ -339,7 +341,7 @@ def _pairs(group: list[int], observations: dict[int, list[dict[str, Any]]]) -> l
         for right_index in group[position + 1:]:
             for left in observations[left_index]:
                 for right in observations[right_index]:
-                    gap = abs(left["timestamp_ms"] - right["timestamp_ms"])
+                    gap = abs(elapsed(left["timestamp_ms"], right["timestamp_ms"]))
                     if not (0 < gap <= _MAX_SOURCE_GAP_MS
                             and _same_slot(left["line_box"], right["line_box"])):
                         continue

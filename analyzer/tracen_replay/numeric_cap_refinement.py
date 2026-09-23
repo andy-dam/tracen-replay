@@ -17,6 +17,8 @@ import math
 import re
 from pathlib import Path
 
+from .layout import pane_size, place, place_y
+
 
 VERSION = 1
 STAGE = "numeric_cap_refinement"
@@ -51,8 +53,8 @@ def gameplay_fingerprint(path):
 
     with Image.open(path) as image:
         image = image.convert("RGB")
-        if image.size != (810, 1080):
-            raise ValueError("Numeric refinement evidence is not an 810x1080 gameplay pane.")
+        if image.size != pane_size():
+            raise ValueError("Numeric refinement evidence is not a gameplay pane.")
         return hashlib.sha256(image.tobytes()).hexdigest()
 
 
@@ -138,22 +140,24 @@ def parse_ratio(text):
 
 
 def _performance_rows():
-    from .vision import _PERFORMANCE_PANEL_ROWS
+    from .vision import _performance_panel_rows
 
-    return _PERFORMANCE_PANEL_ROWS
+    return _performance_panel_rows()
 
 
 def _stat_columns():
     from .stats import BOXES
 
-    return BOXES[:5]
+    # The stat bar is pinned to the bottom of the clear area.
+    return [place(box, "bc") for box in BOXES[:5]]
 
 
 def _result_boxes():
-    # These are the fixed result-card columns used by NeuralReader.  They are
+    # These are the fixed result-card columns used by NeuralReader, on the PC
+    # pane; the cards are pinned to the centre of the clear area.  They are
     # UI geometry, not values or recording-specific frame identifiers.
     return {
-        field: box for field, box in zip(
+        field: place(box, "mc") for field, box in zip(
             RESULT_FIELDS,
             ((322, 834, 448, 876), (518, 834, 644, 876),
              (714, 834, 840, 876), (322, 952, 448, 994),
@@ -263,10 +267,10 @@ def performance_panel_geometry(raw):
 
     # These anchors match the production sidebar geometry.  Requiring both
     # words avoids treating an incidental "Performance" label as this pane.
-    performance_headers = _matches("Performance", (145, 245, 280, 290), 90)
+    performance_headers = _matches("Performance", place((145, 245, 280, 290), "tl"), 90)
     points_headers = []
     for alias in ("Points", "Poin", "Point"):
-        points_headers.extend(_matches(alias, (155, 265, 280, 315), 80))
+        points_headers.extend(_matches(alias, place((155, 265, 280, 315), "tl"), 80))
     # Deduplicate an OCR line that happened to match more than one alias.
     points_headers = {id(line): line for line in points_headers}.values()
     points_headers = list(points_headers)
@@ -397,7 +401,7 @@ def _find_stat_header_and_rows(raw, field):
     left, _, right, _ = _stat_columns()[field_index]
     headers = [line for line in lines
                if _text(line.get("text")).casefold() == field
-               and _within(line, (left - 24, 650, right + 24, 785))]
+               and _within(line, (left - 24, place_y(650, "b"), right + 24, place_y(785, "b")))]
     if len(headers) != 1:
         return None
     header = headers[0]

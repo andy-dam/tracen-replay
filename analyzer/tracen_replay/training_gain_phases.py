@@ -22,6 +22,7 @@ from .crop_provenance import (
     crop_family,
     source_refinement_candidate_is_bound,
 )
+from .layout import inside_pane
 from .ocr_confidence import confidence_percent
 
 
@@ -49,7 +50,6 @@ _SOURCE_HASH_KEYS = (
 )
 _SOURCE_PATH_KEYS = ("path", "evidence", "source_path")
 _HEX_SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
-_GLOBAL_GAMEPLAY_PANE = (148.0, 0.0, 958.0, 1080.0)
 
 
 def is_committed_training_result_row(row):
@@ -114,12 +114,7 @@ def _finite_positive_box(value):
         return None
     if not all(math.isfinite(part) for part in box):
         return None
-    left, top, right, bottom = box
-    pane_left, pane_top, pane_right, pane_bottom = _GLOBAL_GAMEPLAY_PANE
-    if not (
-        pane_left <= left < right <= pane_right
-        and pane_top <= top < bottom <= pane_bottom
-    ):
+    if not inside_pane(box):
         return None
     return box
 

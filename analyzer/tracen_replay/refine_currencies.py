@@ -5,6 +5,7 @@ from pathlib import Path
 from .vision import NeuralReader,parse
 from .gameplay import CURRENCIES
 from .full_recording import save_json
+from .layout import place
 from .refine_contrast import fingerprint
 
 
@@ -24,7 +25,8 @@ def refine(root,model_dir='.local/models/rapidocr'):
         if target.exists():continue
         if reader is None:reader=NeuralReader(model_dir)
         modal=screen=='lesson_confirmation';image_path=root/raw['evidence']
-        boxes=[(382+83*i,840,440+83*i,883) if modal else (330+104*i,85,410+104*i,126) for i in range(5)]
+        # The confirmation popup is at the screen's centre; the lessons screen follows the clear area's.
+        boxes=[place((382+83*i,840,440+83*i,883),'sc') if modal else place((330+104*i,85,410+104*i,126),'mc') for i in range(5)]
         with reader.Image.open(image_path) as image:
             images=[reader.np.array(image.convert('RGB').crop((b[0]-148,b[1],b[2]-148,b[3])))[:,:,::-1] for b in boxes]
         result=reader.engine.text_rec(reader.TextRecInput(img=images))

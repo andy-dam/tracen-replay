@@ -5,10 +5,19 @@ consumer must associate marks with a previously observed option set.
 """
 import numpy as np
 
+from .layout import pane_size, place_rows, place_x
+from .source_clock import elapsed
+
+
+def _menu_rows():
+    """Pane rows 250..800 of the PC pane, where the menu sits; it moves with the event's text box."""
+    return place_rows(250,800,'m','s')
+
 
 def _card_bands(mask):
     """Join text-sized holes inside cards, but not the gaps between cards."""
-    rows=np.where(mask[250:800,175:610].mean(axis=1)>=.85)[0]+250
+    top,bottom=_menu_rows()
+    rows=np.where(mask[top:bottom,place_x(175):place_x(610)].mean(axis=1)>=.85)[0]+top
     runs=[]
     for y in rows:
         if not runs or y-runs[-1][-1]>22:runs.append([])
@@ -19,7 +28,7 @@ def _card_bands(mask):
 def _card_text(lines,bands,minimum=97):
     cards=[];complete=True
     for top,bottom in bands:
-        inside=[l for l in lines if 300<=l['box'][0]<=350
+        inside=[l for l in lines if place_x(300)<=l['box'][0]<=place_x(350)
                 and top<=l['box'][1]<l['box'][3]<=bottom+3
                 and 15<=l['box'][3]-l['box'][1]<=45]
         inside.sort(key=lambda l:l['box'][1])
@@ -33,16 +42,17 @@ def _card_text(lines,bands,minimum=97):
 
 
 def observe(pane,lines=(),include_slots=False):
-    if pane.size!=(810,1080):raise ValueError('Expected isolated 810x1080 gameplay pixels.')
-    # Every detector below reads rows 250..800 only.  Build the masks for that
+    if pane.size!=pane_size():raise ValueError('Expected isolated gameplay pixels.')
+    # Every detector below reads the menu rows only.  Build the masks for that
     # band and pad them back to full height so the row indices stay unchanged.
-    band=np.asarray(pane.convert('RGB'))[250:800].astype('int16')
+    menu_top,menu_bottom=_menu_rows()
+    band=np.asarray(pane.convert('RGB'))[menu_top:menu_bottom].astype('int16')
     def _full(mask):
-        full=np.zeros((1080,810),dtype=bool);full[250:800]=mask;return full
+        full=np.zeros((pane.height,pane.width),dtype=bool);full[menu_top:menu_bottom]=mask;return full
     yellow=_full((band[:,:,0]>220)&(band[:,:,1]>210)&(band[:,:,2]<130))
     sides=[]
-    for left in (110,650):
-        ys=np.where(yellow[250:800,left:left+55].sum(axis=1)>=5)[0]+250
+    for left in (place_x(110),place_x(650)):
+        ys=np.where(yellow[menu_top:menu_bottom,left:left+55].sum(axis=1)>=5)[0]+menu_top
         runs=[]
         for y in ys:
             if not runs or y-runs[-1][-1]>3:runs.append([])
@@ -74,7 +84,7 @@ def observe(pane,lines=(),include_slots=False):
         card['selection_visual_proof']={
             'kind':'green_card_fill',
             'detector':'choice_evidence.green_card_fill_v1',
-            'green_pixels':int(green[top:bottom,175:610].sum()),
+            'green_pixels':int(green[top:bottom,place_x(175):place_x(610)].sum()),
         }
     result=dict(offered_card_candidates=cards,selection_mark_pairs=pairs,
                 menu_text_complete=complete,selected_card_candidates=selected,
@@ -127,7 +137,7 @@ def reconstruct(observations):
         slots=row.get('offered_card_slots')
         if slots and not any(s.get('text') for s in slots):
             active=None;pending=[];slot_rows=[];continue
-        if active and time-active['last_ms']>1500:active=None
+        if active and elapsed(active['last_ms'],time)>1500:active=None
         # A readable different response at the same height is a new menu,
         # not evidence that an option from the previous menu was selected.
         visible=cards+row.get('selected_card_candidates',[])
@@ -150,10 +160,10 @@ def reconstruct(observations):
             pending=[];slot_rows=[]
         elif slots:
             pending=[]
-            if slot_rows and (time-slot_rows[-1]['source_timestamp_ms']>500
+            if slot_rows and (elapsed(slot_rows[-1]['source_timestamp_ms'],time)>500
                               or any(not _same_slots(r['offered_card_slots'],slots) for r in slot_rows)):
                 slot_rows=[]
-            slot_rows=[r for r in slot_rows if time-r['source_timestamp_ms']<=1500]
+            slot_rows=[r for r in slot_rows if elapsed(r['source_timestamp_ms'],time)<=1500]
             slot_rows.append(row)
             options=_slot_consensus(slot_rows)
             if options:
@@ -162,7 +172,7 @@ def reconstruct(observations):
         elif cards and row.get('menu_text_complete',True):
             signature=tuple(c['text'] for c in cards)
             if pending and (tuple(c['text'] for c in pending[-1]['offered_card_candidates'])!=signature
-                            or time-pending[-1]['source_timestamp_ms']>500):pending=[]
+                            or elapsed(pending[-1]['source_timestamp_ms'],time)>500):pending=[]
             pending.append(row)
             if len({r['source_timestamp_ms'] for r in pending})>=2:
                 active=dict(rows=list(pending),options=cards,last_ms=time,

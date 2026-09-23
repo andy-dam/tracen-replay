@@ -8,6 +8,9 @@ import json
 import math
 import re
 
+from .gameplay import receipt_rows
+from .layout import pane_box, pane_size
+
 
 # The color mask captures the green fill, not the white cursor outline and
 # antialiased edge. In this capture profile the outline extends three pixels
@@ -31,8 +34,13 @@ PARTICLE_MAX_SIDE = 80
 PARTICLE_MIN_OVERLAP_PX = 3
 
 
+def _in_receipt_box(line):
+    top,bottom=receipt_rows()
+    return top<=line['box'][1]<bottom
+
+
 def numeric_line(line):
-    return 770<=line['box'][1]<1000 and bool(re.search(
+    return _in_receipt_box(line) and bool(re.search(
         r'went|recover|Gained|Friendship|Frienlship|Friewdship|Frendship',
         line['text']) and re.search(r'\d',line['text']))
 
@@ -46,7 +54,7 @@ def friendship_status_line(line):
     here so a cursor over their fixed grammar still causes a conservative
     abstention without normalizing them.
     """
-    if not 770<=line['box'][1]<1000:
+    if not _in_receipt_box(line):
         return False
     text=line.get('text','').strip()
     return bool(re.fullmatch(
@@ -59,7 +67,7 @@ def friendship_status_line(line):
 
 def receipt_line(line):
     return numeric_line(line) or friendship_status_line(line) or (
-        770<=line['box'][1]<1000 and bool(re.match(r'^Inspired by\s+\S',line.get('text',''))))
+        _in_receipt_box(line) and bool(re.match(r'^Inspired by\s+\S',line.get('text',''))))
 
 
 def hint_data_boxes(line):
@@ -370,9 +378,10 @@ def _vertical_hit(box,band,region):
 
 def overlay_boxes(pane):
     import numpy as np
-    if pane.size != (810,1080):raise ValueError('Expected the gameplay crop.')
+    if pane.size != pane_size():raise ValueError('Expected the gameplay crop.')
     pixels=np.asarray(pane.convert('RGB')).astype('int16')
-    band=pixels[770:1000]
+    band_top,band_bottom=receipt_rows()
+    band=pixels[band_top:band_bottom]
     r,g,b=band[:,:,0],band[:,:,1],band[:,:,2]
     mask=(g>140)&(g>r*1.3)&(g>b*1.2)&(r<170)&(b<170)
     ys,xs=np.nonzero(mask);pending=set(zip(xs.tolist(),ys.tolist()));boxes=[]
@@ -383,9 +392,9 @@ def overlay_boxes(pane):
             for neighbor in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
                 if neighbor in pending:
                     pending.remove(neighbor);stack.append(neighbor);component.append(neighbor)
-        xs,ys=zip(*component);left,right=min(xs),max(xs)+1;top,bottom=min(ys)+770,max(ys)+771
+        xs,ys=zip(*component);left,right=min(xs),max(xs)+1;top,bottom=min(ys)+band_top,max(ys)+band_top+1
         if not (20<=len(component)<=180 and 5<=right-left<=20 and 8<=bottom-top<=26):continue
-        neighborhood=pixels[max(770,top-10):min(1000,bottom+10),max(0,left-10):min(810,right+10)]
+        neighborhood=pixels[max(band_top,top-10):min(band_bottom,bottom+10),max(0,left-10):min(pane.width,right+10)]
         white=(neighborhood.min(axis=2)>190)&(neighborhood.max(axis=2)-neighborhood.min(axis=2)<55)
         # The cursor sits on the white receipt bubble; parked over a word,
         # the letters under and beside it take a share of its surroundings
@@ -399,11 +408,10 @@ def overlay_boxes(pane):
 def _particle_line_box(box):
     """Return a finite gameplay-space receipt box, or ``None``.
 
-    OCR boxes are expressed in the full 960-pixel gameplay coordinate space,
-    while ``pane`` is the 810-pixel crop whose origin is x=148.  Keeping this
-    validation at the detector boundary prevents a malformed or auxiliary
-    panel box from turning coloured pixels elsewhere in the image into receipt
-    evidence.
+    OCR boxes are expressed in reader coordinates, while ``pane`` is the
+    gameplay crop whose origin is x=148 in them.  Keeping this validation at
+    the detector boundary prevents a malformed or auxiliary panel box from
+    turning coloured pixels elsewhere in the image into receipt evidence.
     """
     if not isinstance(box,(list,tuple)) or len(box)!=4:
         return None
@@ -411,9 +419,11 @@ def _particle_line_box(box):
         values=tuple(float(value) for value in box)
     except (TypeError,ValueError):
         return None
+    pane_left,_,pane_right,_=pane_box()
+    band_top,band_bottom=receipt_rows()
     if (not all(math.isfinite(value) for value in values) or
         values[2]<=values[0] or values[3]<=values[1] or
-        values[0]<148 or values[2]>958 or values[1]<770 or values[3]>1000):
+        values[0]<pane_left or values[2]>pane_right or values[1]<band_top or values[3]>band_bottom):
         return None
     return values
 
@@ -477,16 +487,17 @@ def animated_overlay_boxes(pane,line_boxes):
     provide the receipt text and identity; this helper never repairs OCR or
     selects among names.
     """
-    if pane.size!=(810,1080):
+    if pane.size!=pane_size():
         raise ValueError('Expected the gameplay crop.')
     valid=[box for item in line_boxes or [] if (box:=_particle_line_box(item))]
     if not valid:
         return []
-    # Receipt OCR boxes are global (x=148..958); the image crop starts at 148.
+    # Receipt OCR boxes are in reader coordinates; the image crop starts at 148.
+    band_top,band_bottom=receipt_rows()
     left=max(0,int(math.floor(min(box[0] for box in valid)-PARTICLE_SCAN_MARGIN-148)))
-    right=min(810,int(math.ceil(max(box[2] for box in valid)+PARTICLE_SCAN_MARGIN-148)))
-    top=max(770,int(math.floor(min(box[1] for box in valid)-PARTICLE_SCAN_MARGIN)))
-    bottom=min(1000,int(math.ceil(max(box[3] for box in valid)+PARTICLE_SCAN_MARGIN)))
+    right=min(pane.width,int(math.ceil(max(box[2] for box in valid)+PARTICLE_SCAN_MARGIN-148)))
+    top=max(band_top,int(math.floor(min(box[1] for box in valid)-PARTICLE_SCAN_MARGIN)))
+    bottom=min(band_bottom,int(math.ceil(max(box[3] for box in valid)+PARTICLE_SCAN_MARGIN)))
     if right<=left or bottom<=top:
         return []
     pixels=pane.convert('RGB')

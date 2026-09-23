@@ -387,6 +387,20 @@ class ReportContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ReportContractError, "exceeds report.source.duration_ms"):
             validate(report)
 
+    def test_a_layout_is_optional_and_checked_when_present(self):
+        report = valid_report()
+        report["layout"] = dict(frame=[608, 1316], pane=[0, 0, 608, 1316], top=53, bottom=0, fitted=True)
+        self.assertIs(validate(report), report)
+        for field, value, message in (
+                ("pane", [0, 0, 700, 1316], "must lie inside the frame"),
+                ("frame", [608], "must contain a width and a height"),
+                ("top", -1, "must be at least 0"),
+                ("fitted", "yes", "must be a boolean")):
+            broken = copy.deepcopy(report)
+            broken["layout"][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ReportContractError, message):
+                validate(broken)
+
 
 if __name__ == "__main__":
     unittest.main()

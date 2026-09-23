@@ -31,14 +31,17 @@ import re
 from collections import defaultdict
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from .layout import ORIGIN_X, inside_pane, pane_size, place
+
 
 VERSION = 1
 SCHEMA = "tracen-replay/training-badge-localization-v1"
-PANE_BOUNDS = (148.0, 0.0, 958.0, 1080.0)
-PANE_OFFSET = 148
+PANE_OFFSET = ORIGIN_X
 
-# Full gameplay coordinates.  The decoded reader pane starts at x=148.  These
-# are the same card geometries used by NeuralReader's ordinary gain crops.
+# Full gameplay coordinates on the PC pane.  The decoded reader pane starts at
+# x=148.  These are the same card geometries used by NeuralReader's ordinary
+# gain crops; the cards are pinned to the centre of the clear area, and
+# ``gain_box``/``wide_gain_box`` place them on the recording being read.
 FIELDS = ("speed", "stamina", "power", "guts", "wit", "skill_points")
 GAIN_BOXES = {
     "speed": (300, 832, 414, 890),
@@ -56,6 +59,16 @@ WIDE_GAIN_BOXES = {
     "wit": (448, 930, 660, 1027),
     "skill_points": (646, 930, 858, 1027),
 }
+
+
+def gain_box(field: str):
+    """The field's result-card gain badge box in this recording."""
+    return place(GAIN_BOXES[field], "mc")
+
+
+def wide_gain_box(field: str):
+    """The field's broad result-card box in this recording."""
+    return place(WIDE_GAIN_BOXES[field], "mc")
 
 # The source card's gold chevron occupies the lower part of each broad box.
 # Looking at the stable badge band keeps the chevron and most moving artwork
@@ -91,10 +104,7 @@ def _box(value: Any, *, name: str = "") -> list[float]:
     left, top, right, bottom = result
     if not left < right or not top < bottom:
         raise ValueError(f"Training badge {name} box is empty.")
-    if not (
-        PANE_BOUNDS[0] <= left < right <= PANE_BOUNDS[2]
-        and PANE_BOUNDS[1] <= top < bottom <= PANE_BOUNDS[3]
-    ):
+    if not inside_pane(result):
         raise ValueError(f"Training badge {name} box leaves gameplay bounds.")
     return result
 
@@ -144,8 +154,8 @@ def _rgb_array(pane: Any):
             array = array[:, :, :3]
     if array.ndim != 3 or array.shape[2] != 3:
         raise ValueError("Training badge localization expects RGB gameplay pixels.")
-    if tuple(array.shape[:2]) != (1080, 810):
-        raise ValueError("Training badge localization expects an 810x1080 gameplay pane.")
+    if tuple(array.shape[1::-1]) != pane_size():
+        raise ValueError("Training badge localization expects the gameplay pane.")
     if array.dtype != np.uint8:
         array = array.astype(np.uint8)
     return array
@@ -287,7 +297,7 @@ def _source_boxes(value: Any) -> list[list[float]]:
 
 
 def _scan_box(field: str) -> tuple[int, int, int, int]:
-    broad = WIDE_GAIN_BOXES[field]
+    broad = wide_gain_box(field)
     return (
         broad[0],
         broad[1] + BADGE_BAND_TOP,
@@ -359,8 +369,8 @@ def discover_training_badge_crops(
     mask = _orange_mask(rgb)
     blocked = _source_boxes(blocked_boxes)
     for field in FIELDS:
-        wide = WIDE_GAIN_BOXES[field]
-        tight = GAIN_BOXES[field]
+        wide = wide_gain_box(field)
+        tight = gain_box(field)
         scan = _scan_box(field)
         x0, y0, x1, y1 = scan
         # Convert full gameplay x coordinates to the isolated pane's x axis.
@@ -569,16 +579,17 @@ def _validate_observation(observation: Mapping[str, Any], *, gameplay_sha256: st
     box = _integer_box(observation.get("box"), name="localized")
     component = _integer_box(observation.get("component_box"), name="component")
     scan = _integer_box(observation.get("scan_box"), name="scan")
+    tight = gain_box(field)
     if not (
-        GAIN_BOXES[field][0] <= (component[0] + component[2]) / 2 <= GAIN_BOXES[field][2]
-        and GAIN_BOXES[field][1] <= (component[1] + component[3]) / 2 <= GAIN_BOXES[field][3]
+        tight[0] <= (component[0] + component[2]) / 2 <= tight[2]
+        and tight[1] <= (component[1] + component[3]) / 2 <= tight[3]
         and scan[0] == _scan_box(field)[0]
         and scan[1] == _scan_box(field)[1]
         and scan[2] == _scan_box(field)[2]
         and scan[3] == _scan_box(field)[3]
     ):
         raise ValueError("Training badge localization component geometry is not field-bound.")
-    wide = WIDE_GAIN_BOXES[field]
+    wide = wide_gain_box(field)
     if not (wide[0] <= box[0] <= box[2] <= wide[2] and wide[1] <= box[1] <= box[3] <= wide[3]):
         raise ValueError("Training badge localization crop leaves its source card.")
     if observation.get("crop_family") != "localized_gain":

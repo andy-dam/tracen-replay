@@ -34,7 +34,9 @@ from pathlib import Path
 import re
 from typing import Any, Iterable
 
+from .layout import current as current_layout, pane_box, place, place_x, place_y
 from .reconcile import FIELDS
+from .source_clock import elapsed
 from .stats import BOXES
 
 
@@ -102,13 +104,12 @@ _SEMANTIC_ALIASES = frozenset(
 )
 
 
-# The gameplay crop is fixed at 810x1080 with its left edge at x=148 in the
-# source frame.  Reusing the stat reader's boxes makes the numeric boundary a
-# layout rule, rather than a value or timestamp learned from one recording.
-# Typed geometry arriving from another parser is still untrusted input.  Keep
-# the pane bounds here so an ordered box cannot manufacture a phase proof from
-# coordinates outside the gameplay crop.
-_GAMEPLAY_PANE_BOUNDS = (148.0, 0.0, 958.0, 1080.0)
+# The gameplay crop's left edge is at x=148 in reader coordinates.  Reusing
+# the stat reader's boxes makes the numeric boundary a layout rule, rather
+# than a value or timestamp learned from one recording.  Typed geometry
+# arriving from another parser is still untrusted input: an ordered box
+# outside the gameplay crop (``pane_box``) cannot manufacture a phase proof.
+# Fixed positions below are PC pane positions, placed by their pins.
 _STAT_LABELS = {
     "speed": frozenset(("speed",)),
     "stamina": frozenset(("stamina",)),
@@ -219,7 +220,7 @@ def _phase_box(value: Any) -> bool:
         left, top, right, bottom = (float(item) for item in value)
     except (OverflowError, TypeError, ValueError):
         return False
-    pane_left, pane_top, pane_right, pane_bottom = _GAMEPLAY_PANE_BOUNDS
+    pane_left, pane_top, pane_right, pane_bottom = pane_box()
     return (
         pane_left <= left < right <= pane_right
         and pane_top <= top < bottom <= pane_bottom
@@ -240,7 +241,7 @@ def _phase_band(value: Any) -> bool:
     # Two-coordinate bands are emitted for vertical stat/label spans.  Their
     # axis is not encoded in the compact proof, but both endpoints still must
     # lie inside the source frame rather than in fabricated coordinates.
-    return _GAMEPLAY_PANE_BOUNDS[1] <= first < second <= _GAMEPLAY_PANE_BOUNDS[3]
+    return pane_box()[1] <= first < second <= pane_box()[3]
 
 
 def _preview_geometry_is_valid(value: Any) -> bool:
@@ -535,7 +536,7 @@ def _raw_menu_controls(lines: list[dict[str, Any]], minimum_confidence: float) -
         box = _line_box(line)
         if not text or box is None:
             continue
-        x, y = _center(box)
+        x, y = _pc_center(box, "bc")
         if not (850 <= y <= 1010 and 120 <= x <= 850):
             continue
         normalized = text.casefold().replace(" ", "")
@@ -557,7 +558,7 @@ def _raw_navigation_controls(lines: list[dict[str, Any]], minimum_confidence: fl
         box = _line_box(line)
         if not text or box is None:
             continue
-        _x, y = _center(box)
+        _x, y = _pc_center(box, "bc")
         if not 850 <= y <= 1010:
             continue
         normalized = re.sub(r"[^a-z]", "", text.casefold())
@@ -574,7 +575,8 @@ def _raw_failure_popup(lines: list[dict[str, Any]], minimum_confidence: float) -
         if box is None:
             continue
         left, top, right, bottom = box
-        if 250 <= left < right <= 850 and 750 <= top < bottom <= 850:
+        x1, y1, x2, y2 = place((250, 750, 850, 850), "bc")
+        if x1 <= left < right <= x2 and y1 <= top < bottom <= y2:
             return True
     return False
 
@@ -591,7 +593,7 @@ def _raw_performance_structure(lines: list[dict[str, Any]], minimum_confidence: 
         box = _line_box(line)
         if not text or box is None:
             continue
-        x, y = _center(box)
+        x, y = _pc_center(box, "tl")
         if _PERFORMANCE_HEADER_RE.fullmatch(text) and 135 <= x <= 280 and 235 <= y <= 305:
             headers.add("performance")
         if _POINTS_HEADER_RE.fullmatch(text) and 150 <= x <= 280 and 255 <= y <= 325:
@@ -728,7 +730,7 @@ def _line_box(line: Any) -> tuple[float, float, float, float] | None:
         and top < bottom
     ):
         return None
-    pane_left, pane_top, pane_right, pane_bottom = _GAMEPLAY_PANE_BOUNDS
+    pane_left, pane_top, pane_right, pane_bottom = pane_box()
     if not (
         pane_left <= left < right <= pane_right
         and pane_top <= top < bottom <= pane_bottom
@@ -755,6 +757,14 @@ def _confidence(line: Any) -> float:
 
 def _center(box: tuple[float, float, float, float]) -> tuple[float, float]:
     return ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+
+
+def _pc_center(box: tuple[float, float, float, float], pin: str) -> tuple[float, float]:
+    """A box's centre moved back to where ``pin`` has it on the PC pane."""
+
+    dx, dy = current_layout().offset(pin)
+    x, y = _center(box)
+    return x - dx, y - dy
 
 
 def _canonical_label(value: Any, aliases: dict[str, frozenset[str]]) -> str | None:
@@ -830,7 +840,7 @@ def _training_marker(source: dict[str, Any], lines: list[dict[str, Any]],
         for index, line in enumerate(lines):
             text = _line_text(line)
             box = _line_box(line)
-            if text and box and _center(box)[1] <= 55 and text.casefold().startswith("training"):
+            if text and box and _pc_center(box, "tl")[1] <= 55 and text.casefold().startswith("training"):
                 header = text
                 header_line = index
                 break
@@ -950,7 +960,7 @@ def _parser_owned_preview_options(source: dict[str, Any], *,
             box = _line_box(line)
             if text is None or box is None or _TRAINING_OPTION_RE.fullmatch(text) is None:
                 continue
-            center_x, center_y = _center(box)
+            center_x, center_y = _pc_center(box, "tl")
             if 190 <= center_x <= 430 and 120 <= center_y <= 240:
                 add(text)
     return options
@@ -970,7 +980,7 @@ def _column_for_x(x: float) -> str | None:
 
     candidates = []
     for field, box in _STAT_COLUMN_BOXES.items():
-        left, _top, right, _bottom = box
+        left, _top, right, _bottom = place(box, "bc")
         # A glyph may be wider than the underlying value box while still
         # being unambiguously centered in that column.
         margin = max(18.0, (right - left) * 0.35)
@@ -994,7 +1004,7 @@ def _stat_label_lines(lines: list[dict[str, Any]], minimum_confidence: float):
         box = _line_box(line)
         if field is None or box is None:
             continue
-        _x, y = _center(box)
+        _x, y = _pc_center(box, "bc")
         # This is the persistent stat-card region.  The lower result cards
         # have different geometry and must not act as preview label anchors.
         if not 650 <= y <= 820:
@@ -1128,7 +1138,7 @@ def _performance_panel_proof(lines: list[dict[str, Any]], minimum_confidence: fl
         box = _line_box(line)
         if text is None or box is None or _confidence(line) < minimum_confidence:
             continue
-        x, y = _center(box)
+        x, y = _pc_center(box, "tl")
         if _PERFORMANCE_HEADER_RE.fullmatch(text) and 135 <= x <= 280 and 235 <= y <= 305:
             header = True
         if _POINTS_HEADER_RE.fullmatch(text) and 150 <= x <= 280 and 255 <= y <= 325:
@@ -1218,7 +1228,8 @@ def _preview_menu_failure_line(lines: list[dict[str, Any]], minimum_confidence: 
         if box is None:
             continue
         left, top, right, bottom = box
-        if 240 <= left < right <= 850 and 735 <= top < bottom <= 850:
+        x1, y1, x2, y2 = place((240, 735, 850, 850), "bc")
+        if x1 <= left < right <= x2 and y1 <= top < bottom <= y2:
             return line
     return None
 
@@ -1249,7 +1260,7 @@ def _preview_song_modifier_marker(
         if box is None or text is None:
             continue
         left, top, right, bottom = box
-        center_x, center_y = _center(box)
+        center_x, center_y = _pc_center(box, "tl")
         if not (135 <= center_x <= 360 and 520 <= center_y <= 680):
             continue
         normalized = re.sub(r"[^a-z]+", " ", text.casefold()).strip()
@@ -1333,7 +1344,7 @@ def _preview_success_banner_line(lines: list[dict[str, Any]], minimum_confidence
         left, top, right, bottom = box
         # A normal stat glyph is narrow and cannot satisfy this area test.  A
         # result banner remains large even when OCR returns only ``SU``.
-        if top >= 560 and right - left >= 160 and bottom - top >= 70:
+        if top >= place_y(560, "m") and right - left >= 160 and bottom - top >= 70:
             return line
     return None
 
@@ -1355,8 +1366,8 @@ def _preview_stat_candidates_from_lines(
         match = _SIGNED_AMOUNT_RE.fullmatch(text)
         if not match:
             continue
-        _x, y = _center(box)
-        if not (_SOURCE_PREVIEW_STAT_Y[0] <= y <= _SOURCE_PREVIEW_STAT_Y[1]):
+        _x, _y = _center(box)
+        if not (_SOURCE_PREVIEW_STAT_Y[0] <= _pc_center(box, "bc")[1] <= _SOURCE_PREVIEW_STAT_Y[1]):
             continue
         field = _column_for_x(_x)
         if field is None:
@@ -1881,8 +1892,8 @@ def produce_preview_panel_from_lines(
         "basis": "source_training_failure_badge_and_preview_row_geometry",
         "geometry": {
             "layout": "gameplay_crop_stat_cards",
-            "stat_row_band": list(_SOURCE_PREVIEW_STAT_Y),
-            "label_band": list(_SOURCE_PREVIEW_LABEL_Y),
+            "stat_row_band": [place_y(y, "b") for y in _SOURCE_PREVIEW_STAT_Y],
+            "label_band": [place_y(y, "b") for y in _SOURCE_PREVIEW_LABEL_Y],
             "stat_rows": geometry.get("stat_rows", {}),
             "unassigned_components": geometry.get("unassigned_components", {}),
             "failure": {
@@ -2399,10 +2410,10 @@ def _parse_preview_overlay(source: Any, *, minimum_confidence: float = 90) -> di
         match = _SIGNED_AMOUNT_RE.fullmatch(text)
         if not match:
             continue
-        x, y = _center(box)
+        x, _y = _center(box)
         # The preview number row sits around the persistent stat cards.  The
         # separate gain.* region path below covers lower result-card crops.
-        if not 610 <= y <= 820:
+        if not 610 <= _pc_center(box, "bc")[1] <= 820:
             rejected["signed_amount_outside_preview_row"] += 1
             continue
         field = _column_for_x(x)
@@ -2457,7 +2468,7 @@ def _parse_preview_overlay(source: Any, *, minimum_confidence: float = 90) -> di
         # ``gain.*`` is the result-reader crop.  It is never browse-menu proof;
         # accepting it here was the source of the old false preview rows.
         rejected["training_gain_region_without_current_menu_proof"] += 1
-        if y < 780:
+        if y < place_y(780, "m"):
             rejected["training_gain_region_outside_result_crop"] += 1
             continue
         continue
@@ -2517,7 +2528,7 @@ def _parse_preview_overlay(source: Any, *, minimum_confidence: float = 90) -> di
             if not match:
                 continue
             x, y = _center(box)
-            if not 185 <= x <= 335:
+            if not 185 <= _pc_center(box, "tl")[0] <= 335:
                 continue
             rows = []
             for field, entries in performance_labels.items():
@@ -2606,7 +2617,8 @@ _HASH_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 # Kept in this module as a validation copy of the source-recovery request
 # geometry.  These are layout coordinates, not value expectations; matching
 # them prevents a persisted envelope from moving a typed amount onto another
-# crop before it reaches the preview adapter.
+# crop before it reaches the preview adapter.  They are PC pane positions of
+# rows pinned to the bottom, centred.
 _PREVIEW_MAIN_REGION_BOXES = {
     "speed": (270, 665, 390, 705),
     "stamina": (370, 665, 480, 705),
@@ -2746,7 +2758,8 @@ def _persisted_source_amounts(
     if field not in _PREVIEW_FIELD_CENTERS:
         return set(), True
     values: set[int] = set()
-    target_center = _PREVIEW_FIELD_CENTERS[field]
+    centers = {name: place_x(center) for name, center in _PREVIEW_FIELD_CENTERS.items()}
+    target_center = centers[field]
     ambiguous = False
     left, top, right, bottom = region_box
     for line in _persisted_source_lines(source):
@@ -2769,7 +2782,7 @@ def _persisted_source_amounts(
             ranked = sorted(
                 (
                     (abs(token_center - center), candidate)
-                    for candidate, center in _PREVIEW_FIELD_CENTERS.items()
+                    for candidate, center in centers.items()
                 ),
                 key=lambda item: item[0],
             )
@@ -3159,6 +3172,7 @@ def _persisted_preview_identity(
             expected_geometry_basis = "fixed_preview_modifier_row_geometry"
         if expected_box is None or expected_request_id is None:
             return False
+        expected_box = place(expected_box, "bc")
         if region.get("source_request_id") != expected_request_id:
             return False
         geometry_basis = region.get("geometry_basis")
@@ -4338,7 +4352,7 @@ def _finite_box(value: Any) -> tuple[float, float, float, float] | None:
     box = _line_box({"box": value})
     if box is None or not all(math.isfinite(number) for number in box):
         return None
-    pane_left, pane_top, pane_right, pane_bottom = _GAMEPLAY_PANE_BOUNDS
+    pane_left, pane_top, pane_right, pane_bottom = pane_box()
     if not (
         pane_left <= box[0] < box[2] <= pane_right
         and pane_top <= box[1] < box[3] <= pane_bottom
@@ -4432,9 +4446,11 @@ def _performance_panel_projection(
     if status not in _PERFORMANCE_PANEL_PREVIEW_STATUSES:
         return None, "unsupported_performance_panel_preview_status", status or ""
     band = _finite_box(provenance.get("band"))
+    # The panel is pinned to the top left; the bounds are its PC pane place.
+    dx, dy = current_layout().offset("tl")
     if band is None or not (
-        120 <= band[0] < band[2] <= 400
-        and 250 <= band[1] < band[3] <= 620
+        120 <= band[0] - dx < band[2] - dx <= 400
+        and 250 <= band[1] - dy < band[3] - dy <= 620
         and 40 <= band[2] - band[0] <= 220
         and 15 <= band[3] - band[1] <= 100
     ):
@@ -4930,7 +4946,7 @@ def _candidate_rows(
 
 def _conflict_touch(left: dict[str, Any], right: dict[str, Any], maximum_gap_ms: int) -> bool:
     return max(left["start_ms"], right["start_ms"]) <= min(left["end_ms"], right["end_ms"]) or (
-        0 <= right["start_ms"] - left["end_ms"] <= maximum_gap_ms
+        0 <= elapsed(left["end_ms"], right["start_ms"]) <= maximum_gap_ms
     )
 
 
@@ -4988,7 +5004,7 @@ def build_preview_observations(
         if (
             previous is not None
             and previous["sequence_index"] + 1 == candidate["sequence_index"]
-            and candidate["timestamp"] - previous["end_ms"] <= maximum_gap_ms
+            and elapsed(previous["end_ms"], candidate["timestamp"]) <= maximum_gap_ms
             and (candidate.get("option") is not None or candidate.get("context") is not None)
         ):
             previous["end_ms"] = candidate["timestamp"]

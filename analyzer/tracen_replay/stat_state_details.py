@@ -14,13 +14,15 @@ import json
 import math
 import re
 
+from .layout import pane_size, place, place_y
 from .reconcile import FIELDS
 from .stats import BOXES
 
 
-# These are the stable result-card columns in the source OCR coordinate space.
-# The gameplay pane is 810x1080 after the reader's crop, but OCR boxes retain
-# the 148px horizontal source offset and can therefore extend past x=810.
+# These are the stable result-card columns in the source OCR coordinate space,
+# on the PC pane.  The gameplay pane is 810x1080 there after the reader's crop,
+# but OCR boxes retain the 148px horizontal source offset and can therefore
+# extend past x=810.
 # A broad envelope is intentional: ordinary box jitter is allowed while the
 # value remains tied to the result grid rather than arbitrary frame numbers.
 _RESULT_COLUMNS = {
@@ -37,6 +39,18 @@ _RESULT_ROWS = {
     'guts': (925, 1015),
     'wit': (925, 1015),
 }
+
+
+def _result_card(field):
+    """The field's result card in this recording, as (left, top, right, bottom), or None.
+
+    The columns and rows above are the PC pane's; the cards are pinned to
+    the centre of the game's clear area.
+    """
+    column, row = _RESULT_COLUMNS.get(field), _RESULT_ROWS.get(field)
+    if column is None or row is None:
+        return None
+    return place((column[0], row[0], column[1], row[1]), 'mc')
 
 
 # Result-card sparkles are a foreground animation.  A warm, locally bright
@@ -282,7 +296,8 @@ def _source_pixels(pane):
     try:
         image = pane.convert('RGB') if hasattr(pane, 'convert') else pane
         pixels = np.asarray(image)
-        if pixels.shape != (1080, 810, 3):
+        width, height = pane_size()
+        if pixels.shape != (height, width, 3):
             return None
         return pixels.astype(np.uint8, copy=False)
     except (AttributeError, TypeError, ValueError, OverflowError):
@@ -421,15 +436,14 @@ def _within_box(box, bounds):
 def _result_label_box_eligible(field, box):
     """Require the full OCR label box to fit the field's result geometry."""
 
-    if field not in _RESULT_COLUMNS or field not in _RESULT_ROWS or not _valid_box(box):
+    card = _result_card(field)
+    if card is None or not _valid_box(box):
         return False
     left, top, right, bottom = [float(value) for value in box]
     width, height = right - left, bottom - top
-    column = _RESULT_COLUMNS[field]
-    row_start = _RESULT_ROWS[field][0]
     return (18 <= width <= 150 and 10 <= height <= 55
-            and column[0] <= left and right <= column[1]
-            and row_start - 45 <= top and bottom <= row_start + 25)
+            and card[0] <= left and right <= card[2]
+            and card[1] - 45 <= top and bottom <= card[1] + 25)
 
 
 def _result_region_eligible(field, observation):
@@ -442,10 +456,8 @@ def _result_region_eligible(field, observation):
     width, height = right - left, bottom - top
     if not 70 <= width <= 210 or not 24 <= height <= 80:
         return False
-    column = _RESULT_COLUMNS.get(field)
-    row = _RESULT_ROWS.get(field)
-    return (column is not None and row is not None
-            and _within_box(box, (column[0], row[0], column[1], row[1])))
+    card = _result_card(field)
+    return card is not None and _within_box(box, card)
 
 
 def _result_label(field, lines, value_box):
@@ -686,9 +698,7 @@ def read_training_result_values(raw):
                 continue
             if not _valid_box(line.get('box')):
                 continue
-            if not _within_box(line['box'], (
-                    _RESULT_COLUMNS[field][0], _RESULT_ROWS[field][0],
-                    _RESULT_COLUMNS[field][1], _RESULT_ROWS[field][1])):
+            if not _within_box(line['box'], _result_card(field)):
                 continue
             text = str(line.get('text', '')).strip()
             line_value, line_cap, line_kind = _result_card_numerator(text)
@@ -760,6 +770,7 @@ def _turn_number_from_line(line):
     return int(match[1]) if match else None
 
 
+# The goal countdown on the PC pane; the header it sits in is pinned to the top.
 _GOAL_COUNTDOWN_BOUNDS = (235, 35, 430, 115)
 
 
@@ -773,7 +784,7 @@ def _countdown_region_value(region, turn_anchor, left_anchor):
     if not re.fullmatch(r'\d{1,2}', text) or not _valid_box(region.get('box')):
         return None
     box = region['box']
-    if not _within_box(box, _GOAL_COUNTDOWN_BOUNDS):
+    if not _within_box(box, place(_GOAL_COUNTDOWN_BOUNDS, 'tc')):
         return None
     left, top, right, bottom = [float(value) for value in box]
     width, height = right - left, bottom - top
@@ -814,6 +825,7 @@ def read_goal_turns(lines, countdown_region=None):
     left_anchors = []
     candidates = []
     number_observations = []
+    bounds = place(_GOAL_COUNTDOWN_BOUNDS, 'tc')
     for line in lines:
         if not isinstance(line, dict) or line.get('confidence', 0) < 90:
             continue
@@ -822,7 +834,7 @@ def read_goal_turns(lines, countdown_region=None):
         box = line['box']
         # Header goal panel: keep the bounds broad enough for detector jitter,
         # while excluding the separate Concert in card below it.
-        if not _within_box(box, _GOAL_COUNTDOWN_BOUNDS):
+        if not _within_box(box, bounds):
             continue
         text = re.sub(r'\s+', ' ', str(line.get('text', '')).strip()).casefold()
         if text == 'turn(s)':
@@ -890,7 +902,8 @@ def read_main_stat_caps(raw):
     caps, proof = {}, {}
     stat_bar_values = {}
     for field, column in zip(FIELDS[:5], BOXES[:5]):
-        left, _, right, _ = column
+        # The stat bar is pinned to the bottom of the clear area.
+        left, _, right, _ = place(column, 'bc')
 
         def center_in(line, x0, y0, x1, y1):
             x, y, xx, yy = line['box']
@@ -902,7 +915,7 @@ def read_main_stat_caps(raw):
         # source geometry and works through menu transitions.
         headers = [line for line in lines
                    if str(line.get('text', '')).strip().casefold() == field
-                   and center_in(line, left - 24, 650, right + 24, 785)]
+                   and center_in(line, left - 24, place_y(650, 'b'), right + 24, place_y(785, 'b'))]
         if len(headers) != 1:
             continue
         header_y = (headers[0]['box'][1] + headers[0]['box'][3]) / 2

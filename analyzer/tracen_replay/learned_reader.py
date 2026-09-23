@@ -23,11 +23,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-# Pane-space geometry: the recognizer's result boxes in screen coordinates,
-# with the pane's left edge at x=148. Result boxes sit in two rows of three,
-# skill points last.
+from .layout import pane_size, place
+
+# Pane-space geometry: the recognizer's result boxes in screen coordinates on
+# the PC pane, with the pane's left edge at x=148. Result boxes sit in two
+# rows of three, skill points last; the cards are pinned to the centre of the
+# clear area.
 PANE_LEFT = 148
-PANE_SIZE = (810, 1080)
 STAT_FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit')
 BADGE_BOXES = {field: ((322, 518, 714)[i % 3], 834 if i < 3 else 952) for i, field in enumerate(STAT_FIELDS)}
 BADGE_BOXES = {field: (x, y, x + 126, y + 42) for field, (x, y) in BADGE_BOXES.items()}
@@ -64,7 +66,7 @@ def pane_box(box, margin=(0, 0, 0, 0)):
 
 def box_array(pane, field):
     """One result box of a pane as the network sees it: uint8 RGB, 64 x 192, channels first."""
-    crop = pane.crop(pane_box(RESULT_BOXES[field], READER_MARGIN)).resize((WIDTH, HEIGHT), Image.BILINEAR)
+    crop = pane.crop(pane_box(place(RESULT_BOXES[field], 'mc'), READER_MARGIN)).resize((WIDTH, HEIGHT), Image.BILINEAR)
     return np.ascontiguousarray(np.asarray(crop.convert('RGB'), dtype=np.uint8).transpose(2, 0, 1))
 
 
@@ -160,7 +162,7 @@ def annotate(readings, root, reader, threshold=THRESHOLD):
         chunk = []
         for row, path in pending[start:start + 64]:
             with Image.open(path) as image:
-                if image.size != PANE_SIZE:
+                if image.size != pane_size():
                     continue
                 pane = image.convert('RGB')
             chunk.append((row, [box_array(pane, field) for field in RESULT_BOXES]))

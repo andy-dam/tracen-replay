@@ -22,13 +22,16 @@ import math
 import re
 from typing import Any, Iterable, Mapping
 
+from .layout import place
+from .source_clock import elapsed
+
 
 HEADING_CONFIDENCE = 95.0
 NAME_CONFIDENCE = 97.0
 
-# OCR sidecar boxes use the original 1080-wide gameplay-pane x coordinate: the
-# 810-wide crop starts at x=148, and ``vision.NeuralReader`` adds that offset
-# back to detected boxes.  Y coordinates already use the 1080-high crop space.
+# OCR sidecar boxes use the reader's coordinates: the gameplay crop starts at
+# x=148, and ``vision.NeuralReader`` adds that offset back to detected boxes.
+# Y coordinates already use the crop's rows.  The regions are the PC pane's.
 # The banner is centered in the lower half; the receipt block below it is
 # deliberately outside the name band so a clipped ``Recovered from ...`` line
 # cannot become the banner's identity.
@@ -159,8 +162,9 @@ def _complete_receipt_proof(
     name: str,
 ) -> list[dict[str, Any]]:
     proofs = []
+    region = place(RECEIPT_REGION, "mc", "sc")
     for line in lines:
-        if not _inside(line, RECEIPT_REGION, NAME_CONFIDENCE):
+        if not _inside(line, region, NAME_CONFIDENCE):
             continue
         text = _text(line.get("text"))
         match = _RECEIPT_RE.fullmatch(text or "")
@@ -195,13 +199,14 @@ def read_condition_cured_banner(
     if not isinstance(lines, Iterable) or isinstance(lines, (str, bytes)):
         return None
     normalized = _unique_lines(line for line in lines if isinstance(line, Mapping))
+    # The banner is centred; the bands cover the safe-area and screen centres.
     headings = [line for line in normalized
-                if _inside(line, HEADING_REGION, HEADING_CONFIDENCE)
+                if _inside(line, place(HEADING_REGION, "mc", "sc"), HEADING_CONFIDENCE)
                 and _heading_text(line.get("text")) is not None]
     if len(headings) != 1:
         return None
     names = [line for line in normalized
-             if _inside(line, NAME_REGION, NAME_CONFIDENCE)
+             if _inside(line, place(NAME_REGION, "mc", "sc"), NAME_CONFIDENCE)
              and _valid_condition_name(line.get("text")) is not None]
     if len(names) != 1 or not _name_aligned(headings[0], names[0]):
         return None
@@ -387,7 +392,7 @@ def _same_bounded_source_occurrence(
     if (primary_namespaces and candidate_namespaces
             and primary_namespaces.isdisjoint(candidate_namespaces)):
         return False, candidate_times, candidate_evidence
-    gap = min(abs(left - right) for left in primary_times for right in candidate_times)
+    gap = min(abs(elapsed(left, right)) for left in primary_times for right in candidate_times)
     return gap <= max_gap_ms, candidate_times, candidate_evidence
 
 

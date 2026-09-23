@@ -1,7 +1,11 @@
 """Visible final-summary ownership, separate from carts and complete inventory."""
 import re
 
+from .layout import current
+from .source_clock import elapsed
 
+
+# Positions on the PC pane; ``visible_cards`` moves the lines back there.
 _CARD_COLUMNS=((310,550),(590,830))
 _GRID_MIN_Y=480
 _GRID_MAX_Y=943
@@ -220,7 +224,26 @@ def _summary_panel(lines):
 
 def visible_cards(raw,final_attributes):
     if sum(type(v) is int for v in final_attributes.values())<3:return []
-    lines=raw.get('lines',[])
+    # The summary window sits at the screen's centre during a career and at
+    # the clear area's centre after it.  Its lines are moved back to the PC
+    # pane from each place in turn; a card keeps the lines as they were read.
+    for dx,dy in dict.fromkeys(current().offset(pin) for pin in ('mc','sc')):
+        read={};lines=[]
+        for line in raw.get('lines',[]):
+            box=_box(line)
+            if box is None:
+                lines.append(line);continue
+            moved=dict(line,box=[box[0]-dx,box[1]-dy,box[2]-dx,box[3]-dy]);read[id(moved)]=line;lines.append(moved)
+        cards=_visible_cards(lines)
+        if cards:
+            for card in cards:
+                card['text_evidence']=[read.get(id(line),line) for line in card['text_evidence']]
+                card['level_evidence']=[read.get(id(line),line) for line in card['level_evidence']]
+            return cards
+    return []
+
+
+def _visible_cards(lines):
     tabs={l.get('text','').strip() for l in lines if l.get('confidence',0)>=90
           and _box(l) is not None and 445<=_box(l)[1]<=470}
     if not {'Skills','Inspiration','Career Info'}<=tabs:return []
@@ -298,14 +321,14 @@ def summarize(readings):
     owned=[]
     for name,observations in groups.items():
         times=sorted(set(o['timestamp_ms'] for o in observations))
-        if not any(0<b-a<=500 for a,b in zip(times,times[1:])):continue
+        if not any(0<elapsed(a,b)<=500 for a,b in zip(times,times[1:])):continue
         details={}
         for field in ('level','variant'):
             values={o.get('observed_'+field) for o in observations if o.get('observed_'+field) is not None}
             values.update(v for o in observations for v in o.get(field+'_conflicts',[]))
             value=next(iter(values)) if len(values)==1 else None
             supporting=sorted({o['timestamp_ms'] for o in observations if value is not None and o.get('observed_'+field)==value})
-            repeated=any(0<b-a<=500 for a,b in zip(supporting,supporting[1:]))
+            repeated=any(0<elapsed(a,b)<=500 for a,b in zip(supporting,supporting[1:]))
             details[field]=value if repeated else None
             details[field+'_verified']=repeated
             if len(values)>1:details[field+'_conflicts']=sorted(values)

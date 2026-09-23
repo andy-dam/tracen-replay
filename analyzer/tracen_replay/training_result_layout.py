@@ -26,13 +26,15 @@ import re
 from copy import deepcopy
 from typing import Any, Mapping, Sequence
 
+from .layout import pane_box, place
 from .ocr_confidence import confidence_percent
 
 
 VERSION = 1
 SCHEMA = "tracen-replay/training-result-layout-v1"
 
-PANE_BOUNDS = (148.0, 0.0, 958.0, 1080.0)
+# On the PC pane. The header is pinned to the top left; the result banner and
+# cards to the centre of the clear area.
 HEADER_BOUNDS = (148.0, 0.0, 450.0, 80.0)
 BANNER_BOUNDS = (250.0, 580.0, 850.0, 820.0)
 RESULT_CARD_BOUNDS = (260.0, 760.0, 850.0, 1030.0)
@@ -78,9 +80,10 @@ def _box(value: Any) -> tuple[float, float, float, float] | None:
     left, top, right, bottom = numbers  # type: ignore[misc]
     if not (left < right and top < bottom):
         return None
+    pane = pane_box()
     if not (
-        PANE_BOUNDS[0] <= left < right <= PANE_BOUNDS[2]
-        and PANE_BOUNDS[1] <= top < bottom <= PANE_BOUNDS[3]
+        pane[0] <= left < right <= pane[2]
+        and pane[1] <= top < bottom <= pane[3]
     ):
         return None
     return left, top, right, bottom
@@ -119,7 +122,7 @@ def _header(lines: Sequence[Mapping[str, Any]], supplied: Any) -> dict[str, Any]
             line for line in lines
             if _text(line).casefold() == "training"
             and (_confidence(line) or 0.0) >= 90.0
-            and _in_box(line["box"], HEADER_BOUNDS)
+            and _in_box(line["box"], place(HEADER_BOUNDS, "tl"))
         ]
         if candidates:
             return _line_copy(max(candidates, key=lambda item: _confidence(item) or 0.0))
@@ -132,7 +135,7 @@ def _header(lines: Sequence[Mapping[str, Any]], supplied: Any) -> dict[str, Any]
         if _text(line).casefold() == "training"
         and (_confidence(line) or 0.0) >= 90.0
         and _box(line.get("box")) is not None
-        and _in_box(line["box"], HEADER_BOUNDS)
+        and _in_box(line["box"], place(HEADER_BOUNDS, "tl"))
     ]
     if len(candidates) != 1:
         return None
@@ -148,7 +151,7 @@ def _banner_candidates(lines: Sequence[Mapping[str, Any]]) -> tuple[list[dict[st
         confidence = _confidence(line)
         if not _BANNER_RE.fullmatch(text):
             continue
-        if box is None or not _in_box(box, BANNER_BOUNDS):
+        if box is None or not _in_box(box, place(BANNER_BOUNDS, "mc")):
             rejections["banner_geometry"] = rejections.get("banner_geometry", 0) + 1
             continue
         left, top, right, bottom = box
@@ -180,7 +183,7 @@ def _field_labels(lines: Sequence[Mapping[str, Any]]) -> list[tuple[str, dict[st
         confidence = _confidence(line)
         if box is None or confidence is None or confidence < 90.0:
             continue
-        if not _in_box(box, RESULT_CARD_BOUNDS):
+        if not _in_box(box, place(RESULT_CARD_BOUNDS, "mc")):
             continue
         normalized = _text(line).casefold()
         field = _LABEL_TO_FIELD.get(normalized)
@@ -196,7 +199,7 @@ def _totals(lines: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         confidence = _confidence(line)
         if box is None or confidence is None or confidence < 90.0:
             continue
-        if not _in_box(box, RESULT_CARD_BOUNDS):
+        if not _in_box(box, place(RESULT_CARD_BOUNDS, "mc")):
             continue
         compact = re.sub(r"\s+", "", _text(line))
         if _TOTAL_RE.fullmatch(compact) is None:
@@ -353,7 +356,7 @@ def detect_training_result_layout(
             "outcome_status": "banner_not_visible",
             "header": header_observation,
             "card_geometry": {
-                "bounds": list(RESULT_CARD_BOUNDS),
+                "bounds": list(place(RESULT_CARD_BOUNDS, "mc")),
                 "minimum_distinct_fields": 4,
                 "rows": pairs,
             },
@@ -393,7 +396,7 @@ def detect_training_result_layout(
         "header": header_observation,
         "banner": banner,
         "card_geometry": {
-            "bounds": list(RESULT_CARD_BOUNDS),
+            "bounds": list(place(RESULT_CARD_BOUNDS, "mc")),
             "minimum_distinct_fields": 2,
             "rows": pairs,
         },

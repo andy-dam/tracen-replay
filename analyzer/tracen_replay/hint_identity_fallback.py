@@ -32,6 +32,8 @@ import math
 import re
 from typing import Any, Mapping
 
+from .source_clock import elapsed
+
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _CIRCLE_NAME = re.compile(r"^(?P<base>.+?)\s+○$")
@@ -356,7 +358,7 @@ def _same_slot_reads(weak: Mapping[str, Any], strong: Mapping[str, Any],
             return []
         time = row["source_timestamp_ms"]
         nearest = min(strong_boxes, key=lambda item: abs(item[0] - time))
-        if (abs(nearest[0] - time) > _SAME_SLOT_WINDOW_MS
+        if (abs(elapsed(time, nearest[0])) > _SAME_SLOT_WINDOW_MS
                 or _box_overlap(box, nearest[1]) < _SAME_SLOT_OVERLAP):
             return []
     return list(weak_evidence)

@@ -12,6 +12,8 @@ from __future__ import annotations
 import copy
 import math
 
+from .layout import place
+
 
 MIN_CONFIDENCE = 95.0
 RECEIPT_LEFT = 250
@@ -37,9 +39,12 @@ def _valid_box(box):
     if not all(_finite(value) for value in box):
         return False
     left, top, right, bottom = box
+    # The bounds are the PC pane's; the receipts move with the event's text
+    # box, as ``gameplay.receipt_band`` places it.
+    x0, y0, x1, y1 = place((RECEIPT_LEFT, RECEIPT_TOP, RECEIPT_RIGHT, RECEIPT_BOTTOM), "mc", "sc")
     return (
-        RECEIPT_LEFT <= left < right <= RECEIPT_RIGHT
-        and RECEIPT_TOP <= top < bottom <= RECEIPT_BOTTOM
+        x0 <= left < right <= x1
+        and y0 <= top < bottom <= y1
     )
 
 

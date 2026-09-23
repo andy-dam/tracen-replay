@@ -1,10 +1,12 @@
 """Source-bound lower bounds for distinct inheritance lines during a scroll."""
 from copy import deepcopy
+from .gameplay import receipt_rows
 from .inheritance_occurrences import _expected_raw_text
 from .inheritance_spark_identity import (
     MAX_ADJACENT_MS, MAX_SCROLL_PIXELS, MIN_SCROLL_PIXELS, STATIONARY_PIXELS,
     _center, _lines, _matching_anchors, _same_context, _stable_box,
 )
+from .source_clock import elapsed
 _KINDS = frozenset(("inheritance_spark", "inheritance_inspiration"))
 _PAYLOAD = ("kind", "field", "name", "amount", "direction", "value")
 _BOTTOM_ENTRY_CENTER = 920
@@ -109,7 +111,7 @@ def _anchor_motion(event, previous, current, target_texts):
 def _transition(event, effect, previous, current, segment):
     if current["ambiguous"] or previous["ambiguous"]:
         return None, "conflicting_source_snapshot"
-    if current["source_timestamp_ms"] - previous["source_timestamp_ms"] > MAX_ADJACENT_MS:
+    if elapsed(previous["source_timestamp_ms"], current["source_timestamp_ms"]) > MAX_ADJACENT_MS:
         return None, "non_adjacent_source_rows"
     if not current["targets"] or not _same_context(event, previous["row"], current["row"]):
         return None, "context_or_target_gap"
@@ -155,7 +157,7 @@ def _transition(event, effect, previous, current, segment):
     mapped_centers = [_center(current["targets"][index]["box"]) for index in used]
     for index in new_indices:
         center = _center(current["targets"][index]["box"])
-        if (center < _BOTTOM_ENTRY_CENTER
+        if (center < receipt_rows(_BOTTOM_ENTRY_CENTER, _BOTTOM_ENTRY_CENTER)[0]
                 or mapped_centers and center < max(mapped_centers) - 3):
             return None, "unanchored_interior_target"
     return dict(matches=matches, new_indices=new_indices, closed=closed, motion=motion), None

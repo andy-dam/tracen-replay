@@ -9,7 +9,9 @@ from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor,as_complet
 import threading
 import time
 import traceback
-from .pipeline import probe,decode_frames,clear_partial_capture,frame_rate,frame_scale,PipelineError
+from .pipeline import probe,decode_frames,clear_partial_capture,display_size,frame_layout,frame_rate,frame_scale,frame_times,source_gaps,PipelineError
+from . import layout as geometry
+from . import source_clock
 from .proof_writer import save_while
 from .worker_memory import frame_done
 from .vision import NeuralReader,OCR_DEVICE,parse
@@ -438,7 +440,9 @@ def _write_partial_report(exc):
 def capture(source,root,fps):
     source=Path(source).resolve();root=Path(root)
     info,video,duration,origin=probe(source)
-    scale=frame_scale(video['width'],video['height'])
+    width,height=display_size(video)
+    layout=frame_layout(width,height)
+    scale=frame_scale(layout,width,height)
     if not 1<=fps<=8:raise PipelineError('Base sampling must be 1 to 8 FPS.')
     with source.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
     root.mkdir(parents=True,exist_ok=True)
@@ -468,10 +472,40 @@ def capture(source,root,fps):
             save_json(manifest,rows)
         frames.extend(rows)
         print(json.dumps(dict(stage='capture',part=index,through_seconds=start+length,frames=len(frames))),flush=True)
-    report=dict(schema_version=FULL_RECORDING_SCHEMA,source=dict(name=source.name,sha256=digest,size_bytes=source.stat().st_size,duration_ms=round(duration*1000),timeline_origin_seconds=origin,width=video['width'],height=video['height'],frame_rate=frame_rate(video),codec=video['codec_name']),frames=frames,
-                clip=dict(source_start_ms=0,duration_ms=round(duration*1000)),sampling=dict(requested_fps=fps,frame_count=len(frames),method='minimum_interval_on_decoded_pts',guarantees_all_events=False),observations=[],limitations=['Entire source sampled; sampling alone does not establish verification.'])
+    sampling=dict(requested_fps=fps,frame_count=len(frames),method='minimum_interval_on_decoded_pts',guarantees_all_events=False)
+    # Without the source's frame times no stretch is recorded, and the
+    # coverage audit reports every long wait between sampled frames.
+    try:times=frame_times(source,video,origin)
+    except (PipelineError,KeyError,ValueError,ZeroDivisionError):times=[]
+    gaps=source_gaps(frames,times,fps,round(duration*1000),frame_rate(video),origin)
+    if gaps:sampling['source_frame_gaps_ms']=gaps
+    report=dict(schema_version=FULL_RECORDING_SCHEMA,source=dict(name=source.name,sha256=digest,size_bytes=source.stat().st_size,duration_ms=round(duration*1000),timeline_origin_seconds=origin,width=width,height=height,frame_rate=frame_rate(video),codec=video['codec_name']),layout=_captured_layout(layout),frames=frames,
+                clip=dict(source_start_ms=0,duration_ms=round(duration*1000)),sampling=sampling,observations=[],limitations=['Entire source sampled; sampling alone does not establish verification.'])
     validate_output(report)
     save_json(root/'capture.json',report)
+    return report
+
+
+def _captured_layout(layout):
+    """The layout a capture records: a game filling its frame still has margins to fit; the PC pane keeps none."""
+    fills_frame=tuple(layout.pane)==(0,0)+tuple(layout.frame)
+    return layout.to_dict() if fills_frame else dict(layout.to_dict(),fitted=True)
+
+
+def _fit_layout(report,root,model_dir):
+    """Fit the margins of a recording's game once, and keep them in its capture.
+
+    A capture without a layout predates layouts: it is a PC recording, whose
+    pane keeps no margins.
+    """
+    layout=report.get('layout')
+    if layout is None or layout.get('fitted'):return report
+    frame=tuple(layout['frame'])
+    if tuple(layout['pane'])==(0,0)+frame:
+        from .layout_fit import fit
+        layout=fit(report,root,NeuralReader(model_dir)).to_dict()
+    report['layout']=dict(layout,fitted=True)
+    save_json(Path(root)/'capture.json',report)
     return report
 
 
@@ -519,7 +553,8 @@ def rehydrate_frames(source,root,fps):
             for stale in scratch.iterdir():stale.unlink()
         else:
             scratch.mkdir(parents=True)
-        produced=decode_frames(source,scratch,start,length,fps,origin,scale=frame_scale(video['width'],video['height']))
+        width,height=display_size(video)
+        produced=decode_frames(source,scratch,start,length,fps,origin,scale=frame_scale(frame_layout(width,height),width,height))
         for row in produced:
             row['id']=f'{prefix}-'+row['id'];row['evidence']=f'{prefix}/'+row['evidence']
             row['clip_timestamp_ms']=row['source_timestamp_ms']
@@ -564,7 +599,7 @@ def _rehydrate_gameplay_crops(root):
         if not source.is_file():
             raise PipelineError(f'Cannot cut a pane from a missing frame: {frame["id"]}')
         with Image.open(source) as image:
-            pane=image.convert('RGB').crop((148,0,958,1080))
+            pane=image.convert('RGB').crop(geometry.current().pane)
         recorded=raw.get('gameplay_sha256')
         if recorded and hashlib.sha256(pane.tobytes()).hexdigest()!=recorded:
             raise PipelineError(f'Rehydrated pane does not match its observation: {frame["id"]}')
@@ -579,8 +614,9 @@ def _rehydrate_gameplay_crops(root):
 _PROCESS_READER=None
 
 
-def _initialize_process_reader(model_dir):
+def _initialize_process_reader(model_dir,layout=None):
     global _PROCESS_READER
+    geometry.use(layout)
     _PROCESS_READER=NeuralReader(model_dir)
 
 
@@ -598,7 +634,7 @@ def _analyze_frame(reader,frame,root,source_sha256):
             )
             parsed.update(source_timestamp_ms=saved['source_timestamp_ms'],evidence=saved['evidence'])
             return frame['id'],saved,True,parsed
-    with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop((148,0,958,1080))
+    with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop(geometry.current().pane)
     relative=f'gameplay/{frame["id"]}.png'
     saved=save_while(pane,root/relative)
     try:raw=reader.read(pane)
@@ -642,7 +678,8 @@ def analyze_frames(report,root,workers=4,model_dir='.local/models/rapidocr',pool
         finally:frame_done()
     started=time.monotonic();completed=0;cached=0;parsed_rows={}
     if pool=='process':
-        executor=ProcessPoolExecutor(max_workers=workers,initializer=_initialize_process_reader,initargs=(str(model_dir),))
+        executor=ProcessPoolExecutor(max_workers=workers,initializer=_initialize_process_reader,
+                                     initargs=(str(model_dir),geometry.current().to_dict()))
         submit=lambda frame:executor.submit(_analyze_frame_in_process,frame,str(root),source_sha256)
     else:
         executor=ThreadPoolExecutor(max_workers=workers,initializer=initialize)
@@ -762,7 +799,7 @@ def assemble(report,readings,choice_observations=(),race_reward_observations=(),
         from .event_choice_adapter import merge_committed_choices
         reconstructed['dialogue_choices'] = merge_committed_choices(
             reconstructed.get('dialogue_choices', []), committed_choices)
-    report['gameplay_tracking']=dict(method='neural_gameplay_v1',auxiliary_log_used=False,input_region=[148,0,958,1080],readings=readings,
+    report['gameplay_tracking']=dict(method='neural_gameplay_v1',auxiliary_log_used=False,input_region=list(geometry.current().pane),readings=readings,
         preview_observations=preview_observations,status_observations=status_observations,
         state_observations=state_observations,
         skill_menu_observations=build_skill_menu_observations(readings),
@@ -954,7 +991,7 @@ def _load_training_gain_refinement(raw,source_frame_path):
     from PIL import Image
     from .training_gain_source_refinement import validate_training_gain_refinement
     from .frame_cache import open_rgb
-    pane=open_rgb(source_frame_path).crop((148,0,958,1080))
+    pane=open_rgb(source_frame_path).crop(geometry.current().pane)
     validation=validate_training_gain_refinement(raw,pane)
     if validation.get('status')!='validated' or names-set(validation['regions']):
         raise PipelineError('Training gain refinement evidence invalid: '+str(validation.get('reason','unlisted region')))
@@ -1091,7 +1128,8 @@ def cached_readings(report,root,allow_partial=False,*,workers=1):
         rows=(_cached_reading_row(frame,**context) for frame in frames)
         return [row for row in rows if row is not None]
     readings=[]
-    executor=ProcessPoolExecutor(max_workers=min(int(workers),len(frames)))
+    executor=ProcessPoolExecutor(max_workers=min(int(workers),len(frames)),
+                                 initializer=geometry.use,initargs=(geometry.current().to_dict(),))
     try:
         for row in executor.map(_cached_reading_task,[(frame,context) for frame in frames],chunksize=8):
             if row is not None:readings.append(row)
@@ -1226,8 +1264,12 @@ def _main_body():
     # Passed on only when given, so a run without the flag assembles exactly as before.
     reader_kwargs=dict(learned_reader=learned_reader) if learned_reader is not None else {}
     report=capture(args.source,args.output,args.fps)
+    report=_fit_layout(report,args.output,args.model_dir)
+    geometry.use(report.get('layout'))
+    fps=report.get('sampling',{}).get('requested_fps')
+    source_clock.use([frame['source_timestamp_ms'] for frame in report.get('frames',[])],1000/fps if fps else None)
     _CURRENT.update(report=report,output=args.output)
-    _progress('stage_done',name='capture')
+    _progress('stage_done',name='capture',layout=report.get('layout'))
     readings=cached_readings(report,args.output) if args.reparse_only else analyze_frames(report,args.output,args.workers,args.model_dir,pool=ocr_pool_for_device())
     _progress('stage_done',name='base_readings',readings=len(readings))
     if not args.reparse_only:readings=None  # reloaded below after refinement; free the first pass now

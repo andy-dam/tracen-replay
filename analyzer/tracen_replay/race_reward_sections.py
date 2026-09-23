@@ -1,10 +1,12 @@
 """Keep visible reward section identity separate from item identity."""
 import math
 from copy import deepcopy
+from .layout import place_x, place_y
 from .race_section_layout import _box, _confidence, HEADER_LEFT, HEADER_RIGHT
 
 
 _VALIDATED_SECTION_BASIS = "validated_race_quantity_layout_guard"
+# Positions on the PC pane; the reward sections are pinned to the bottom, centred.
 _SECTION_RANGES = {
     "items": (500, 700),
     "bonus": (700, 840),
@@ -30,10 +32,11 @@ def _validated_section(item, row):
     if str(header.get("text", "")).strip().casefold() != section:
         return None
     box = _box(header.get("box"))
-    if box is None or not HEADER_LEFT <= box[0] <= HEADER_RIGHT:
+    if box is None or not place_x(HEADER_LEFT) <= box[0] <= place_x(HEADER_RIGHT):
         return None
     lower, upper = _SECTION_RANGES[section]
-    if not lower <= box[1] <= upper or abs(box[3] - _SECTION_BASELINES[section]) > 8:
+    if (not place_y(lower, 'b') <= box[1] <= place_y(upper, 'b')
+            or abs(box[3] - place_y(_SECTION_BASELINES[section], 'b')) > 8):
         return None
     confidence = _confidence(header)
     minimum = 90.0 if section == "bonus" else 97.0
@@ -76,7 +79,8 @@ def annotate(row):
         box = _box(line.get('box'))
         if name not in ('items', 'bonus') or box is None or _confidence(line) < 97:
             continue
-        if not HEADER_LEFT <= box[0] <= HEADER_RIGHT or not 500 <= box[1] <= 900:
+        if (not place_x(HEADER_LEFT) <= box[0] <= place_x(HEADER_RIGHT)
+                or not place_y(500, 'b') <= box[1] <= place_y(900, 'b')):
             continue
         if name in headers:
             return items
@@ -87,7 +91,7 @@ def annotate(row):
     for index, name in enumerate(ordered):
         header = headers[name]
         bottom = header['box'][3]
-        next_top = headers[ordered[index+1]]['box'][1] if index+1 < len(ordered) else 940
+        next_top = headers[ordered[index+1]]['box'][1] if index+1 < len(ordered) else place_y(940, 'b')
         if next_top <= bottom:
             return [dict(item, section=None) for item in items]
         candidates = []

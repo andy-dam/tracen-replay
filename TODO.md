@@ -1009,45 +1009,62 @@ analyzer holds about 200 literal boxes in pane pixels across some 30
 modules (96 in `vision.py`), plus position thresholds; each becomes a box in
 design units with its pin.
 
-- [ ] **One layout model.** A module that holds a recording's game area in
+- [x] **One layout model.** A module that holds a recording's game area in
       the frame, its scale and its margins, and places a design-unit box
       with its pin (top, centre or bottom; left, centre or right) in frame
       pixels. Done when it reproduces the labels measured on the PC pane,
       the iPad and the S25+ within a few pixels.
-- [ ] **The layout fitted per recording, from the recording.** The game
-      area, scale and margins come from labels every career shows many
-      times (the header, Energy, the stat labels, Skip, Quick, Log), fitted
-      across sampled frames; no table of devices. The PC pane is one answer
-      of the same fit, as is the game area of a video that frames a phone
-      screen between overlays. Done when the fit lands within a few pixels
-      of hand measurement on a PC career, the two device recordings and the
-      three uploaded phone careers.
-- [ ] **Frames keep the recording's shape.** Decoding applies the rotation
+- [x] **The margins fitted per recording, from the recording.** The clear
+      margins come from labels every career shows many times (the header,
+      Energy, the stat labels, Skip, Quick, Log), fitted across sampled
+      frames; no table of devices. The fit lands on the hand measurement of
+      both device recordings.
+- [ ] **The game area found in the frame.** The game area is taken from
+      the frame's shape today: the whole frame in portrait, the PC client's
+      pane in 16:9. Found in the frame from the same labels, it would also
+      read a window that does not fill the screen, the PC client in another
+      landscape shape, and a video that frames a phone screen between
+      overlays, as the three uploaded phone careers do; such a 16:9 video
+      is taken for the PC client today and read wrongly. Done when the fit
+      lands within a few pixels of hand measurement on those three careers
+      and a PC career.
+- [x] **Frames keep the recording's shape.** Decoding applies the rotation
       flag and keeps the aspect ratio; nothing is cropped into or padded
       onto a 1920x1080 frame. Frames are scaled evenly so that a design
       unit has the PC pane's pixel size, the text size the recognizer and
       the learned reader were built for, which also keeps a 2778-pixel iPad
       frame from costing five times the disk and time. This replaces the
       step that scales 16:9 recordings to 1920x1080.
-- [ ] **Every fixed box through the layout.** Screen family by screen
+- [x] **Every fixed box through the layout.** Screen family by screen
       family (the career menu and stat bar, training results, receipts and
       dialogs, races, lessons and skills, the final screens), each box and
       threshold gets its design-unit box and its pin, and every crop and
       comparison goes through the layout. Each pin is measured, not
       guessed: a tool finds the element on the PC, S25+ and iPad recordings,
-      whose three shapes tell top, centre and bottom apart. Done when no
-      module crops or compares at a pane constant, and the PC careers'
-      reports are unchanged.
-- [ ] **The learned reader on other shapes.** Its crops come through the
-      layout. Its reads on the S25+ and iPad result cards are checked
-      against the cards; if they fall short, its dataset is cut through the
-      layout and it is trained again.
-- [ ] **The size gate follows the game area.** Portrait or landscape, any
-      proportions the game lays out, refused only when the game area is too
-      small to read.
+      whose three shapes tell top, centre and bottom apart; a screen neither
+      device recording shows is placed on both pins it could have. Done when
+      no module crops or compares at a pane constant, and the PC careers'
+      reports are unchanged: the seven 60 fps careers read identically, and
+      the 30 fps one only gains from counting its short limits in sampling
+      steps (receipts it split in two are one).
+- [x] **The learned reader on other shapes.** Its crops come through the
+      layout. Where it and the recognizer both read a gain, they differ on
+      2% of reads on the S25+ and 5% on the iPad, as on the PC careers
+      (5%), so it is not trained again.
+- [x] **The size gate follows the game area.** A portrait recording from
+      0.4 to 0.8 as wide as it is tall, phones to tablets, and the PC client
+      in 16:9 are read; a game drawn smaller than at 720p on the PC, or more
+      than 2.5 times that, is refused. Other landscape shapes wait on the
+      game area being found in the frame.
 - [ ] **Both device careers analyzed and checked by hand.** Every turn
       found, the stat bar read on the menu frames, and no more unexplained
       turns than a PC career of the same length. Both recordings run at a
       variable frame rate (about 48 and 31 frames a second on average), so
-      the coverage check is looked at on them too.
-- [ ] **The guide, about page and upload box say which devices are read.**
+      the coverage check is looked at on them too. Both now find every turn
+      and pass the coverage check, and each leaves one turn flagged where
+      the PC careers leave none: on the S25+ a lesson cost stays unresolved
+      because a lone "0" in the lesson menu's points reads unsure on the
+      scaled-down frame, and on the iPad one training is missed because its
+      result cards are drawn pink, which the result screen check (blue
+      cards) does not recognise.
+- [x] **The guide, about page and upload box say which devices are read.**

@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image, ImageOps
 
 import tracen_replay.vision as vision
+from tracen_replay.layout import ORIGIN_X
 
 
 class _RecognitionInput:
@@ -82,7 +83,7 @@ class VisionCropGeometryTests(unittest.TestCase):
         self.assertEqual(reader.engine.recognition_images[0].shape, (81, 81, 3))
 
         source = np.asarray(pane.convert('RGB'))
-        source_roi = source[728:809, 491 - vision.PANE[0]:572 - vision.PANE[0], :]
+        source_roi = source[728:809, 491 - ORIGIN_X:572 - ORIGIN_X, :]
         gray = np.asarray(ImageOps.autocontrast(ImageOps.grayscale(Image.fromarray(source_roi))))
         expected = np.repeat(gray[:, :, None], 3, axis=2)[:, :, ::-1]
         self.assertTrue(np.array_equal(reader.engine.recognition_images[0], expected))
@@ -94,7 +95,7 @@ class VisionCropGeometryTests(unittest.TestCase):
         roi_rgb = source_roi
         self.assertEqual(
             hashlib.sha256(roi_rgb.tobytes()).hexdigest(),
-            hashlib.sha256(pane.crop((491 - vision.PANE[0], 728, 572 - vision.PANE[0], 809)).tobytes()).hexdigest(),
+            hashlib.sha256(pane.crop((491 - ORIGIN_X, 728, 572 - ORIGIN_X, 809)).tobytes()).hexdigest(),
         )
         self.assertEqual(
             hashlib.sha256(expected.tobytes()).hexdigest(),

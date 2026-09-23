@@ -27,7 +27,9 @@ from typing import Any, Mapping, Sequence
 
 from PIL import Image, ImageEnhance
 
+from .layout import current, pane_size, place, place_x, place_y
 from .refine_contrast import fingerprint
+from .source_clock import elapsed
 from .race_section_layout import (
     HEADER_LEFT as SECTION_HEADER_LEFT,
     HEADER_RIGHT as SECTION_HEADER_RIGHT,
@@ -220,10 +222,11 @@ FIXED_BROAD_QUANTITY_COVERAGES = frozenset({
     "whole_badge", "fixed_layout_leading_digit_safe",
 })
 
-# Boxes in the source gameplay PNG (810x1080).  ``full_box`` is the same
+# Boxes in the PC gameplay PNG (810x1080).  ``full_box`` is the same
 # location in the original 1920x1080 coordinate system used by neural.py and
 # the parsed row facts.  Keeping both coordinate systems explicit prevents an
-# item and a bonus badge from collapsing into one position.
+# item and a bonus badge from collapsing into one position.  ``_placed`` moves
+# a slot to where it sits in the recording being read.
 SLOT_SPECS: tuple[dict[str, Any], ...] = (
     {
         "slot": 0,
@@ -279,6 +282,37 @@ ITEMS_HEADER_BOX = (250, 500, 830, 700)
 BONUS_HEADER_BOX = (250, 700, 830, 840)
 SECTION_LAYOUT_POLICY = section_layout_policy()
 LEGACY_HEADER_BASELINES = {"Items": 612, "Bonus": 778}
+
+
+def _placed(spec: Mapping[str, Any]) -> Mapping[str, Any]:
+    """A slot as it sits in this recording; the reward rows are pinned to the bottom, centred."""
+
+    full_box = place(spec["full_box"], "bc")
+    if full_box is spec["full_box"]:
+        return spec
+    left, top, right, bottom = full_box
+    return dict(spec, full_box=full_box,
+                source_box=(left - GAMEPLAY_X_OFFSET, top, right - GAMEPLAY_X_OFFSET, bottom))
+
+
+def _header_regions() -> tuple[tuple[str, tuple[int, int, int, int]], ...]:
+    """The fixed-layout header windows as they sit in this recording."""
+
+    return ("Items", place(ITEMS_HEADER_BOX, "bc")), ("Bonus", place(BONUS_HEADER_BOX, "bc"))
+
+
+def _fixed_header(name: str, header: Mapping[str, Any], region: Sequence[int]) -> bool:
+    """Whether a header sits where the fixed layout draws it: across the section column, on its baseline."""
+
+    if not _within_box(
+        header.get("box", ()),
+        (place_x(SECTION_HEADER_LEFT), region[1], place_x(SECTION_HEADER_RIGHT), region[3]),
+    ):
+        return False
+    try:
+        return abs(float(header["box"][3]) - place_y(LEGACY_HEADER_BASELINES[name], "b")) <= 8
+    except (TypeError, ValueError, IndexError):
+        return False
 
 
 def _sha256(path: Path) -> str:
@@ -386,7 +420,7 @@ def layout_guard(
         return False
     if facts.get("item_rewards_complete") is not False:
         return False
-    return _header(raw, "Items", ITEMS_HEADER_BOX) is not None and _header(raw, "Bonus", BONUS_HEADER_BOX) is not None
+    return all(_header(raw, name, region) is not None for name, region in _header_regions())
 
 
 def _legacy_fixed_geometry_usable(
@@ -417,15 +451,16 @@ def _legacy_fixed_geometry_usable(
         # and the rest of the race-result context remain intact.  This keeps
         # weak/foreign text from creating a section while allowing source-
         # visible Bonus labels to reach the fixed-slot quantity reread.
-        if _header(raw, "Items", ITEMS_HEADER_BOX) is None or \
+        (items, items_region), (bonus, bonus_region) = _header_regions()
+        if _header(raw, items, items_region) is None or \
                 _header(
                     raw,
-                    "Bonus",
-                    BONUS_HEADER_BOX,
+                    bonus,
+                    bonus_region,
                     minimum_confidence=OPTIONAL_HEADER_RECOVERY_MIN_CONFIDENCE,
                 ) is None:
             return False
-    for name, region in (("Items", ITEMS_HEADER_BOX), ("Bonus", BONUS_HEADER_BOX)):
+    for name, region in _header_regions():
         header = _header(
             raw,
             name,
@@ -436,15 +471,7 @@ def _legacy_fixed_geometry_usable(
                 else MIN_CONFIDENCE
             ),
         )
-        if header is None or not _within_box(
-            header.get("box", ()),
-            (SECTION_HEADER_LEFT, region[1], SECTION_HEADER_RIGHT, region[3]),
-        ):
-            return False
-        try:
-            if abs(float(header["box"][3]) - LEGACY_HEADER_BASELINES[name]) > 8:
-                return False
-        except (TypeError, ValueError, IndexError):
+        if header is None or not _fixed_header(name, header, region):
             return False
 
     # A high-confidence quantity line in the old result bands must belong to
@@ -460,8 +487,8 @@ def _legacy_fixed_geometry_usable(
             continue
         if confidence < MIN_CONFIDENCE or _quantity(line.get("text")) is None:
             continue
-        if 500 <= center_y <= 940 and not any(
-            _within_box(line.get("box", ()), spec["full_box"]) for spec in SLOT_SPECS
+        if place_y(500, "b") <= center_y <= place_y(940, "b") and not any(
+            _within_box(line.get("box", ()), _placed(spec)["full_box"]) for spec in SLOT_SPECS
         ):
             return False
     return True
@@ -474,7 +501,7 @@ def _quantity(text: Any) -> int | None:
 
 def _slot_for_box(box: Sequence[Any]) -> str | None:
     for spec in SLOT_SPECS:
-        if _within_box(box, spec["full_box"]):
+        if _within_box(box, _placed(spec)["full_box"]):
             return spec["slot_id"]
     return None
 
@@ -513,9 +540,10 @@ def _dynamic_spec(spec: Mapping[str, Any], section_layout: Mapping[str, Any] | N
     return result
 
 
-def _valid_crop_box(box: Sequence[Any], width: int = 810, height: int = 1080) -> tuple[int, int, int, int] | None:
-    """Return a bounded integer crop box, or ``None`` for corrupt geometry."""
+def _valid_crop_box(box: Sequence[Any]) -> tuple[int, int, int, int] | None:
+    """Return an integer crop box inside the game area, or ``None`` for corrupt geometry."""
 
+    width, height = pane_size()
     if isinstance(box, (str, bytes)) or not isinstance(box, Sequence) or len(box) != 4:
         return None
     try:
@@ -546,7 +574,7 @@ def _fixed_slot_pixel_guard(gameplay_path: Path, source_box: Sequence[Any]) -> b
         from .frame_cache import open_rgb
         if True:
             gameplay = open_rgb(gameplay_path)
-            if gameplay.size != (810, 1080):
+            if gameplay.size != pane_size():
                 return False
             crop = gameplay.crop(box)
             inset = FALLBACK_INTERIOR_INSET
@@ -958,7 +986,7 @@ def _group_frames(eligible: Sequence[dict[str, Any]]) -> list[list[dict[str, Any
             not groups
             or groups[-1][0]["race_key"] != key
             or bool(groups[-1][0].get("section_layout")) != bool(item.get("section_layout"))
-            or timestamp - groups[-1][-1]["raw"]["source_timestamp_ms"] > MAX_GROUP_SPAN_MS
+            or elapsed(groups[-1][-1]["raw"]["source_timestamp_ms"], timestamp) > MAX_GROUP_SPAN_MS
         ):
             groups.append([item])
         else:
@@ -1044,11 +1072,12 @@ def _source_crop_box(
     if not all(math.isfinite(value) for value in values):
         return None, None
     left, top, right, bottom = (int(round(value)) for value in values)
+    width, height = pane_size()
     source_box = _valid_crop_box((
         max(0, left - GAMEPLAY_X_OFFSET - DETECTOR_PADDING),
         max(0, top - DETECTOR_PADDING),
-        min(810, right - GAMEPLAY_X_OFFSET + DETECTOR_PADDING),
-        min(1080, bottom + DETECTOR_PADDING),
+        min(width, right - GAMEPLAY_X_OFFSET + DETECTOR_PADDING),
+        min(height, bottom + DETECTOR_PADDING),
     ))
     if source_box is None:
         return None, None
@@ -1830,7 +1859,7 @@ def generate(
         # on a frame that has no accepted source observation.
         if group[0].get("section_layout") is not None:
             missing = [
-                spec for spec in SECTION_SLOT_SPECS
+                spec for spec in map(_placed, SECTION_SLOT_SPECS)
                 if any(
                     section_layout_slot(item.get("section_layout"), spec["slot_id"]) is not None
                     and spec["slot_id"] not in _present_slots(item["row"], item.get("section_layout"))
@@ -1839,7 +1868,7 @@ def generate(
             ]
         else:
             missing = [
-                spec for spec in SLOT_SPECS
+                spec for spec in map(_placed, SLOT_SPECS)
                 if any(spec["slot_id"] not in _present_slots(item["row"]) for item in group)
             ]
         if not missing:
@@ -1983,7 +2012,7 @@ def _validate_gameplay_pixels(
     root: Path,
     validated_pixels: dict[tuple[str, str], str] | None = None,
 ) -> None:
-    """Verify the exact 810x1080 gameplay crop used by the OCR observation."""
+    """Verify the exact gameplay crop used by the OCR observation."""
 
     if not gameplay_path.is_file():
         raise ValueError("Race quantity refinement gameplay evidence is missing.")
@@ -2000,7 +2029,7 @@ def _validate_gameplay_pixels(
             with Image.open(source_path) as source_image, Image.open(gameplay_path) as gameplay_image:
                 source = source_image.convert("RGB")
                 gameplay = gameplay_image.convert("RGB")
-                expected = source.crop((GAMEPLAY_X_OFFSET, 0, GAMEPLAY_X_OFFSET + 810, 1080))
+                expected = source.crop(tuple(current().pane))
                 if gameplay.size != expected.size or gameplay.tobytes() != expected.tobytes():
                     raise ValueError("Race quantity refinement gameplay crop pixels changed.")
                 pixels_hash = hashlib.sha256(gameplay.tobytes()).hexdigest()
@@ -2331,7 +2360,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
     # caller to delete observations and rewrite that list along with it.
     expected_keys_by_slot: dict[str, list[dict[str, Any]]] = {}
     specs_for_validation = SECTION_SLOT_SPECS if dynamic_section_policy else SLOT_SPECS
-    for spec in specs_for_validation:
+    for spec in map(_placed, specs_for_validation):
         keys: list[dict[str, Any]] = []
         for frame_id, frame in validated_source_frames.items():
             frame_raw = cached_raw_by_frame.get(frame_id)
@@ -2383,6 +2412,7 @@ def _validate_provenance(row: Mapping[str, Any], artifact: Mapping[str, Any], ra
         spec = (SECTION_SLOT_BY_ID if dynamic_section_policy else SLOT_BY_ID).get(slot_id)
         if spec is None or slot_id in seen_slots:
             raise ValueError("Race quantity refinement slot identity is invalid.")
+        spec = _placed(spec)
         seen_slots.add(slot_id)
         if slot.get("slot") != spec["slot"] or slot.get("group") != spec["group"] or slot.get("group_index") != spec["group_index"] or \
                 slot.get("strategy") != spec["strategy"] or slot.get("source_box") != list(spec["source_box"]) or \
@@ -2465,7 +2495,7 @@ def _validated_section_headers(raw: Mapping[str, Any], *, allow_optional_bonus: 
     """
 
     result: dict[str, dict[str, Any]] = {}
-    for name, region in (("Items", ITEMS_HEADER_BOX), ("Bonus", BONUS_HEADER_BOX)):
+    for name, region in _header_regions():
         minimum = OPTIONAL_HEADER_RECOVERY_MIN_CONFIDENCE if allow_optional_bonus and name == "Bonus" else MIN_CONFIDENCE
         matches = [
             line for line in _lines(raw)
@@ -2476,12 +2506,7 @@ def _validated_section_headers(raw: Mapping[str, Any], *, allow_optional_bonus: 
         if len(matches) != 1:
             continue
         header = matches[0]
-        if not _within_box(header.get("box", ()), (SECTION_HEADER_LEFT, region[1], SECTION_HEADER_RIGHT, region[3])):
-            continue
-        try:
-            if abs(float(header["box"][3]) - LEGACY_HEADER_BASELINES[name]) > 8:
-                continue
-        except (TypeError, ValueError, IndexError):
+        if not _fixed_header(name, header, region):
             continue
         result[name.casefold()] = {
             "text": str(header.get("text", "")).strip(),
@@ -2612,9 +2637,10 @@ def apply(row: Mapping[str, Any], artifact: Mapping[str, Any], *, raw: Mapping[s
             # so classify it against the two fixed result rows before sorting by
             # its horizontal source position.
             center_y = (coordinates[1] + coordinates[3]) / 2
+            specs = [_placed(spec) for spec in SLOT_SPECS]
             row_centers = {
-                0: sum((spec["full_box"][1] + spec["full_box"][3]) / 2 for spec in SLOT_SPECS if spec["group"] == "items") / 3,
-                1: sum((spec["full_box"][1] + spec["full_box"][3]) / 2 for spec in SLOT_SPECS if spec["group"] == "bonus") / 2,
+                0: sum((spec["full_box"][1] + spec["full_box"][3]) / 2 for spec in specs if spec["group"] == "items") / 3,
+                1: sum((spec["full_box"][1] + spec["full_box"][3]) / 2 for spec in specs if spec["group"] == "bonus") / 2,
             }
             row = min(row_centers, key=lambda candidate: abs(center_y - row_centers[candidate]))
             return (0, row, coordinates[0], center_y, coordinates[2], coordinates[3], index)

@@ -27,6 +27,8 @@ from __future__ import annotations
 import re
 from bisect import bisect_left, bisect_right
 
+from .layout import place_x, place_y
+from .source_clock import elapsed
 from .training_gain_phases import direct_gain_proof
 
 FIELDS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill_points')
@@ -34,7 +36,8 @@ PERFORMANCE_FIELDS = ('dance', 'passion', 'vocal', 'visual', 'composure')
 VERSION = 2
 BASIS = 'preview_confirmed_by_result_totals'
 BOUNDED_BASIS = 'preview_bounded_state_derived'
-# Preview badge columns of the training menu (gameplay pane coordinates).
+# Preview badge columns of the training menu, in PC pane coordinates; the
+# badges are pinned to the bottom centre, the panel below to the top left.
 _PREVIEW_COLUMNS = {'speed': (250, 400), 'stamina': (360, 490), 'power': (455, 590),
                     'guts': (550, 690), 'wit': (645, 765), 'skill_points': (735, 860)}
 _PREVIEW_ROW = (650, 720)
@@ -109,10 +112,10 @@ def preview_amounts(row):
         text = re.sub(r'\s+', '', str(line.get('text', '')))
         match = _SIGNED.fullmatch(text)
         cy = (box[1] + box[3]) / 2
-        if not match or not _PREVIEW_ROW[0] <= cy <= _PREVIEW_ROW[1]:
+        if not match or not place_y(_PREVIEW_ROW[0], 'b') <= cy <= place_y(_PREVIEW_ROW[1], 'b'):
             continue
         cx = (box[0] + box[2]) / 2
-        owners = [f for f, (left, right) in _PREVIEW_COLUMNS.items() if left <= cx <= right]
+        owners = [f for f, (left, right) in _PREVIEW_COLUMNS.items() if place_x(left) <= cx <= place_x(right)]
         if len(owners) == 1 and owners[0] not in amounts:
             amounts[owners[0]] = int(match[1])
     return amounts
@@ -139,7 +142,7 @@ def preview_performance_amounts(row):
         cy = (box[1] + box[3]) / 2
         if not _PANEL_COLUMNS[0] <= cx <= _PANEL_COLUMNS[1]:
             continue
-        owners = [f for f, (top, bottom) in _PANEL_BANDS.items() if top <= cy <= bottom]
+        owners = [f for f, (top, bottom) in _PANEL_BANDS.items() if place_y(top, 't') <= cy <= place_y(bottom, 't')]
         if len(owners) == 1 and owners[0] not in amounts:
             amounts[owners[0]] = int(match[2])
     return amounts
@@ -163,7 +166,7 @@ def _committed_preview_rows(readings, group):
     candidates.sort(key=_time)
     rows = []
     for row in reversed(candidates):
-        if rows and _time(rows[-1]) - _time(row) > PREVIEW_GAP_MS:
+        if rows and elapsed(_time(row), _time(rows[-1])) > PREVIEW_GAP_MS:
             break
         rows.append(row)
     return list(reversed(rows))
@@ -548,11 +551,11 @@ def preview_only_training_groups(readings, events):
     for row in ordered:
         option = _facts(row).get('preview_option')
         if isinstance(option, str) and row.get('screen') != 'training_result':
-            if run and (option != _facts(run[-1]).get('preview_option') or _time(row) - _time(run[-1]) > PREVIEW_GAP_MS):
+            if run and (option != _facts(run[-1]).get('preview_option') or elapsed(_time(run[-1]), _time(row)) > PREVIEW_GAP_MS):
                 flush()
                 run = []
             run.append(row)
-        elif run and _time(row) - _time(run[-1]) > PREVIEW_GAP_MS:
+        elif run and elapsed(_time(run[-1]), _time(row)) > PREVIEW_GAP_MS:
             flush()
             run = []
     flush()

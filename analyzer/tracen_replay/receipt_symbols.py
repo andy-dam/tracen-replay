@@ -37,6 +37,9 @@ from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
+from .gameplay import receipt_band, receipt_rows
+from .layout import pane_size
+
 
 GAMEPLAY_X_OFFSET = 148
 SINGLE_CIRCLE = "○"
@@ -68,17 +71,25 @@ def _clean(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text or "")).strip()
 
 
+def _in_receipt_box(box: Sequence[int], bottom: int = 1000) -> bool:
+    """Whether ``box`` lies in the receipt text box, down to PC pane row ``bottom``."""
+    left, _, right, _ = receipt_band()
+    band_top, band_bottom = receipt_rows(770, bottom)
+    return left <= box[0] < box[2] <= right and band_top <= box[1] < box[3] <= band_bottom
+
+
 def _image_and_gray(pane: Any):
     import cv2
     import numpy as np
 
-    if getattr(pane, "size", None) != (810, 1080):
+    width, height = pane_size()
+    if getattr(pane, "size", None) != (width, height):
         return None, None
     try:
         image = np.asarray(pane.convert("RGB"))
     except (AttributeError, TypeError, ValueError):
         return None, None
-    if image.ndim != 3 or image.shape != (1080, 810, 3):
+    if image.ndim != 3 or image.shape != (height, width, 3):
         return None, None
     return image, cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
@@ -184,7 +195,7 @@ def detect_circle_marker(pane: Any, line_box: Sequence[Any]) -> dict[str, Any] |
     """Return a stable pixel observation for a terminal open circle.
 
     ``line_box`` uses full-frame OCR coordinates while ``pane`` is the
-    810x1080 gameplay crop. A clipped, merged, multiple, or unstable candidate
+    gameplay crop. A clipped, merged, multiple, or unstable candidate
     returns ``None``. The result is a pixel observation only; it does not name
     the skill.
     """
@@ -226,7 +237,7 @@ def _verify_proof(raw: Mapping[str, Any], pane: Any, proof: Mapping[str, Any]) -
         raise ValueError("Receipt-symbol proof metadata is required.")
     image, _ = _image_and_gray(pane)
     if image is None:
-        raise ValueError("Receipt-symbol proof requires an 810x1080 gameplay crop.")
+        raise ValueError("Receipt-symbol proof requires the gameplay crop.")
     actual_gameplay = hashlib.sha256(image.tobytes()).hexdigest()
     expected_gameplay = proof.get("gameplay_sha256")
     if expected_gameplay != actual_gameplay or raw.get("gameplay_sha256") != actual_gameplay:
@@ -267,7 +278,7 @@ def _readable_receipt(line: Mapping[str, Any]) -> bool:
     box = _box(line.get('box', ()))
     return (_confident(line)
             and not line.get('overlay_occluded') and box is not None
-            and 250 <= box[0] < box[2] <= 850 and 770 <= box[1] < box[3] <= 1000)
+            and _in_receipt_box(box))
 
 
 def _hint_match(text: Any):
@@ -283,7 +294,7 @@ def _spark_match(text: Any):
 
 
 def spark_slot_geometry(line_box: Sequence[Any], center: Sequence[Any]) -> dict[str, Any] | None:
-    """Bind a marker to the fixed receipt tail in the supported 1080p layout."""
+    """Bind a marker to the fixed receipt tail."""
     box = _box(line_box)
     if box is None or not isinstance(center, (list, tuple)) or len(center) != 2:
         return None
@@ -296,7 +307,7 @@ def spark_slot_geometry(line_box: Sequence[Any], center: Sequence[Any]) -> dict[
     # Source markers lie 168--171px before the OCR right edge. Ten pixels
     # around the fixed 170px tail allow box padding without searching letters
     # elsewhere in the name. Other fonts/layouts must establish their own slot.
-    if not (250 <= left < right <= 850 and 770 <= top < bottom <= 970
+    if not (_in_receipt_box(box, 970)
             and left - GAMEPLAY_X_OFFSET < x < right - GAMEPLAY_X_OFFSET
             and top <= y <= bottom and abs(y - (top + bottom) / 2) <= 5.5
             and 160 <= distance <= 180):
@@ -306,7 +317,7 @@ def spark_slot_geometry(line_box: Sequence[Any], center: Sequence[Any]) -> dict[
 
 
 def detect_spark_circle(pane: Any, line_box: Sequence[Any]) -> dict[str, Any] | None:
-    """Read a ring before the fixed 'spark activated!' tail in the 1080p layout.
+    """Read a ring before the fixed 'spark activated!' tail.
 
     Reuse the inventory detector's ring-versus-letter geometry. Search views
     share pixels and never count as separate observations. The tail distance
@@ -318,7 +329,7 @@ def detect_spark_circle(pane: Any, line_box: Sequence[Any]) -> dict[str, Any] | 
     if box is None:
         return None
     left, top, right, bottom = box
-    if not (250 <= left < right <= 850 and 770 <= top < bottom <= 970):
+    if not _in_receipt_box(box, 970):
         return None
     _, gray = _image_and_gray(pane)
     if gray is None:

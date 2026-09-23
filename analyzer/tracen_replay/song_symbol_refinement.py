@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from .layout import inside_pane, pane_size
 from .refine_contrast import fingerprint
 from .song_symbols import _music_note_observation
 from .ocr_confidence import confidence_percent
@@ -39,7 +40,7 @@ def _layout(pane,line):
     if not match:return None
     box=line.get('box')
     if not isinstance(box,(list,tuple)) or len(box)!=4 or any(type(v) is not int for v in box):return None
-    if not (148<=box[0]<box[2]<=958 and 0<=box[1]<box[3]<=1080):return None
+    if not inside_pane(box):return None
     # Preserve the historical geometry when its thresholds see the glyph;
     # the late result panel is darker, so use the lower same-frame range only
     # when that first source witness is unavailable.
@@ -67,13 +68,13 @@ def _layout(pane,line):
     # At least one ordinary title word must lie between the opening quote and
     # the note. Keep the original text line's vertical bounds for crop proof.
     crop=[opening[2]+2-148, glyph[1]-3, glyph[0]-1-148, glyph[3]+4]
-    if crop[2]-crop[0]<20 or not 0<=crop[0]<crop[2]<=810:return None
+    if crop[2]-crop[0]<20 or not 0<=crop[0]<crop[2]<=pane.width:return None
     return {'symbol':dict(symbol,method='strict_note_and_independently_read_title'),
             'opening_quote_box':opening,'title_crop_box':crop}
 
 
 def _pixels(raw,pane):
-    if pane.size!=(810,1080) or hashlib.sha256(pane.tobytes()).hexdigest()!=raw.get('gameplay_sha256'):
+    if pane.size!=pane_size() or hashlib.sha256(pane.tobytes()).hexdigest()!=raw.get('gameplay_sha256'):
         raise ValueError('Song-symbol gameplay pixels changed.')
 
 

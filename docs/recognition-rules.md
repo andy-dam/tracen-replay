@@ -1,12 +1,16 @@
 # Recognition rules
 
 This document describes what the analyzer reads from a recording and what it
-refuses to infer. The analyzer only ever looks at the isolated gameplay pane
-of a 1920x1080 English recording (a 16:9 recording of another size is
-scaled to 1920x1080 first): the crop `(148, 0, 958, 1080)`, an 810x1080
-image. The side log panel lies entirely outside that crop; a
-viewer can leave it open, but its pixels never reach the recognizer, and no
-current module reads it.
+refuses to infer. The analyzer only ever looks at the game area of an
+English recording. On a PC recording that is the gameplay pane of its
+1920x1080 frame (a 16:9 recording of another size is scaled to 1920x1080
+first): the crop `(148, 0, 958, 1080)`, an 810x1080 image. The side log
+panel lies entirely outside that crop; a viewer can leave it open, but its
+pixels never reach the recognizer, and no current module reads it. On a
+phone or tablet the game area is the whole frame, scaled so its text has the
+same size. Positions below are given where they sit on the PC pane; on
+another shape each one moves with the part of the screen it is pinned to
+(see Layout in [analyzer-pipeline.md](analyzer-pipeline.md)).
 
 Every observation below carries its own source timestamp, evidence image
 path, and OCR confidence. The pipeline and report shape are described in

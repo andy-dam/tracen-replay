@@ -27,6 +27,7 @@ import re
 from typing import Any
 
 from .gameplay import CURRENCIES
+from .source_clock import elapsed
 
 
 MAX_COUNTER = 1_000_000
@@ -334,7 +335,7 @@ def _final_menu_rows(before_rows: Any, request_start: int) -> list[dict[str, Any
     for row in reversed(ordered):
         if row.get("screen") != "lesson_selection":
             break
-        if suffix and suffix[-1]["source_timestamp_ms"] - row["source_timestamp_ms"] > 500:
+        if suffix and elapsed(row["source_timestamp_ms"], suffix[-1]["source_timestamp_ms"]) > 500:
             break
         suffix.append(row)
     suffix.reverse()
@@ -477,7 +478,7 @@ def _request_to_receipt_is_clean(
             between.append(row)
     between.sort(key=lambda row: row["source_timestamp_ms"])
     path_times = [request_end] + [row["source_timestamp_ms"] for row in between] + [event_start]
-    if any(right - left > 500 for left, right in zip(path_times, path_times[1:])):
+    if any(elapsed(left, right) > 500 for left, right in zip(path_times, path_times[1:])):
         return False
 
     returned_menu: list[dict[str, Any]] = []
@@ -518,7 +519,7 @@ def _request_to_receipt_is_clean(
 
     if len(returned_menu) > 1:
         return False
-    if returned_menu and event_start - returned_menu[0]["source_timestamp_ms"] > 500:
+    if returned_menu and elapsed(returned_menu[0]["source_timestamp_ms"], event_start) > 500:
         return False
     return True
 

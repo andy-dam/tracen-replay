@@ -4,12 +4,30 @@ Screen facts, confirmation requests, receipts, and arithmetic are separate recor
 Unknown effects never become invented transactions to close a residual.
 """
 import re
+from .layout import place, place_rows
 from .reconcile import FIELDS
 from .stat_receipt_grammar import normalize_fixed_stat_receipt
 from .ocr_confidence import confidence_percent
+from .source_clock import elapsed
 
-PANE = (148, 0, 958, 1080)
 CURRENCIES = ('dance', 'passion', 'vocal', 'visual', 'composure')
+# The text box the game writes an event's receipts in ("Speed went up by 5"),
+# on the PC pane. The box follows the centre of the clear area; the popup
+# that lists a learned lesson's receipts follows the screen's centre, and on
+# the PC pane both are here.
+RECEIPT_BAND = (250, 770, 850, 1000)
+
+
+def receipt_band():
+    """The receipt text box in this recording."""
+    return place(RECEIPT_BAND, 'mc', 'sc')
+
+
+def receipt_rows(top=RECEIPT_BAND[1], bottom=RECEIPT_BAND[3]):
+    """PC pane rows ``top`` to ``bottom`` of the receipt text box, as they sit in this recording."""
+    return place_rows(top, bottom, 'm', 's')
+
+
 _PHRASE_SUBJECT = r'(Speed|Stamina|Power|Guts|Wit|Skill (?:Pts|Points)|Dance|Passion|Vocals?|Visuals?|Composure|Energy)'
 _CORRUPT_VERB = re.compile(_PHRASE_SUBJECT + r' went (u[a-z]{0,3}|d[a-z]{0,4})\s*(?:b[a-z]?)?\s*(\d+)(?: to new heights)?[.!]?', re.I)
 _CORRUPT_MAXED = re.compile(r'Friendship with (.+?) is ([A-Za-z]{3,7}) out[.!]?', re.I)
@@ -65,7 +83,8 @@ def _same_receipt_block(previous, current):
     current_left, current_top, current_right, current_bottom = current_box
     previous_center_y = (previous_top + previous_bottom) / 2
     current_center_y = (current_top + current_bottom) / 2
-    if not 770 <= previous_center_y <= 1000 or not 770 <= current_center_y <= 1000:
+    _left, band_top, _right, band_bottom = receipt_band()
+    if not band_top <= previous_center_y <= band_bottom or not band_top <= current_center_y <= band_bottom:
         return False
     if not 0 < current_center_y - previous_center_y <= 45:
         return False
@@ -467,7 +486,7 @@ def episodes(readings):
     current = None
     for row in readings:
         key = (row['screen'], row.get('training_option'))
-        if current is None or current['_key'] != key or row['source_timestamp_ms']-current['last_seen_ms']>500:
+        if current is None or current['_key'] != key or elapsed(current['last_seen_ms'],row['source_timestamp_ms'])>500:
             current = dict(id=f'screen-{len(result)+1:04d}', _key=key, screen=row['screen'],
                            training_option=row.get('training_option'), first_seen_ms=row['source_timestamp_ms'],
                            last_seen_ms=row['source_timestamp_ms'], evidence=row['evidence'], supporting_frames=[],

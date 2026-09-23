@@ -24,12 +24,12 @@ from typing import Any
 
 from PIL import Image, ImageOps
 
+from .layout import pane_box, pane_size, place, place_x
+
 
 POLICY = "source_bound_lesson_offer_prices_v1"
 VERSION = 1
 PANE_LEFT = 148
-PANE_SIZE = (810, 1080)
-FULL_WIDTH = PANE_LEFT + PANE_SIZE[0]
 CURRENCIES = ("dance", "passion", "vocal", "visual", "composure")
 MIN_TITLE_CONFIDENCE = 97.0
 MIN_LABEL_CONFIDENCE = 95.0
@@ -42,8 +42,9 @@ PRICE_READING_VARIANTS = ("raw",) + PRICE_OCR_VARIANTS
 
 # The row is laid out in the full gameplay coordinate system.  The crop boxes
 # stored in a sidecar additionally carry pane-local coordinates, because the
-# evidence PNG is the 810x1080 gameplay pane rather than the 1920px capture.
-PRICE_COLUMNS = ((455, 515), (530, 590), (605, 670), (685, 745), (760, 830))
+# evidence PNG is the gameplay pane rather than the whole capture.  The
+# positions are the PC pane's; the lessons follow the clear area's centre.
+PRICE_COLUMNS =((455, 515), (530, 590), (605, 670), (685, 745), (760, 830))
 PRICE_Y_PADDING = 8
 TITLE_BAND_BEFORE = 215
 TITLE_BAND_AFTER = 120
@@ -77,12 +78,12 @@ def gameplay_fingerprint(image_or_path: Any) -> str:
         from .frame_cache import rgb_digest
 
         digest, size = rgb_digest(image_or_path)
-        if size != PANE_SIZE:
-            raise LessonOfferError("Lesson offer evidence must be an 810x1080 gameplay pane.")
+        if size != pane_size():
+            raise LessonOfferError("Lesson offer evidence must be the gameplay pane.")
         return digest
     image = image_or_path.convert("RGB")
-    if image.size != PANE_SIZE:
-        raise LessonOfferError("Lesson offer evidence must be an 810x1080 gameplay pane.")
+    if image.size != pane_size():
+        raise LessonOfferError("Lesson offer evidence must be the gameplay pane.")
     return hashlib.sha256(image.tobytes()).hexdigest()
 
 
@@ -111,7 +112,8 @@ def _box(value: Any, *, allow_outside: bool = False) -> list[int] | None:
     left, top, right, bottom = result
     if left >= right or top >= bottom:
         return None
-    if not allow_outside and not (0 <= left < right <= FULL_WIDTH and 0 <= top < bottom <= PANE_SIZE[1]):
+    _, _, full_width, height = pane_box()
+    if not allow_outside and not (0 <= left < right <= full_width and 0 <= top < bottom <= height):
         return None
     return result
 
@@ -192,14 +194,16 @@ def _price_boxes(label_box: list[int]) -> tuple[list[int], list[list[int]]] | No
     """Return full and pane-local crop boxes for one cost row."""
 
     left, top, right, bottom = label_box
-    if not (250 <= left < right <= 500 and 300 <= top < bottom <= 950):
+    x_low, y_low, x_high, y_high = place((250, 300, 500, 950), "mc")
+    if not (x_low <= left < right <= x_high and y_low <= top < bottom <= y_high):
         return None
     y0 = top - PRICE_Y_PADDING
     y1 = bottom + PRICE_Y_PADDING
-    if y0 < 0 or y1 > PANE_SIZE[1]:
+    if y0 < 0 or y1 > pane_size()[1]:
         return None
-    full = [[x0, y0, x1, y1] for x0, x1 in PRICE_COLUMNS]
-    local = [[x0 - PANE_LEFT, y0, x1 - PANE_LEFT, y1] for x0, x1 in PRICE_COLUMNS]
+    columns = [(place_x(x0), place_x(x1)) for x0, x1 in PRICE_COLUMNS]
+    full = [[x0, y0, x1, y1] for x0, x1 in columns]
+    local = [[x0 - PANE_LEFT, y0, x1 - PANE_LEFT, y1] for x0, x1 in columns]
     if any(_box(item, allow_outside=False) is None for item in full):
         return None
     if any(_box(item, allow_outside=False) is None for item in local):
@@ -227,7 +231,7 @@ def _title_groups(lines: list[Any], label_box: list[int]) -> list[list[tuple[int
         if "+" in _line_text(line):
             continue
         center_x, center_y = _center(box)
-        if not (260 <= box[0] <= 700 and center_x <= 720):
+        if not (place_x(260) <= box[0] <= place_x(700) and center_x <= place_x(720)):
             continue
         if not _within_y(center_y, label_center_y - TITLE_BAND_BEFORE,
                          label_center_y - TITLE_BAND_AFTER):
@@ -593,8 +597,8 @@ def build(
     if not isinstance(evidence_sha256, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", evidence_sha256):
         raise LessonOfferError("Lesson offer evidence hash must be SHA-256.")
     pane = pane.convert("RGB")
-    if pane.size != PANE_SIZE:
-        raise LessonOfferError("Lesson offer refinement requires an 810x1080 gameplay pane.")
+    if pane.size != pane_size():
+        raise LessonOfferError("Lesson offer refinement requires the gameplay pane.")
     gameplay_sha = gameplay_fingerprint(pane)
     if raw.get("gameplay_sha256") and raw["gameplay_sha256"] != gameplay_sha:
         raise LessonOfferError("Lesson offer gameplay pixels do not match the source row.")
@@ -910,7 +914,7 @@ def observe(
     if raw.get("evidence") != extra.get("evidence"):
         raise LessonOfferError("Lesson offer evidence path changed.")
     pane = pane.convert("RGB")
-    if pane.size != PANE_SIZE or gameplay_fingerprint(pane) != extra.get("gameplay_sha256"):
+    if pane.size != pane_size() or gameplay_fingerprint(pane) != extra.get("gameplay_sha256"):
         raise LessonOfferError("Lesson offer gameplay pixels changed.")
     if raw.get("gameplay_sha256") and raw["gameplay_sha256"] != extra.get("gameplay_sha256"):
         raise LessonOfferError("Lesson offer source gameplay hash changed.")

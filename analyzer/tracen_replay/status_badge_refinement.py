@@ -20,6 +20,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from .layout import ORIGIN_X, inside_pane, pane_size, place
 from .refine_contrast import fingerprint
 
 
@@ -33,9 +34,10 @@ MIN_STRONG_VIEWS = 2
 CROP_PADDING = 4
 VIEW_MODES = ("rgb", "grayscale", "blue")
 
-# These are full-screen coordinates used by the gameplay OCR cache.  The
-# gameplay pane itself starts at x=148; crop boxes below are converted to pane
-# coordinates before reading pixels.
+# These are full-screen coordinates used by the gameplay OCR cache, on the PC
+# pane.  The gameplay pane itself starts at x=148; crop boxes below are
+# converted to pane coordinates before reading pixels.  The energy row and
+# mood badge are pinned to the top centre, the hype badge to the top left.
 ENERGY_BOX = (375, 115, 455, 165)
 MOOD_BOX = (705, 112, 825, 165)
 HYPE_HEADER_BOX = (150, 150, 300, 188)
@@ -119,7 +121,7 @@ def _candidate_records(raw: dict) -> list[dict]:
     energy = [
         (index, line)
         for index, line in enumerate(lines)
-        if _region(line, ENERGY_BOX)
+        if _region(line, place(ENERGY_BOX, "tc"))
         and _confidence(line.get("confidence")) is not None
         and float(line["confidence"]) >= 95
         and _text(line).casefold() == "energy"
@@ -127,7 +129,7 @@ def _candidate_records(raw: dict) -> list[dict]:
     moods = [
         (index, line)
         for index, line in enumerate(lines)
-        if _region(line, MOOD_BOX)
+        if _region(line, place(MOOD_BOX, "tc"))
         and _eligible_original(line)
         and _text(line).casefold() in MOOD_VALUES
     ]
@@ -150,14 +152,15 @@ def _candidate_records(raw: dict) -> list[dict]:
     headers = [
         (index, line)
         for index, line in enumerate(lines)
-        if _region(line, HYPE_HEADER_BOX)
+        if _region(line, place(HYPE_HEADER_BOX, "tl"))
         and _confidence(line.get("confidence")) is not None
         and float(line["confidence"]) >= 97
         and _text(line).casefold() == "hype level"
     ]
     hype_values = []
+    value_box = place(HYPE_VALUE_BOX, "tl")
     for index, line in enumerate(lines):
-        if not _region(line, HYPE_VALUE_BOX) or not _eligible_original(line):
+        if not _region(line, value_box) or not _eligible_original(line):
             continue
         text = _text(line)
         combined = _HYPE_COMBINED.fullmatch(text)
@@ -190,13 +193,14 @@ def _pane_box(line: dict, padding: int = CROP_PADDING) -> list[int]:
         left, top, right, bottom = (int(value) for value in line["box"])
     except (KeyError, TypeError, ValueError):
         raise ValueError("Status badge source line box is invalid.") from None
-    if not (148 <= left < right <= 958 and 0 <= top < bottom <= 1080):
+    if not inside_pane((left, top, right, bottom)):
         raise ValueError("Status badge source line is outside the gameplay pane.")
+    width, height = pane_size()
     crop = [
-        max(0, left - 148 - padding),
+        max(0, left - ORIGIN_X - padding),
         max(0, top - padding),
-        min(810, right - 148 + padding),
-        min(1080, bottom + padding),
+        min(width, right - ORIGIN_X + padding),
+        min(height, bottom + padding),
     ]
     if not (crop[0] < crop[2] and crop[1] < crop[3]):
         raise ValueError("Status badge crop is empty.")
@@ -362,7 +366,7 @@ def _required_provenance(raw: dict, refinement: dict, original: dict, evidence_p
         raise ValueError("Status badge gameplay evidence changed.")
     with Image.open(evidence_path) as image:
         pane = image.convert("RGB")
-    if pane.size != (810, 1080) or hashlib.sha256(pane.tobytes()).hexdigest() != refinement["gameplay_sha256"]:
+    if pane.size != pane_size() or hashlib.sha256(pane.tobytes()).hexdigest() != refinement["gameplay_sha256"]:
         raise ValueError("Status badge gameplay pixels changed.")
     return pane
 
@@ -466,8 +470,8 @@ def load(raw: dict, path: str | Path, *, evidence_path: str | Path | None = None
 def prepare(raw: dict, pane, reader) -> dict:
     """Run only fixed status badge crops and return cache-ready observations."""
 
-    if pane.size != (810, 1080):
-        raise ValueError("Status badge preparation expects an 810x1080 gameplay pane.")
+    if pane.size != pane_size():
+        raise ValueError("Status badge preparation expects the gameplay pane.")
     candidates = _candidate_records(raw)
     observations = _ocr_candidates(raw, pane.convert("RGB"), candidates, reader) if candidates else []
     return dict(candidate_count=len(candidates), accepted_count=len(observations), observations=observations)
@@ -555,7 +559,7 @@ def generate(root: str | Path, *, start_ms: int, end_ms: int, frame_ids=None,
             raise ValueError("Status badge gameplay evidence is missing.")
         with Image.open(evidence_path) as image:
             pane = image.convert("RGB")
-        if pane.size != (810, 1080) or hashlib.sha256(pane.tobytes()).hexdigest() != raw.get("gameplay_sha256"):
+        if pane.size != pane_size() or hashlib.sha256(pane.tobytes()).hexdigest() != raw.get("gameplay_sha256"):
             raise ValueError("Status badge gameplay pixels changed.")
         prepared = prepare(raw, pane, reader)
         summary["candidates"] += prepared["candidate_count"]

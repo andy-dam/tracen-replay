@@ -1,4 +1,5 @@
 """Joint receipt accounting when another selection hides an intermediate balance."""
+from .source_clock import elapsed
 
 
 def cart_bundles(changes):
@@ -29,7 +30,7 @@ def final_cart(readings,confirmation_ms,start_ms):
         value=row['facts'].get('displayed_skill_points')
         if type(value) is not int:continue
         if tail and (value!=tail[-1]['facts']['displayed_skill_points']
-                     or not 0<tail[-1]['source_timestamp_ms']-row['source_timestamp_ms']<=500):break
+                     or not 0<elapsed(row['source_timestamp_ms'],tail[-1]['source_timestamp_ms'])<=500):break
         tail.append(row)
     if len({r['source_timestamp_ms'] for r in tail})<2:return None
     return dict(value=tail[0]['facts']['displayed_skill_points'],

@@ -13,6 +13,8 @@ import re
 from collections.abc import Mapping
 from fractions import Fraction
 
+from .layout import using
+
 
 FULL_RECORDING_SCHEMA = "tracen-replay/full-recording-v1"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
@@ -138,6 +140,18 @@ def _validate_frames(report, source_duration, clip_start, clip_duration):
     _text(_required(sampling, "method", "report.sampling"), "report.sampling.method")
     _boolean(_required(sampling, "guarantees_all_events", "report.sampling"),
              "report.sampling.guarantees_all_events")
+    if "source_frame_gaps_ms" in sampling:
+        previous = 0
+        gaps = _array(sampling["source_frame_gaps_ms"], "report.sampling.source_frame_gaps_ms")
+        for index, gap in enumerate(gaps):
+            path = f"report.sampling.source_frame_gaps_ms[{index}]"
+            if len(_array(gap, path)) != 2:
+                _error(path, "must contain a start and an end")
+            start = _integer(gap[0], f"{path}[0]", minimum=0)
+            end = _integer(gap[1], f"{path}[1]", minimum=0)
+            if not previous <= start < end <= source_duration:
+                _error(path, "must be a stretch of the source after the one before it")
+            previous = end
 
     frames = _object_array(_required(report, "frames", "report"), "report.frames")
     if not frames:
@@ -193,6 +207,30 @@ def _validate_frames(report, source_duration, clip_start, clip_duration):
             _error(f"{path}.source_pts", "does not map to source_timestamp_ms")
         if abs(decoded_timestamp - timestamp) > 1:
             _error(f"{path}.source_pts", "does not map to source_timestamp_ms")
+
+
+def _validate_layout(report):
+    """The optional layout: the working frame, the game area in it and the clear margins, in working pixels."""
+    layout = report.get("layout")
+    if layout is None:
+        return
+    layout = _object(layout, "report.layout")
+    frame = _array(_required(layout, "frame", "report.layout"), "report.layout.frame")
+    pane = _array(_required(layout, "pane", "report.layout"), "report.layout.pane")
+    if len(frame) != 2:
+        _error("report.layout.frame", "must contain a width and a height")
+    if len(pane) != 4:
+        _error("report.layout.pane", "must contain four coordinates")
+    for index, value in enumerate(frame):
+        _integer(value, f"report.layout.frame[{index}]", minimum=1)
+    for index, value in enumerate(pane):
+        _integer(value, f"report.layout.pane[{index}]", minimum=0)
+    if not (pane[0] < pane[2] <= frame[0] and pane[1] < pane[3] <= frame[1]):
+        _error("report.layout.pane", "must lie inside the frame")
+    for key in ("top", "bottom"):
+        _integer(_required(layout, key, "report.layout"), f"report.layout.{key}", minimum=0)
+    if "fitted" in layout:
+        _boolean(layout["fitted"], "report.layout.fitted")
 
 
 def _validate_recognition(report):
@@ -273,9 +311,16 @@ def validate(report, *, require_gameplay=False, source_root=None):
     viewer. ``source_root`` is the immutable worker/cache root used to verify
     persisted source-bound preview recovery; when omitted, a declared
     ``evaluation_context.evidence_root`` is used if present. The function
-    intentionally accepts null/unknown semantic fields.
+    intentionally accepts null/unknown semantic fields. Collections projected
+    again from the readings are projected in the report's own layout.
     """
     report = _object(report, "report")
+    _validate_layout(report)
+    with using(report.get("layout")):
+        return _validate(report, require_gameplay=require_gameplay, source_root=source_root)
+
+
+def _validate(report, *, require_gameplay, source_root):
     schema = _required(report, "schema_version", "report")
     if schema != FULL_RECORDING_SCHEMA:
         _error("report.schema_version", f"unsupported value {schema!r}")

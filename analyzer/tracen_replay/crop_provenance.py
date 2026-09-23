@@ -16,6 +16,7 @@ from copy import deepcopy
 import math
 import re
 from typing import Any, Iterable, Mapping
+from .layout import inside_pane
 from .ocr_confidence import confidence_percent
 
 
@@ -68,7 +69,6 @@ CROP_FAMILY_RULES = {
 
 _SIGNED_PREFIX = re.compile(r"^\s*\+\s*(?P<digits>\d{1,3})(?P<suffix>[^\d\s]*)\s*$")
 _SIGNED_EXACT = re.compile(r"^\s*\+\s*(?P<digits>\d{1,3})\s*$")
-_GLOBAL_GAMEPLAY_PANE = (148.0, 0.0, 958.0, 1080.0)
 _SOURCE_REFINEMENT_SCHEMA = "tracen-replay/training-gain-source-refinement-v1"
 _SOURCE_REFINEMENT_ROLES = frozenset(("inner", "outer"))
 _SOURCE_REFINEMENT_GEOMETRY = {
@@ -108,14 +108,9 @@ def _box(value: Any) -> list[float] | None:
         result = [float(part) for part in value]
     except (TypeError, ValueError, OverflowError):
         return None
-    left, top, right, bottom = result
     if not all(math.isfinite(part) for part in result):
         return None
-    pane_left, pane_top, pane_right, pane_bottom = _GLOBAL_GAMEPLAY_PANE
-    if not (
-        pane_left <= left < right <= pane_right
-        and pane_top <= top < bottom <= pane_bottom
-    ):
+    if not inside_pane(result):
         return None
     return result
 

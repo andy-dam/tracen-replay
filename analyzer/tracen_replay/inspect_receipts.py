@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 from .vision import NeuralReader,parse
 from .pipeline import decode_frames,frame_scale,PipelineError
+from .layout import current as current_layout
 from .full_recording import save_json
 from .proof_writer import save_while
 from .worker_memory import frame_done
@@ -232,7 +233,9 @@ def _window_setup(source,root,start,end,fps):
 def _window_frames(source,capture,directory,frames_dir,manifest,start,end,fps,completed):
     if completed and not manifest.exists():raise PipelineError('Completed receipt window is missing its frame manifest.')
     if manifest.exists():return json.loads(manifest.read_text(encoding='utf-8'))
-    scale=frame_scale(capture['source']['width'],capture['source']['height'])
+    # A window is decoded to the analysis's own working frame; the capture
+    # a recovery stage keeps for its windows records only the source.
+    scale=frame_scale(current_layout(),capture['source']['width'],capture['source']['height'])
     frames=decode_frames(source,frames_dir,start/1000,(end-start)/1000,fps,capture['source'].get('timeline_origin_seconds',0),scale=scale);save_json(manifest,frames)
     return frames
 
@@ -277,7 +280,7 @@ def _frame_cache(frame,directory,root,digest,reader,completed):
                 save_json(cache, raw)
         return raw
     if reader is None:reader=NeuralReader()
-    with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop((148,0,958,1080))
+    with reader.Image.open(image_path) as image:pane=image.convert('RGB').crop(current_layout().pane)
     saved=save_while(pane,proof)
     try:raw=reader.read(pane)
     finally:saved()

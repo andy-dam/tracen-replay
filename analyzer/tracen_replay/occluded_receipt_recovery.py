@@ -23,7 +23,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .gameplay import effects_from_lines
+from .gameplay import effects_from_lines, receipt_rows
+from .layout import pane_box
 
 
 SCHEMA = "tracen-replay/occluded-receipt-recovery-v1"
@@ -62,9 +63,11 @@ def _valid_box(value: Any) -> bool:
     if not all(_finite_number(item) for item in value):
         return False
     left, top, right, bottom = (float(item) for item in value)
+    pane_left, _, pane_right, _ = pane_box()
+    band_top, band_bottom = receipt_rows()
     return (
-        148 <= left < right <= 958
-        and 770 <= top < bottom <= 1000
+        pane_left <= left < right <= pane_right
+        and band_top <= top < bottom <= band_bottom
     )
 
 

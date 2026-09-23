@@ -8,6 +8,9 @@ from copy import deepcopy
 import math
 import re
 
+from .layout import inside_pane
+from .source_clock import elapsed
+
 
 def _field(effect):
     return 'skill_hint_change||'+effect['name']
@@ -93,7 +96,7 @@ def _supported_legacy(candidate, rows, source_sha256):
             support.append(observation)
     times = sorted(seen_times)
     if (len(support) < 2 or candidate.get('source_timestamps_ms') != times
-            or any(b-a > 250 for a,b in zip(times,times[1:]))):
+            or any(elapsed(a, b) > 250 for a,b in zip(times,times[1:]))):
         return None
     # Even native samples between the supporting frames must keep the same
     # screen/context. A source-selected candidate cannot bridge another event.
@@ -131,10 +134,8 @@ def _single_line_prefix_crop_box(receipt_box, overlay_box):
     receipt = tuple(float(value) for value in receipt_box)
     overlay = tuple(float(value) for value in overlay_box)
     if (
-            not (148.0 <= receipt[0] < receipt[2] <= 958.0
-                 and 0.0 <= receipt[1] < receipt[3] <= 1080.0)
-            or not (148.0 <= overlay[0] < overlay[2] <= 958.0
-                    and 0.0 <= overlay[1] < overlay[3] <= 1080.0)
+            not inside_pane(receipt)
+            or not inside_pane(overlay)
             or overlay[0] <= receipt[0] + 16.0
             or overlay[0] >= receipt[2]
             or overlay[1] > (receipt[1] + receipt[3]) / 2.0
@@ -304,7 +305,7 @@ def _single_line_supported(candidate, rows, source_sha256):
     ordered_times = sorted(seen_times)
     if (
             candidate.get('source_timestamps_ms') != ordered_times
-            or any(b - a > 250 for a, b in zip(ordered_times, ordered_times[1:]))
+            or any(elapsed(a, b) > 250 for a, b in zip(ordered_times, ordered_times[1:]))
             or sorted(set(observed_names)) != raw_names):
         return None
     # Every source row in the episode must remain the same outcome/context;
@@ -351,8 +352,7 @@ def _wrapped_relative_crop_box(receipt_box, left_offset, right_offset):
     left, top, _right, bottom = (float(value) for value in receipt_box)
     crop = (left + left_offset, top - 2.0,
             left + right_offset, bottom + 2.0)
-    if not (148.0 <= crop[0] < crop[2] <= 958.0
-            and 0.0 <= crop[1] < crop[3] <= 1080.0):
+    if not inside_pane(crop):
         return None
     return crop
 
@@ -610,7 +610,7 @@ def _wrapped_supported(candidate, rows, source_sha256):
             or [observation.get('timestamp_ms') for observation in observations] != times
     ):
         return None
-    if any(b - a > 250 for a, b in zip(times, times[1:])):
+    if any(elapsed(a, b) > 250 for a, b in zip(times, times[1:])):
         return None
     if len(observed_suffixes) > 1:
         return None

@@ -21,13 +21,13 @@ import math
 import re
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from .training_badge_localization import FIELDS, GAIN_BOXES, WIDE_GAIN_BOXES
+from .layout import ORIGIN_X, clamp, inside_pane, pane_size
+from .training_badge_localization import FIELDS, gain_box, wide_gain_box
 from .ocr_confidence import confidence_percent
 
 
 VERSION = 1
 SCHEMA = "tracen-replay/training-gain-source-refinement-v1"
-PANE_BOUNDS = (148, 0, 958, 1080)
 MIN_CONFIDENCE = 80.0
 _SIGNED_EXACT = re.compile(r"^\s*\+\s*(\d{1,3})\s*$")
 
@@ -51,10 +51,7 @@ def _integer_box(value: Sequence[float], *, name: str) -> list[int]:
     if any(float(item) != int(item) for item in coordinates):
         raise ValueError(f"Training gain refinement {name} box is not integral.")
     left, top, right, bottom = (int(item) for item in coordinates)
-    if not (
-        PANE_BOUNDS[0] <= left < right <= PANE_BOUNDS[2]
-        and PANE_BOUNDS[1] <= top < bottom <= PANE_BOUNDS[3]
-    ):
+    if not inside_pane((left, top, right, bottom)):
         raise ValueError(f"Training gain refinement {name} box leaves gameplay bounds.")
     return [left, top, right, bottom]
 
@@ -66,8 +63,8 @@ def _inner_box(field: str) -> list[int]:
     amount or on which recording supplied the frame.
     """
 
-    left, top, right, bottom = GAIN_BOXES[field]
-    return _integer_box((left, top - 12, right + 6, bottom), name="inner")
+    left, top, right, bottom = gain_box(field)
+    return _integer_box(clamp((left, top - 12, right + 6, bottom)), name="inner")
 
 
 def _outer_box(field: str) -> list[int]:
@@ -78,16 +75,16 @@ def _outer_box(field: str) -> list[int]:
     stable field anchor for every stat card.
     """
 
-    left, top, right, bottom = WIDE_GAIN_BOXES[field]
+    left, top, right, bottom = wide_gain_box(field)
     width = right - left
     height = bottom - top
     return _integer_box(
-        (
+        clamp((
             left,
             top + max(1, int(round(height * 0.04))),
             right + max(1, int(round(width * (13 / 212)))),
             bottom + max(1, int(round(height * (5 / 97)))),
-        ),
+        )),
         name="outer",
     )
 
@@ -135,8 +132,8 @@ def _rgb_array(pane: Any):
         raise ValueError("Training gain refinement pane is not readable RGB data.") from exc
     if getattr(array, "ndim", None) != 3 or array.shape[2] != 3:
         raise ValueError("Training gain refinement pane is not an RGB image.")
-    if array.shape[0] != 1080 or array.shape[1] != 810:
-        raise ValueError("Training gain refinement expects an 810x1080 gameplay pane.")
+    if (array.shape[1], array.shape[0]) != pane_size():
+        raise ValueError("Training gain refinement expects the gameplay pane.")
     return array
 
 
@@ -289,7 +286,7 @@ def refine_training_gain_regions(
         gameplay_sha256 = hashlib.sha256(rgb.tobytes()).hexdigest()
         metadata = _metadata(source_metadata, gameplay_sha256)
         crops = [
-            rgb[box[1] : box[3], box[0] - PANE_BOUNDS[0] : box[2] - PANE_BOUNDS[0]].copy()
+            rgb[box[1] : box[3], box[0] - ORIGIN_X : box[2] - ORIGIN_X].copy()
             for _region, box, _request_metadata in requests
         ]
         recognized = list(recognize(crops))
@@ -343,7 +340,7 @@ def _hash_crop(rgb: Any, box: Sequence[int]) -> str:
     left, top, right, bottom = box
     crop = rgb[
         top:bottom,
-        left - PANE_BOUNDS[0] : right - PANE_BOUNDS[0],
+        left - ORIGIN_X : right - ORIGIN_X,
     ]
     expected_shape = (bottom - top, right - left, 3)
     if getattr(crop, "shape", None) != expected_shape:

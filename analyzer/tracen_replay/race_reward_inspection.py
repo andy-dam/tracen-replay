@@ -1,7 +1,7 @@
 """Validate bounded extra race samples without using them as other gameplay events."""
 import copy
 
-
+from .layout import frame_box, place
 
 
 def merge_reward_rows(base, extra):
@@ -27,7 +27,9 @@ def merge_reward_rows(base, extra):
         if not all(value == value and abs(value) != float('inf')
                    for value in (left, top, right, bottom, confidence)):
             return None
-        if not (250 <= left < right <= 830 and 500 <= top < bottom <= 900 and confidence >= 97):
+        # The reward sections are pinned to the bottom, centred.
+        x1, y1, x2, y2 = place((250, 500, 830, 900), 'bc')
+        if not (x1 <= left < right <= x2 and y1 <= top < bottom <= y2 and confidence >= 97):
             return None
         return name
 
@@ -85,7 +87,8 @@ def merge_reward_rows(base, extra):
             return None
         if not all(value == value and abs(value) != float('inf') for value in values):
             return None
-        if not (0 <= values[0] < values[2] <= 1920 and 0 <= values[1] < values[3] <= 1080):
+        left, top, right, bottom = frame_box()
+        if not (left <= values[0] < values[2] <= right and top <= values[1] < values[3] <= bottom):
             return None
         return values
 

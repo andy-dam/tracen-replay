@@ -8,6 +8,8 @@ imply any energy/stat effect. Other item presentation layouts abstain.
 from copy import deepcopy
 import math
 
+from .layout import place
+
 
 def _inside(line, bounds, minimum=97):
     if not isinstance(line, dict) or not isinstance(line.get('text'), str):
@@ -35,12 +37,14 @@ def read_reward(raw):
     lines = raw.get('lines', [])
     if not isinstance(lines, list):
         return None
-    event = [line for line in lines if _inside(line, (225, 160, 480, 200))
+    # The event and title rows are pinned to the top left.
+    event = [line for line in lines if _inside(line, place((225, 160, 480, 200), 'tl'))
              and line['text'].strip().casefold() == 'trainee event']
-    title = [line for line in lines if _inside(line, (225, 200, 610, 245))
+    title = [line for line in lines if _inside(line, place((225, 200, 610, 245), 'tl'))
              and line['text'].strip().casefold() == 'raffle time!']
-    # This is the separate reward-name banner above the speaker/dialogue area.
-    names = [line for line in lines if _inside(line, (330, 660, 810, 735))
+    # This is the separate reward-name banner above the speaker/dialogue area;
+    # it is centred, so the band covers both centres.
+    names = [line for line in lines if _inside(line, place((330, 660, 810, 735), 'mc', 'sc'))
              and line['text'].strip() and any(c.isalpha() for c in line['text'])]
     if len(event) != 1 or len(title) != 1 or len(names) != 1:
         return None
