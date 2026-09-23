@@ -114,6 +114,22 @@ class SourceTemporalPhaseTests(unittest.TestCase):
         self.assertIsNone(resolve_full_component_phase(observations))
         self.assertIsNone(resolve_source_temporal_phase(observations, "skill_points"))
 
+    def test_a_prefix_read_while_the_badge_animates_in_opens_the_full_phase(self):
+        # The digits pop in: "2" caught just before "24", which then repeats
+        # and clips back to "2" as the badge leaves.
+        rows = [source_row(1000, 2), source_row(1041, 24), source_row(1066, 24),
+                source_row(1133, 2), source_row(1166, 2), source_row(1233, 2)]
+        result = resolve_source_temporal_phase(source_gain_observations(rows, "skill_points"), "skill_points")
+        self.assertEqual(result["accepted_amount"], 24)
+        self.assertEqual(result["animate_in_component_seen_ms"], [1000])
+        self.assertEqual(result["component_first_seen_ms"], 1133)
+        # Too long before the complete read, or with no component phase after
+        # it, the prefix is no opening and the order stays reversed.
+        for moved in ([source_row(800, 2)] + rows[1:], rows[:3]):
+            with self.subTest(times=[row["source_timestamp_ms"] for row in moved]):
+                self.assertIsNone(resolve_source_temporal_phase(
+                    source_gain_observations(moved, "skill_points"), "skill_points"))
+
     def test_reversed_source_phase_stays_ambiguous(self):
         rows = [source_row(1000, 1), source_row(1033, 1), source_row(1066, 11), source_row(1099, 11)]
         self.assertIsNone(

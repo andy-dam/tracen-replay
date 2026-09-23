@@ -724,6 +724,28 @@ def _strict_decimal_prefix(full_value, component_value):
     )
 
 
+# How long before a complete badge's first read its digits can still be
+# popping in, in source milliseconds.
+_ANIMATE_IN_MS = 150
+
+
+def _opens_before(full_times, component_times):
+    """Whether the component reads before the first complete read are only the badge animating in.
+
+    A gain badge's digits pop in, and a frame can catch the first of them: a
+    prefix read at most ``_ANIMATE_IN_MS`` before the first complete read,
+    with the component phase proper following it, is the badge's own
+    opening. A component phase that only precedes the complete one stays
+    reversed, and one read at the complete read's own moment stays open.
+    """
+    first_full = min(full_times)
+    before = [time for time in component_times if time <= first_full]
+    if not before:
+        return True
+    return (first_full not in before and first_full - min(before) <= _ANIMATE_IN_MS
+            and any(time > first_full for time in component_times))
+
+
 def resolve_source_temporal_phase(observations, field):
     """Resolve a source-proven complete badge before a component phase.
 
@@ -757,6 +779,10 @@ def resolve_source_temporal_phase(observations, field):
         )
         full_value, full_items = ordered[0]
         component_value, component_items = ordered[1]
+        # A prefix caught while the badge animated in can be read first; the
+        # digits, not the first frame, tell the complete value from it.
+        if _strict_decimal_prefix(component_value, full_value):
+            (full_value, full_items), (component_value, component_items) = ordered[1], ordered[0]
     else:
         # A recovery reader can leave one weak, contradictory value in the
         # same bounded result window.  Find the phase pair from source proofs
@@ -794,10 +820,11 @@ def resolve_source_temporal_phase(observations, field):
                     for row, _shape in by_value[component_candidate]
                 ]
                 # A full badge seen only after the component began is not an
-                # opening full phase.  Keeping this chronology in pair
+                # opening full phase, unless the component reads before it are
+                # the badge animating in.  Keeping this chronology in pair
                 # construction prevents two strict-prefix candidates from
                 # becoming a magnitude/confidence tie-break.
-                if not full_times or not component_times or min(full_times) >= min(component_times):
+                if not full_times or not component_times or not _opens_before(full_times, component_times):
                     continue
                 pairs.append((full_candidate, component_candidate))
         if len(pairs) != 1:
@@ -875,9 +902,12 @@ def resolve_source_temporal_phase(observations, field):
     component_times = [_row_time(row) for row, _ in component_items]
     # A complete badge can reappear after the component animation.  The
     # source phase is still oriented by its first complete observation; a
-    # component-first sequence remains unresolved.
-    if min(full_times) >= min(component_times):
+    # component-first sequence remains unresolved, apart from the badge's
+    # own digits animating in just before it.
+    if not _opens_before(full_times, component_times):
         return None
+    opening_times = sorted(time for time in component_times if time < min(full_times))
+    phase_component_times = [time for time in component_times if time > min(full_times)]
 
     # The complete candidate must be independently readable in its source
     # crop.  One high-confidence complete frame is acceptable only when the
@@ -939,7 +969,8 @@ def resolve_source_temporal_phase(observations, field):
         full_observations=full_proof,
         component_observations=component_proof,
         full_last_seen_ms=max(full_times),
-        component_first_seen_ms=min(component_times),
+        component_first_seen_ms=min(phase_component_times),
+        animate_in_component_seen_ms=opening_times,
         phase_order="full_before_component",
         source_field=field,
         source_full_observation_count=len(source_full),
