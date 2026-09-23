@@ -56,6 +56,21 @@ class ResultTotalGainsTests(unittest.TestCase):
         rows = [home(647500), receipt(650000, 'speed', 3), result(656250), result(656500)]
         self.assertEqual(training_events(rows)[0]['deltas'], dict(power=2, guts=11, skill_points=5))
 
+    def test_a_last_panel_the_frames_after_it_read_otherwise_was_misread(self):
+        # The last full panel misread guts 252 as 232; two partial panels
+        # after it read 252 again. Guts rose by 11, not by 31.
+        misread = dict(BEFORE, guts=232)
+        partial = dict(BEFORE, power=None)
+        rows = [home(647000), home(647500, misread), home(648000, partial), home(648250, partial),
+                result(656250), result(656500)]
+        event = training_events(rows)[0]
+        self.assertEqual(event['deltas']['guts'], 11)
+        self.assertEqual(event['result_total_gains']['guts']['before'],
+                         dict(source_timestamp_ms=648250, evidence='648250.png', value=252))
+        # A single frame after it is no second reading: the panel stands.
+        rows = [home(647000), home(647500, misread), home(648000, partial), result(656250), result(656500)]
+        self.assertEqual(training_events(rows)[0]['deltas']['guts'], 31)
+
     def test_a_disagreeing_badge_cancels_the_totals(self):
         rows = [home(647500), result(656250, gains=dict(guts=12)), result(656500, gains=dict(guts=12))]
         event = training_events(rows)[0]
