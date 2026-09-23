@@ -367,6 +367,33 @@ class HubExitRestTests(unittest.TestCase):
         readings.append(row(927900, "reread.png", screen="boundary_state_recovery"))
         self.assertEqual(len(reconstruct(readings, events)), 1)
 
+    def test_a_scene_that_opens_before_its_title_is_still_left_into_from_the_hub(self):
+        # The trainee's first words show for a moment before the title.
+        readings, events = hub_exit_sequence()
+        readings.append(row(927900, "opening.png", calendar="Classic Year Early Sep", texts=("I'm here! Good morning!",)))
+        actions = reconstruct(readings, events)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0]["hub_exit_timestamp_ms"], 927750)
+        # Untitled frames reaching more than two seconds before the title are
+        # not its opening: the hub before them is not left into this scene.
+        readings, events = hub_exit_sequence()
+        readings = [r for r in readings if not 926000 <= r["source_timestamp_ms"] < 928000]
+        readings += [hub(924000 + 250 * i, f"early-hub-{i}.png") for i in range(8)]
+        readings += [row(925900 + 250 * i, f"words-{i}.png", calendar="Classic Year Early Sep") for i in range(9)]
+        self.assertEqual(reconstruct(readings, events), [])
+
+    def test_a_hub_after_the_turns_own_training_is_not_where_a_rest_was_chosen(self):
+        # A training's result earlier on the same date: the hub came back for
+        # that turn's own events.
+        readings, events = hub_exit_sequence()
+        readings.append(row(925000, "trained.png", screen="training_result", calendar="Classic Year Early Sep"))
+        self.assertEqual(reconstruct(readings, events), [])
+        # A training on the date before was the previous turn's.
+        readings, events = hub_exit_sequence()
+        readings += [row(924500, "trained.png", screen="training_result", calendar="Classic Year Late Aug"),
+                     row(925000, "new-turn.png", calendar="Classic Year Early Sep")]
+        self.assertEqual(len(reconstruct(readings, events)), 1)
+
     def test_a_receipt_that_could_be_another_actions_is_not_a_rest(self):
         readings, events = hub_exit_sequence()
         events[0]["effects"].append(dict(kind="friendship_status", name="Light Hello",

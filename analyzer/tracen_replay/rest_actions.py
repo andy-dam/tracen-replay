@@ -67,6 +67,8 @@ _INTERLUDE_SCREENS = frozenset({
 _MAX_CONFIRMATION_DELAY_MS = 10_000
 _MAX_HUB_EXIT_GAP_MS = 1_000
 _HUB_LOOKBACK_MS = 3_000
+# A scene can open on its first words for a moment before its title shows.
+_MAX_UNTITLED_OPENING_MS = 2_000
 # A receipt with one of these lines belongs to another recovery action: an
 # outing names its companion, the infirmary the condition it treated.
 _OTHER_RECOVERY_EFFECTS = frozenset({"friendship_change", "friendship_status", "condition_removed"})
@@ -206,6 +208,18 @@ def _is_hub(row):
     return row.get("completed_action") in (None, "", "rest") and not _is_cancel_status(row)
 
 
+def _scene_opening(row):
+    """A frame of a scene before its title shows: no screen label, no title, no stat bar."""
+    if not isinstance(row, dict) or row.get("screen") not in (None, "", "unknown"):
+        return False
+    title = row.get("context_title")
+    if isinstance(title, str) and title.strip():
+        return False
+    stats = row.get("stats")
+    values = stats.get("values") if isinstance(stats, dict) else None
+    return not values and not _is_cancel_status(row)
+
+
 def _rest_shaped(event):
     """Whether the receipt could be nobody's but a Rest: no companion line,
     no treated condition, and not the infirmary's own scene."""
@@ -229,13 +243,18 @@ def _hub_exit_group(ordered, event):
     first, _ = _event_times(event)
     own = event.get("context_title")
     own = " ".join(own.split()).casefold() if isinstance(own, str) and own.strip() else None
-    scene_start = first
+    scene_start = titled_start = first
     for row in reversed(_rows_between(ordered, first - _MAX_CONFIRMATION_DELAY_MS, first)):
         time = _time(row)
         if time is None or time >= first:
             continue
         title = row.get("context_title")
         if own and isinstance(title, str) and " ".join(title.split()).casefold() == own:
+            scene_start = titled_start = time
+            continue
+        # The trainee's first words, shown for a moment before the title: an
+        # unlabelled frame with no title and no stat bar is the scene too.
+        if titled_start - time <= _MAX_UNTITLED_OPENING_MS and _scene_opening(row):
             scene_start = time
             continue
         break
@@ -250,8 +269,47 @@ def _hub_exit_group(ordered, event):
         if (time is not None and exit_time < time < scene_start
                 and row.get("screen") != "boundary_state_recovery"):
             return []
+    if _turn_already_acted(ordered, hubs[-1]):
+        return []
     group = [row for row in hubs if elapsed(_time(row), exit_time) <= _MAX_HUB_EXIT_GAP_MS]
     return group if _repeated_observation(group) else []
+
+
+def _turn_already_acted(ordered, hub):
+    """Whether the hub's turn already had its action before the hub was left.
+
+    After a training or a race the hub comes back for that turn's own
+    events, still on its date; the next turn's hub shows the next date.
+    A training's or race's result since the hub's date began means this hub
+    is not where the turn's action was chosen. Before the debut and in the
+    finale the calendar names the phase, and the countdown to the goal
+    tells the turns apart.
+    """
+    hub_turn = _turn_key(hub)
+    hub_time = _time(hub)
+    if hub_turn is None or hub_time is None:
+        return False
+    for row in reversed(_rows_between(ordered, hub_time - _MAX_INTERLUDE_MS, hub_time)):
+        time = _time(row)
+        if time is None or time >= hub_time:
+            continue
+        key = _turn_key(row)
+        if key is not None and key != hub_turn:
+            return False
+        if row.get("screen") in ("training_result", "race_result"):
+            return True
+    return False
+
+
+def _turn_key(row):
+    """The turn a frame's calendar shows: its date, or its phase and the countdown to the goal; None when unread."""
+    calendar = _calendar_text(row)
+    if not calendar:
+        return None
+    if calendar in _PHASE_LABELS:
+        countdown = (row.get("stats") or {}).get("turns_remaining_to_goal")
+        return (calendar, countdown) if type(countdown) is int else None
+    return date_key(calendar)
 
 
 def _blocked_between(ordered, start, end, *, allow_event_dialogue=False,
