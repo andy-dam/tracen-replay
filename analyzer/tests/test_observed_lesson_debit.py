@@ -189,3 +189,18 @@ class HiddenMenuBalanceTests(unittest.TestCase):
         got=lesson_receipts(rows,[event])[0]
         self.assertEqual(got['performance_cost']['visual'],24)
         self.assertEqual(got['cost_basis'],'receipt_and_repeated_observed_balances')
+
+    def test_a_menu_frame_still_showing_the_last_purchase_gives_no_balance(self):
+        # The menu's first frame still showed the balance before the previous
+        # purchase (vocal 14, visual 110); the frames after it show this
+        # visit's, where vocal is a dim zero that reads nothing. The dialog
+        # projects vocal 0, so the lesson costs no vocal.
+        rows,event=sequence()
+        for r in rows[:2]:r['facts']['performance_points']['vocal']=None
+        rows.insert(2,row(375,'lesson_selection',{'performance_points':dict(rows[1]['facts']['performance_points'])}))
+        rows[0]['facts']['performance_points'].update(vocal=14,visual=110)
+        for r in rows[3:5]:r['facts']['projected_performance_points'].update(vocal=0,dance=43)
+        for r in rows[7:]:r['facts']['performance_points']['vocal']=0
+        got=lesson_receipts(rows,[event])[0]
+        self.assertEqual(got['performance_cost'],dict(dance=0,passion=0,vocal=0,visual=24,composure=0))
+        self.assertEqual(got['cost_basis'],'observed_debit')

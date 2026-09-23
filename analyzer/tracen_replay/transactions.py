@@ -923,6 +923,14 @@ def lesson_receipts(readings, outcomes):
                     result[field]=suffix[0] if suffix and (len(suffix)>=2 or len(set(values))==1) else None
                 return result
             initial=balance(before_rows,'performance_points')
+            # The menu's first frame after a receipt can still show the balance
+            # before that purchase. A frame that disagrees with the settled
+            # balance on any currency shows another balance, so a currency read
+            # only there (one at zero is drawn dim and reads nothing later) is
+            # not this visit's.
+            initial=balance([r for r in before_rows if all(
+                type(value) is not int or initial.get(field) is None or value==initial[field]
+                for field,value in r['facts'].get('performance_points',{}).items() if field in CURRENCIES)],'performance_points')
             initial_fill=[]
             if before and any(initial.get(k) is None for k in CURRENCIES):
                 # A menu balance field hidden by the cursor keeps its value
