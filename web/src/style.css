@@ -527,6 +527,7 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 /* video */
 .video { position: relative; background: var(--video-bg); border-radius: var(--radius) var(--radius) 0 0; overflow: hidden; aspect-ratio: 16 / 9; display: grid; place-items: center; color: #dfe5ec; cursor: pointer; }
 .video video, .video img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.video.portrait { aspect-ratio: auto; height: 75vh; }
 .play-big { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.9); color: #1b2230; font-size: 24px; padding-left: 5px; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); transition: transform 160ms var(--ease), background 160ms; }
 .play-big:hover { transform: scale(1.08); background: #fff; }
 
