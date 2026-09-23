@@ -314,6 +314,9 @@ def plan(readings, events):
         # instead, is worth a bounded reread of the same interval; a fresh run
         # then observes it instead of the accounting working it out.
         single_frame_fields = set()
+        # A state- or preview-derived fill is bookkeeping, not a read badge.
+        derived = event.get('result_state_derived_fields')
+        derived = set(derived) if isinstance(derived, (list, tuple, set)) else set()
         if isinstance(event.get('deltas'), dict):
             # Only an assembled event (with its accepted deltas) can say which
             # single-frame readings it declined; a bare candidate event cannot.
@@ -323,9 +326,6 @@ def plan(readings, events):
                 for field, value in (gains or {}).items():
                     if field in FIELDS and type(value) is int and value > 0:
                         frames_per_field[field] = frames_per_field.get(field, 0) + 1
-            # A state- or preview-derived fill is bookkeeping, not a read badge.
-            derived = event.get('result_state_derived_fields')
-            derived = set(derived) if isinstance(derived, (list, tuple, set)) else set()
             single_frame_fields = {field for field, count in frames_per_field.items()
                                    if count == 1 and (field not in event['deltas'] or field in derived)}
         fields = conflicting_fields | candidate_fields | prefix_fields | single_frame_fields
@@ -334,14 +334,18 @@ def plan(readings, events):
                                             if isinstance(r.get('facts',{}),dict) else {}))
                     or fields.intersection(_candidate_only_fields(r))]
         # A result that accepted no signed gain at all is owed the bounded
-        # reread of its whole result interval below; a lone single-frame
-        # reading narrows that interval only when other gains were accepted.
+        # reread of its whole result interval below, unless the sampled frames
+        # hold a disputed or candidate-only gain to name its reason.
         committed = _committed_result_rows(readings, event)
         missing = _missing_result_fields(committed, event)
         if candidates and not (committed and missing and not (conflicting_fields or candidate_fields or prefix_fields)):
-            start=max(first_seen,min(r['source_timestamp_ms'] for r in candidates)-100)
-            end=min(last_seen,max(r['source_timestamp_ms'] for r in candidates)+100)
-            if not start<end or end-start>_RESULT_RECOVERY_MAX_SPAN_MS:continue
+            # The badges animate: a gain the sampled frames caught was often
+            # readable, the card's other gains with it, in the half second
+            # before the first of them. The reread covers the result as the
+            # whole-card rule below does, for every gain not yet read.
+            start=max(0, first_seen - _RESULT_RECOVERY_RADIUS_MS)
+            end=min(last_seen + _RESULT_RECOVERY_RADIUS_MS, start + _RESULT_RECOVERY_MAX_SPAN_MS)
+            fields = fields | (missing if committed else set()) | (derived & set(FIELDS))
             reason = ('conflicting_observed_training_badge_digits' if conflicting_fields else
                       'candidate_only_source_gain_evidence' if candidate_fields or prefix_fields else
                       'single_frame_training_gain')

@@ -13,13 +13,13 @@ class TrainingGainRecoveryTests(unittest.TestCase):
     def test_plan_uses_conflicting_badges_without_balance_input(self):
         rows=[row(100,{'speed':1}),row(150,{'speed':13})]
         event=dict(id='training',kind='training',first_seen_ms=90,last_seen_ms=400,conflicting_readings={'speed':[1,13]})
-        self.assertEqual(plan(rows,[event])[0],dict(start_ms=90,end_ms=250,owner_id='training',fields=['speed'],reason='conflicting_observed_training_badge_digits'))
+        self.assertEqual(plan(rows,[event])[0],dict(start_ms=0,end_ms=900,owner_id='training',fields=['speed'],reason='conflicting_observed_training_badge_digits'))
         self.assertEqual(plan(rows,[dict(event,kind='outcome')]),[])
 
     def test_a_gain_read_on_one_frame_that_was_not_accepted_requests_a_reread(self):
         rows=[row(100,{'speed':1,'wit':6})]
         event=dict(id='training',kind='training',first_seen_ms=90,last_seen_ms=400,deltas={'speed':1},conflicting_readings={})
-        self.assertEqual(plan(rows,[event])[0],dict(start_ms=90,end_ms=200,owner_id='training',fields=['wit'],reason='single_frame_training_gain'))
+        self.assertEqual(plan(rows,[event])[0],dict(start_ms=0,end_ms=900,owner_id='training',fields=['wit'],reason='single_frame_training_gain'))
         # Accepted on the event, or seen on two frames, it needs no reread.
         self.assertEqual(plan(rows,[dict(event,deltas={'speed':1,'wit':6})]),[])
         self.assertEqual(plan([row(100,{'wit':6}),row(150,{'wit':6})],[event]),[])

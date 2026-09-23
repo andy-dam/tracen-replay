@@ -307,8 +307,10 @@ class CandidateOnlyGainRecoveryTests(unittest.TestCase):
 
         requests=plan(rows, [event])
 
+        # The reread covers the result from half a second before its first
+        # frame, where the badges animate in, to half a second after it.
         self.assertEqual(requests, [dict(
-            start_ms=90, end_ms=250, owner_id='training-event', fields=['speed'],
+            start_ms=0, end_ms=750, owner_id='training-event', fields=['speed'],
             reason='candidate_only_source_gain_evidence',
         )])
 
