@@ -23,6 +23,24 @@ class TrainingGainRecoveryTests(unittest.TestCase):
         # Accepted on the event, or seen on two frames, it needs no reread.
         self.assertEqual(plan(rows,[dict(event,deltas={'speed':1,'wit':6})]),[])
         self.assertEqual(plan([row(100,{'wit':6}),row(150,{'wit':6})],[event]),[])
+        # Filled from the state instead, it was not read: the reread is owed.
+        derived=dict(event,deltas={'speed':1,'wit':6},result_state_derived_fields=['wit'])
+        self.assertEqual([(w['fields'],w['reason']) for w in plan(rows,[derived])],[(['wit'],'single_frame_training_gain')])
+
+    def test_a_chosen_training_whose_result_was_never_sampled_is_reread_before_the_next_screen(self):
+        # The player skipped the card between two sampled frames: the event
+        # is the frame after the choice, then the animation, then the next
+        # recognized screen. The card showed in the moments before it.
+        rows=[dict(source_timestamp_ms=t,evidence=f'{t}.png',screen='unknown',facts={}) for t in (1000,1250,1500,1750)]
+        rows.append(dict(source_timestamp_ms=4000,evidence='4000.png',screen='event_outcome',facts={}))
+        event=dict(id='training',kind='training',training_option='wit',first_seen_ms=1000,last_seen_ms=1000,
+                   deltas={'wit':44},conflicting_readings={})
+        got=plan(rows,[event])
+        self.assertEqual([(w['start_ms'],w['end_ms'],w['reason'],w['training_option']) for w in got],
+                         [(2500,4000,'training_without_result_frames','wit')])
+        # No option chosen, or no recognized screen within ten seconds: no reread.
+        self.assertEqual(plan(rows,[dict(event,training_option=None)]),[])
+        self.assertEqual(plan(rows[:4]+[dict(rows[4],source_timestamp_ms=11001)],[event]),[])
 
     def test_a_result_with_no_accepted_gain_keeps_its_whole_interval_reread(self):
         # One declined single-frame reading must not narrow the bounded reread

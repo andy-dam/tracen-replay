@@ -25,6 +25,9 @@ _SOURCE_ENVELOPE_KEYS = (
 )
 _RESULT_RECOVERY_RADIUS_MS = 500
 _RESULT_RECOVERY_MAX_SPAN_MS = 1500
+# How long after a chosen training the next recognized screen may come for a
+# result the sampling never caught to be looked for before it.
+_UNSEEN_RESULT_MAX_GAP_MS = 10000
 _CARD_MOMENT_LOOKBACK_MS = 2500
 _CARD_MOMENT_RADIUS_MS = 250
 _CARD_LABELS = ('speed', 'stamina', 'power', 'guts', 'wit', 'skill pts')
@@ -307,9 +310,9 @@ def plan(readings, events):
         for row in result_rows:
             candidate_fields.update(_candidate_only_fields(row))
         # A gain read on exactly one result frame that the event did not accept
-        # (a badge caught mid-animation, or clipped) is worth a bounded reread
-        # of the same interval; a fresh run then observes it instead of the
-        # accounting working it out from the turn difference.
+        # (a badge caught mid-animation, or clipped), or filled from the state
+        # instead, is worth a bounded reread of the same interval; a fresh run
+        # then observes it instead of the accounting working it out.
         single_frame_fields = set()
         if isinstance(event.get('deltas'), dict):
             # Only an assembled event (with its accepted deltas) can say which
@@ -320,8 +323,11 @@ def plan(readings, events):
                 for field, value in (gains or {}).items():
                     if field in FIELDS and type(value) is int and value > 0:
                         frames_per_field[field] = frames_per_field.get(field, 0) + 1
+            # A state- or preview-derived fill is bookkeeping, not a read badge.
+            derived = event.get('result_state_derived_fields')
+            derived = set(derived) if isinstance(derived, (list, tuple, set)) else set()
             single_frame_fields = {field for field, count in frames_per_field.items()
-                                   if count == 1 and field not in event['deltas']}
+                                   if count == 1 and (field not in event['deltas'] or field in derived)}
         fields = conflicting_fields | candidate_fields | prefix_fields | single_frame_fields
         candidates=[r for r in result_rows
                     if fields.intersection((r.get('facts',{}).get('training_gains',{})
@@ -388,6 +394,24 @@ def plan(readings, events):
                 # that make this event; its own moment is reread as well.
                 earlier=_earlier_card_request(readings, first_seen, request)
                 if earlier:fallback_requests.append(earlier)
+            continue
+        option = event.get('training_option')
+        if not bare and isinstance(option, str) and option.strip():
+            # The player can skip a result card in a fraction of a second,
+            # between two sampled frames. A chosen training whose result the
+            # sampling never caught is reread over the moments before the
+            # next screen recognized after it, where the card showed.
+            after = [r['source_timestamp_ms'] for r in readings
+                     if isinstance(r, dict) and type(r.get('source_timestamp_ms')) is int
+                     and last_seen < r['source_timestamp_ms'] <= last_seen + _UNSEEN_RESULT_MAX_GAP_MS
+                     and r.get('screen') not in (None, 'unknown', 'training_result_candidate')]
+            if after:
+                end = min(after)
+                fallback_requests.append(dict(
+                    start_ms=max(last_seen, end - _RESULT_RECOVERY_MAX_SPAN_MS), end_ms=end,
+                    owner_id=event['id'], fields=sorted(FIELDS), performance_fields=list(_PERFORMANCE_FIELDS),
+                    training_option=option.strip(), source_result_projection=True,
+                    reason='training_without_result_frames'))
             continue
         # A performance row the committed card left unread (a badge over it,
         # a merged read under the floor, the award's box cut before its
