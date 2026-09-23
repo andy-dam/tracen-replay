@@ -14,12 +14,14 @@ import (
 // Copy encodes the playback copy of a recording: the picture scaled to
 // Height lines, a modest frame rate, no audio, H.264 at a quality that
 // keeps the game's text legible at about a tenth of the original's size.
-// The viewer plays it and evidence frames come from it; the original is
-// what analyses read.
+// A recording narrower than the game's own 1080x1920 shape, from a phone,
+// gets the lines that draw its game as large as a 16:9 copy of Height
+// lines does. The viewer plays it and evidence frames come from it; the
+// original is what analyses read.
 type Copy struct {
 	// FFmpeg is the executable; empty means "ffmpeg" on PATH.
 	FFmpeg string
-	// Height is the picture height; zero means 720.
+	// Height is the picture height of a 16:9 copy; zero means 720.
 	Height int
 	// FPS is the frame rate; zero means 30.
 	FPS int
@@ -58,8 +60,11 @@ func (c Copy) Encode(ctx context.Context, src, dst string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	tmp := dst + ".part.mp4"
+	// On a 16:9 copy the game's 1080-unit width is 9/16 of its height; a
+	// phone's game fills the width, so that width sets its height.
+	scale := fmt.Sprintf("scale=-2:'2*trunc(max(%d,%g*ih/iw)/2)'", height, float64(height)*9/16)
 	args := []string{"-hide_banner", "-loglevel", "error", "-y", "-i", src,
-		"-vf", "scale=-2:" + strconv.Itoa(height), "-r", strconv.Itoa(fps), "-an",
+		"-vf", scale, "-r", strconv.Itoa(fps), "-an",
 		"-c:v", "libx264", "-preset", preset, "-crf", strconv.Itoa(crf), "-pix_fmt", "yuv420p",
 		"-movflags", "+faststart"}
 	if c.Threads > 0 {

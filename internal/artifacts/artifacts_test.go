@@ -145,3 +145,30 @@ func TestCopyEncodesAPlayableCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A phone recording's copy draws the game as wide as a 16:9 copy of the
+// same height does, so its text is as legible: 9/16 of 120 lines is 67.5
+// pixels across, which a 240x520 picture reaches at 146 lines.
+func TestCopyOfAPhoneRecordingKeepsTheGameAsLarge(t *testing.T) {
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	dir := t.TempDir()
+	recording := filepath.Join(dir, "phone.mp4")
+	make := exec.Command(ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=240x520:rate=30", "-t", "1", "-pix_fmt", "yuv420p", recording)
+	if out, err := make.CombinedOutput(); err != nil {
+		t.Fatalf("ffmpeg test clip: %v %s", err, out)
+	}
+	kept := filepath.Join(dir, "kept.mp4")
+	if err := (Copy{FFmpeg: ffmpeg, Height: 120, Timeout: time.Minute}).Encode(context.Background(), recording, kept); err != nil {
+		t.Fatal(err)
+	}
+	media, err := ProbeMedia(context.Background(), "ffprobe", kept)
+	if err != nil {
+		t.Skip("ffprobe not installed: " + err.Error())
+	}
+	if media.Height != 146 || media.Width < 66 || media.Width > 68 {
+		t.Fatalf("copy: %+v", media)
+	}
+}
