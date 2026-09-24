@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Tracen Replay local API
-  version: 0.2.3
+  version: 0.3.0
   description: |
     Local HTTP surface of the Tracen Replay application. One service, one
     Python analyzer job at a time, loopback only. Every fact the viewer shows
