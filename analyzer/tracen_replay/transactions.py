@@ -6,7 +6,7 @@ import re
 import unicodedata
 from .reconcile import FIELDS,stable_checkpoints,account
 from .gameplay import lesson_transitions, CURRENCIES, receipt_rows, screen_summary
-from .skill_chains import cart_bundles,reconcile_skill_chains
+from .skill_chains import cart_bundles,final_cart,reconcile_skill_chains
 from .receipt_continuity import collapse_cross_event_hint_duplicates
 from .receipt_stat_continuity import collapse_cross_event_stat_duplicates
 from .training_gain_phases import (
@@ -369,6 +369,93 @@ def _attach_skill_batch_metadata(transaction,readings,confirmation,span,before):
         transaction['evidence']=list(dict.fromkeys(_skill_evidence(transaction.get('evidence'))+metadata_evidence))
 
 
+def _menu_counter(row):
+    value=row['facts'].get('displayed_skill_points') if row['screen']=='skill_selection' else None
+    return value if type(value) is int and value>=0 else None
+
+
+def _finish_dialog_points(row):
+    """The points the career finish dialog says are left ("Remaining Skill Points" over "1 pts")."""
+    if row['screen']!='career_finish_confirmation':return None
+    found=[int(m[1].replace(',','')) for line in (row.get('ocr') or {}).get('neural') or ()
+           if line.get('confidence',0)>=90 and (m:=re.fullmatch(r'(\d[\d,]*)\s*pts?\.?',str(line.get('text','')).strip()))]
+    return found[0] if len(found)==1 else None
+
+
+def _first_balance(rows,value_of,basis):
+    """The value the first two frames that show one agree on, as a balance; the rows are one unbroken stretch of the screen."""
+    run=[]
+    for row in rows:
+        value=value_of(row)
+        if value is None:continue
+        if run and value!=run[-1][1]:return None
+        run.append((row,value))
+        if len(run)==2:
+            return dict(first_seen_ms=run[0][0]['source_timestamp_ms'],last_seen_ms=run[1][0]['source_timestamp_ms'],
+                        values={'skill_points':value},evidence=run[0][0]['evidence'],
+                        supporting_frames=[r['evidence'] for r,_ in run],basis=basis)
+    return None
+
+
+def _skill_menu_frame(row):
+    """A frame of the skill menu or its dialogs; a titled scene or a receipt of another kind ends it."""
+    if row['screen'] in ('skill_selection','skill_confirmation','skill_receipt'):return True
+    return row['screen']=='unknown' and not row.get('context_title') and not row.get('effects')
+
+
+def _points_unchanged(rows):
+    """No receipt, training, or other purchase moves skill points on these frames."""
+    return not any(r['screen'] in ('training_result','skill_receipt','skill_confirmation')
+                   or any(e['kind']=='stat_change' and e['field']=='skill_points' for e in r['effects']) for r in rows)
+
+
+def _empty_cart_balance(readings,spans,confirmation):
+    """The skill menu's balance the last time its cart was empty before a confirmation.
+
+    The counter shows the points left after the cart, so on the frames the
+    menu opens on, and on those right after a purchase's receipt, it is the
+    balance.
+    """
+    start=confirmation['first_seen_ms'];session=[]
+    for row in reversed([r for r in readings if r['source_timestamp_ms']<start]):
+        if not _skill_menu_frame(row):break
+        session.append(row)
+    session.reverse()
+    receipts=[s for s in spans if s['screen']=='skill_receipt' and session and session[0]['source_timestamp_ms']<=s['first_seen_ms']<start]
+    rows=[r for r in session if not receipts or r['source_timestamp_ms']>receipts[-1]['last_seen_ms']]
+    opening=_first_balance(rows,_menu_counter,'empty_cart_skill_menu_balance')
+    if opening is None or not _points_unchanged([r for r in rows if r['source_timestamp_ms']>opening['last_seen_ms']]):return None
+    return opening
+
+
+def _visible_names_cost(readings,confirmation,start):
+    """What the skills a confirmation named cost on the menu from ``start`` to it, when each showed one price there."""
+    names=[]
+    for row in readings:
+        if confirmation['first_seen_ms']<=row['source_timestamp_ms']<=confirmation['last_seen_ms']:
+            names+=[name for name in row['facts'].get('visible_skill_names',[]) if name not in names]
+    costs={}
+    for row in readings:
+        if start<=row['source_timestamp_ms']<confirmation['first_seen_ms']:
+            for card in row['facts'].get('skill_cards',[]):
+                if card['name'] in names and card['menu_status']=='available':costs.setdefault(card['name'],set()).add(card['displayed_cost'])
+    if not names or any(len(costs.get(name,()))!=1 for name in names):return None
+    return sum(next(iter(costs[name])) for name in names)
+
+
+def _balance_after_receipt(readings,span):
+    """The balance the frames after a purchase's receipt show: the menu's counter, its cart empty again, or the finish dialog's points left."""
+    later=[r for r in readings if 0<r['source_timestamp_ms']-span['last_seen_ms']<=15000]
+    menu=[]
+    for row in later:
+        if not _skill_menu_frame(row):break
+        menu.append(row)
+    closing=(_first_balance(menu,_menu_counter,'empty_cart_skill_menu_balance')
+             or _first_balance(later,_finish_dialog_points,'repeated_finish_dialog_skill_points'))
+    if closing is None or not _points_unchanged([r for r in later if r['source_timestamp_ms']<closing['first_seen_ms']]):return None
+    return closing
+
+
 def skill_transactions(readings,states):
     """Only receipt-backed batches; menu counters are never independently charged."""
     states=skill_point_states(readings,states)
@@ -425,6 +512,24 @@ def skill_transactions(readings,states):
                     unsafe=any(r['screen'] in ('training_result','skill_receipt') or any(e['kind']=='stat_change' and e['field']=='skill_points' for e in r['effects']) for r in intervening)
                     if difference>0 and not unsafe:
                         spent=difference;counter_proofs=[r['evidence'] for r in completed[:3]];basis='receipt_and_career_completion_balances'
+        if spent is None:
+            # The balance the menu showed with its cart empty before the
+            # purchase, and the one after its receipt, with nothing else moving
+            # points between: the purchase costs the difference, and its cart
+            # is the one filled after that opening balance. The purchase itself
+            # must agree: the cart's balance just before the confirmation is the
+            # balance after, or the skills the confirmation named cost exactly
+            # the difference. A menu read after a receipt can already hold the
+            # next purchase's cart, and then neither agrees.
+            opening=_empty_cart_balance(readings,spans,confirmation)
+            closing=_balance_after_receipt(readings,span)
+            charge=opening['values']['skill_points']-closing['values']['skill_points'] if opening and closing else 0
+            if charge>0:
+                projected=final_cart(readings,confirmation['first_seen_ms'],opening['last_seen_ms'])
+                if ((projected and projected['value']==closing['values']['skill_points'])
+                        or _visible_names_cost(readings,confirmation,opening['first_seen_ms'])==charge):
+                    spent=charge;before,after=opening,closing;basis='empty_cart_balances_around_the_receipt'
+                    counter_proofs=opening['supporting_frames']+closing['supporting_frames']
         names=[]
         for row in readings:
             if confirmation['first_seen_ms']<=row['source_timestamp_ms']<=confirmation['last_seen_ms']:
