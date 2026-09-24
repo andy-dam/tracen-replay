@@ -784,7 +784,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         _emit(_failure("producer_failed", f"Producer exited with status {exc.code!r}."))
         return 1
     except Exception as exc:  # The worker boundary must turn producer failures into JSON.
-        _emit(_failure("producer_failed", f"{type(exc).__name__}: {exc}"))
+        # A PipelineError is written to be read as it stands; anything else
+        # keeps its type, which is what a diagnosis needs.
+        message = str(exc) if isinstance(exc, full_recording.PipelineError) else f"{type(exc).__name__}: {exc}"
+        _emit(_failure("producer_failed", message))
         return 1
 
     try:

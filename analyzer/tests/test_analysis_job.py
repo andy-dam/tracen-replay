@@ -243,6 +243,13 @@ class AnalysisJobTests(unittest.TestCase):
             self.assertEqual(payload["status"], "failed")
             self.assertEqual(payload["error"]["code"], "producer_failed")
             self.assertNotIn("report_path", payload)
+            # A readable failure is shown as it is written; an unexpected one keeps its type.
+            self.assertEqual(payload["error"]["message"], "cached observations are invalid")
+            stdout = io.StringIO()
+            with patch("tracen_replay.analysis_job.full_recording.main", side_effect=KeyError("frames")), \
+                    patch("sys.stdout", stdout):
+                main([str(source), "--output", str(root / "output")])
+            self.assertEqual(json.loads(stdout.getvalue())["error"]["message"], "KeyError: 'frames'")
 
     def test_missing_report_after_producer_is_failure(self):
         with workspace_temp() as root:

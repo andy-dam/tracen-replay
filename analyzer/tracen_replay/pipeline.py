@@ -170,7 +170,7 @@ def locate_game(change, width, height):
         return None
     if not 0.4 <= (right - left) / max(1, bottom - top) <= 0.8:
         raise PipelineError("The game was not found in this 16:9 recording: it is not the PC client, and no "
-                            "portrait part of it changes the way the game's screen does.")
+                            "phone or tablet screen stands out from the rest of the picture.")
     return (left, top, right - left, bottom - top)
 
 
