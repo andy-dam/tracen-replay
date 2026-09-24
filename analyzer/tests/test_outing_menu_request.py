@@ -72,6 +72,26 @@ class OutingMenuRequestTests(unittest.TestCase):
             with self.subTest(offered=offered):
                 self.assertEqual([a['request_observed_at_ms'] for a in outing_actions(rows, [outing()])], requests)
 
+    def test_a_confirmed_outing_at_full_energy_whose_receipt_is_the_mood_line(self):
+        # The confirmation on two frames, the hub while the game connects,
+        # then only "Mood went up." before any scene.
+        mood = [dict(kind='mood_change', direction='up')]
+        event = dict(id='outcome-1', kind='outcome', first_seen_ms=1833750, last_seen_ms=1833750, context_title=None,
+                     evidence='1833750.png', effects=list(mood))
+
+        def rows(confirmations=(1830750, 1831000), between=()):
+            out = [row(t, 'outing_confirmation') for t in confirmations]
+            out += [row(1831500, 'unknown', values=VALUES), row(1831750, 'unknown', values=VALUES), *between,
+                    row(1833750, 'event_outcome', effects=mood)]
+            return out
+        self.assertEqual([(a['request_observed_at_ms'], a['basis']) for a in outing_actions(rows(), [event])],
+                         [(1831000, 'outing_request_followed_by_mood_receipt_without_another_turn_action')])
+        # One confirmation frame, another receipt between, or only the menu: no outing.
+        self.assertEqual(outing_actions(rows(confirmations=(1831000,)), [event]), [])
+        self.assertEqual(outing_actions(rows(between=(row(1832500, 'event_outcome', title='Another Scene'),)), [event]), [])
+        menu_only = [row(1830750, 'outing_selection'), row(1831000, 'outing_selection')] + rows(confirmations=())
+        self.assertEqual(outing_actions(menu_only, [event]), [])
+
     def test_the_menu_does_not_stand_in_for_an_outing_without_a_recovery_line(self):
         # A support outing that awards no energy still needs the confirmation frames.
         effects = [dict(kind='mood_change', direction='up'), COMPANION]
