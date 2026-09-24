@@ -44,6 +44,7 @@ def fan_accounting(races, events):
 
 
 def song_acquisitions(events, lessons):
+    from .receipt_names import stray_glyph_after
     result = []
     for event in events:
         names = list(dict.fromkeys(f['name'] for f in event.get('effects', []) if f['kind'] == 'song_learned'))
@@ -54,8 +55,14 @@ def song_acquisitions(events, lessons):
         # A fragmented receipt is one acquisition with alternative OCR names.
         # Never silently correct a song title using a game catalog.
         name = purchase['name'] if purchase and purchase['name'] in names else names[0] if len(names) == 1 else None
+        # The paid lesson names the song on its own dialog. A receipt spelling
+        # that is that name with one stray glyph after it (the note some titles
+        # end with, or the closing quote, read as a letter) is the same title.
+        by_lesson = (len(names) > 1 and purchase is not None and purchase.get('requested_name') == name
+                     and all(n == name or stray_glyph_after(name, n) for n in names))
         result.append(dict(event_id=event['id'], source_timestamp_ms=event['first_seen_ms'],
-            name=name, observed_name_candidates=names, name_conflicted=len(names) > 1,
+            name=name, observed_name_candidates=names, name_conflicted=len(names) > 1 and not by_lesson,
+            **({'name_resolution': 'paid_lesson_name_with_stray_glyph_spellings'} if by_lesson else {}),
             acquisition='paid_lesson' if purchase else 'story_event_receipt' if event.get('context_title') else 'unknown',
             lesson_id=purchase['id'] if purchase else None,
             performance_cost=purchase['performance_cost'] if purchase else None,

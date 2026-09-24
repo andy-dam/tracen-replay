@@ -391,6 +391,11 @@ event id when one exists (`acquisition: paid_lesson`); otherwise it is a
 `observed_name_candidates` with `name_conflicted` true rather than silently
 corrected against a song catalog; a symbol-refinement pass may still recover
 a genuine terminal note or star glyph from source pixels, as covered above.
+A paid lesson names its song on its own dialog: when the receipt's spellings
+are that name and the name with one stray glyph after it (the note read as a
+letter on most frames and dropped on the rest, "Hoppity Sunny Days D" beside
+"Hoppity Sunny Days"), the song is the lesson's name and not in dispute
+(`name_resolution: paid_lesson_name_with_stray_glyph_spellings`).
 
 **Events.** An `outcome` event's boundary is a screen change, an unrelated
 context title, real narrative dialogue, or a gap of more than 500 ms with
