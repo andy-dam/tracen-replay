@@ -372,6 +372,20 @@ consecutive frames is a balance the skill purchases made there can be
 charged against (`repeated_completion_hub_skill_points`), the way every
 reading needs two frames.
 
+A purchase no balance around it prices yet is priced by the skill menu
+itself (`empty_cart_balances_around_the_receipt`). The menu's counter shows
+the points left after its cart, so while the cart is empty it is the
+balance: on the frames the menu opens on, and on those right after a
+purchase's receipt, the first two reads agreeing. The finish dialog's
+"Remaining Skill Points" line ("1 pts", read the same on two frames) is a
+balance after the last purchase too. The purchase costs the balance before
+minus the balance after, with no receipt, training or other purchase
+moving points between, and only when the purchase itself agrees: the
+cart's counter just before the confirmation is the balance after, or the
+skills the confirmation named cost exactly the difference. A menu read
+right after a receipt can already hold the next purchase's cart; then
+neither agrees and the purchase stays unpriced.
+
 The final-summary skill panel is read separately from any purchase. It
 requires the Skills, Inspiration and Career Info tabs together with at
 least three recognized final attributes, and a two-column card grid at
