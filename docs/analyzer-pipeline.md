@@ -274,9 +274,12 @@ being accepted as its own effect. A stat receipt that such a gap split into
 two outcomes counts once (`receipt_stat_continuity`) when consecutive
 samples show the same line in the same place throughout and the frames
 between show why they parsed nothing: the line cut short, or read whole
-under the confidence a receipt parse needs, or, for exactly one frame,
-nothing at all in the receipt band, the award's own animation having covered
-the box, with the line back on the same pixels after it. The later outcome
+under the confidence a receipt parse needs, or under an overlay the frame
+recorded over it (`stationary_stat_receipt_across_covered_line`; the later
+read may be the line the covered-line reread restored), or, for exactly one
+frame, nothing at all in the receipt band, the award's own animation having
+covered the box, with the line back on the same pixels after it. The chain
+of samples is the proof, however long the line stays. The later outcome
 keeps its other effects and records the dropped repeat under
 `deduplicated_receipt_effects`.
 A zero balance drawn dim reads as a lone

@@ -91,6 +91,41 @@ class StatReceiptContinuityTests(unittest.TestCase):
         collapse_cross_event_stat_duplicates(events, rows)
         self.assertEqual(len(events[1]['effects']), 1)
 
+    def test_a_line_covered_on_every_frame_between_and_restored_by_the_reread_counts_once(self):
+        # A sparkle over the amount from the second frame on: every frame
+        # between records the line under it, and the dense reread of a later
+        # frame restores it as a new event's receipt, 1.3 s after the first.
+        effect = dict(kind='stat_change', field='wit', amount=10, raw_text='Wit went up by 10.')
+        box = [315, 805, 504, 837]
+        rows = [dict(source_timestamp_ms=450500, evidence='450500.png', screen='event_outcome', facts={}, context_title='Chores',
+                     effects=[copy.deepcopy(effect)], ocr=dict(neural=[dict(text=effect['raw_text'], confidence=99.9, box=list(box))]))]
+        for t in (450750, 451000, 451250, 451500, 451750):
+            rows.append(dict(source_timestamp_ms=t, evidence=f'{t}.png', screen='unknown', effects=[], context_title='Chores',
+                             ocr=dict(neural=[dict(text=effect['raw_text'], confidence=0, box=list(box), overlay_occluded=True)]),
+                             facts=dict(occluded_receipt_lines=[dict(text=effect['raw_text'], box=list(box), confidence=99.9,
+                                                                     overlay_boxes=[[486, 816, 490, 824]])])))
+        restored = dict(effect, source_bound_receipt_proof=dict(line_box=list(box), confidence=99.7))
+        rows.append(dict(source_timestamp_ms=451800, evidence='reread-451800.png', screen='event_outcome', facts={}, context_title='Chores',
+                         effects=[copy.deepcopy(restored)],
+                         ocr=dict(neural=[dict(text=effect['raw_text'], confidence=0, box=list(box), overlay_occluded=True)])))
+        key = 'stat_change|wit|'
+        events = [dict(id='event-0', first_seen_ms=450500, last_seen_ms=451000, context_title='Chores',
+                       effects=[copy.deepcopy(effect)], field_evidence={key: ['450500.png']}, conflicting_readings=[]),
+                  dict(id='event-1', first_seen_ms=451750, last_seen_ms=452000, context_title='Chores',
+                       effects=[copy.deepcopy(restored)], field_evidence={key: ['reread-451800.png']}, conflicting_readings=[])]
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(events[1]['effects'], [])
+        proof = events[1]['deduplicated_receipt_effects'][0]
+        self.assertEqual(proof['basis'], 'stationary_stat_receipt_across_covered_line')
+        self.assertEqual([t['source'] for t in proof['track_evidence']],
+                         ['ocr'] + ['source_occlusion'] * 5 + ['source_restored'])
+        # A frame between that lost the line breaks the chain.
+        events[1]['effects'] = [copy.deepcopy(restored)]
+        del events[1]['deduplicated_receipt_effects']
+        rows[3]['facts'] = {}
+        collapse_cross_event_stat_duplicates(events, rows)
+        self.assertEqual(len(events[1]['effects']), 1)
+
     def test_unproven_occlusion_fact_cannot_bridge_a_hidden_middle_frame(self):
         events, rows = self.fixture()
         middle = rows[2]['ocr']['neural'][0]

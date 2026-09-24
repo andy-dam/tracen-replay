@@ -76,6 +76,11 @@ def _slot(row,effect):
             overlays=line.get('overlay_boxes')
             if not isinstance(overlays,list) or not any(_valid_box(box) for box in overlays):continue
             add(line,'source_occlusion')
+    # A covered line the dense reread restored on this frame, in its own proof.
+    for restored in row.get('effects',[]):
+        proof=restored.get('source_bound_receipt_proof') if isinstance(restored,dict) else None
+        if isinstance(proof,dict):
+            add(dict(text=restored.get('raw_text'),box=proof.get('line_box'),confidence=proof.get('confidence')),'source_restored')
 
     # OCR and source-fact records may describe the same physical line. Merge
     # those duplicate views by tight geometry, while retaining distinct lines
@@ -118,7 +123,9 @@ def _bridge(left,right,effect,rows,by_evidence):
     after=_explicit_observations(right,effect,by_evidence)
     if not before or not after:return None
     a,b=before[-1],after[0]
-    if not 0<elapsed(a[0],b[0])<=1000:return None
+    # Every sample between the two reads must show the line in place (checked
+    # below), so the chain, not its length, is the proof.
+    if not 0<elapsed(a[0],b[0]):return None
     if any(sum(r['source_timestamp_ms']==t for r in rows)!=1 for t in (a[0],b[0])):return None
     middle=[r for r in rows if a[0]<r['source_timestamp_ms']<b[0]]
     if not middle:return None
@@ -139,14 +146,16 @@ def _bridge(left,right,effect,rows,by_evidence):
     if not slots[0]['complete'] or not slots[-1]['complete']:return None
     if blank and not _same_line_geometry(slots[0]['box'],slots[-1]['box']):return None
     # The frames between the two reads must show why they parsed nothing: a
-    # line read clearly with part of its grammar lost, or the whole line read
-    # under the confidence a receipt parse needs. A whole line read at that
-    # confidence would have parsed, so frames that show only that are no proof.
+    # line read clearly with part of its grammar lost, the whole line read
+    # under the confidence a receipt parse needs, or the line under an overlay
+    # the frame recorded over it. A whole line read at that confidence and
+    # uncovered would have parsed, so frames that show only that are no proof.
     inner=[slot for slot in slots[1:-1] if slot is not None]
     dropout=any(slot['confidence']>=_PARSE_CONFIDENCE for slot in inner) and any(not slot['complete'] for slot in inner)
     under=(any(slot['complete'] and slot['confidence']<_PARSE_CONFIDENCE for slot in inner)
            and not any(slot['complete'] and slot['confidence']>=_PARSE_CONFIDENCE for slot in inner))
-    if not (dropout or under or blank):return None
+    covered=any(slot['source']=='source_occlusion' for slot in inner)
+    if not (dropout or under or blank or covered):return None
     # A stationary row and compatible explicit values are required through
     # every observed frame. Scrolling/another effect value vetoes continuity.
     anchor=slots[0]['box']
@@ -159,8 +168,11 @@ def _bridge(left,right,effect,rows,by_evidence):
     for row in middle:
         for observed in row.get('effects',[])+row.get('facts',{}).get('effect_candidates',[]):
             if _effect_key(observed)==key and _effect_signature(observed)!=_effect_signature(effect):return None
-    return [dict(source_timestamp_ms=row['source_timestamp_ms'],evidence=row['evidence'],
-                 **(slot if slot is not None else dict(blank=True)),accepted_as_effect=False) for row,slot in zip(chain,slots)]
+    basis=('stationary_stat_receipt_across_blank_frame' if blank
+           else 'stationary_stat_receipt_across_observed_grammar_dropout' if dropout or under
+           else 'stationary_stat_receipt_across_covered_line')
+    return basis,[dict(source_timestamp_ms=row['source_timestamp_ms'],evidence=row['evidence'],
+                       **(slot if slot is not None else dict(blank=True)),accepted_as_effect=False) for row,slot in zip(chain,slots)]
 
 
 def collapse_cross_event_stat_duplicates(events,readings):
@@ -180,13 +192,11 @@ def collapse_cross_event_stat_duplicates(events,readings):
                 if left.get('last_seen_ms',0)<right.get('first_seen_ms',0)-1000:continue
                 for prior in left.get('effects',[]):
                     if _effect_signature(prior)!=_effect_signature(effect):continue
-                    track=_bridge(left,right,effect,readings,by_evidence)
-                    if track:candidates.append((left,prior,track))
+                    bridged=_bridge(left,right,effect,readings,by_evidence)
+                    if bridged:candidates.append((left,prior,bridged))
             if len(candidates)!=1:continue
-            left,prior,track=candidates[0]
-            proof=dict(basis=('stationary_stat_receipt_across_blank_frame' if any(t.get('blank') for t in track)
-                              else 'stationary_stat_receipt_across_observed_grammar_dropout'),
-                       earlier_event_id=left.get('id'),later_event_id=right.get('id'),track_evidence=track)
+            left,prior,(basis,track)=candidates[0]
+            proof=dict(basis=basis,earlier_event_id=left.get('id'),later_event_id=right.get('id'),track_evidence=track)
             prior.setdefault('cross_event_duplicate_evidence',[]).append(proof)
             right.setdefault('deduplicated_receipt_effects',[]).append(dict(effect=dict(effect),**proof))
             right['effects']=[e for e in right['effects'] if e is not effect]
