@@ -625,7 +625,15 @@ different gain is recorded on the training as `contradicted_turn_difference`
 with those reads and their frames, raised as a
 `worked_out_amount_contradicted_by_card` accounting issue, and listed in the
 review queue. The amount does not change: the stat bars decide it, and a read
-cut to its leading digits disagrees with nothing.
+cut to its leading digits disagrees with nothing. The alarm counts only on
+footage the learned reader reads well. Over every result frame where both
+readers read a gain for a field, the two disagree (neither number the
+other's leading digits) on at most a couple of frames in a hundred on PC,
+phone and tablet recordings, and on about one in five on a phone's screen
+inside a compressed video. Above one in twenty the model's other number is
+noise, and a worked-out amount is not flagged for it
+(`summary.learned_reader_agreement` in the accounting: `compared`,
+`disagreeing`, `alarm`).
 
 When the learned reader confirms the card at the whole gain (the gain it
 read there, or the value the stat lands on) and the recognizer had read only
