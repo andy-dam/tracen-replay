@@ -150,6 +150,18 @@ class InfirmaryActionTests(unittest.TestCase):
                                 context='Another Event', effects=({'kind': 'energy_change', 'amount': 5},)))
         self.assertEqual(reconstruct(readings, events), [])
 
+    def test_a_story_event_after_the_result_is_not_another_action(self):
+        # The visit's result, then a story event on the same date, then the next date.
+        readings, events = positive_sequence()
+        readings[5:5] = [row(2100, 'story-a.png', calendar='Senior Year Late Apr', context='A Quirky Correspondent?',
+                             texts=('An unfamiliar woman is watching our session',)),
+                         row(2150, 'story-b.png', screen='event_outcome', calendar='Senior Year Late Apr',
+                             context='A Quirky Correspondent?', effects=({'kind': 'stat_change', 'field': 'speed', 'amount': 5},))]
+        self.assertEqual([a['next_calendar'] for a in reconstruct(readings, events)], ['Senior Year Early May'])
+        # Another action there still breaks the visit.
+        readings.insert(7, row(2200, 'preview.png', screen='training_preview'))
+        self.assertEqual(reconstruct(readings, events), [])
+
     def test_status_cancellation_is_not_the_ordinary_cancel_button(self):
         readings, events = positive_sequence()
         readings[1]['ocr'] = ocr('Visit the infirmary?',
