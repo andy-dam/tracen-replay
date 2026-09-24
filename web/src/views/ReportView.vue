@@ -313,6 +313,7 @@ const noteCount = computed(() => {
           <span v-else-if="noteCount"> · <button class="linkish" @click="tab = 'check'">nothing to check, {{ noteCount }} note{{ noteCount === 1 ? "" : "s" }}</button></span>
         </p>
         <p v-if="summary.summary.stage_failures.length" class="error small">Stages skipped during analysis: {{ summary.summary.stage_failures.map((f) => f.stage).join(", ") }}.</p>
+        <p v-if="!summary.turns" class="error small">No career turns found in this recording.</p>
         <p v-if="analyzerBuild" class="muted small">
           Read by analyzer {{ analyzerBuild }}.
           <template v-if="staleAnalyzer">
