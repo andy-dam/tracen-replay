@@ -1821,6 +1821,11 @@ def collapse_separator_hint_variants(event,rows_by_evidence):
     event['effects']=[effect for effect in event['effects'] if effect not in removed]
 
 
+def stray_glyph_after(name,variant):
+    """Whether ``variant`` is ``name`` with one stray glyph after it ('Present March D')."""
+    return variant.startswith(name) and 1<=len(variant)-len(name)<=2 and len(variant[len(name):].strip())==1
+
+
 def collapse_song_variants(event,timestamps):
     songs=[e for e in event['effects'] if e['kind']=='song_learned']
     removed=[]
@@ -1861,8 +1866,7 @@ def collapse_song_variants(event,timestamps):
                         and missing_chars(a,b)):candidates.append(strong)
                 # The closing quote read as a stray glyph after the name on fewer
                 # frames than the name was read whole ('Present March D').
-                elif (len(observed)<len(complete) and b.startswith(a) and 1<=len(b)-len(a)<=2
-                        and len(b[len(a):].strip())==1):candidates.append(strong)
+                elif len(observed)<len(complete) and stray_glyph_after(a,b):candidates.append(strong)
             if len(candidates)!=1:continue
             target=candidates[0]
             target.setdefault('observed_name_candidates',[target['name']]).append(weak['name'])
