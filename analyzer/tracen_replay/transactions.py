@@ -3076,15 +3076,17 @@ def outing_actions(readings,events):
         confirmed=bool(requests)
         if not confirmed and recovery:
             requests=[r for r in readings if r['screen']=='outing_selection' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
-        # A supporter's outing taken at full energy recovers nothing. Its scene
-        # names the supporter, and a menu that offered that supporter is the
-        # request: a menu the player backed out of is not followed by that
-        # supporter's own outing.
+        # A supporter's outing names the supporter in its scene, and a menu
+        # that offered that supporter is the request, whether the outing
+        # recovered energy or, taken at full energy, nothing: a menu the player
+        # backed out of is not followed by that supporter's own outing, and the
+        # hub the game shows for a moment before the scene is not a return to it.
         named=False
-        if not confirmed and not recovery and companions:
-            requests=[r for r in readings if r['screen']=='outing_selection' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000
-                      and companions&{str(l.get('text','')).strip() for l in (r.get('ocr') or {}).get('neural') or () if l.get('confidence',0)>=90}]
-            named=bool(requests)
+        if not confirmed and companions:
+            offered=[r for r in readings if r['screen']=='outing_selection' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000
+                     and companions&{str(l.get('text','')).strip() for l in (r.get('ocr') or {}).get('neural') or () if l.get('confidence',0)>=90}]
+            named=bool(offered)
+            if named or not recovery:requests=offered
         if not requests:continue
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]

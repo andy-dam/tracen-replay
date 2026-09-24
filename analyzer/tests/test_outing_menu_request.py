@@ -55,6 +55,23 @@ class OutingMenuRequestTests(unittest.TestCase):
                 row(600500, 'event_outcome', title='Repose in the Lunar Mare', effects=[RECOVERY])]
         self.assertEqual(outing_actions(rows, [outing()]), [])
 
+    def test_a_menu_that_offered_the_supporter_is_the_request_across_the_hub_before_the_scene(self):
+        # The hub shows with its stat bar while the game connects, then the
+        # supporter's own scene: a menu that offered that supporter was not
+        # backed out of. One that offered only someone else may have been.
+        def menu(time, name):
+            r = row(time, 'outing_selection')
+            r['ocr'] = dict(neural=[dict(text=text, confidence=97, box=[0, 0, 1, 1])
+                                    for text in ('Recreation', name, 'Event Progress')])
+            return r
+        for offered, requests in (('Light Hello', [596750]), ('Mejiro Ramonu', [])):
+            rows = [menu(596250, offered), menu(596750, offered),
+                    row(597000, 'unknown', values=VALUES), row(597250, 'unknown', values=VALUES),
+                    row(598000, 'unknown', title='Repose in the Lunar Mare'),
+                    row(600500, 'event_outcome', title='Repose in the Lunar Mare', effects=[RECOVERY])]
+            with self.subTest(offered=offered):
+                self.assertEqual([a['request_observed_at_ms'] for a in outing_actions(rows, [outing()])], requests)
+
     def test_the_menu_does_not_stand_in_for_an_outing_without_a_recovery_line(self):
         # A support outing that awards no energy still needs the confirmation frames.
         effects = [dict(kind='mood_change', direction='up'), COMPANION]
