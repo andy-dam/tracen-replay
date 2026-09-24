@@ -147,13 +147,16 @@ def _event_time(event, key, fallback=None):
     return value if _finite_time(value) else fallback
 
 
-def _blocked_between(rows, start, end, *, allow_confirmation=True):
+def _blocked_between(rows, start, end, *, allow_confirmation=True, allow_outcomes=False):
+    # A story event may follow the visit's own result before the calendar
+    # moves on, as after a Rest; its receipt is not another action.
+    allowed = {'infirmary_confirmation'} | ({'event_outcome'} if allow_outcomes else set())
     for row in _rows_between(rows, start, end):
         time = _time(row)
         if time is None or not start < time < end:
             continue
         screen = row.get('screen')
-        if screen in _ACTION_SCREENS - {'infirmary_confirmation'}:
+        if screen in _ACTION_SCREENS - allowed:
             return True
         if row.get('completed_action') not in (None, '', 'infirmary'):
             return True
@@ -350,7 +353,7 @@ def reconstruct(readings, events):
             boundary_time = _time(boundary)
             if boundary_time is None or boundary_time - event_last > _MAX_NEXT_DATE_DELAY_MS:
                 continue
-            if _blocked_between(ordered, event_last, boundary_time, allow_confirmation=False):
+            if _blocked_between(ordered, event_last, boundary_time, allow_confirmation=False, allow_outcomes=True):
                 continue
             confirmation_evidence = _evidence(confirmation)
             boundary_rows = boundary_info.get('rows', [boundary])

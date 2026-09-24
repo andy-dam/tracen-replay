@@ -432,7 +432,8 @@ own confirmation phrase ("Visit the infirmary?" plus "this will take up
 the entire turn."), a later named "At the Infirmary" result, and a
 subsequent calendar or turn-phase advance observed within 30 seconds of
 the result and within 30 seconds of each other; an explicit cancellation
-word anywhere in the sequence voids it.
+word anywhere in the sequence voids it. As after a Rest, a story event's
+receipt between the result and that advance is not another action.
 
 ## What the analyzer does not read
 
