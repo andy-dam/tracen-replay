@@ -474,7 +474,11 @@ the scene names (the name read on the menu at confidence 90 or higher) is
 the request, and the hub frames before the scene do not count against it: a
 menu the player backed out of is not followed by that supporter's own
 outing. An outing that recovered energy needs nothing more; one taken at
-full energy recovers nothing and is proven the same way as above. A Rest is its prompt, a receipt
+full energy recovers nothing and is proven the same way as above. An outing
+at full energy may also show only the trainee's mood rising, before any
+scene: that line is its receipt when the confirmation was sampled on two
+frames and nothing but the hub came between
+(`outing_request_followed_by_mood_receipt_without_another_turn_action`). A Rest is its prompt, a receipt
 read on two frames with the same amount, and the next date within thirty
 seconds of the result or of the point-spending screens that follow it. The
 plain prompt is known by its screen label and wording; the summer camp's

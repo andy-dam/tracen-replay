@@ -3066,7 +3066,11 @@ def outing_actions(readings,events):
         # outing's stat gains) rather than energy or a companion's mood; the
         # turn transition observed after the scene is its proof below.
         titled=bool(str(event.get('context_title') or '').strip()) and bool(event['effects'])
-        if not recovery and not (mood and len(companions)==1) and not titled:continue
+        # An outing taken at full energy may show only the trainee's mood
+        # rising, before any scene: that line is its receipt when the
+        # confirmation was sampled on two frames and only the hub came between.
+        mood_only=mood and not recovery and not companions and not titled
+        if not recovery and not (mood and len(companions)==1) and not titled and not mood_only:continue
         requests=[r for r in readings if r['screen']=='outing_confirmation' and 0<event['first_seen_ms']-r['source_timestamp_ms']<=30000]
         # The confirmation is a dialog dismissed with one more click, and at
         # four frames a second it can fall between two samples. The Recreation
@@ -3091,6 +3095,8 @@ def outing_actions(readings,events):
         request=requests[-1];time=request['source_timestamp_ms']
         intervening=[r for r in readings if time<r['source_timestamp_ms']<event['first_seen_ms']]
         if any(r['screen'] in ('training_result','training_preview','race_result','rest_confirmation') for r in intervening):continue
+        if mood_only and (not confirmed or any(r['screen']=='event_outcome' for r in intervening)
+                          or len({r['source_timestamp_ms'] for r in requests if 0<=elapsed(r['source_timestamp_ms'],time)<=1000})<2):continue
         # A titled scene is the outing's own dialogue over the hub, not a return
         # to it. The hub check guards the menu-only request, which the player
         # may have backed out of; a sampled confirmation followed by the
@@ -3098,13 +3104,13 @@ def outing_actions(readings,events):
         # game shows the hub for a moment before the outing's own scene.
         hubs=[r for r in intervening if r['screen']=='unknown' and r.get('stats',{}).get('values') and not r.get('context_title')]
         extra=[]
-        if not recovery:
+        if not recovery and not mood_only:
             extra=outing_turn_evidence(readings,event,request)
             if not extra:continue
         # An outing without a recovery receipt is proven the same way once its
         # confirmation was sampled: by its scene following within moments and
         # the next date after it (``outing_turn_evidence``).
-        if not ((confirmed or named) and (recovery or extra)) and any(0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 and a['stats']['values']==b['stats']['values']
+        if not ((confirmed or named) and (recovery or extra or mood_only)) and any(0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500 and a['stats']['values']==b['stats']['values']
                for a,b in zip(hubs,hubs[1:])):continue
         if time in used:continue
         used.add(time)
@@ -3113,6 +3119,7 @@ def outing_actions(readings,events):
                             evidence=list(dict.fromkeys([request['evidence'],event['evidence']]+extra)),click_timestamp_ms=None,
                             basis=('outing_request_followed_by_recovery_receipt_without_another_turn_action' if confirmed
                                    else 'outing_menu_followed_by_recovery_receipt_without_a_sampled_confirmation') if recovery else
+                                  'outing_request_followed_by_mood_receipt_without_another_turn_action' if mood_only else
                                   'outing_request_support_event_and_observed_next_date')
         if not confirmed:
             action['identity_basis']='outing_menu_and_receipt'
