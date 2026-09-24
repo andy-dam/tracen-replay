@@ -143,6 +143,25 @@ class TimelineDocumentTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual(flagged(mutate), (True, False))
 
+    def test_a_disputed_badge_the_bars_settled_at_nothing_is_no_longer_a_conflict(self):
+        # Power read as +1 and as nothing; the bars left nothing for it, so the
+        # entry gains no power amount and is not flagged.
+        report = _report()
+        ref = '/gameplay_tracking/events/0'
+        events = report['gameplay_tracking'].setdefault('events', [])
+        if not events:
+            events.append({})
+        events[0].update(kind='training', conflicting_readings={'power': [0, 1]},
+                         settled_conflicting_readings={'power': dict(amount=0, reads=[0, 1], settled_by='turn_difference')})
+        report['turn_ledger']['timeline'] = [
+            dict(id='entry-result', kind='training', source_ref=ref, first_seen_ms=100, last_seen_ms=100,
+                 assignment_basis='observed_within_calendar_window', conflicts_present=True)]
+        entry = build(report)['entries'][0]
+        self.assertFalse(entry.get('conflicts_present'))
+        self.assertNotIn('power', (entry.get('changes') or {}).get('stats') or {})
+        events[0].pop('settled_conflicting_readings')
+        self.assertTrue(build(report)['entries'][0].get('conflicts_present'))
+
 
 
 if __name__ == '__main__':

@@ -1184,6 +1184,28 @@ def build(report):
                 add(f'{parent}/turn_difference_cost/{field}', parent, owner, 'performance', field, residual,
                     owner.get('evidence'), 'turn_difference')
             extrapolated += 1
+    # The stat bars settle a disputed badge at nothing, too: when the turn's
+    # change for a field balances without any amount from its sole training,
+    # and one of the card's reads was nothing (the panels around the training
+    # did not move), the card showed no gain for it.
+    for transition in turn_transitions:
+        if transition['channel'] != 'stats':
+            continue
+        trainings = [a for a in actions_by_turn.get(transition['turn_id'], []) if a.get('action_kind') == 'training']
+        if len(trainings) != 1 or trainings[0].get('event_ref') not in event_refs.values():
+            continue
+        parent = trainings[0]['event_ref']
+        event = data['events'][int(parent.rsplit('/', 1)[1])]
+        reads = event.get('conflicting_readings')
+        if not isinstance(reads, dict):
+            continue
+        for row in transition['fields']:
+            field = row['field']
+            if (isinstance(reads.get(field), list) and 0 in reads[field]
+                    and row.get('status') in ('balanced_observations', 'balanced_with_derived_changes')
+                    and not any(c['event_ref'] == parent and c['channel'] == 'stats' and c['field'] == field
+                                for c in contributions)):
+                _settle_conflicting_reads(event, field, 0, 'turn_difference')
     # A turn with no next opening cannot settle a disputed badge by the stat
     # bars. The card itself can: when the learned reader read one of the
     # disputed gains on two of its frames, and read the value the stat lands
