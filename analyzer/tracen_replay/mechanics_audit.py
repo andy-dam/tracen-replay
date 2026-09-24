@@ -153,15 +153,26 @@ def _words_fold(words,full_words):
     while the number and the name come through. Comparing word by word
     spends the tolerance where the damage is instead of across the whole
     line: every word must be its own word, a number must be that number
-    exactly, and the line may stop early where the panel cut it off.
+    exactly, and the line may stop early where the panel cut it off. A space
+    the reader lost glues two words together ("foPace" for "for Pace"); the
+    glued word stands for both.
     """
     from .gameplay import _edit_distance
-    if len(words)>len(full_words):return False
-    for word,other in zip(words,full_words):
-        if word==other:continue
+    position=0
+    for word in words:
+        if position>=len(full_words):return False
+        other=full_words[position]
+        if word==other:
+            position+=1;continue
         # A number is that number: an amount read differently is another receipt.
         if word.isdigit() or other.isdigit():return False
-        if _edit_distance(word,other)>max(2,len(other)//4):return False
+        if _edit_distance(word,other)<=max(2,len(other)//4):
+            position+=1;continue
+        glued=other+full_words[position+1] if position+1<len(full_words) else None
+        if (glued is not None and not full_words[position+1].isdigit()
+                and _edit_distance(word,glued)<=max(2,len(glued)//4)):
+            position+=2;continue
+        return False
     return True
 
 
