@@ -417,6 +417,39 @@ def _learned_gain_contradictions(event, readings, field, amount):
     return [dict(gain=gain, evidence=frames) for gain, frames in sorted(found.items())]
 
 
+# The learned reader and the recognizer disagree about a card's gain on a
+# couple of frames in a hundred at most on footage the reader reads well (PC,
+# phone and tablet recordings). On a phone's screen inside a compressed video
+# the reader misreads about one frame in five, and its disagreement with a
+# worked-out amount is noise there, not an alarm.
+_READER_DISAGREEMENT_LIMIT = 0.05
+
+
+def _reader_agreement(readings):
+    """How often the two readers agree on the gains of the recording's result cards.
+
+    Counted over every training result frame on which both read a gain for a
+    field: the same number, or one the other's leading digits (a cut read),
+    agrees. ``alarm`` is whether the learned reader's disagreement with a
+    worked-out amount is worth a reviewer's eye on this recording.
+    """
+    compared = disagreeing = 0
+    for row in readings:
+        if row.get('screen') not in _RESULT_SCREENS:
+            continue
+        facts = row.get('facts') or {}
+        text = facts.get('training_gains') or {}
+        reads = facts.get('learned_result_reads')
+        for field, read in ((reads.get('fields') or {}) if isinstance(reads, dict) else {}).items():
+            shown, learned = text.get(field), (read or {}).get('gain')
+            if type(shown) is not int or type(learned) is not int or shown <= 0 or learned <= 0:
+                continue
+            compared += 1
+            disagreeing += not (str(shown).startswith(str(learned)) or str(learned).startswith(str(shown)))
+    return dict(compared=compared, disagreeing=disagreeing,
+                alarm=disagreeing <= _READER_DISAGREEMENT_LIMIT * compared)
+
+
 def _clipped_start(read, total):
     """True when a badge read is the leading digit(s) of the whole gain the card showed."""
     return type(read) is int and read > 0 and str(total).startswith(str(read)) and len(str(total)) > len(str(read))
@@ -510,6 +543,7 @@ def build(report):
         if proof in times and times[proof] != time:
             raise ValueError('One evidence identity has contradictory timestamps')
         times[proof] = time
+    agreement = _reader_agreement(data['readings'])
     contributions, issues, context = [], [], []
     event_refs = {}
     owners = {e['source_ref']: e for e in report.get('turn_ledger', {}).get('timeline', [])}
@@ -1081,9 +1115,10 @@ def build(report):
                         owner.setdefault('turn_difference_completions', {})[field] = dict(
                             mode=mode, read=read, completed=(read or 0) + residual)
                     # The amount stands, because the stat bars decide it, but a
-                    # card that shows another gain is worth a reviewer's eye.
+                    # card that shows another gain is worth a reviewer's eye,
+                    # on footage the learned reader reads well.
                     contradicted = (_learned_gain_contradictions(owner, data['readings'], field, gain)
-                                    if channel == 'stats' else [])
+                                    if channel == 'stats' and agreement['alarm'] else [])
                     if contradicted:
                         owner.setdefault('contradicted_turn_difference', {})[field] = dict(
                             worked_out=gain, reads=contradicted)
@@ -1194,7 +1229,8 @@ def build(report):
         other_effects=context, issues=issues,
         unassigned_contribution_refs=[c['id'] for c in contributions if c['id'] not in assigned],
         summary=dict(contributions=len(contributions), comparisons=len(comparisons), field_status_counts=dict(counts),
-                     turn_comparisons=len(turn_transitions),turn_field_status_counts=dict(turn_counts)),
+                     turn_comparisons=len(turn_transitions),turn_field_status_counts=dict(turn_counts),
+                     learned_reader_agreement=agreement),
         limitations=['Arithmetic closure does not verify every individual effect or exclude offsetting recognition errors.',
                      'State-derived and projected changes are not independent receipt evidence.',
                      'A turn_difference is the turn difference assigned to its only possible owner (the sole training, the one receipt that lost its number, the one lesson without an observed cost, or the one skill batch whose charge was never read); it is flagged, not observed, and a viewer may replace it.',

@@ -423,6 +423,28 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         issue = next(i for i in result['issues'] if i['kind'] == 'worked_out_amount_contradicted_by_card')
         self.assertEqual((issue['field'], issue['worked_out'], issue['channel']), ('speed', 9, 'stats'))
 
+    def test_on_footage_the_learned_reader_misreads_its_disagreement_flags_nothing(self):
+        # Twenty other card frames where both readers read the wit gain: one
+        # disagreement in twenty is footage the model reads well, four is
+        # footage it misreads, where its 8 beside the worked-out 9 is noise.
+        for disagreeing, alarm in ((1, True), (4, False)):
+            doc = report()
+            self.card(doc, (152, dict(speed='+8')), (158, dict(speed='+8')))
+            for index in range(20):
+                learned = 17 if index < disagreeing else 12
+                doc['gameplay_tracking']['readings'].append(dict(
+                    source_timestamp_ms=300 + index, evidence=f'other-{index}.png', screen='training_result',
+                    facts=dict(training_gains=dict(wit=12), learned_result_reads=dict(model_sha256='f' * 64, threshold=0.9, fields=dict(
+                        wit=dict(text=f'+{learned}', confidence=0.99, value=None, gain=learned))))))
+            result = build(doc)
+            event = doc['gameplay_tracking']['events'][0]
+            with self.subTest(disagreeing=disagreeing):
+                self.assertEqual(result['summary']['learned_reader_agreement'],
+                                 dict(compared=20, disagreeing=disagreeing, alarm=alarm))
+                self.assertEqual(event['turn_difference_gains']['speed'], 9)
+                self.assertEqual('contradicted_turn_difference' in event, alarm)
+                self.assertEqual(any(i['kind'] == 'worked_out_amount_contradicted_by_card' for i in result['issues']), alarm)
+
     def test_a_gain_cut_to_its_leading_digits_contradicts_nothing(self):
         doc = report()
         self.speed_after(doc, 119)

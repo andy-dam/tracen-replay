@@ -112,7 +112,9 @@ accepted or flagged amount, with `channel`, `field`, `amount`, `basis`,
 `evidence`, `turn_id`), `comparisons` (checkpoint-to-checkpoint),
 `turn_transitions` (turn-opening-to-turn-opening, with `endpoint_availability`
 and an optional `terminal_observation`), `terminal_observations`,
-`other_effects`, `issues`, `unassigned_contribution_refs`, `summary`,
+`other_effects`, `issues`, `unassigned_contribution_refs`, `summary` (counts,
+and `learned_reader_agreement`: `compared`, `disagreeing` and `alarm`, how
+often the learned reader and the recognizer agree on the run's result cards),
 `limitations`.
 
 ## timeline.json
