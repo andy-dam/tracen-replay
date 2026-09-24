@@ -574,8 +574,12 @@ them, are:
   the leading digits of the completed value (a `1` that was really `11`), or
   a conflicting frame showed a candidate matching the difference
   (`sole_training_clipped_badge_prefix_completed_by_turn_residual` /
-  `sole_training_visible_candidate_completed_by_turn_residual`); these keep
-  the badge's `read_amount` alongside the completed amount;
+  `sole_training_visible_candidate_completed_by_turn_residual`), or, for a
+  performance row, the read digits are the trailing digits of the
+  training's other performance award and the completed value is that award
+  (a `3` beside a `23`: a training's two performance awards are one number)
+  (`sole_training_clipped_badge_suffix_completed_by_turn_residual`); these
+  keep the badge's `read_amount` alongside the completed amount;
 - the one outcome whose receipt named the field but lost its number, where
   the surviving digits (after `by`) are a prefix of the difference and the
   caption's up/down direction agrees (`sole_number_cut_receipt_takes_turn_residual`);
