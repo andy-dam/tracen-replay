@@ -445,7 +445,9 @@ def classify(text, header, result_grid=False, preview=False):
         return 'infirmary_confirmation'
     if re.search(r'\blearn\s+the\s+above\s+skills?\b',lower):
         return 'skill_confirmation'
-    if 'skills learned' in lower or 'trainee learned new skills' in lower:
+    # The receipt by its title or by its sentence ("Your trainee learned new
+    # skills!"), which a frame of the dialog opening can show cut short.
+    if 'skills learned' in lower or 'trainee learned new' in lower:
         return 'skill_receipt'
     if 'spend performance points to learn' in lower:
         return 'lesson_confirmation'

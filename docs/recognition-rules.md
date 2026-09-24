@@ -343,8 +343,10 @@ stable panel anchor, and agrees across a short contiguous run: confidence
 ## Skill purchases and the owned-skill inventory on the final summary
 
 Skill screens are classified from fixed phrases: a confirmation screen
-from "learn the above skills", and a receipt screen from "skills learned"
-or "trainee learned new skills". A receipt records that a batch was
+from "learn the above skills", and a receipt screen from its title "skills
+learned" or its sentence "trainee learned new skills", which a frame of the
+dialog opening can show cut short, before the title ("trainee learned new
+sl"). A receipt records that a batch was
 acquired; it does not by itself name every purchased skill or give its
 exact cost at the moment of recognition. The confirmation list scrolls, so
 the names read off it never prove the whole purchase. The cart does: a
