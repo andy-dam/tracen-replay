@@ -774,6 +774,26 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         self.assertEqual(event['settled_conflicting_readings'],
                          dict(speed=dict(amount=9, reads=[1, 9, 18], settled_by='turn_difference')))
 
+    def test_a_disputed_badge_the_bars_leave_nothing_for_is_settled_at_nothing(self):
+        # Power read +1 on the card's first frames against panels that did not
+        # move (a read of 0); the turn's power balances without the training.
+        doc = report(deltas=dict(speed=9, guts=13, skill_points=8))
+        event = doc['gameplay_tracking']['events'][0]
+        event['conflicting_readings'] = dict(power=[0, 1])
+        build(doc)
+        self.assertEqual(event['settled_conflicting_readings'],
+                         dict(power=dict(amount=0, reads=[0, 1], settled_by='turn_difference')))
+        # No read of nothing, or power the bars leave open: not settled at nothing.
+        for reads, power_after in (([1, 2], 100), ([0, 1], 102)):
+            doc = report(deltas=dict(speed=9, guts=13, skill_points=8))
+            doc['gameplay_tracking']['checkpoints'][1]['values']['power'] = power_after
+            doc['turn_ledger']['turns'][1]['states']['stats']['opening']['values']['power'] = power_after
+            event = doc['gameplay_tracking']['events'][0]
+            event['conflicting_readings'] = dict(power=reads)
+            build(doc)
+            with self.subTest(reads=reads, power_after=power_after):
+                self.assertNotEqual(((event.get('settled_conflicting_readings') or {}).get('power') or {}).get('amount'), 0)
+
     def test_a_disputed_badge_the_learned_reader_confirmed_is_settled_on_the_card(self):
         doc = report()
         doc['gameplay_tracking']['events'][0]['conflicting_readings'] = dict(speed=[1, 9, 18])

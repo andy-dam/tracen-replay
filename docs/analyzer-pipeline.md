@@ -679,7 +679,11 @@ its own, is one of those very reads, the accounting records
 the whole number on the card, a read cut to its leading digits (the cursor
 or a sparkle over the badge's last digit leaves "3" of 36 on frame after
 frame) is that number too, and the settlement names it under
-`completes_read`; a bare turn difference gets no such allowance. A
+`completes_read`; a bare turn difference gets no such allowance. When the
+turn's change for the field balances with no amount from the training and
+one of the reads was nothing (the panels around the training did not move,
+beside a "+1" read on the badge's first frames), the bars settle the badge
+at nothing; the entry gains no amount for the field. A
 performance row read two ways (`performance_reading_conflicts`) settles the
 same way. A badge the
 recognizer read as one number while the learned reader read the card at

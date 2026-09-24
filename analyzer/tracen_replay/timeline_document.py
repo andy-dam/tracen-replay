@@ -134,8 +134,10 @@ def _settled_conflicts(entry, record, changes):
     for field, values in reads.items():
         settlement = settled.get(field)
         change = (changes.get('stats' if field in FIELDS else 'performance') or {}).get(field)
-        if (not isinstance(settlement, dict) or not isinstance(change, dict)
-                or type(settlement.get('amount')) is not int or change.get('amount') != settlement['amount']):
+        # A field the bars settled at nothing carries no amount on the entry.
+        nothing = change is None and isinstance(settlement, dict) and settlement.get('amount') == 0
+        if not nothing and (not isinstance(settlement, dict) or not isinstance(change, dict)
+                            or type(settlement.get('amount')) is not int or change.get('amount') != settlement['amount']):
             return None
         out[field] = sorted(v for v in set(values) if v != settlement['amount'])
     return out
@@ -261,8 +263,9 @@ def build(report):
             item['conflicts_present'] = False
             from .reconcile import FIELDS
             for field, others in settled.items():
-                if others:
-                    changes['stats' if field in FIELDS else 'performance'][field]['disagreeing_reads'] = others
+                change = (changes.get('stats' if field in FIELDS else 'performance') or {}).get(field)
+                if others and change is not None:
+                    change['disagreeing_reads'] = others
         if changes:
             item['changes'] = changes
         if isinstance(record, dict):
