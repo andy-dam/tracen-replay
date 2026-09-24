@@ -733,7 +733,10 @@ def observed_lesson_debit(readings, event, group, before_rows, after_rows, name)
     if any(not isinstance(r['facts'].get('projected_performance_points',{}),dict) for r in group):return None
     projected=repeated_projection(group)
     for k,v in projected.items():
-        if v is not None and (type(v) is not int or v!=final[k]):return None
+        # The dialog can cut the same digits on every frame (a three-digit
+        # balance clipped to its last two): repeated, that is still the
+        # observed balance cut short.
+        if v is not None and (type(v) is not int or (v!=final[k] and not _cut_read_of(v,final[k]))):return None
     for r in group:
         for k,v in r['facts'].get('projected_performance_points',{}).items():
             # A leftover read with a digit cut ("11" of 111 under the cursor
@@ -981,6 +984,18 @@ def lesson_receipts(readings, outcomes):
                         continue  # the menu still shows the pre-purchase balance
                     after.append(row)
             matched=next((r for r in after if complete and r['facts']['performance_points']==projected),None)
+            if cost and matched is None:
+                # The dialog can cut the same digits of a leftover on every
+                # frame (a three-digit balance clipped to its last two). The
+                # menu's repeated balance after the purchase that the leftover
+                # matches, those cuts aside, is the leftover.
+                for a,b in zip(after,after[1:]):
+                    values=a['facts']['performance_points']
+                    if (b['facts']['performance_points']==values and 0<elapsed(a['source_timestamp_ms'],b['source_timestamp_ms'])<=500
+                            and all(type(values.get(k)) is int and values[k]<=initial[k]
+                                    and (values[k]==projected[k] or _cut_read_of(projected[k],values[k])) for k in CURRENCIES)):
+                        cost={k:initial[k]-values[k] for k in CURRENCIES};matched=b
+                        break
             observed=None
             if cost is None and not complete and not invalid_projection:
                 # Repeated balances before and after the receipt price it even

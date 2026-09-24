@@ -190,6 +190,20 @@ class HiddenMenuBalanceTests(unittest.TestCase):
         self.assertEqual(got['performance_cost']['visual'],24)
         self.assertEqual(got['cost_basis'],'receipt_and_repeated_observed_balances')
 
+    def test_a_leftover_the_dialog_clips_on_every_frame_is_the_menu_balance_after(self):
+        # The lesson costs composure 30 (154 to 124); the dialog reads its
+        # leftover as "24" on every frame, the leading digit hidden, and the
+        # menu after the purchase shows 124 twice.
+        for dance in (43, None):
+            rows,event=sequence()
+            final=dict(zip(CURRENCIES,(43,112,86,95,124)))
+            for r in rows[2:4]:r['facts']['projected_performance_points']=dict(final,composure=24,dance=dance)
+            for r in rows[6:]:r['facts']['performance_points']=dict(final)
+            got=lesson_receipts(rows,[event])[0]
+            with self.subTest(dance=dance):
+                self.assertEqual(got['performance_cost'],dict(dance=0,passion=0,vocal=0,visual=0,composure=30))
+                self.assertTrue(got['after_balance_observed'])
+
     def test_a_menu_frame_still_showing_the_last_purchase_gives_no_balance(self):
         # The menu's first frame still showed the balance before the previous
         # purchase (vocal 14, visual 110); the frames after it show this

@@ -237,7 +237,10 @@ verified. A lesson priced from the repeated balances before its request and
 after its receipt tolerates a leftover the dialog read with a digit cut
 ("11" of 111 under the cursor on frame after frame): a read that is the
 observed balance with its leading or trailing digits hidden is that balance
-cut short, not a disagreement with it. A currency the menu reads as nothing
+cut short, not a disagreement with it, even when the dialog cuts the same
+digits on every frame. A leftover read in full but cut that way (a
+three-digit balance clipped to its last two) is priced by the menu's
+repeated balance after the purchase instead of by the cut number. A currency the menu reads as nothing
 on both sides of the purchase, which the request dialog projected as zero on
 every frame it showed, is the dim zero the game draws for an empty balance;
 so is an empty slot on the menu before the purchase alone when the dialog's
