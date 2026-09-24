@@ -95,6 +95,9 @@ class GameplayTests(unittest.TestCase):
     def test_skill_receipt_separate_from_selection(self):
         self.assertEqual(classify('Skills Learned','Learn'),'skill_receipt')
         self.assertEqual(classify('Obtained Skill Points 40','Learn'),'skill_selection')
+        # A frame of the dialog opening: no title yet, its sentence cut short.
+        self.assertEqual(classify('trainee learned new sl\n45',''),'skill_receipt')
+        self.assertNotEqual(classify("Let's learn some new skills!",''),'skill_receipt')
     def rows(self, after=9, projection=9):
         points=lambda n:dict(zip(CURRENCIES,[n,10,10,10,10]))
         return [dict(screen='lesson_selection',source_timestamp_ms=0,evidence='before',facts={'performance_points':points(10)}),dict(screen='lesson_confirmation',source_timestamp_ms=500,evidence='dialog',facts={'name_candidates':['Makeup Basics'],'projected_performance_points':points(projection)}),dict(screen='lesson_selection',source_timestamp_ms=1000,evidence='after',facts={'performance_points':points(after)})]
