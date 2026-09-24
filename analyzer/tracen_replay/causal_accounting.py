@@ -478,15 +478,25 @@ def _clipped_badge_mode(event, readings, read_key, field, residual):
 
     ``clipped_badge_prefix``: the badge was read as the leading digit(s) of
     the true gain (a 1 that was 11, a 3 that was 35); the read value plus the
-    difference must start with the read value and be longer. ``visible_candidate``:
-    no value was accepted for the field, but a result frame showed a candidate
-    that equals the difference or is its leading digits (a 33 dropped by a
-    conflicting frame, a 6 that was 64). Anything else is None.
+    difference must start with the read value and be longer.
+    ``clipped_badge_suffix``: a training's two performance awards are one
+    number, and one was read as the other's trailing digits (a 3 beside a
+    23); the read value plus the difference must be that other award.
+    ``visible_candidate``: no value was accepted for the field, but a result
+    frame showed a candidate that equals the difference or is its leading
+    digits (a 33 dropped by a conflicting frame, a 6 that was 64). Anything
+    else is None.
     """
     read = (event.get(read_key) or {}).get(field)
     if type(read) is int and read > 0:
         total = read + residual
-        return 'clipped_badge_prefix' if str(total).startswith(str(read)) and len(str(total)) > len(str(read)) else None
+        if str(total).startswith(str(read)) and len(str(total)) > len(str(read)):
+            return 'clipped_badge_prefix'
+        others = {value for other, value in (event.get(read_key) or {}).items() if other != field}
+        if (read_key == 'performance_deltas' and total in others
+                and str(total).endswith(str(read)) and len(str(total)) > len(str(read))):
+            return 'clipped_badge_suffix'
+        return None
     if read is not None:
         return None
     start, end = event.get('first_seen_ms'), event.get('last_seen_ms')
@@ -1077,7 +1087,7 @@ def build(report):
                 # difference, plus any leading digits the recognizer read), or
                 # the value the stat lands on with it, the amount is observed,
                 # not worked out.
-                gain = residual + (read if mode in ('clipped_badge_prefix', 'card_read_outranks_panel') else 0)
+                gain = residual + (read if mode in ('clipped_badge_prefix', 'clipped_badge_suffix', 'card_read_outranks_panel') else 0)
                 value_after = _value_after_training(row, contributions, owner, gain)
                 learned = (_learned_gain_frames(owner, data['readings'], field, gain, value_after)
                            if channel == 'stats' else [])
@@ -1133,7 +1143,7 @@ def build(report):
                         contributions[-1]['contradicted_reads'] = contradicted
                     else:
                         _settle_conflicting_reads(owner, field, gain, 'turn_difference')
-                if mode == 'clipped_badge_prefix' or field in (owner.get('learned_reader_completions') or {}):
+                if mode in ('clipped_badge_prefix', 'clipped_badge_suffix') or field in (owner.get('learned_reader_completions') or {}):
                     # The read digits stay as observed; the completion is a
                     # second, flagged contribution on the same field, not a claim
                     # competing with it.

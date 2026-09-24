@@ -114,6 +114,29 @@ class TurnDifferenceExtrapolationTests(unittest.TestCase):
         result = build(doc)
         self.assertEqual(turn_field(result, 'visual', channel='performance')['status'], 'unexplained_change')
 
+    def test_a_performance_award_read_as_its_pairs_trailing_digits_is_completed(self):
+        # The card showed Passion +23 and Visual +23 and Passion was read as
+        # +3; the panel moved Passion by 23 over the turn.
+        for visual, completed in ((23, True), (22, False)):
+            doc = report(deltas=dict(guts=13, speed=9, skill_points=8), performance_after=dict(passion=43, visual=20 + visual))
+            event = doc['gameplay_tracking']['events'][0]
+            event.update(performance_deltas=dict(passion=3, visual=visual),
+                         performance_evidence=dict(passion=['banner.png'], visual=['banner.png']))
+            result = build(doc)
+            row = turn_field(result, 'passion', channel='performance')
+            with self.subTest(visual=visual):
+                if completed:
+                    self.assertEqual(event['turn_difference_completions']['passion'],
+                                     dict(mode='clipped_badge_suffix', read=3, completed=23))
+                    self.assertEqual((row['status'], row['direct_change'], row['derived_or_summary_change']),
+                                     ('balanced_with_derived_changes', 3, 20))
+                    completion = next(c for c in result['contributions'] if c['basis'] == 'turn_difference')
+                    self.assertEqual(completion['completes'], '/gameplay_tracking/events/0/performance_deltas/passion')
+                else:
+                    # The other award is not the completed number: nothing says the badge was cut.
+                    self.assertNotIn('turn_difference_completions', event)
+                    self.assertEqual(row['status'], 'unexplained_change')
+
     def test_a_field_the_training_read_is_not_extrapolated(self):
         doc = report(deltas=dict(guts=10))
         result = build(doc)

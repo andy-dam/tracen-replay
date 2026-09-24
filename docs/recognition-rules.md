@@ -130,6 +130,10 @@ arithmetic, not by guessing at pixels: when a training is the turn's only
 action and the ledger's stat residual for that field is positive, the
 badge is accepted as the leading digits of that residual, recorded with a
 named basis (`sole_training_clipped_badge_prefix_completed_by_turn_residual`).
+A performance award cut to its trailing digits (a `3` that was `23`) is
+completed the same way only when the training's other performance award
+reads the completed number, since a training's two performance awards are
+one number (`sole_training_clipped_badge_suffix_completed_by_turn_residual`).
 A field the training panel actually read is never eligible for this
 completion. See [turn-ledger.md](turn-ledger.md) for the general
 turn-difference rule this is one case of.
