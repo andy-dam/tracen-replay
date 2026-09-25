@@ -340,7 +340,7 @@ function hideBroken(e: Event) {
   <div class="page-head">
     <div>
       <h1>Runs</h1>
-      <p>Upload a career recording, analyze it, open the report. {{ hosted ? "The shared worker runs one analysis at a time and queues the rest." : "Queued analyses start as running ones finish." }}</p>
+      <p>Upload a career recording and open its report when the analysis is done. {{ hosted ? "Analyses on this website run one at a time, so a new one may wait in the queue." : "Queued analyses start as soon as a running one finishes." }}</p>
       <p v-if="device" class="muted small">Analyses run on: {{ device }}.</p>
     </div>
   </div>
@@ -362,7 +362,7 @@ function hideBroken(e: Event) {
       <div class="dash-tile"><b>{{ bytes(dashboard.stored) }}</b><span>in {{ dashboard.recordings }} recording{{ dashboard.recordings === 1 ? "" : "s" }}{{ hosted ? " on the service" : " on this computer" }}</span></div>
     </div>
   </div>
-  <div v-else class="dash-empty"><b>Dashboard.</b> Filled in by the first report: the stats at the end of each run with their rank letters, how much of the career the report explains, and the turns to check.</div>
+  <div v-else class="dash-empty"><b>Dashboard.</b> Appears after the first report, with each run's final stats and ranks, how much of each career the report explains, and the turns left to check.</div>
 
   <UploadBox @uploaded="load" />
 

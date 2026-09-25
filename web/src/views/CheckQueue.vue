@@ -65,7 +65,7 @@ const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIC
   <div class="page-head">
     <div>
       <h1>Turns to Check</h1>
-      <p>Every turn where a number does not add up or a line was flagged, and every turn with a number the report worked out instead of reading. Each one opens the review screen with the recording beside it.</p>
+      <p>Turns where the numbers don't add up or a line was flagged, plus turns with a number the report worked out instead of reading. Each one opens in the review screen next to the video.</p>
     </div>
     <span v-if="!loading" class="row" style="gap: 8px">
       <span class="ask" :class="total ? 'warn' : 'ok'">{{ total ? `${total} Turn${total === 1 ? "" : "s"} to Check` : "Everything Adds Up" }}</span>
@@ -74,7 +74,7 @@ const reviewHref = (reportId: string, turnId: string) => `#/reports/${encodeURIC
   </div>
   <p v-if="error" class="error">{{ error }}</p>
   <p v-if="loading" class="muted">Reading your reports…</p>
-  <p v-else-if="!groups.length" class="muted">No reports yet. Upload a recording under Runs and the turns that need a look will collect here.</p>
+  <p v-else-if="!groups.length" class="muted">No reports yet. After the first analysis, turns that need checking show up here.</p>
   <div v-for="g in groups" v-else :key="g.report.id" class="queue-group">
     <div class="queue-head">
       <a class="queue-name" :href="`#/reports/${encodeURIComponent(g.report.id)}`">{{ g.report.source_name }}</a>
