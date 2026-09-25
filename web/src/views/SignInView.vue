@@ -20,7 +20,7 @@ const emit = defineEmits<{ "signed-in": [user: User] }>();
         <li><b>Upload</b> it here.</li>
         <li><b>Read</b> every turn beside the recording, and check what the report flags.</li>
       </ul>
-      <p class="muted small">Runs on this computer. Nothing leaves it. <a href="#/guide">How It Works</a></p>
+      <p class="muted small">{{ hosted ? "Recordings are analyzed on the service's worker." : "Runs on this computer. Nothing leaves it." }} <a href="#/guide">How It Works</a></p>
     </div>
     <SignInCard :initial-mode="mode" @signed-in="(u) => emit('signed-in', u)" />
   </div>
