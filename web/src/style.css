@@ -427,6 +427,7 @@ table.ledger tbody tr:hover { background: var(--bg-3); }
 /* the guide */
 .guide { display: grid; gap: 26px; padding-bottom: 12px; }
 .guide-section h2 { margin: 6px 0 10px; font-size: 22px; }
+.guide-section p:not(.muted) { color: var(--ink-2); max-width: 75ch; }
 .guide-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--ink-2); }
 .guide-list li { padding: 10px 14px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
 .guide-list b, .guide-steps b { color: var(--ink); font-family: var(--font-display); font-weight: 800; }
@@ -809,8 +810,9 @@ img.dark { display: none; }
 .steps b { color: var(--ink); font-family: var(--font-display); font-weight: 800; }
 .start { margin-top: 44px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: 32px; align-items: center; padding: 28px; border-radius: 18px; background: var(--bg-3); }
 @media (max-width: 860px) { .start { grid-template-columns: 1fr; } }
-.start h2 { font-size: 26px; }
-.start-card { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.start h2 { font-size: 26px; margin-bottom: 6px; }
+.start-card { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.start-card p { flex-basis: 100%; margin: 4px 0 0; }
 .start-card.signed { display: grid; justify-items: start; gap: 6px; }
 .start-card.signed p { margin: 0 0 8px; }
 

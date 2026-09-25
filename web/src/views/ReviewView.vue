@@ -111,7 +111,7 @@ function perfAfter(field: string): number | null {
           <b>How This Works</b>
           <ol>
             <li>Each gap is a number that doesn't add up between two turns.</li>
-            <li>A ▶ chip seeks the video to the gap. The options under it explain the change.</li>
+            <li>The ▶ button jumps the video to the gap. The options under it explain the change.</li>
             <li>Action Played This Turn sets the action when the report saw none. Looks Right confirms a line. Events Missing from the Log adds what the report has no entry for.</li>
             <li>The badge at the top turns green once the turn adds up. Save stores the review.</li>
           </ol>

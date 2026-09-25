@@ -69,22 +69,22 @@ export interface Warning {
 // is looking at the recording beside these words, so every step names what
 // to look for on screen.
 const ADVICE = {
-  conflict: "Two frames showed different numbers for this entry, and the report kept both. Seek to it, read the number the game shows, type it into the amount, then press Looks Right.",
-  notAccepted: "The report saw this award but did not count it, usually because it could not prove the award was applied. If the log or the stat bar shows it took effect, add the stat with its amount. If it never applied, press Looks Right.",
-  referenceOnly: "This line repeats an award that another entry already counts, so it adds nothing to the totals. If the game shows it as a separate award, add the stat with its amount.",
-  rewardLink: "This race's reward was read from a receipt that could not be tied to the result screen. Seek to the result and the receipt after it and check that they describe the same race. Press Looks Right if the amounts are right, otherwise correct them.",
-  assignedBy: "This entry was placed in this turn by its time, not by a calendar frame around it. If it belongs to the previous or next turn, press Didn't Happen here and add it there as a missed event.",
-  ambiguous: "The receipt named an effect but the report could not decide what it changed. Seek to it and read the line in the game's log. Add the stat it changed with the amount, then press Looks Right.",
-  unparsed: "The analyzer could not read this receipt. Seek to it and read the line in the game's log. If it changed a stat or a performance point, add that stat with its amount. If it was text only, press Looks Right.",
-  lessonUnresolved: "The lesson was bought but its price was never observed, so the performance points it cost are unknown. Seek to the purchase, read the price on the card or the balance before and after, and enter the cost as negative performance amounts.",
-  lessonDerived: "The lesson's price was worked out from surrounding evidence rather than read from the balance. If the card in the recording shows a different price, correct the amounts.",
-  balanceAfter: "The balance after this purchase was never on screen, so the price could not be confirmed against it. If a later menu visit shows the balance, compare it and correct the amounts if needed.",
-  songName: "The song's name was read two different ways. The totals are not affected. A note can record the right title.",
-  skillList: "The list of purchased skills was cut off and the points charged were not read, so some skills or their point costs may be missing. Seek to the skill screen and add any purchase the report lacks as a missed event.",
-  skillNames: "The points charged were read, so the totals are right. The list of purchased skills scrolled and only some names were seen. A missed event can record the missing names.",
-  failed: "The training failed, so its displayed gains were not applied. If the stat bar shows they were applied, add them.",
-  settledReads: "The badge was read as more than one number while the card animated. The stat bars before and after the turn settle it at the amount shown, which the card also showed.",
-  derived: "This amount was not read from a badge. The report worked it out from other observations. Seek to the result screen. If the badge shows a different number, type that number in. If it matches, press Looks Right.",
+  conflict: "Two frames showed different numbers for this line, and the report kept both. Jump to it in the video, read the number the game shows, type it in, then press Looks Right.",
+  notAccepted: "The report saw this award but didn't count it, usually because it couldn't tell whether the award was applied. If the log or the stat bar shows it took effect, add the stat and its amount. If it never applied, press Looks Right.",
+  referenceOnly: "This line repeats an award that another line already counts, so it adds nothing to the totals. If the game shows it as a separate award, add the stat and its amount.",
+  rewardLink: "This race's reward was read from a receipt that couldn't be matched to the result screen. Jump to the result and the receipt after it, and check that both are for the same race. Press Looks Right if the amounts are right, or correct them if not.",
+  assignedBy: "This line was placed in this turn by its time, because no calendar was seen around it. If it belongs to the turn before or after, press Didn't Happen here and add it to that turn as a missed event.",
+  ambiguous: "The receipt named an effect, but the report couldn't tell what it changed. Jump to it and read the line in the game's log. Add the stat it changed and the amount, then press Looks Right.",
+  unparsed: "This receipt couldn't be read. Jump to it and read the line in the game's log. If it changed a stat or performance points, add the stat and its amount. If it was only text, press Looks Right.",
+  lessonUnresolved: "The lesson was bought, but its price was never seen, so the performance points it cost are unknown. Jump to the purchase, read the price on the card or the balance before and after, and enter the cost as negative performance amounts.",
+  lessonDerived: "The lesson's price was worked out from the numbers around it instead of read from the balance. If the card in the video shows a different price, correct the amounts.",
+  balanceAfter: "The balance after this purchase was never on screen, so the price couldn't be checked against it. If the balance shows up on a later visit to the menu, compare it and correct the amounts if needed.",
+  songName: "The song's name was read two different ways. This doesn't affect the totals. The correct title can go in a note.",
+  skillList: "The list of purchased skills was cut off and the points spent weren't read, so some skills or their costs may be missing. Jump to the skill screen and add any missing purchase as a missed event.",
+  skillNames: "The points spent were read, so the totals are right. The list of skills scrolled, though, and only some names were seen. The missing names can be added as a missed event.",
+  failed: "The training failed, so the gains it showed weren't applied. If the stat bar shows they were, add them.",
+  settledReads: "The badge was read as more than one number while the card animated. The stat bars before and after the turn agree with the amount shown, which the card also showed.",
+  derived: "This amount wasn't read from a badge. The report worked it out from other numbers. Jump to the result screen. If the badge shows a different number, type it in. If it matches, press Looks Right.",
 } as const;
 
 export function turnWarnings(t: TurnSummary): Warning[] {
@@ -181,8 +181,8 @@ export function gapAdvice(field: string, total: number | null, recorded: number,
   const moved = total !== null ? `${cased} went ${total > 0 ? "up" : "down"} by ${Math.abs(total)}${where}.` : `${cased} changed${where}.`;
   const log = recorded ? ` The log accounts for ${plus(recorded)}.` : "";
   const other = recorded ? `the other ${plus(rest)}` : plus(rest);
-  if (workedOut) return `${moved}${log} The report put ${other} on ${owner}. No reading confirms it. Seek there and check the number on the screen. Press Correct if it matches. Press Didn't Happen if the report misread a number.`;
-  return `${moved}${log} Nothing in the log accounts for ${other}. Seek there and watch for what changed it. Belongs to an Event puts it on a line below. Missed Event adds a line. Enter Amount records the number without an event. Didn't Happen says the report misread a number.`;
+  if (workedOut) return `${moved}${log} The report put ${other} on ${owner}, but that amount was never read from the screen. Jump there and check the number. Press Correct if it matches, or Didn't Happen if the report misread a number.`;
+  return `${moved}${log} Nothing in the log accounts for ${other}. Jump there and watch for what changed it. Belongs to an Event puts it on a line below, Missed Event adds a new line, and Enter Amount records the number without an event. Didn't Happen means the report misread a number.`;
 }
 
 /** The turn's decision as the report read it: the first committed action that is not the scheduled race. */

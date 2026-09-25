@@ -59,7 +59,7 @@ function cancel() {
     </template>
     <template v-else>
       <p><strong>Drop a Career Recording Here</strong></p>
-      <p class="muted small">mp4, mov, webm or mkv. PC: 16:9 from 720p to 4K; 1080p reads the most. Phone or tablet: portrait, alone or inside a landscape video. A full career is 1 to 4 GB.{{ hosted ? "" : " The file stays on this computer." }}</p>
+      <p class="muted small">MP4, MOV, WebM or MKV, usually 1 to 4 GB for a full career. PC recordings: 16:9, 720p to 4K, best at 1080p or higher. Phone and tablet recordings: portrait, on their own or inside a landscape video.{{ hosted ? "" : " The file stays on this computer." }}</p>
       <button class="btn" @click="input?.click()">Choose a File</button>
       <input ref="input" type="file" accept=".mp4,.m4v,.mov,.webm,.mkv,video/*" @change="pick" />
     </template>
