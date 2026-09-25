@@ -1019,15 +1019,18 @@ design units with its pin.
       Energy, the stat labels, Skip, Quick, Log), fitted across sampled
       frames; no table of devices. The fit lands on the hand measurement of
       both device recordings.
-- [ ] **The game area found in the frame.** The game area is taken from
-      the frame's shape today: the whole frame in portrait, the PC client's
-      pane in 16:9. Found in the frame from the same labels, it would also
-      read a window that does not fill the screen, the PC client in another
-      landscape shape, and a video that frames a phone screen between
-      overlays, as the three uploaded phone careers do; such a 16:9 video
-      is taken for the PC client today and read wrongly. Done when the fit
-      lands within a few pixels of hand measurement on those three careers
-      and a PC career.
+- [x] **A phone screen framed in a 16:9 video.** A landscape recording's
+      game is located before it is decoded, by where the picture changes
+      across the career: the PC client's pane keeps the PC layout, a
+      portrait area elsewhere is cut out and read like a phone recording,
+      and anything else is refused. The three uploaded phone careers framed
+      this way find every turn.
+- [ ] **The PC client in a window or another landscape shape.** A game
+      window that does not fill the screen, or the PC client recorded in a
+      shape other than 16:9, is not read yet. Other landscape shapes are
+      refused, and a small window inside a 16:9 recording is untested.
+      Done when such a recording's game area is found and a PC career
+      recorded that way reads like its full-screen recording.
 - [x] **Frames keep the recording's shape.** Decoding applies the rotation
       flag and keeps the aspect ratio; nothing is cropped into or padded
       onto a 1920x1080 frame. Frames are scaled evenly so that a design
@@ -1056,15 +1059,13 @@ design units with its pin.
       in 16:9 are read; a game drawn smaller than at 720p on the PC, or more
       than 2.5 times that, is refused. Other landscape shapes wait on the
       game area being found in the frame.
-- [ ] **Both device careers analyzed and checked by hand.** Every turn
+- [x] **Both device careers analyzed and checked by hand.** Every turn
       found, the stat bar read on the menu frames, and no more unexplained
       turns than a PC career of the same length. Both recordings run at a
       variable frame rate (about 48 and 31 frames a second on average), so
-      the coverage check is looked at on them too. Both now find every turn
-      and pass the coverage check, and each leaves one turn flagged where
-      the PC careers leave none: on the S25+ a lesson cost stays unresolved
-      because a lone "0" in the lesson menu's points reads unsure on the
-      scaled-down frame, and on the iPad one training is missed because its
-      result cards are drawn pink, which the result screen check (blue
-      cards) does not recognise.
+      the coverage check is looked at on them too. Both find every turn,
+      pass the coverage check and leave no turn flagged, like the PC
+      careers: result cards are found by their shape rather than their
+      colour, so the iPad's pink cards are read, and the S25+ lesson cost
+      that stayed unresolved is now resolved.
 - [x] **The guide, about page and upload box say which devices are read.**
