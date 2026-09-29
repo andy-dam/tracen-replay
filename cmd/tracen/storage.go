@@ -53,6 +53,27 @@ func shippedReader(workDir string) string {
 	return path
 }
 
+// analyzerPaths makes the paths the analyzer is given absolute. The
+// analyzer runs with -workdir as its directory, where a relative path
+// would name something else. A bare interpreter name such as "python" is
+// left to the PATH lookup, and an empty path stays empty.
+func analyzerPaths(python *string, paths ...*string) error {
+	if filepath.Base(*python) != *python {
+		paths = append(paths, python)
+	}
+	for _, path := range paths {
+		if *path == "" {
+			continue
+		}
+		abs, err := filepath.Abs(*path)
+		if err != nil {
+			return err
+		}
+		*path = abs
+	}
+	return nil
+}
+
 // openStore opens the database the flags name.
 func (f *storageFlags) openStore(ctx context.Context, dataDir string) (*store.Store, error) {
 	switch *f.database {

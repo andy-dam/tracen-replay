@@ -46,6 +46,9 @@ func runWorker(args []string) error {
 	if *storage.queue == "" {
 		return errors.New("tracen worker needs -shared-queue: there is nothing to take jobs from")
 	}
+	if err := analyzerPaths(python, dataDir, scratch, modelDir, learnedReader); err != nil {
+		return err
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

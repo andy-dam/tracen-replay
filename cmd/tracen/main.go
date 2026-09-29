@@ -108,6 +108,9 @@ func run() error {
 	updateCheck := flag.Bool("update-check", true, "ask GitHub once a day for the newest release, so the client can say one exists; nothing else is sent")
 	storage := addStorageFlags(flag.CommandLine)
 	flag.Parse()
+	if err := analyzerPaths(python, dataDir, modelDir, learnedReader); err != nil {
+		return err
+	}
 	if value := os.Getenv("TRACEN_PAUSED_LIFETIME"); value != "" && !flagGiven("paused-lifetime") {
 		lifetime, err := time.ParseDuration(value)
 		if err != nil || lifetime < 0 {
@@ -134,10 +137,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	dataDirAbs, err := filepath.Abs(*dataDir)
-	if err != nil {
-		return err
-	}
 	if *learnedReader == "" {
 		*learnedReader = shippedReader(workDirAbs)
 	}
@@ -148,7 +147,7 @@ func run() error {
 	analyzerQuery := runner.Exec{Logger: logger}.VersionQuery(*python, workDirAbs)
 	var container *runner.Container
 	if *workerImage != "" {
-		container = &runner.Container{Docker: *dockerCLI, Image: *workerImage, GPUs: *workerGPUs, User: *workerUser, Owner: dataDirAbs, Logger: logger,
+		container = &runner.Container{Docker: *dockerCLI, Image: *workerImage, GPUs: *workerGPUs, User: *workerUser, Owner: *dataDir, Logger: logger,
 			Memory: *workerMemory, CPUs: *workerCPUs, PidsLimit: *workerPids, Network: *workerNetwork}
 		jobRunner = *container
 		analyzerQuery = container.VersionQuery()
