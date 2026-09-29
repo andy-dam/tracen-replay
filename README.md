@@ -6,6 +6,8 @@ every training, race, purchase, song, skill and event, each linked to the
 second of the recording it was read from. The report is shown beside the
 video, and anything the analyzer flags can be checked and corrected there.
 
+https://github.com/user-attachments/assets/07c6a868-2d5b-4e8c-9a32-79a06099dfa3
+
 Recordings must be the English game, either the PC client in 16:9
 landscape, from 1280×720 to 3840×2160, or a phone's or tablet's own screen
 recording with the game filling the screen in portrait, alone or placed
